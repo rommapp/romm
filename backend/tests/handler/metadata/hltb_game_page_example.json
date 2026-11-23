@@ -1,0 +1,32 @@
+{
+  "props": {
+    "pageProps": {
+      "game": {
+        "data": {
+          "game": [
+            {
+              "game_id": 7169,
+              "game_name": "Pokémon Red and Blue",
+              "count_comp": 5364,
+              "count_review": 1762,
+              "review_score": 81,
+              "game_alias": "Pokemon Red and Blue, Pokemon Green, Pocket Monsters Red, Pocket Monsters Green, Pocket Monsters Blue, Pokemon Blue Version, Pokemon Red Version, Pokemon Green Version",
+              "game_image": "7169_Pokmon_Red_and_Blue.png",
+              "game_type": "game",
+              "profile_platform": "Game Boy",
+              "release_world": "1996-02-27",
+              "comp_all_count": 1174,
+              "comp_all": 139926,
+              "comp_main_count": 594,
+              "comp_main": 92822,
+              "comp_plus_count": 378,
+              "comp_plus": 156016,
+              "comp_100_count": 202,
+              "comp_100": 354756
+            }
+          ]
+        }
+      }
+    }
+  }
+}

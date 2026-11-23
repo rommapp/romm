@@ -7,7 +7,7 @@ interactions:
         accept-encoding:
           - gzip, deflate, br
         authorization:
-          - Bearer test_token
+          - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         client-id:
           - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         connection:
@@ -120,7 +120,7 @@ interactions:
         accept-encoding:
           - gzip, deflate, br
         authorization:
-          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+          - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         client-id:
           - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         connection:
@@ -193,7 +193,7 @@ interactions:
         accept-encoding:
           - gzip, deflate, br
         authorization:
-          - Bearer test_token
+          - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         client-id:
           - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         connection:
@@ -306,7 +306,7 @@ interactions:
         accept-encoding:
           - gzip, deflate, br
         authorization:
-          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+          - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         client-id:
           - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         connection:
@@ -376,7 +376,7 @@ interactions:
         accept-encoding:
           - gzip, deflate, br
         authorization:
-          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+          - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         client-id:
           - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         connection:

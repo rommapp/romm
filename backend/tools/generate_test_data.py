@@ -2,12 +2,14 @@
 """Generate a large, prod-like RomM library for load and UI testing.
 
 Builds platforms, users, devices, firmware, roms (with per-provider fake
-metadata), rom files, saves, states, screenshots, notes, play stats,
-collections and sync data, then bulk-inserts everything.
+metadata), rom files, tagged soundtracks, saves, states, screenshots, notes,
+play stats, collections and sync data, then bulk-inserts everything.
 
 Run from the backend directory:
 
     uv run tools/generate_test_data.py --roms 100000
+    uv run tools/generate_test_data.py --roms 2000 --image-fidelity 2   # real cover sizes, debug art
+    uv run tools/generate_test_data.py --roms 500 --image-fidelity 3    # real file weights too
 
 The script talks straight to the database configured by the usual env vars
 (DB_HOST, DB_NAME, ...). It assigns primary keys explicitly so foreign keys
@@ -22,29 +24,39 @@ import os
 import random
 import sys
 import time
+from collections.abc import Callable, Iterable, Iterator
+from concurrent.futures import ProcessPoolExecutor
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, get_type_hints
 
 # Allow running as `python3 tools/generate_test_data.py` from backend/.
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-# isort: off
-# Import order matters here: the metadata package must load before
-# `adapters.services.igdb` so the base_handler <-> igdb import cycle resolves
-# (igdb must not be the entrypoint). Keep isort from reordering these.
-from handler.metadata.base_handler import (  # noqa: E402,F401
-    UniversalPlatformSlug as UPS,
+from redis.exceptions import RedisError  # noqa: E402
+from sqlalchemy import Connection, event, insert  # noqa: E402
+from sqlalchemy.engine.interfaces import DBAPIConnection  # noqa: E402
+from sqlalchemy.pool import ConnectionPoolEntry  # noqa: E402
+from tools.seed_images import (  # noqa: E402
+    RomCaption,
+    RomImageJob,
+    draw_rom_images,
+    plan_rom_images,
+    rom_fidelity,
 )
+
 from adapters.services.igdb import IGDB_PLATFORM_LIST  # noqa: E402
-
-# isort: on
-from PIL import Image  # noqa: E402
-
 from config import RESOURCES_BASE_PATH  # noqa: E402
+from handler.database import db_rom_handler  # noqa: E402
+from handler.database.base_handler import sync_engine  # noqa: E402
 from handler.metadata.moby_handler import MOBYGAMES_PLATFORM_LIST  # noqa: E402
-from handler.metadata.ss_handler import SCREENSAVER_PLATFORM_LIST  # noqa: E402
+from handler.metadata.ss_handler import (  # noqa: E402
+    SCREENSAVER_PLATFORM_LIST,
+    SSMetadataMedia,
+)
+from handler.recommendation import invalidate_all_cached_feeds  # noqa: E402
 from models.assets import Save, Screenshot, State  # noqa: E402
-from models.base import compute_file_name_parts  # noqa: E402
+from models.base import BaseModel, compute_file_name_parts  # noqa: E402
 from models.client_token import ClientToken  # noqa: E402
 from models.collection import (  # noqa: E402
     Collection,
@@ -68,14 +80,66 @@ from models.rom import (  # noqa: E402
     RomNote,
     RomUser,
     RomUserStatus,
+    TrackMeta,
+    compute_derived_columns,
+    compute_full_path_hash,
     compute_name_sort_key,
 )
 from models.sync_session import SyncSession, SyncSessionStatus  # noqa: E402
 from models.user import Role, User  # noqa: E402
+from utils.database import is_postgresql  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Static data pools used to fabricate believable metadata.
 # ---------------------------------------------------------------------------
+
+# Soundtrack tags. Track titles are generic enough to sit under any game;
+# composers are fabricated so no real person is attributed to fake data.
+TRACK_TITLES = [
+    "Title Screen",
+    "Opening",
+    "Main Theme",
+    "Overworld",
+    "Field",
+    "Town",
+    "Cave",
+    "Underwater",
+    "Battle",
+    "Boss Battle",
+    "Final Boss",
+    "Victory",
+    "Game Over",
+    "Shop",
+    "Character Select",
+    "Stage 1",
+    "Stage 2",
+    "Stage 3",
+    "Credits",
+    "Ending",
+]
+
+COMPOSERS = [
+    "A. Brightwater",
+    "H. Vance",
+    "K. Solberg",
+    "M. Ferreira",
+    "N. Okabe",
+    "R. Lindqvist",
+    "S. Delacroix",
+    "T. Mbeki",
+    "V. Antonov",
+    "Y. Castellanos",
+]
+
+TRACK_GENRES = [
+    "Chiptune",
+    "Orchestral",
+    "Ambient",
+    "Rock",
+    "Jazz",
+    "Electronic",
+    "Synthwave",
+]
 
 TITLE_PREFIXES = [
     "Super",
@@ -319,51 +383,81 @@ EXTENSIONS_BY_SLUG: dict[str, list[str]] = {
 
 DISC_HINTS = ("ps", "dc", "saturn", "cd", "ngc", "wii", "psp", "3do", "cdi")
 
+_KEYWORD_TOPICS = [
+    "boss fight", "pixel art", "side-scrolling", "time limit", "power-ups",
+    "high score", "save point", "password system", "multiple endings",
+    "dungeon", "level selection", "unlockable content", "wall jump",
+    "difficulty level", "invincibility", "secret area", "sequel", "spin-off",
+]  # fmt: skip
+_KEYWORD_QUALIFIERS = [
+    "hidden", "timed", "optional", "scripted", "branching", "random", "classic",
+    "late-game", "early-game", "co-op", "bonus", "final", "chained", "layered",
+    "silent", "rare",
+]  # fmt: skip
+# Larger than the longest keyword list in `LIST_SHAPES`, so a draw without
+# replacement can fill it with distinct values.
+KEYWORDS = [
+    *_KEYWORD_TOPICS,
+    *(f"{q} {t}" for q in _KEYWORD_QUALIFIERS for t in _KEYWORD_TOPICS),
+]
+IGDB_THEMES = [
+    "Action", "Fantasy", "Science fiction", "Horror", "Thriller", "Survival",
+    "Historical", "Stealth", "Comedy", "Business", "Drama", "Non-fiction",
+    "Sandbox", "Educational", "Kids", "Open world", "Warfare", "Party", "4X",
+    "Mystery", "Romance",
+]  # fmt: skip
+IGDB_PLAYER_PERSPECTIVES = [
+    "First person", "Third person", "Bird view / Isometric", "Side view",
+    "Text", "Auditory", "Virtual Reality",
+]  # fmt: skip
+IGDB_PLATFORMS = [
+    {"igdb_id": p["id"], "name": p["name"]} for p in IGDB_PLATFORM_LIST.values()
+]
+# (least, p50, p90, p99, max) list lengths, measured 2026-11-17 on one
+# 9,172-game library.
+LIST_SHAPES: dict[str, tuple[int, int, int, int, int]] = {
+    "igdb.alternative_names": (0, 2, 6, 11, 16),
+    "igdb.keywords": (0, 5, 26, 80, 213),
+    "igdb.platforms": (0, 2, 5, 10, 17),
+    "ss.alternative_names": (0, 3, 4, 8, 12),
+}
+_SS_MEDIA_KEYS = get_type_hints(SSMetadataMedia)
+SS_MEDIA_KINDS = tuple(
+    key.removesuffix("_url") for key in _SS_MEDIA_KEYS if key.endswith("_url")
+)
+SS_PATH_KINDS = tuple(
+    kind for kind in SS_MEDIA_KINDS if f"{kind}_path" in _SS_MEDIA_KEYS
+)
+
 
 # ---------------------------------------------------------------------------
 # Small helpers.
 # ---------------------------------------------------------------------------
 
 
+def sample_length(rng: random.Random, key: str) -> int:
+    """A list length whose percentiles match `LIST_SHAPES[key]`."""
+    least, p50, p90, p99, top = LIST_SHAPES[key]
+    u = rng.random()
+    if u < 0.5:
+        return rng.randint(least, p50)
+    if u < 0.9:
+        return rng.randint(p50, p90)
+    if u < 0.99:
+        return rng.randint(p90, p99)
+    return rng.randint(p99, top)
+
+
+def extra_rng(f: dict[str, Any], provider: str) -> random.Random:
+    """A per-game stream for one provider's metadata, so the main stream never shifts."""
+    # Keyed on facts the main stream drew, so it follows `--seed` and siblings
+    # (which copy those facts) get the same metadata.
+    key = f"{provider}:{f['slug']}:{f['release_ts']}:{f['rating']}"
+    return random.Random(key)  # nosec B311
+
+
 def rand_hex(rng: random.Random, nbytes: int) -> str:
     return "%0*x" % (nbytes * 2, rng.getrandbits(nbytes * 8))
-
-
-# Cover/screenshot output dimensions (px) and their low-res mosaic block grid.
-# A few random blocks upscaled with NEAREST give a unique, abstract image per
-# rom that PNG compresses to ~1-2 KB; this is the fastest believable artwork.
-COVER_BIG = ((264, 396), (6, 9))
-COVER_SMALL = ((132, 198), (4, 6))
-SCREENSHOT = ((320, 240), (8, 6))
-
-
-def _write_mosaic(rng: random.Random, path: str, spec: tuple) -> None:
-    (w, h), (bw, bh) = spec
-    buf = bytes(rng.getrandbits(8) for _ in range(bw * bh * 3))
-    img = Image.frombytes("RGB", (bw, bh), buf).resize((w, h), Image.Resampling.NEAREST)
-    img.save(path, "PNG")
-
-
-def generate_rom_images(
-    rng: random.Random, resources_base: str, platform_id: int, rom_id: int, n_shots: int
-) -> tuple[str, str, list[str]]:
-    """Write mosaic PNG covers (+screenshots) and return their resource-relative
-    paths, matching RomM's roms/{platform_id}/{rom_id} layout."""
-    rel = f"roms/{platform_id}/{rom_id}"
-    cover_dir = os.path.join(resources_base, rel, "cover")
-    os.makedirs(cover_dir, exist_ok=True)
-    _write_mosaic(rng, os.path.join(cover_dir, "big.png"), COVER_BIG)
-    _write_mosaic(rng, os.path.join(cover_dir, "small.png"), COVER_SMALL)
-
-    shot_paths: list[str] = []
-    if n_shots:
-        shot_dir = os.path.join(resources_base, rel, "screenshots")
-        os.makedirs(shot_dir, exist_ok=True)
-        for i in range(n_shots):
-            _write_mosaic(rng, os.path.join(shot_dir, f"{i}.png"), SCREENSHOT)
-            shot_paths.append(f"{rel}/screenshots/{i}.png")
-
-    return f"{rel}/cover/small.png", f"{rel}/cover/big.png", shot_paths
 
 
 def slugify(value: str) -> str:
@@ -376,7 +470,7 @@ def slugify(value: str) -> str:
 class Ids:
     """Hands out monotonically increasing integer primary keys per table."""
 
-    def __init__(self, start: dict[str, int]):
+    def __init__(self, start: dict[str, int]) -> None:
         self._next = dict(start)
 
     def take(self, table: str, count: int = 1) -> int:
@@ -484,17 +578,51 @@ def _cover_url(rng: random.Random) -> str:
     )
 
 
+def _similar_game(rng: random.Random) -> dict[str, Any]:
+    game_id, name = rng.randint(1, 300000), make_title(rng)
+    make_title(rng)  # Discarded, to keep the main stream aligned for a given --seed.
+    return {
+        "id": game_id,
+        "name": name,
+        "slug": slugify(name),
+        "type": "similar",
+        "cover_url": _cover_url(rng),
+    }
+
+
+def _similar_games(rng: random.Random, more: random.Random) -> list[dict[str, Any]]:
+    games = [_similar_game(rng) for _ in range(rng.randint(0, 4))]
+    # Every measured IGDB match had ten.
+    return games + [_similar_game(more) for _ in range(10 - len(games))]
+
+
+def _alternative_names(more: random.Random, f: dict[str, Any], shape: str) -> list[str]:
+    return [
+        f"{f['title']} ({more.choice(REGIONS)})"
+        for _ in range(sample_length(more, shape))
+    ]
+
+
 def build_igdb_metadata(rng: random.Random, f: dict[str, Any]) -> dict[str, Any]:
+    more = extra_rng(f, "igdb")
     return {
         "total_rating": str(f["rating"]),
+        "total_rating_count": more.randint(1, 1000),
         "aggregated_rating": str(round(f["rating"] - rng.uniform(0, 8), 2)),
         "first_release_date": f["release_ts"],
         "youtube_video_id": rand_hex(rng, 6),
         "genres": f["genres"],
+        "keywords": more.sample(KEYWORDS, sample_length(more, "igdb.keywords")),
+        "themes": more.sample(IGDB_THEMES, more.randint(0, 3)),
+        "player_perspectives": more.sample(
+            IGDB_PLAYER_PERSPECTIVES, more.randint(1, 2)
+        ),
         "franchises": f["franchises"],
-        "alternative_names": [f["title"].split(":")[0]],
+        "alternative_names": _alternative_names(more, f, "igdb.alternative_names"),
         "collections": [f["franchises"][0]] if f["franchises"] else [],
         "companies": f["companies"],
+        "publishers": f["companies"][-1:],
+        "developers": f["companies"][:1],
         "game_modes": f["game_modes"],
         "age_ratings": [
             {
@@ -504,7 +632,7 @@ def build_igdb_metadata(rng: random.Random, f: dict[str, Any]) -> dict[str, Any]
             }
             for r in f["age_ratings"]
         ],
-        "platforms": [],
+        "platforms": more.sample(IGDB_PLATFORMS, sample_length(more, "igdb.platforms")),
         "multiplayer_modes": [],
         "player_count": f["player_count"],
         "expansions": [],
@@ -513,16 +641,7 @@ def build_igdb_metadata(rng: random.Random, f: dict[str, Any]) -> dict[str, Any]
         "remakes": [],
         "expanded_games": [],
         "ports": [],
-        "similar_games": [
-            {
-                "id": rng.randint(1, 300000),
-                "name": make_title(rng),
-                "slug": slugify(make_title(rng)),
-                "type": "similar",
-                "cover_url": _cover_url(rng),
-            }
-            for _ in range(rng.randint(0, 4))
-        ],
+        "similar_games": _similar_games(rng, more),
     }
 
 
@@ -542,21 +661,31 @@ def build_moby_metadata(
 
 
 def build_ss_metadata(rng: random.Random, f: dict[str, Any]) -> dict[str, Any]:
+    more = extra_rng(f, "ss")
+    game_id, system_id = rng.randint(1, 999999), rng.randint(1, 999999)
+    media_url = (
+        "https://neoclone.screenscraper.fr/api2/mediaJeu.php?softname=romm"
+        f"&systemeid={system_id}&jeuid={game_id}&media="
+    )
     return {
+        **{f"{kind}_url": f"{media_url}{kind}(wor)" for kind in SS_MEDIA_KINDS},
+        **dict.fromkeys(f"{kind}_path" for kind in SS_PATH_KINDS),
+        "physical_disc": 1,
+        "physical_extra_discs": [],
         "ss_score": str(round(f["rating"] / 10, 1)),
         "first_release_date": f["release_ts"],
-        "alternative_names": [f["title"].split(":")[0]],
+        "alternative_names": _alternative_names(more, f, "ss.alternative_names"),
         "age_ratings": [
             {"rating": r.split(":")[1], "category": r.split(":")[0]}
             for r in f["age_ratings"]
         ],
         "companies": f["companies"],
+        "publishers": f["companies"][-1:],
+        "developers": f["companies"][:1],
         "franchises": f["franchises"],
         "game_modes": f["game_modes"],
         "genres": f["genres"],
         "player_count": f["player_count"],
-        "box2d_url": f"https://www.screenscraper.fr/image.php?gameid={rng.randint(1, 999999)}",
-        "screenshot_url": f"https://www.screenscraper.fr/image.php?gameid={rng.randint(1, 999999)}",
     }
 
 
@@ -616,6 +745,7 @@ def build_hasheous_metadata(rng: random.Random) -> dict[str, Any]:
         "mame_mess_match": rng.random() < 0.1,
         "nointro_match": rng.random() < 0.6,
         "redump_match": rng.random() < 0.4,
+        "mame_redump_match": rng.random() < 0.1,
         "whdload_match": False,
         "ra_match": rng.random() < 0.3,
         "fbneo_match": rng.random() < 0.1,
@@ -664,15 +794,26 @@ def rand_past(rng: random.Random, now: datetime, max_days: int = 730) -> datetim
     return now - timedelta(days=rng.randint(0, max_days), seconds=rng.randint(0, 86400))
 
 
-def bulk_insert(conn, model, rows: list[dict[str, Any]], chunk: int = 5000) -> None:
+def bulk_insert(
+    conn: Connection,
+    model: type[BaseModel],
+    rows: list[dict[str, Any]],
+    chunk: int = 1000,
+) -> None:
+    """Insert rows as multi-VALUES statements.
+
+    Not `executemany`: MariaDB Connector/Python's bulk path silently drops all
+    but the first row when a column mixes NULL and non-NULL across the batch,
+    which most of these tables do (optional provider ids, hashes, covers).
+    One statement per chunk keeps the speed without that failure mode.
+    """
     if not rows:
         return
-    table = model.__table__
     for i in range(0, len(rows), chunk):
-        conn.execute(table.insert(), rows[i : i + chunk])
+        conn.execute(insert(model).values(rows[i : i + chunk]))
 
 
-def main() -> int:
+def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -696,6 +837,18 @@ def main() -> int:
         type=int,
         default=40,
         help="Number of user collections (default: 40)",
+    )
+    parser.add_argument(
+        "--soundtrack-share",
+        type=float,
+        default=0.08,
+        help="Fraction of roms that get a soundtrack (default: 0.08)",
+    )
+    parser.add_argument(
+        "--tracks-per-soundtrack",
+        type=int,
+        default=12,
+        help="Upper bound on tracks per soundtracked rom (default: 12)",
     )
     parser.add_argument(
         "--play-sessions",
@@ -729,19 +882,105 @@ def main() -> int:
         "--images",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help="Generate mosaic PNG covers/screenshots on disk (default: on)",
+        help="Write cover, screenshot and media files on disk (default: on)",
     )
     parser.add_argument(
         "--resources-path",
         default=RESOURCES_BASE_PATH,
         help="Base dir for generated images (default: config RESOURCES_BASE_PATH)",
     )
-    args = parser.parse_args()
+    parser.add_argument(
+        "--image-fidelity",
+        type=int,
+        choices=(1, 2, 3),
+        default=1,
+        help=(
+            "How closely images match a real library: 1 mosaic (one size), "
+            "2 shapes (real cover size mix, debug art), 3 weight (real bytes per "
+            "pixel, some JPEG in big.png). Default: 1"
+        ),
+    )
+    parser.add_argument(
+        "--image-limit",
+        type=int,
+        default=None,
+        help="Write image files for only the first N roms (default: all)",
+    )
+    parser.add_argument(
+        "--image-weighted-every",
+        type=int,
+        default=10,
+        help=(
+            "At --image-fidelity 2, draw roms whose id is a multiple of N at level 3"
+            " (real bytes, JPEG in big.png), for image-conversion work; 0 = none."
+            " Default: 10"
+        ),
+    )
+    parser.add_argument(
+        "--image-media",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help=(
+            "Also write ScreenScraper media (box3d, fanart...) for roms with SS data"
+        ),
+    )
+    parser.add_argument(
+        "--image-workers",
+        type=int,
+        default=os.cpu_count() or 1,
+        help="Processes drawing images (default: all cores; 1 = inline)",
+    )
+    return parser.parse_args()
 
+
+def _pin_utc(
+    postgresql: bool,
+) -> Callable[[DBAPIConnection, ConnectionPoolEntry], None]:
+    """A connect listener pinning sessions to UTC, so timestamps never hit a DST gap."""
+
+    def listener(dbapi_conn: DBAPIConnection, _record: ConnectionPoolEntry) -> None:
+        cur = dbapi_conn.cursor()
+        try:
+            cur.execute(
+                "SET TIME ZONE 'UTC'" if postgresql else "SET time_zone = '+00:00'"
+            )
+        finally:
+            cur.close()
+        # PostgreSQL's SET is transactional: the pool's rollback on return would undo it.
+        dbapi_conn.commit()
+
+    return listener
+
+
+@contextmanager
+def _image_pool(args: argparse.Namespace) -> Iterator[ProcessPoolExecutor | None]:
+    if not args.images or args.dry_run or args.image_workers <= 1:
+        yield None
+        return
+    pool = ProcessPoolExecutor(args.image_workers)
+    try:
+        yield pool
+    except BaseException:
+        pool.shutdown(cancel_futures=True)
+        raise
+    pool.shutdown()
+
+
+def main() -> int:
+    args = _parse_args()
+    pin_utc = _pin_utc(is_postgresql(sync_engine))
+    event.listen(sync_engine, "connect", pin_utc)
+    try:
+        with _image_pool(args) as image_pool:
+            return _seed(args, image_pool)
+    finally:
+        event.remove(sync_engine, "connect", pin_utc)
+        # Pooled connections keep the pinned time zone, so close them with the listener.
+        sync_engine.dispose()
+
+
+def _seed(args: argparse.Namespace, image_pool: ProcessPoolExecutor | None) -> int:
     rng = random.Random(args.seed)  # nosec B311 - fake data, not security-sensitive
-    # Separate stream for image pixels so rom rows stay identical with or
-    # without --images (image draws never perturb the main rng sequence).
-    img_rng = random.Random(args.seed ^ 0x53A17)  # nosec B311 - fake data
     now = datetime.now(timezone.utc)
     pool = build_platform_pool()
     if args.platforms > len(pool):
@@ -756,24 +995,11 @@ def main() -> int:
     if args.dry_run:
         print("DRY RUN: nothing will be written.")
 
-    from sqlalchemy import event, func, select
+    from sqlalchemy import func, select
 
-    from handler.auth import auth_handler
-    from handler.database.base_handler import sync_engine
+    from handler.auth.base_handler import auth_handler
 
-    # Pin every connection to UTC so the random historical timestamps we
-    # generate never land in a local DST gap that TIMESTAMP columns reject.
-    @event.listens_for(sync_engine, "connect")
-    def _session_utc(dbapi_conn, _record):  # noqa: ANN001
-        cur = dbapi_conn.cursor()
-        try:
-            try:
-                cur.execute("SET time_zone = '+00:00'")  # MySQL/MariaDB
-            except Exception:
-                cur.execute("SET TIME ZONE 'UTC'")  # PostgreSQL
-        finally:
-            cur.close()
-
+    postgresql = is_postgresql(sync_engine)
     pw_hash = auth_handler.get_password_hash(args.password)
 
     # ----- decide starting primary keys (offset past any existing rows) -----
@@ -806,10 +1032,14 @@ def main() -> int:
     ids = Ids(starts)
 
     counts: dict[str, int] = {k: 0 for k in id_tables}
-    counts.update({"devices": 0, "collections_roms": 0, "device_save_sync": 0})
+    counts.update(
+        {"devices": 0, "collections_roms": 0, "device_save_sync": 0, "track_meta": 0}
+    )
     # Tracks the last standalone rom per platform so a fraction of later roms
     # can reuse its igdb_id, surfacing them as regional siblings via the view.
     sibling_seed: dict[int, dict[str, Any]] = {}
+    # Guards the unique (platform_id, fs_name) index across every batch.
+    fs_names_by_platform: dict[int, set[str]] = {}
 
     # ----------------------------- platforms -------------------------------
     platform_rows = []
@@ -954,6 +1184,8 @@ def main() -> int:
             bulk_insert(conn, Device, device_rows)
             bulk_insert(conn, ClientToken, token_rows)
             bulk_insert(conn, Firmware, firmware_rows)
+            if postgresql:
+                _advance_sequences(conn, (Platform, User, ClientToken, Firmware))
     counts["platforms"] = len(platform_rows)
     counts["users"] = len(user_rows)
     counts["devices"] = len(device_rows)
@@ -963,12 +1195,16 @@ def main() -> int:
     # -------------------------------- roms ---------------------------------
     rom_id_base = starts["roms"]
     images_written = 0
-    if args.images:
-        print(f"Writing cover/screenshot PNGs under {args.resources_path}")
+    if args.images and not args.dry_run:
+        print(f"Writing image files under {args.resources_path}")
     t0 = time.time()
+    # Images are planned inline (their paths go into the rows) and drawn per batch.
+    drawing: Iterator[None] = iter(())
     for batch_start in range(0, args.roms, args.batch_size):
         batch_end = min(batch_start + args.batch_size, args.roms)
+        image_jobs: list[RomImageJob] = []
         rom_rows, file_rows, ru_rows = [], [], []
+        track_rows: list[dict[str, Any]] = []
         save_rows, state_rows, shot_rows, note_rows = [], [], [], []
         dss_rows: list[dict[str, Any]] = []
 
@@ -995,6 +1231,15 @@ def main() -> int:
             if f["revision"]:
                 tags += f" ({f['revision']})"
             fs_name = f"{f['title']}{tags}.{ext}"[:445]
+            # `roms` is uniquely indexed on (platform_id, fs_name) and the title
+            # pools are small enough to collide, so disambiguate repeats.
+            used_names = fs_names_by_platform.setdefault(platform["id"], set())
+            if fs_name in used_names:
+                dedupe = 2
+                while f"{f['title']}{tags} (v{dedupe}).{ext}"[:445] in used_names:
+                    dedupe += 1
+                fs_name = f"{f['title']}{tags} (v{dedupe}).{ext}"[:445]
+            used_names.add(fs_name)
             parts = compute_file_name_parts(fs_name)
             multi_disc = rng.random() < 0.08
             size = rng.randint(256 * 1024, 8 * 1024 * 1024 * 1024)
@@ -1018,18 +1263,36 @@ def main() -> int:
             if not is_sibling and igdb_id is not None:
                 sibling_seed[platform["id"]] = {"igdb_id": igdb_id, "facts": f}
 
-            # Cover art + screenshots: write real mosaic PNGs to the resources
-            # tree and point the path columns at them, or leave them empty.
-            if args.images:
-                n_shots = rng.randint(0, 4)
-                path_cover_s, path_cover_l, path_screenshots = generate_rom_images(
-                    img_rng, args.resources_path, platform["id"], rid, n_shots
+            # n_shots is drawn even without images, so the image flags never shift the rows.
+            n_shots = rng.randint(0, 4)
+            media_paths: dict[str, str] = {}
+            with_images = args.images and (
+                args.image_limit is None or rid - rom_id_base < args.image_limit
+            )
+            if with_images:
+                job = RomImageJob(
+                    resources_base=args.resources_path,
+                    seed=args.seed,
+                    platform_id=platform["id"],
+                    rom_id=rid,
+                    fidelity=rom_fidelity(
+                        args.image_fidelity, rid, args.image_weighted_every
+                    ),
+                    n_screenshots=n_shots,
+                    with_media=args.image_media and has_ss,
+                    caption=RomCaption(f["title"], platform["name"], f["region"]),
                 )
-                images_written += 2 + n_shots
+                seeded = plan_rom_images(job)
+                if seeded.large and not args.dry_run:
+                    image_jobs.append(job)
+                path_cover_s, path_cover_l = seeded.small, seeded.large
+                path_screenshots, media_paths = seeded.screenshots, seeded.media_paths
+                images_written += seeded.files_written
             else:
                 path_cover_s = path_cover_l = ""
                 path_screenshots = []
 
+            rom_folder = f"{platform['slug']}/roms"
             rom_rows.append(
                 {
                     "id": rid,
@@ -1050,7 +1313,8 @@ def main() -> int:
                     "fs_name_no_tags": parts.no_tags,
                     "fs_name_no_ext": parts.no_ext,
                     "fs_extension": parts.extension,
-                    "fs_path": f"{platform['slug']}/roms",
+                    "fs_path": rom_folder,
+                    "full_path_hash": compute_full_path_hash(rom_folder, fs_name),
                     "fs_size_bytes": size,
                     "name": f["title"],
                     "name_sort_key": compute_name_sort_key(f["title"]),
@@ -1060,7 +1324,9 @@ def main() -> int:
                     "moby_metadata": (
                         build_moby_metadata(rng, f, platform) if has_moby else {}
                     ),
-                    "ss_metadata": build_ss_metadata(rng, f) if has_ss else {},
+                    "ss_metadata": (
+                        build_ss_metadata(rng, f) | media_paths if has_ss else {}
+                    ),
                     "ra_metadata": build_ra_metadata(rng, f) if has_ra else {},
                     "launchbox_metadata": (
                         build_launchbox_metadata(rng, f) if has_lb else {}
@@ -1095,6 +1361,8 @@ def main() -> int:
                     "updated_at": created,
                 }
             )
+            # A Core insert skips the mapper events that fill these on the model.
+            rom_rows[-1].update(compute_derived_columns(rom_rows[-1]))
 
             # Rom files: one per disc, plus the occasional manual.
             n_files = rng.randint(2, 4) if multi_disc else 1
@@ -1129,6 +1397,58 @@ def main() -> int:
                         "updated_at": created,
                     }
                 )
+            # Soundtrack: a share of roms ship tagged audio next to the game,
+            # which is what the /api/music endpoints and the Jukebox read.
+            if rng.random() < args.soundtrack_share:
+                album = f"{f['title']} Original Soundtrack"
+                composer = rng.choice(COMPOSERS)
+                track_genre = rng.choice(TRACK_GENRES)
+                year = f.get("year")
+                n_tracks = rng.randint(3, max(3, args.tracks_per_soundtrack))
+                for number, title in enumerate(
+                    rng.sample(TRACK_TITLES, k=min(n_tracks, len(TRACK_TITLES))),
+                    start=1,
+                ):
+                    fid = ids.take("rom_files")
+                    file_rows.append(
+                        {
+                            "id": fid,
+                            "rom_id": rid,
+                            "file_name": f"{number:02d} - {title}.mp3",
+                            "file_path": f"{platform['slug']}/roms/{f['slug']}/soundtrack",
+                            "file_size_bytes": rng.randint(1_500_000, 9_000_000),
+                            "last_modified": created.timestamp(),
+                            "crc_hash": None,
+                            "md5_hash": None,
+                            "sha1_hash": None,
+                            "ra_hash": None,
+                            "chd_sha1_hash": None,
+                            "archive_members": None,
+                            "category": RomFileCategory.SOUNDTRACK,
+                            "missing_from_fs": False,
+                            "created_at": created,
+                            "updated_at": created,
+                        }
+                    )
+                    track_rows.append(
+                        {
+                            "rom_file_id": fid,
+                            "rom_id": rid,
+                            "title": title,
+                            "artist": composer,
+                            "album": album,
+                            "genre": track_genre,
+                            "year": year,
+                            "track": number,
+                            "disc": 1,
+                            "duration_seconds": float(rng.randint(45, 320)),
+                            "has_embedded_cover": rng.random() < 0.3,
+                            "cover_path": None,
+                            "created_at": created,
+                            "updated_at": created,
+                        }
+                    )
+
             if rng.random() < 0.15:
                 fid = ids.take("rom_files")
                 man_name = f"{f['title']} (Manual).pdf"
@@ -1298,19 +1618,36 @@ def main() -> int:
                         }
                     )
 
+        # A pool draws this batch while the next one is built; list() waits for the
+        # previous batch and re-raises any worker's error.
+        previous, drawing = drawing, (
+            image_pool.map(draw_rom_images, image_jobs, chunksize=4)
+            if image_pool is not None
+            else map(draw_rom_images, image_jobs)
+        )
+        list(previous)
+
         if not args.dry_run:
             with sync_engine.begin() as conn:
-                bulk_insert(conn, Rom, rom_rows)
+                # Each rom row carries several KB of metadata JSON, and a
+                # 1000-row statement can drop the connection.
+                bulk_insert(conn, Rom, rom_rows, chunk=100)
                 bulk_insert(conn, RomFile, file_rows)
+                bulk_insert(conn, TrackMeta, track_rows)
                 bulk_insert(conn, RomUser, ru_rows)
                 bulk_insert(conn, Save, save_rows)
                 bulk_insert(conn, State, state_rows)
                 bulk_insert(conn, Screenshot, shot_rows)
                 bulk_insert(conn, RomNote, note_rows)
                 bulk_insert(conn, DeviceSaveSync, dss_rows)
+                if postgresql:
+                    _advance_sequences(
+                        conn, (Rom, RomFile, RomUser, Save, State, Screenshot, RomNote)
+                    )
 
         counts["roms"] += len(rom_rows)
         counts["rom_files"] += len(file_rows)
+        counts["track_meta"] += len(track_rows)
         counts["rom_user"] += len(ru_rows)
         counts["saves"] += len(save_rows)
         counts["states"] += len(state_rows)
@@ -1369,7 +1706,6 @@ def main() -> int:
                 "name": f"All {genre}",
                 "description": f"Every {genre} game.",
                 "is_public": rng.random() < 0.5,
-                "rom_count": len(members),
                 "rom_ids": members,
                 "path_covers_small": [],
                 "path_covers_large": [],
@@ -1421,7 +1757,6 @@ def main() -> int:
                 "user_id": uid,
                 "device_id": dev,
                 "rom_id": rng.choice(rom_id_list),
-                "sync_session_id": None,
                 "save_slot": rng.choice(["1", "2", "auto", None]),
                 "start_time": start,
                 "end_time": start + timedelta(milliseconds=dur),
@@ -1438,11 +1773,30 @@ def main() -> int:
             bulk_insert(conn, SmartCollection, smart_rows)
             bulk_insert(conn, SyncSession, sync_rows)
             bulk_insert(conn, PlaySession, play_rows)
+            if postgresql:
+                _advance_sequences(
+                    conn, (Collection, SmartCollection, SyncSession, PlaySession)
+                )
     counts["collections"] = len(coll_rows)
     counts["collections_roms"] = len(coll_rom_rows)
     counts["smart_collections"] = len(smart_rows)
     counts["sync_sessions"] = len(sync_rows)
     counts["play_sessions"] = len(play_rows)
+
+    list(drawing)
+
+    # Rows written straight to the database don't rotate the gallery and feed
+    # caches in Redis, so rotate them here.
+    if not args.dry_run:
+        try:
+            db_rom_handler.invalidate_filter_values_cache()
+            invalidate_all_cached_feeds()
+        except RedisError as exc:
+            print(
+                f"Warning: could not rotate the gallery cache ({exc}); "
+                "the seed is saved, but the gallery may show old lists until it is.",
+                file=sys.stderr,
+            )
 
     # ------------------------------- report --------------------------------
     elapsed = time.time() - t0
@@ -1450,7 +1804,8 @@ def main() -> int:
     for name in sorted(counts):
         print(f"  {name:<20} {counts[name]:>12,}")
     if args.images:
-        print(f"  {'images (png)':<20} {images_written:>12,}")
+        label = "image files (planned)" if args.dry_run else "image files"
+        print(f"  {label:<20} {images_written:>12,}")
     if not args.dry_run and user_rows:
         print(
             f"\nLogin with username '{user_rows[0]['username']}' "
@@ -1459,7 +1814,27 @@ def main() -> int:
     return 0
 
 
-def _wipe(conn) -> None:
+def _advance_sequences(conn: Connection, models: Iterable[type[BaseModel]]) -> None:
+    """Move each PostgreSQL id sequence past the explicit ids inserted here."""
+    # Unlike AUTO_INCREMENT, a sequence ignores explicit ids. The sequence's own
+    # last value keeps this from moving it back past ids the app already drew.
+    from sqlalchemy import text
+
+    for model in models:
+        t = model.__tablename__
+        # nosec B608 - table names come from the script's own models, not user input
+        conn.execute(
+            text(
+                "SELECT setval(s.seq, GREATEST("  # nosec B608
+                f"(SELECT COALESCE(MAX(id), 0) FROM {t}),"
+                " COALESCE(pg_sequence_last_value(s.seq), 0)) + 1, false)"
+                f" FROM (SELECT CAST(pg_get_serial_sequence('{t}', 'id') AS regclass)"
+                " AS seq) AS s"
+            )
+        )
+
+
+def _wipe(conn: Connection) -> None:
     """Delete all rows from the tables this script populates (FK-safe order)."""
     from sqlalchemy import text
 
@@ -1476,8 +1851,11 @@ def _wipe(conn) -> None:
         "rom_notes",
         "rom_user",
         "screenshots",
+        # Holds saves and states back with RESTRICT; its pins and states cascade.
+        "snapshots",
         "states",
         "saves",
+        "track_meta",
         "rom_files",
         "roms",
         "firmware",

@@ -1,38 +1,49 @@
-from datetime import UTC, datetime
+import re
+from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
+from typing import Final
 from xml.etree.ElementTree import (  # trunk-ignore(bandit/B405)
     Element,
+    ParseError,
     SubElement,
+    TreeBuilder,
     indent,
     tostring,
 )
 
+from defusedxml import ElementTree as ET
 from fastapi import Request
 from starlette.datastructures import URLPath
 
 from config import FRONTEND_RESOURCES_PATH, YOUTUBE_BASE_URL
+from config.config_manager import PLATFORM_MEDIA_DIRS
 from config.config_manager import config_manager as cm
+from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_platform_handler, fs_resource_handler
+from handler.metadata.gamelist_handler import gamelist_path_to_rel_path
 from logger.logger import log
-from models.rom import Rom
-from utils.filesystem import link_or_copy_file
+from models.rom import HAS_FILE_ON_DISK_FILTERS, Rom
+from utils.datetime import format_utc
+from utils.filesystem import join_rel_path, place_export_asset, rel_platform_folder
+from utils.urls import rom_content_url, rom_id_from_content_url
 
-# Map gamelist asset keys to subdirectory names inside assets/
-ASSET_DIRS: dict[str, str] = {
-    "box2d": "covers",
-    "box3d": "boxes",
-    "box2d_back": "backcovers",
-    "fanart": "fanart",
-    "marquee": "marquees",
-    "miximage": "miximages",
-    "miximage_v2": "miximages",
-    "physical": "physical",
-    "screenshot": "screenshots",
-    "title_screen": "titlescreens",
-    "bezel": "bezels",
-    "video": "videos",
-    "manual": "manuals",
+# Each tag maps to the assets it can take, best first. RetroBat reads some of the
+# same media under its own names (cartridge, titleshot, mix), hence the repeats.
+ASSET_TAGS: Final[dict[str, tuple[str, ...]]] = {
+    "box3d": ("box3d",),
+    "boxback": ("box2d_back",),
+    "fanart": ("fanart",),
+    "marquee": ("marquee",),
+    "miximage": ("miximage",),
+    "miximage_v2": ("miximage_v2",),
+    "mix": ("miximage", "miximage_v2"),
+    "physicalmedia": ("physical",),
+    "cartridge": ("physical",),
+    "title_screen": ("title_screen",),
+    "titleshot": ("title_screen",),
+    "bezel": ("bezel",),
 }
 
 
@@ -43,6 +54,70 @@ def get_media_options_for_export() -> tuple[str, str]:
     return config.GAMELIST_MEDIA_IMAGE, config.GAMELIST_MEDIA_THUMBNAIL
 
 
+XML_DECLARATION_RE: Final = re.compile(r"^\s*<\?xml\b[^>]*\?>")
+
+
+@dataclass
+class ExistingGamelist:
+    """What an on-disk gamelist.xml holds that RomM did not generate."""
+
+    games: dict[str, Element] = field(default_factory=dict)
+    games_by_rom_id: dict[int, Element] = field(default_factory=dict)
+    others: list[Element] = field(default_factory=list)
+    root_siblings: list[Element] = field(default_factory=list)
+
+
+def parse_existing_gamelist(content: str) -> ExistingGamelist:
+    """Index a gamelist.xml by ROM path or content URL, keeping every other element.
+
+    ES-DE writes <alternativeEmulator> beside <gameList>, so the document is
+    parsed under a wrapper root to accept those siblings.
+
+    Raises:
+        ParseError: when the content is not well-formed XML.
+    """
+    existing = ExistingGamelist()
+    if not content.strip():
+        return existing
+
+    body = XML_DECLARATION_RE.sub("", content, count=1)
+    parser = ET.XMLParser(target=TreeBuilder(insert_comments=True, insert_pis=True))
+    parser.feed(f"<romm>{body}</romm>")
+    wrapper = parser.close()
+
+    gamelist = wrapper.find("gameList")
+    for elem in wrapper:
+        if elem is not gamelist:
+            elem.tail = None
+            existing.root_siblings.append(elem)
+    if gamelist is None:
+        return existing
+
+    for elem in gamelist:
+        path_elem = elem.find("path") if elem.tag == "game" else None
+        raw_path = path_elem.text if path_elem is not None else None
+        rom_id = rom_id_from_content_url(raw_path) if raw_path else None
+        rel_path = gamelist_path_to_rel_path(raw_path) if raw_path else None
+        # A second entry with the same key is carried over, not dropped.
+        if rom_id is not None and rom_id not in existing.games_by_rom_id:
+            existing.games_by_rom_id[rom_id] = elem
+        elif rom_id is None and rel_path and rel_path not in existing.games:
+            existing.games[rel_path] = elem
+        else:
+            existing.others.append(elem)
+
+    return existing
+
+
+def merge_existing_game(game: Element, existing: Element) -> None:
+    """Carry attributes and children RomM did not emit over from the old entry."""
+    for name, value in existing.attrib.items():
+        game.attrib.setdefault(name, value)
+
+    emitted_tags = {child.tag for child in game}
+    game.extend(child for child in existing if child.tag not in emitted_tags)
+
+
 class GamelistExporter:
     """Export RomM collections to ES-DE gamelist.xml format"""
 
@@ -51,9 +126,7 @@ class GamelistExporter:
 
     def _format_release_date(self, timestamp: int) -> str:
         """Format release date to YYYYMMDDTHHMMSS format"""
-        return datetime.fromtimestamp(timestamp / 1000, tz=UTC).strftime(
-            "%Y%m%dT%H%M%S"
-        )
+        return format_utc(timestamp, "%Y%m%dT%H%M%S")
 
     def _collect_assets(self, rom: Rom) -> dict[str, Path]:
         """Collect available media assets for a ROM.
@@ -78,19 +151,28 @@ class GamelistExporter:
 
         ss = rom.ss_metadata or {}
         gl = rom.gamelist_metadata or {}
+        lb = rom.launchbox_metadata or {}
 
-        # Each gamelist asset key may be sourced from screenscraper or gamelist
-        # metadata; preference order is screenscraper first, gamelist second.
+        # Each gamelist asset key may be sourced from screenscraper, gamelist or
+        # launchbox metadata, in that order of preference.
         extended: dict[str, list[str]] = {
-            "box3d": [ss.get("box3d_path", ""), gl.get("box3d_path", "")],
+            "box3d": [
+                ss.get("box3d_path", ""),
+                gl.get("box3d_path", ""),
+                lb.get("box3d_path", ""),
+            ],
             "box2d_back": [
                 ss.get("box2d_back_path", ""),
                 gl.get("box2d_back_path", ""),
+                lb.get("box2d_back_path", ""),
             ],
             "fanart": [ss.get("fanart_path", ""), gl.get("fanart_path", "")],
             "marquee": [ss.get("logo_path", ""), gl.get("marquee_path", "")],
             "miximage": [ss.get("miximage_path", ""), gl.get("miximage_path", "")],
-            "miximage_v2": [ss.get("miximage_v2_path", "")],
+            "miximage_v2": [
+                ss.get("miximage_v2_path", ""),
+                gl.get("miximage_v2_path", ""),
+            ],
             "physical": [ss.get("physical_path", ""), gl.get("physical_path", "")],
             "title_screen": [
                 ss.get("title_screen_path", ""),
@@ -113,10 +195,12 @@ class GamelistExporter:
         request: Request | None,
         assets: dict[str, Path],
         platform_dir: Path | None = None,
+        rel_folder: str = "",
     ) -> dict[str, str]:
         """Build the asset references that will appear in gamelist.xml.
 
-        For local exports, returns relative paths like ``assets/covers/<rom>.jpg``
+        For local exports, returns relative paths like ``./covers/<rom>.jpg``,
+        mirroring ``rel_folder`` so two identically named roms keep their own media,
         and, if ``platform_dir`` is provided, copies the source files into place.
 
         For non-local exports, returns absolute URLs built from ``request.base_url``.
@@ -125,13 +209,13 @@ class GamelistExporter:
 
         if self.local_export:
             for asset_key, source_path in assets.items():
-                subdir = ASSET_DIRS.get(asset_key, asset_key)
+                subdir = PLATFORM_MEDIA_DIRS[asset_key]
                 dest_name = f"{rom.fs_name_no_ext}{source_path.suffix}"
-                rel_path = f"./assets/{subdir}/{dest_name}"
+                rel_path = f"./{join_rel_path(subdir, rel_folder, dest_name)}"
 
                 if platform_dir is not None:
                     dest_path = platform_dir / rel_path
-                    if not self._copy_asset(source_path, dest_path):
+                    if not place_export_asset(source_path, dest_path):
                         continue
 
                 refs[asset_key] = rel_path
@@ -152,20 +236,6 @@ class GamelistExporter:
 
         return refs
 
-    def _copy_asset(self, source: Path, dest: Path) -> bool:
-        """Place ``source`` at ``dest`` via hardlink (same filesystem) or copy
-        (otherwise). Returns True on success."""
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        if dest.exists():
-            return True
-
-        try:
-            link_or_copy_file(source, dest)
-            return True
-        except OSError as e:
-            log.warning(f"Failed to copy {source} -> {dest}: {e}")
-            return False
-
     def _create_game_element(
         self,
         rom: Rom,
@@ -173,25 +243,22 @@ class GamelistExporter:
         asset_refs: dict[str, str],
         media_image: str,
         media_thumbnail: str,
+        rel_folder: str = "",
     ) -> Element:
         """Create a <game> element for a ROM"""
         game = Element("game")
 
         # Basic game info
         if self.local_export:
-            SubElement(game, "path").text = f"./{rom.fs_name}"
+            SubElement(game, "path").text = (
+                f"./{join_rel_path(rel_folder, rom.fs_name)}"
+            )
         else:
             if request is None:
                 raise ValueError(
                     "Request object must be provided for non-local exports"
                 )
-            SubElement(game, "path").text = str(
-                request.url_for(
-                    "get_rom_content",
-                    id=rom.id,
-                    file_name=rom.fs_name,
-                )
-            )
+            SubElement(game, "path").text = rom_content_url(request, rom)
 
         SubElement(game, "name").text = rom.name or rom.fs_name
 
@@ -221,12 +288,12 @@ class GamelistExporter:
         if "manual" in asset_refs:
             SubElement(game, "manual").text = asset_refs["manual"]
 
-        # Additional metadata
-        if rom.metadatum.companies and len(rom.metadatum.companies) > 0:
-            SubElement(game, "developer").text = rom.metadatum.companies[0]
-
-        if rom.metadatum.companies and len(rom.metadatum.companies) > 1:
-            SubElement(game, "publisher").text = rom.metadatum.companies[1]
+        developer = rom.metadatum.primary_developer
+        publisher = rom.metadatum.primary_publisher
+        if developer:
+            SubElement(game, "developer").text = developer
+        if publisher:
+            SubElement(game, "publisher").text = publisher
 
         if rom.metadatum.genres and len(rom.metadatum.genres) > 0:
             SubElement(game, "genre").text = rom.metadatum.genres[0]
@@ -257,21 +324,12 @@ class GamelistExporter:
         if rom.gamelist_id:
             SubElement(game, "id").text = str(rom.gamelist_id)
 
-        # Dedicated asset elements
-        element_names: dict[str, str] = {
-            "box3d": "box3d",
-            "box2d_back": "boxback",
-            "fanart": "fanart",
-            "marquee": "marquee",
-            "miximage": "miximage",
-            "miximage_v2": "miximage",
-            "physical": "physicalmedia",
-            "title_screen": "title_screen",
-            "bezel": "bezel",
-        }
-        for asset_key, tag in element_names.items():
-            if asset_key in asset_refs:
-                SubElement(game, tag).text = asset_refs[asset_key]
+        for tag, asset_keys in ASSET_TAGS.items():
+            ref = next(
+                (asset_refs[key] for key in asset_keys if key in asset_refs), None
+            )
+            if ref:
+                SubElement(game, tag).text = ref
 
         # Add scraping info
         scrap = SubElement(game, "scrap")
@@ -285,25 +343,47 @@ class GamelistExporter:
         platform_id: int,
         request: Request | None,
         platform_dir: Path | None,
+        existing: ExistingGamelist | None = None,
     ) -> tuple[str, int]:
-        """Build gamelist XML, optionally copying assets into ``platform_dir/assets/``."""
+        """Build gamelist XML, optionally copying media into ``platform_dir``.
+
+        Entries in ``existing`` keep whatever RomM does not emit itself, and
+        entries with no ROM in the database are carried over untouched.
+        """
         platform = db_platform_handler.get_platform(platform_id)
         if not platform:
             raise ValueError(f"Platform with ID {platform_id} not found")
 
-        roms = db_rom_handler.get_roms_scalar(platform_ids=[platform_id])
+        roms = db_rom_handler.get_roms_scalar(
+            platform_ids=[platform_id],
+            visibility=UNRESTRICTED,
+            **HAS_FILE_ON_DISK_FILTERS,
+        )
+
+        existing = existing or ExistingGamelist()
+        unmatched_games = dict(existing.games)
+        unmatched_by_rom_id = dict(existing.games_by_rom_id)
 
         root = Element("gameList")
+        root.extend(existing.others)
         media_image, media_thumbnail = get_media_options_for_export()
+        platform_fs_path = fs_platform_handler.get_platform_fs_structure(
+            platform.fs_slug
+        )
 
         count = 0
         for rom in roms:
-            if not rom or rom.missing_from_fs or rom.fs_name == "gamelist.xml":
+            if rom.fs_name == "gamelist.xml":
                 continue
 
+            rel_folder = rel_platform_folder(rom.fs_path, platform_fs_path)
             assets = self._collect_assets(rom)
             asset_refs = self._build_asset_refs(
-                rom, request=request, assets=assets, platform_dir=platform_dir
+                rom,
+                request=request,
+                assets=assets,
+                platform_dir=platform_dir,
+                rel_folder=rel_folder,
             )
 
             game_element = self._create_game_element(
@@ -312,14 +392,40 @@ class GamelistExporter:
                 asset_refs=asset_refs,
                 media_image=media_image,
                 media_thumbnail=media_thumbnail,
+                rel_folder=rel_folder,
             )
+            existing_game = unmatched_by_rom_id.pop(rom.id, None)
+            if existing_game is None:
+                existing_game = unmatched_games.pop(
+                    join_rel_path(rel_folder, rom.fs_name), None
+                )
+            if existing_game is not None:
+                merge_existing_game(game_element, existing_game)
             root.append(game_element)
             count += 1
 
+        root.extend(unmatched_games.values())
+        root.extend(unmatched_by_rom_id.values())
+
         indent(root, space="  ", level=0)
         xml_str = tostring(root, encoding="unicode", xml_declaration=True)
+        if existing.root_siblings:
+            declaration, body = xml_str.split("\n", 1)
+            siblings = [
+                tostring(elem, encoding="unicode") for elem in existing.root_siblings
+            ]
+            xml_str = "\n".join([declaration, *siblings, body])
+
         log.info(f"Exported {count} ROMs for platform {platform.name}")
         return xml_str, count
+
+    async def _read_existing_gamelist(self, gamelist_path: str) -> ExistingGamelist:
+        """Load the gamelist.xml at ``gamelist_path``, or an empty one if absent."""
+        if not await fs_platform_handler.file_exists(gamelist_path):
+            return ExistingGamelist()
+
+        content = await fs_platform_handler.read_file(gamelist_path)
+        return parse_existing_gamelist(content.decode("utf-8-sig"))
 
     def export_platform_to_xml(self, platform_id: int, request: Request | None) -> str:
         """Export a platform's ROMs to gamelist.xml format (no asset files copied)."""
@@ -333,8 +439,8 @@ class GamelistExporter:
         platform_id: int,
         request: Request | None,
     ) -> bool:
-        """Export platform ROMs to gamelist.xml in the platform's directory,
-        copying media assets into a local assets/ folder when local_export=True.
+        """Merge platform ROMs into the gamelist.xml in the platform's directory,
+        copying media into ES-DE's per-type folders when local_export=True.
 
         Returns:
             True if successful, False otherwise
@@ -353,15 +459,26 @@ class GamelistExporter:
                 if self.local_export
                 else None
             )
+            gamelist_path = f"{platform_fs_structure}/gamelist.xml"
+
+            # A file we cannot read is left alone rather than replaced.
+            try:
+                existing = await self._read_existing_gamelist(gamelist_path)
+            except (ParseError, UnicodeDecodeError) as e:
+                log.error(f"Not overwriting unreadable {gamelist_path}: {e}")
+                return False
 
             xml_content, _ = self._build_gamelist_xml(
-                platform_id, request=request, platform_dir=platform_dir
+                platform_id,
+                request=request,
+                platform_dir=platform_dir,
+                existing=existing,
             )
             await fs_platform_handler.write_file(
                 xml_content.encode("utf-8"), platform_fs_structure, "gamelist.xml"
             )
 
-            log.info(f"Exported gamelist.xml to {platform_fs_structure}/gamelist.xml")
+            log.info(f"Exported gamelist.xml to {gamelist_path}")
             return True
         except Exception as e:
             log.error(f"Failed to export gamelist.xml for platform {platform_id}: {e}")

@@ -1,14 +1,87 @@
-from collections.abc import Sequence
-from typing import Literal
+import functools
+from collections.abc import Callable, Collection, Mapping, Sequence
+from datetime import timedelta
+from typing import Any, Literal
 
-from sqlalchemy import and_, asc, delete, desc, func, or_, select, update
-from sqlalchemy.orm import QueryableAttribute, Session, load_only
+from sqlalchemy import Select, and_, asc, delete, desc, false, func, or_, select, update
+from sqlalchemy.engine import Row
+from sqlalchemy.orm import Session
+from sqlalchemy.sql.elements import ColumnElement
 
-from decorators.database import begin_session
-from models.assets import Save
-from models.rom import Rom
+from decorators.database import INJECTED_SESSION, begin_session
+from handler.auth.rom_visibility import RomVisibilityFilter
+from models.assets import SAVE_SLOT_VERSIONS_INDEX, Save, SaveLineage
+from models.base import utc_now, with_file_name_parts
+from models.rom import RomFacets
+from utils.datetime import to_utc
+from utils.sql_dialect import force_index_on_mysql
 
-from .base_handler import DBBaseHandler
+from .base_handler import DBBaseHandler, affected_rows
+from .deleted_assets_handler import db_deleted_asset_handler
+from .snapshots_handler import (
+    channel_for_slot,
+    held_save_ids,
+    refresh_backup_digests,
+    release_backup,
+)
+
+# What identifies a version in its slot, for recording it when it leaves.
+_VERSION_COLUMNS = (Save.user_id, Save.rom_id, Save.slot, Save.content_hash)
+_SLOT_MOVE_ATTEMPTS = 3
+
+
+def _emulator_in(emulators: Collection[str | None]) -> ColumnElement[bool]:
+    named = sorted({emulator for emulator in emulators if emulator is not None})
+    clauses = [Save.emulator.in_(named)] if named else []
+    if None in emulators:
+        clauses.append(Save.emulator.is_(None))
+    return or_(false(), *clauses)
+
+
+def _in_lineages(lineages: Collection[SaveLineage]) -> ColumnElement[bool]:
+    """Saves in any of ``lineages``."""
+    emulators_by_extension: dict[str, set[str | None]] = {}
+    for emulator, file_extension in lineages:
+        emulators_by_extension.setdefault(file_extension, set()).add(emulator)
+    return or_(
+        false(),
+        *(
+            and_(
+                func.lower(Save.file_extension) == file_extension,
+                _emulator_in(emulators),
+            )
+            for file_extension, emulators in emulators_by_extension.items()
+        ),
+    )
+
+
+class _SlotMoved(Exception):
+    """The save changed slot between the unlocked read and its lock."""
+
+
+class UnhashedVersions(Exception):
+    """Versions a prune would drop without a hash to record them by."""
+
+    def __init__(self, versions: Sequence[Row[*tuple[Any, ...]]]):
+        super().__init__(f"{len(versions)} versions to prune were never hashed")
+        self.versions = versions
+
+
+def _retry_if_slot_moved[**P, R](func: Callable[P, R]) -> Callable[P, R]:
+    """Rerun a removal in a fresh transaction, releasing the stale slot's lock."""
+
+    @functools.wraps(func)
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        if kwargs.get("session") is not None:
+            return func(*args, **kwargs)
+        for _ in range(_SLOT_MOVE_ATTEMPTS - 1):
+            try:
+                return func(*args, **kwargs)
+            except _SlotMoved:
+                continue
+        return func(*args, **kwargs)
+
+    return wrapper
 
 
 class DBSavesHandler(DBBaseHandler):
@@ -16,8 +89,13 @@ class DBSavesHandler(DBBaseHandler):
     def add_save(
         self,
         save: Save,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> Save:
+        # A slotted upload is a client's save, filed under the slot's channel.
+        if save.slot and save.channel_id is None and save.rom_id is not None:
+            save.channel_id = channel_for_slot(
+                session, save.user_id, save.rom_id, save.slot
+            )
         return session.merge(save)
 
     @begin_session
@@ -25,9 +103,14 @@ class DBSavesHandler(DBBaseHandler):
         self,
         user_id: int,
         id: int,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> Save | None:
-        return session.scalar(select(Save).filter_by(user_id=user_id, id=id).limit(1))
+        return session.scalar(
+            select(Save)
+            .filter_by(user_id=user_id, id=id)
+            .where(Save.rom_id.is_not(None))
+            .limit(1)
+        )
 
     @begin_session
     def get_save_by_filename(
@@ -35,12 +118,19 @@ class DBSavesHandler(DBBaseHandler):
         user_id: int,
         rom_id: int,
         file_name: str,
+        emulator: str | None,
         slot: str | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> Save | None:
         query = select(Save).filter_by(
             rom_id=rom_id, user_id=user_id, file_name=file_name
         )
+        # Another core's save lives in its own folder, so it is a different save.
+        # Clients that send no core keep matching any, preferring an unfiled one.
+        if emulator is not None:
+            query = query.filter(Save.emulator == emulator)
+        else:
+            query = query.order_by(Save.emulator.is_(None).desc())
         if slot is not None:
             query = query.filter(Save.slot == slot)
         else:
@@ -54,15 +144,25 @@ class DBSavesHandler(DBBaseHandler):
         rom_id: int,
         file_path: str,
         file_name: str,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> Save | None:
         return session.scalars(
-            select(Save)
-            .filter_by(
-                rom_id=rom_id, user_id=user_id, file_path=file_path, file_name=file_name
-            )
-            .limit(1)
+            _at_paths_query(user_id, rom_id, [file_path], file_name).limit(1)
         ).first()
+
+    @begin_session
+    def get_saves_at_paths(
+        self,
+        user_id: int,
+        rom_id: int,
+        file_paths: Collection[str],
+        file_name: str,
+        session: Session = INJECTED_SESSION,
+    ) -> Sequence[Save]:
+        """Every save named ``file_name``, in any case, in any of ``file_paths``."""
+        return session.scalars(
+            _at_paths_query(user_id, rom_id, file_paths, file_name, ignore_case=True)
+        ).all()
 
     @begin_session
     def get_save_by_content_hash(
@@ -71,7 +171,7 @@ class DBSavesHandler(DBBaseHandler):
         rom_id: int,
         content_hash: str,
         slot: str | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> Save | None:
         query = select(Save).filter_by(
             rom_id=rom_id, user_id=user_id, content_hash=content_hash
@@ -81,49 +181,180 @@ class DBSavesHandler(DBBaseHandler):
         return session.scalar(query.limit(1))
 
     @begin_session
+    def get_lineage_head(
+        self,
+        user_id: int,
+        rom_id: int,
+        slot: str,
+        lineages: Collection[SaveLineage],
+        session: Session = INJECTED_SESSION,
+    ) -> Save | None:
+        """The newest version in ``slot`` across ``lineages`` whose file is on disk."""
+        return session.scalar(
+            select(Save)
+            .filter_by(user_id=user_id, rom_id=rom_id, slot=slot, missing_from_fs=False)
+            .where(_in_lineages(lineages))
+            .order_by(desc(Save.updated_at), desc(Save.id))
+            .limit(1)
+        )
+
+    @begin_session
+    def get_lineage_heads(
+        self,
+        user_id: int,
+        slot: str,
+        file_extension: str,
+        session: Session = INJECTED_SESSION,
+    ) -> Sequence[Save]:
+        """The newest on-disk version in ``slot`` per ROM and emulator, for one extension."""
+        ranked = (
+            select(
+                Save.id,
+                func.row_number()
+                .over(
+                    partition_by=(Save.rom_id, Save.emulator),
+                    order_by=[Save.updated_at.desc(), Save.id.desc()],
+                )
+                .label("rank"),
+            )
+            .where(
+                Save.user_id == user_id,
+                Save.slot == slot,
+                Save.missing_from_fs.is_(False),
+                func.lower(Save.file_extension) == file_extension,
+            )
+            .subquery()
+        )
+        return session.scalars(
+            select(Save).join(ranked, ranked.c.id == Save.id).where(ranked.c.rank == 1)
+        ).all()
+
+    def _saves_query(
+        self,
+        user_id: int,
+        rom_ids: Collection[int] | None = None,
+        platform_id: int | None = None,
+        slot: str | None = None,
+        slot_not_null: bool = False,
+        slot_is_null: bool = False,
+        with_unslotted: bool = False,
+        file_name_prefix: str | None = None,
+        lineages: Collection[SaveLineage] | None = None,
+        order_by: Literal["updated_at", "created_at"] | None = None,
+        order_dir: Literal["asc", "desc"] = "desc",
+        *,
+        visibility: RomVisibilityFilter,
+    ) -> Select[Save]:
+        # A save whose ROM was deleted waits to be reattached; no legacy flow reads it.
+        query = select(Save).filter_by(user_id=user_id).where(Save.rom_id.is_not(None))
+
+        # An empty collection is an explicit empty scope, not an absent filter.
+        if rom_ids is not None:
+            query = query.filter(Save.rom_id.in_(rom_ids))
+
+        if platform_id:
+            query = query.join(RomFacets, RomFacets.rom_id == Save.rom_id).where(
+                RomFacets.platform_id == platform_id, *visibility.facets_clauses()
+            )
+        else:
+            query = visibility.restrict(query, Save.rom_id)
+
+        if slot is not None:
+            # `with_unslotted` widens `slot` to also keep saves outside any slot.
+            query = query.filter(
+                or_(Save.slot == slot, Save.slot.is_(None))
+                if with_unslotted
+                else Save.slot == slot
+            )
+
+        if slot_not_null:
+            query = query.filter(Save.slot.is_not(None))
+
+        if slot_is_null:
+            query = query.filter(Save.slot.is_(None))
+
+        if file_name_prefix:
+            query = query.filter(
+                Save.file_name.startswith(file_name_prefix, autoescape=True)
+            )
+
+        if lineages is not None:
+            query = query.where(_in_lineages(lineages))
+
+        if order_by:
+            order_col = getattr(Save, order_by)
+            order_fn = asc if order_dir == "asc" else desc
+            # Timestamps tie at second resolution; the id keeps the order stable.
+            query = query.order_by(order_fn(order_col), order_fn(Save.id))
+
+        return query
+
+    @begin_session
     def get_saves(
         self,
         user_id: int,
-        rom_id: int | None = None,
+        rom_ids: Collection[int] | None = None,
+        platform_id: int | None = None,
+        slot: str | None = None,
+        slot_not_null: bool = False,
+        slot_is_null: bool = False,
+        with_unslotted: bool = False,
+        file_name_prefix: str | None = None,
+        lineages: Collection[SaveLineage] | None = None,
+        order_by: Literal["updated_at", "created_at"] | None = None,
+        order_dir: Literal["asc", "desc"] = "desc",
+        *,
+        visibility: RomVisibilityFilter,
+        session: Session = INJECTED_SESSION,
+    ) -> Sequence[Save]:
+        query = self._saves_query(
+            user_id=user_id,
+            rom_ids=rom_ids,
+            platform_id=platform_id,
+            slot=slot,
+            slot_not_null=slot_not_null,
+            slot_is_null=slot_is_null,
+            with_unslotted=with_unslotted,
+            file_name_prefix=file_name_prefix,
+            lineages=lineages,
+            order_by=order_by,
+            order_dir=order_dir,
+            visibility=visibility,
+        )
+        return session.scalars(query).all()
+
+    @begin_session
+    def get_save_ids(
+        self,
+        user_id: int,
+        rom_ids: Collection[int] | None = None,
         platform_id: int | None = None,
         slot: str | None = None,
         slot_not_null: bool = False,
         order_by: Literal["updated_at", "created_at"] | None = None,
         order_dir: Literal["asc", "desc"] = "desc",
-        only_fields: Sequence[QueryableAttribute] | None = None,
-        session: Session = None,  # type: ignore
-    ) -> Sequence[Save]:
-        query = select(Save).filter_by(user_id=user_id)
-
-        if rom_id:
-            query = query.filter_by(rom_id=rom_id)
-
-        if platform_id:
-            query = query.join(Rom, Save.rom_id == Rom.id).filter(
-                Rom.platform_id == platform_id
-            )
-
-        if slot is not None:
-            query = query.filter(Save.slot == slot)
-
-        if slot_not_null:
-            query = query.filter(Save.slot.is_not(None))
-
-        if order_by:
-            order_col = getattr(Save, order_by)
-            order_fn = asc if order_dir == "asc" else desc
-            query = query.order_by(order_fn(order_col))
-
-        if only_fields:
-            query = query.options(load_only(*only_fields))
-
-        return session.scalars(query).all()
+        *,
+        visibility: RomVisibilityFilter,
+        session: Session = INJECTED_SESSION,
+    ) -> list[int]:
+        """Ids only, so no `Save` is built and no eager rom or user join fires."""
+        query = self._saves_query(
+            user_id=user_id,
+            rom_ids=rom_ids,
+            platform_id=platform_id,
+            slot=slot,
+            slot_not_null=slot_not_null,
+            order_by=order_by,
+            order_dir=order_dir,
+            visibility=visibility,
+        )
+        return list(session.scalars(query.with_only_columns(Save.id)).all())
 
     @begin_session
     def get_save_by_id(
         self,
         id: int,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> Save | None:
         """Fetch a save by id without scoping to an owner. Used for the
         visibility toggle and community downloads, where the caller may not own
@@ -136,7 +367,7 @@ class DBSavesHandler(DBBaseHandler):
         rom_id: int,
         user_id: int,
         public_only: bool = False,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[Save]:
         """Saves for a ROM visible to the requesting user: own (public +
         private) plus other users' public ones. Mirrors
@@ -156,7 +387,7 @@ class DBSavesHandler(DBBaseHandler):
         self,
         user_id: int,
         rom_ids: Sequence[int],
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> dict[int, Save]:
         """The most recent save per ROM for a user, keyed by `rom_id`.
 
@@ -175,30 +406,239 @@ class DBSavesHandler(DBBaseHandler):
         latest: dict[int, Save] = {}
         for save in saves:
             # Saves come newest-first, so the first one seen per ROM wins.
-            latest.setdefault(save.rom_id, save)
+            latest.setdefault(save.attached_rom_id, save)
         return latest
 
+    @begin_session
+    def _slot_version(
+        self,
+        id: int,
+        session: Session = INJECTED_SESSION,
+    ) -> Row[*tuple[Any, ...]] | None:
+        return session.execute(_version_query(id)).one_or_none()
+
+    def _lock_for_removal(
+        self, id: int, session: Session
+    ) -> Row[*tuple[Any, ...]] | None:
+        """Lock the save's slot record, then the save, returning its current version."""
+        # Before this session holds a connection, since ensuring takes its own.
+        before = self._slot_version(id)
+        if not before:
+            return None
+        if before.slot:
+            _lock_slot(before.user_id, before.rom_id, before.slot, session)
+        current = session.execute(_version_query(id).with_for_update()).one_or_none()
+        # Locking the slot it moved to now would take a slot after a row.
+        if current and current.slot and current.slot != before.slot:
+            raise _SlotMoved
+        return current
+
+    @_retry_if_slot_moved
     @begin_session
     def update_save(
         self,
         id: int,
-        data: dict,
-        session: Session = None,  # type: ignore
+        data: dict[str, Any],
+        touch: bool = True,
+        replaced_hash: str | None = None,
+        session: Session = INJECTED_SESSION,
     ) -> Save:
+        """Write `data` onto a save.
+
+        Args:
+            touch: False keeps `updated_at`, since annotating is not a write
+                to the bytes and device sync reads it to detect staleness.
+            replaced_hash: What the version held, for a row that never hashed it.
+        """
+        data = with_file_name_parts(data)
+        if "content_hash" in data:
+            # Derived from the bytes, so new bytes leave it unknown until recomputed.
+            data = {"identity_hash": None, **data}
+        if "content_hash" in data or "slot" in data:
+            current = self._lock_for_removal(id, session)
+            if current and _loses_version(current, data):
+                _record_loss(current, session, replaced_hash)
+        if "slot" in data and "channel_id" not in data:
+            owner = session.execute(
+                select(Save.user_id, Save.rom_id).where(Save.id == id)
+            ).one()
+            data["channel_id"] = (
+                channel_for_slot(session, owner.user_id, owner.rom_id, data["slot"])
+                if data["slot"] and owner.rom_id is not None
+                else None
+            )
+        save = self._write(id, data, touch, session)
+        if "content_hash" in data:
+            refresh_backup_digests(session, save_id=id)
+        return save
+
+    @begin_session
+    def promote_to_slot_head(
+        self, save: Save, session: Session = INJECTED_SESSION
+    ) -> Save:
+        """Make ``save`` its slot's newest version; the head itself is left as is."""
+        head = session.execute(
+            select(Save.id, Save.updated_at)
+            .filter_by(user_id=save.user_id, rom_id=save.rom_id, slot=save.slot)
+            .order_by(desc(Save.updated_at), desc(Save.id))
+            .limit(1)
+        ).one()
+        if head.id == save.id:
+            return save
+        # Timestamps tie at second resolution, and a tie goes to the higher id.
+        promoted_at = max(utc_now(), to_utc(head.updated_at) + timedelta(seconds=1))
+        return self._write(save.id, {"updated_at": promoted_at}, True, session)
+
+    @begin_session
+    def rehash_save(
+        self,
+        id: int,
+        content_hash: str,
+        replacing: str | None,
+        session: Session = INJECTED_SESSION,
+    ) -> bool:
+        """Store a recomputed hash of the same bytes, so no version leaves the slot.
+
+        Args:
+            content_hash: The recomputed hash.
+            replacing: The hash it was computed against; a row holding another
+                was rewritten meanwhile and keeps its own.
+
+        Returns:
+            Whether the row still held ``replacing`` and took the new hash.
+        """
+        # Keeps `updated_at`, as `touch=False` does: device sync reads it as a write.
+        result = session.execute(
+            update(Save)
+            .where(Save.id == id, Save.content_hash.is_not_distinct_from(replacing))
+            .values(content_hash=content_hash, updated_at=Save.updated_at)
+            .execution_options(synchronize_session=False)
+        )
+        return affected_rows(result) == 1
+
+    @staticmethod
+    def _write(id: int, data: dict[str, Any], touch: bool, session: Session) -> Save:
+        values = data if touch else {**data, "updated_at": Save.updated_at}
         session.execute(
             update(Save)
             .where(Save.id == id)
-            .values(**data)
+            .values(**values)
             .execution_options(synchronize_session="evaluate")
         )
-        return session.query(Save).filter_by(id=id).one()
+        return session.scalars(select(Save).filter_by(id=id)).one()
 
+    @begin_session
+    def prune_slot(
+        self,
+        user_id: int,
+        rom_id: int,
+        slot: str,
+        keep: int,
+        fallback_hashes: Mapping[int, str | None] | None = None,
+        lineage: SaveLineage | None = None,
+        session: Session = INJECTED_SESSION,
+    ) -> Sequence[Row[*tuple[Any, ...]]]:
+        """Delete every version of a slot past the ``keep`` newest.
+
+        The slot's record is locked while its versions are listed and deleted,
+        so two uploads pruning it cannot both keep a version the other dropped.
+
+        Args:
+            fallback_hashes: What versions never hashed held, by save id, or
+                None for a file that couldn't be read.
+            lineage: Count and prune only this lineage's versions, not the
+                whole slot's.
+
+        Returns:
+            Each deleted version's hash and ``file_path``, ``file_name`` and
+            ``file_name_no_ext``, newest first.
+
+        Raises:
+            UnhashedVersions: Deleting nothing, for versions never hashed that
+                ``fallback_hashes`` lacks.
+        """
+        past_keep = (
+            select(
+                Save.id,
+                *_VERSION_COLUMNS,
+                Save.file_path,
+                Save.file_name,
+                Save.file_name_no_ext,
+            )
+            .filter_by(user_id=user_id, rom_id=rom_id, slot=slot)
+            .order_by(desc(Save.updated_at), desc(Save.id))
+            .offset(keep)
+        )
+        if lineage is not None:
+            past_keep = past_keep.where(_in_lineages([lineage]))
+        # Before this session holds a connection, since ensuring takes its own.
+        if not self._any(past_keep):
+            return []
+        _lock_slot(user_id, rom_id, slot, session)
+        # Locks only this slot's rows and takes no snapshot, which MariaDB's
+        # snapshot isolation would fail the delete against.
+        rows = session.execute(
+            force_index_on_mysql(
+                past_keep, Save, SAVE_SLOT_VERSIONS_INDEX
+            ).with_for_update()
+        ).all()
+        # Snapshot retention owns a version a snapshot holds. Read apart from
+        # the locking read, which MariaDB refuses to mix with an unlocked table.
+        held = held_save_ids(session, [row.id for row in rows])
+        rows = [row for row in rows if row.id not in held]
+        fallback_hashes = fallback_hashes or {}
+        unhashed = [
+            row
+            for row in rows
+            if not row.content_hash and row.id not in fallback_hashes
+        ]
+        if unhashed:
+            raise UnhashedVersions(unhashed)
+        # Oldest first, so trimming the record drops the oldest version first.
+        lost = [
+            content_hash
+            for row in reversed(rows)
+            if (content_hash := row.content_hash or fallback_hashes.get(row.id))
+        ]
+        if lost:
+            db_deleted_asset_handler.record_deletions(
+                user_id, rom_id, slot, lost, session=session
+            )
+        # One row at a time: MariaDB's `id IN (...)` plan deadlocks concurrent prunes.
+        for row in rows:
+            session.execute(
+                delete(Save)
+                .where(Save.id == row.id)
+                .execution_options(synchronize_session="evaluate")
+            )
+        return rows
+
+    @begin_session
+    def _any(
+        self,
+        query: Select[*tuple[Any, ...]],
+        session: Session = INJECTED_SESSION,
+    ) -> bool:
+        return session.execute(query.limit(1)).first() is not None
+
+    @_retry_if_slot_moved
     @begin_session
     def delete_save(
         self,
         id: int,
-        session: Session = None,  # type: ignore
+        content_hash: str | None = None,
+        session: Session = INJECTED_SESSION,
     ) -> None:
+        """Delete a save, releasing it from archival snapshots and recording the
+        version its slot loses.
+
+        Args:
+            content_hash: What the version held, for a row that never hashed it.
+        """
+        current = self._lock_for_removal(id, session)
+        if current:
+            _record_loss(current, session, content_hash)
+        release_backup(session, save_id=id)
         session.execute(
             delete(Save)
             .where(Save.id == id)
@@ -206,52 +646,19 @@ class DBSavesHandler(DBBaseHandler):
         )
 
     @begin_session
-    def mark_missing_saves(
-        self,
-        rom_id: int,
-        user_id: int,
-        saves_to_keep: list[str],
-        session: Session = None,  # type: ignore
-    ) -> Sequence[Save]:
-        missing_saves = session.scalars(
-            select(Save).filter(
-                and_(
-                    Save.rom_id == rom_id,
-                    Save.user_id == user_id,
-                    Save.file_name.not_in(saves_to_keep),
-                )
-            )
-        ).all()
-
-        session.execute(
-            update(Save)
-            .where(
-                and_(
-                    Save.rom_id == rom_id,
-                    Save.user_id == user_id,
-                    Save.file_name.not_in(saves_to_keep),
-                )
-            )
-            .values(**{"missing_from_fs": True})
-            .execution_options(synchronize_session="evaluate")
-        )
-
-        return missing_saves
-
-    @begin_session
     def get_saves_summary(
         self,
         user_id: int,
         rom_id: int,
-        session: Session = None,  # type: ignore
-    ) -> dict:
+        session: Session = INJECTED_SESSION,
+    ) -> dict[str, Any]:
         saves = session.scalars(
             select(Save)
             .filter_by(user_id=user_id, rom_id=rom_id)
             .order_by(desc(Save.updated_at))
         ).all()
 
-        slots_data: dict[str | None, dict] = {}
+        slots_data: dict[str | None, dict[str, Any]] = {}
         for save in saves:
             slot_key = save.slot
             if slot_key not in slots_data:
@@ -266,7 +673,7 @@ class DBSavesHandler(DBBaseHandler):
     @begin_session
     def count_saves_missing_content_hash(
         self,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> int:
         """Number of Save rows whose content_hash is NULL. Used at startup to
         decide whether the one-shot recompute task needs to be enqueued."""
@@ -282,7 +689,7 @@ class DBSavesHandler(DBBaseHandler):
         self,
         after_id: int,
         limit: int,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[Save]:
         """Page Save rows by primary key. Returns up to ``limit`` rows with
         ``id > after_id``, ordered by id. Used by the
@@ -293,3 +700,58 @@ class DBSavesHandler(DBBaseHandler):
         return session.scalars(
             select(Save).where(Save.id > after_id).order_by(asc(Save.id)).limit(limit)
         ).all()
+
+
+def _at_paths_query(
+    user_id: int,
+    rom_id: int,
+    file_paths: Collection[str],
+    file_name: str,
+    ignore_case: bool = False,
+) -> Select[Save]:
+    # Explicit lower() since PostgreSQL compares case-sensitively and MariaDB doesn't.
+    name_matches = (
+        func.lower(Save.file_name) == file_name.lower()
+        if ignore_case
+        else Save.file_name == file_name
+    )
+    return select(Save).where(
+        Save.user_id == user_id,
+        Save.rom_id == rom_id,
+        Save.file_path.in_(file_paths),
+        name_matches,
+    )
+
+
+def _version_query(id: int) -> Select[*tuple[Any, ...]]:
+    return select(*_VERSION_COLUMNS).where(Save.id == id)
+
+
+def _loses_version(version: Row[*tuple[Any, ...]], data: dict[str, Any]) -> bool:
+    """Whether writing `data` takes this version out of its slot."""
+    return bool(
+        data.get("slot", version.slot) != version.slot
+        or data.get("content_hash", version.content_hash) != version.content_hash
+    )
+
+
+def _lock_slot(user_id: int, rom_id: int, slot: str, session: Session) -> None:
+    """Ensure the slot has a record, then lock it before any of its rows."""
+    # One order everywhere, the record before the rows, so removals never deadlock.
+    db_deleted_asset_handler.ensure_record(user_id, rom_id, slot)
+    db_deleted_asset_handler.lock_record(user_id, rom_id, slot, session)
+
+
+def _record_loss(
+    version: Row[*tuple[Any, ...]], session: Session, content_hash: str | None = None
+) -> None:
+    """Remember a version leaving its slot, in the transaction that removes it."""
+    content_hash = version.content_hash or content_hash
+    if version.slot and content_hash:
+        db_deleted_asset_handler.record_deletion(
+            version.user_id,
+            version.rom_id,
+            version.slot,
+            content_hash,
+            session=session,
+        )

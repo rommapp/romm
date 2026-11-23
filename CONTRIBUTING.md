@@ -37,7 +37,7 @@ If you would like to contribute to the project's [documentation](https://docs.ro
 
 ## Adding Translations
 
-If you would like to translate the project into another language, create a new folder under the `frontend/src/locales` directory, and follow the existing language files as a template. Once you've created the new language file, open a pull request to add it to the project.
+If you would like to translate the project into another language, create a new folder under the `frontend/src/locales` directory, and follow the existing language files as a template. Add the language's name, written in that language, to `LOCALE_NAMES` in `frontend/src/stores/language.ts`. Once you've created the new language file, open a pull request to add it to the project.
 
 ## How to Contribute Code
 
@@ -57,6 +57,7 @@ If you would like to translate the project into another language, create a new f
 - Update the documentation if necessary.
 - Ensure all existing tests pass, and add new tests for new functionality.
 - Use clear and descriptive titles and descriptions for your pull requests.
+- Write the PR title as a [Conventional Commit](https://www.conventionalcommits.org/), such as `fix(scan): keep partial bytes out of the fallback hash`. Allowed types are `feat`, `fix`, `perf`, `refactor`, `revert`, `docs`, `style`, `test`, `build`, `ci` and `chore`, and CI checks the title.
 
 ## Code Style
 

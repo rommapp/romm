@@ -1,8 +1,11 @@
 from typing import TypedDict
 
+from .platform import PlatformSchema
+
 
 class SystemDict(TypedDict):
     VERSION: str
+    GIT_BRANCH: str | None
     SHOW_SETUP_WIZARD: bool
 
 
@@ -10,6 +13,7 @@ class MetadataSourcesDict(TypedDict):
     ANY_SOURCE_ENABLED: bool
     IGDB_API_ENABLED: bool
     SS_API_ENABLED: bool
+    SS_DEV_CREDENTIALS_SET: bool
     MOBY_API_ENABLED: bool
     STEAMGRIDDB_API_ENABLED: bool
     RA_API_ENABLED: bool
@@ -19,16 +23,27 @@ class MetadataSourcesDict(TypedDict):
     TGDB_API_ENABLED: bool
     FLASHPOINT_API_ENABLED: bool
     HLTB_API_ENABLED: bool
+    DEMOZOO_API_ENABLED: bool
+    POUET_API_ENABLED: bool
+    CSDB_API_ENABLED: bool
+    STEAM_API_ENABLED: bool
     LIBRETRO_API_ENABLED: bool
 
 
 class FilesystemDict(TypedDict):
     FS_PLATFORMS: list[str]
+    FS_PLATFORM_SLUGS: dict[str, str]
+    TITLE_ID_EXTRACTION_ENABLED: bool
 
 
 class EmulationDict(TypedDict):
     DISABLE_EMULATOR_JS: bool
     DISABLE_RUFFLE_RS: bool
+    DISABLE_JSDOS: bool
+    DISABLE_PICO8: bool
+    DISABLE_EASYRPG: bool
+    EJS_CORES: dict[str, list[str]]
+    EJS_NIGHTLY_CORES: dict[str, list[str]]
 
 
 class FrontendDict(TypedDict):
@@ -42,6 +57,31 @@ class OIDCDict(TypedDict):
     AUTOLOGIN: bool
     PROVIDER: str
     RP_INITIATED_LOGOUT: bool
+
+
+class NotificationsDict(TypedDict):
+    EMAIL_ENABLED: bool
+    # Email is set up and ROMM_BASE_URL is shareable, so reset links are mailed.
+    EMAILS_RESET_LINKS: bool
+
+
+class DeviceInstallDict(TypedDict):
+    ENABLED: bool
+    EXCLUDED_PLATFORM_SLUGS: list[str]
+
+
+class ConvertoDict(TypedDict):
+    # ROM_CONVERTO_ENABLED is set and the rom-converto binary answers.
+    ENABLED: bool
+
+
+class SaveSyncDict(TypedDict):
+    SNAPSHOT_RETENTION: int
+    SNAPSHOT_BRANCH_LIFETIME_DAYS: int
+
+
+class RomPatcherDict(TypedDict):
+    SUPPORTED_EXTENSIONS: list[str]
 
 
 class TasksDict(TypedDict):
@@ -62,4 +102,30 @@ class HeartbeatResponse(TypedDict):
     EMULATION: EmulationDict
     FRONTEND: FrontendDict
     OIDC: OIDCDict
+    NOTIFICATIONS: NotificationsDict
+    DEVICE_INSTALL: DeviceInstallDict
+    CONVERTO: ConvertoDict
+    SAVE_SYNC: SaveSyncDict
+    ROM_PATCHER: RomPatcherDict
     TASKS: TasksDict
+
+
+class SetupExistingPlatform(TypedDict):
+    fs_slug: str
+    slug: str
+    rom_count: int
+
+
+class SetupLibraryResponse(TypedDict):
+    # Whether the configured platforms folder exists on disk.
+    library_ready: bool
+    # The configured `filesystem.structure.default` template.
+    library_structure: str
+    existing_platforms: list[SetupExistingPlatform]
+    supported_platforms: list[PlatformSchema]
+
+
+class SetupPlatformsResponse(TypedDict):
+    success: bool
+    created_count: int
+    message: str

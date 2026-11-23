@@ -1,51 +1,27 @@
 from pathlib import Path
-from unittest.mock import AsyncMock
+from typing import Any
 
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.auth_helpers import bearer
 
 from endpoints.roms import soundtrack as soundtrack_endpoint
+from handler import scan_handler
 from handler.database import db_rom_handler
 from models.rom import Rom, RomFile, RomFileCategory, TrackMeta
+from utils import audio_tags
 from utils.audio_tags import AudioTags, track_meta_columns
 
 MP3_BYTES = b"ID3\x03\x00\x00\x00\x00\x00\x21fake mp3 payload"
 
 
-def _auth(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
-
-
 @pytest.fixture
-def soundtrack_fs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    folder_dir = tmp_path / "library"
-    folder_dir.mkdir()
-
-    def validate_path(path: str) -> Path:
-        return folder_dir / Path(path).name
-
-    async def remove_file(path: str) -> None:
-        target = folder_dir / Path(path).name
-        if target.exists():
-            target.unlink()
-        else:
-            raise FileNotFoundError(path)
-
-    monkeypatch.setattr(
-        soundtrack_endpoint.fs_rom_handler, "validate_path", validate_path
-    )
-    monkeypatch.setattr(
-        soundtrack_endpoint.fs_rom_handler,
-        "make_directory",
-        AsyncMock(return_value=None),
-    )
-    monkeypatch.setattr(
-        soundtrack_endpoint.fs_rom_handler,
-        "remove_file",
-        AsyncMock(side_effect=remove_file),
-    )
-    return folder_dir
+def soundtrack_fs(game_folder_on_disk: Path) -> Path:
+    """The ROM's soundtrack folder inside a real temp library."""
+    media_dir = game_folder_on_disk / "soundtrack"
+    media_dir.mkdir()
+    return media_dir
 
 
 # ---------- POST /api/roms/{id}/soundtracks ----------
@@ -59,7 +35,7 @@ def test_upload_soundtrack_success(
 ):
     response = client.post(
         f"/api/roms/{game_folder_rom.id}/soundtracks",
-        headers={**_auth(access_token), "x-upload-filename": "track1.mp3"},
+        headers={**bearer(access_token), "x-upload-filename": "track1.mp3"},
         files={"track1.mp3": ("track1.mp3", MP3_BYTES, "audio/mpeg")},
     )
 
@@ -69,6 +45,7 @@ def test_upload_soundtrack_success(
     assert written.read_bytes() == MP3_BYTES
 
     rom_after = db_rom_handler.get_rom(game_folder_rom.id)
+    assert rom_after is not None
     soundtracks = [
         f for f in rom_after.files if f.category == RomFileCategory.SOUNDTRACK
     ]
@@ -87,16 +64,76 @@ def test_upload_soundtrack_upserts_on_reupload(
     for _ in range(2):
         response = client.post(
             f"/api/roms/{game_folder_rom.id}/soundtracks",
-            headers={**_auth(access_token), "x-upload-filename": "track1.mp3"},
+            headers={**bearer(access_token), "x-upload-filename": "track1.mp3"},
             files={"track1.mp3": ("track1.mp3", MP3_BYTES, "audio/mpeg")},
         )
         assert response.status_code == status.HTTP_201_CREATED
 
     rom_after = db_rom_handler.get_rom(game_folder_rom.id)
+    assert rom_after is not None
     soundtracks = [
         f for f in rom_after.files if f.category == RomFileCategory.SOUNDTRACK
     ]
     assert len(soundtracks) == 1
+
+
+def test_upload_soundtrack_creates_missing_folder(
+    client: TestClient,
+    access_token: str,
+    game_folder_rom: Rom,
+    soundtrack_fs: Path,
+):
+    soundtrack_fs.rmdir()
+
+    response = client.post(
+        f"/api/roms/{game_folder_rom.id}/soundtracks",
+        headers={**bearer(access_token), "x-upload-filename": "track1.mp3"},
+        files={"track1.mp3": ("track1.mp3", MP3_BYTES, "audio/mpeg")},
+    )
+
+    assert response.status_code == status.HTTP_201_CREATED
+    assert (soundtrack_fs / "track1.mp3").read_bytes() == MP3_BYTES
+    assert db_rom_handler.get_rom_files_by_category(
+        game_folder_rom.id, RomFileCategory.SOUNDTRACK
+    )
+
+
+def test_upload_soundtrack_keeps_the_other_files(
+    client: TestClient,
+    access_token: str,
+    game_folder_rom: Rom,
+    soundtrack_fs: Path,
+):
+    before = {f.file_name for f in game_folder_rom.files}
+
+    response = client.post(
+        f"/api/roms/{game_folder_rom.id}/soundtracks",
+        headers={**bearer(access_token), "x-upload-filename": "track1.mp3"},
+        files={"track1.mp3": ("track1.mp3", MP3_BYTES, "audio/mpeg")},
+    )
+
+    assert response.status_code == status.HTTP_201_CREATED
+    rom_after = db_rom_handler.get_rom(game_folder_rom.id)
+    assert rom_after is not None
+    assert {f.file_name for f in rom_after.files} == before | {"track1.mp3"}
+    assert not list(soundtrack_fs.glob(".*"))
+
+
+def test_upload_soundtrack_without_matching_part_returns_400(
+    client: TestClient,
+    access_token: str,
+    game_folder_rom: Rom,
+    soundtrack_fs: Path,
+):
+    response = client.post(
+        f"/api/roms/{game_folder_rom.id}/soundtracks",
+        headers={**bearer(access_token), "x-upload-filename": "track1.mp3"},
+        files={"other.mp3": ("other.mp3", MP3_BYTES, "audio/mpeg")},
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "no file part named track1.mp3" in response.json()["detail"]
+    assert not list(soundtrack_fs.iterdir())
 
 
 # Single-file auto-convert on upload is covered in test_convert_to_folder.py.
@@ -110,12 +147,51 @@ def test_upload_soundtrack_rejects_invalid_extension(
 ):
     response = client.post(
         f"/api/roms/{game_folder_rom.id}/soundtracks",
-        headers={**_auth(access_token), "x-upload-filename": "notes.txt"},
+        headers={**bearer(access_token), "x-upload-filename": "notes.txt"},
         files={"notes.txt": ("notes.txt", b"not audio", "text/plain")},
     )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert "Unsupported audio file type" in response.json()["detail"]
+
+
+def test_upload_chiptune_soundtrack_lists_an_untagged_track(
+    client: TestClient,
+    access_token: str,
+    game_folder_rom: Rom,
+    soundtrack_fs: Path,
+):
+    spc = b"SNES-SPC700 Sound File Data v0.30"
+
+    response = client.post(
+        f"/api/roms/{game_folder_rom.id}/soundtracks",
+        headers={**bearer(access_token), "x-upload-filename": "01 Title.spc"},
+        files={"01 Title.spc": ("01 Title.spc", spc, "application/octet-stream")},
+    )
+
+    assert response.status_code == status.HTTP_201_CREATED
+    assert (soundtrack_fs / "01 Title.spc").read_bytes() == spc
+    rom_after = db_rom_handler.get_rom(game_folder_rom.id)
+    assert rom_after is not None
+    [track] = [f for f in rom_after.files if f.category == RomFileCategory.SOUNDTRACK]
+    assert track.track_meta is not None
+    assert track.track_meta.title is None
+
+
+def test_upload_soundtrack_rejects_a_multi_song_chiptune(
+    client: TestClient,
+    access_token: str,
+    game_folder_rom: Rom,
+    soundtrack_fs: Path,
+):
+    response = client.post(
+        f"/api/roms/{game_folder_rom.id}/soundtracks",
+        headers={**bearer(access_token), "x-upload-filename": "game.nsf"},
+        files={"game.nsf": ("game.nsf", b"NESM\x1a", "application/octet-stream")},
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert not (soundtrack_fs / "game.nsf").exists()
 
 
 # ---------- DELETE /api/roms/{id}/soundtracks/{file_id} ----------
@@ -140,7 +216,7 @@ def test_delete_soundtrack_success(
 
     response = client.delete(
         f"/api/roms/{game_folder_rom.id}/soundtracks/{track.id}",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -167,7 +243,7 @@ def test_delete_soundtrack_wrong_rom_returns_404(
 
     response = client.delete(
         f"/api/roms/{rom.id}/soundtracks/{track.id}",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -191,7 +267,7 @@ def test_delete_soundtrack_wrong_category_returns_404(
 
     response = client.delete(
         f"/api/roms/{game_folder_rom.id}/soundtracks/{not_soundtrack.id}",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -220,11 +296,9 @@ def test_upload_soundtrack_extracts_audio_meta(
         "file_mtime": 1_700_000_000.0,
         "file_size": len(MP3_BYTES),
     }
+    monkeypatch.setattr(audio_tags, "extract_audio_meta", lambda _path: fake_meta)
     monkeypatch.setattr(
-        soundtrack_endpoint, "extract_audio_meta", lambda _path: fake_meta
-    )
-    monkeypatch.setattr(
-        soundtrack_endpoint,
+        scan_handler,
         "persist_embedded_cover",
         lambda **kw: (
             f"roms/{kw['platform_id']}/{kw['rom_id']}"
@@ -234,12 +308,13 @@ def test_upload_soundtrack_extracts_audio_meta(
 
     response = client.post(
         f"/api/roms/{game_folder_rom.id}/soundtracks",
-        headers={**_auth(access_token), "x-upload-filename": "track1.mp3"},
+        headers={**bearer(access_token), "x-upload-filename": "track1.mp3"},
         files={"track1.mp3": ("track1.mp3", MP3_BYTES, "audio/mpeg")},
     )
     assert response.status_code == status.HTTP_201_CREATED
 
     rom_after = db_rom_handler.get_rom(game_folder_rom.id)
+    assert rom_after is not None
     soundtracks = [
         f for f in rom_after.files if f.category == RomFileCategory.SOUNDTRACK
     ]
@@ -268,28 +343,25 @@ def test_upload_soundtrack_no_cover_leaves_cover_path_unset(
     monkeypatch: pytest.MonkeyPatch,
 ):
     monkeypatch.setattr(
-        soundtrack_endpoint,
-        "extract_audio_meta",
-        lambda _path: {"has_embedded_cover": False},
+        audio_tags, "extract_audio_meta", lambda _path: {"has_embedded_cover": False}
     )
-    cover_calls: list[dict] = []
+    cover_calls: list[dict[str, Any]] = []
 
     def _record_cover_call(**kw: object) -> None:
         cover_calls.append(kw)
 
-    monkeypatch.setattr(
-        soundtrack_endpoint, "persist_embedded_cover", _record_cover_call
-    )
+    monkeypatch.setattr(scan_handler, "persist_embedded_cover", _record_cover_call)
 
     response = client.post(
         f"/api/roms/{game_folder_rom.id}/soundtracks",
-        headers={**_auth(access_token), "x-upload-filename": "track1.mp3"},
+        headers={**bearer(access_token), "x-upload-filename": "track1.mp3"},
         files={"track1.mp3": ("track1.mp3", MP3_BYTES, "audio/mpeg")},
     )
     assert response.status_code == status.HTTP_201_CREATED
     assert cover_calls == []  # never called when has_embedded_cover is False
 
     rom_after = db_rom_handler.get_rom(game_folder_rom.id)
+    assert rom_after is not None
     track = next(f for f in rom_after.files if f.category == RomFileCategory.SOUNDTRACK)
     assert track.track_meta is not None
     assert track.track_meta.cover_path is None
@@ -343,7 +415,7 @@ def test_get_soundtrack_metadata_returns_tracks_sorted(
 
     response = client.get(
         f"/api/roms/{game_folder_rom.id}/soundtracks/metadata",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -361,7 +433,7 @@ def test_get_soundtrack_metadata_empty_for_rom_without_tracks(
 ):
     response = client.get(
         f"/api/roms/{game_folder_rom.id}/soundtracks/metadata",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.json() == []
@@ -382,7 +454,7 @@ def test_upload_soundtrack_forbidden_viewer(
     response = client.post(
         f"/api/roms/{game_folder_rom.id}/soundtracks",
         headers={
-            **_auth(viewer_access_token),
+            **bearer(viewer_access_token),
             "x-upload-filename": "track1.mp3",
         },
         files={"track1.mp3": ("track1.mp3", MP3_BYTES, "audio/mpeg")},
@@ -408,7 +480,7 @@ def test_delete_soundtrack_forbidden_viewer(
 
     response = client.delete(
         f"/api/roms/{game_folder_rom.id}/soundtracks/{track.id}",
-        headers=_auth(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
     assert response.status_code == status.HTTP_403_FORBIDDEN
 
@@ -427,7 +499,7 @@ def test_upload_soundtrack_rejects_traversal_filename(
     response = client.post(
         f"/api/roms/{game_folder_rom.id}/soundtracks",
         headers={
-            **_auth(access_token),
+            **bearer(access_token),
             "x-upload-filename": "../../evil.mp3",
         },
         files={"../../evil.mp3": ("evil.mp3", MP3_BYTES, "audio/mpeg")},
@@ -448,7 +520,7 @@ def test_upload_soundtrack_rejects_slash_filename(
     response = client.post(
         f"/api/roms/{game_folder_rom.id}/soundtracks",
         headers={
-            **_auth(access_token),
+            **bearer(access_token),
             "x-upload-filename": "sub/track.mp3",
         },
         files={"sub/track.mp3": ("track.mp3", MP3_BYTES, "audio/mpeg")},
@@ -464,11 +536,10 @@ def test_upload_soundtrack_rejects_dotdot_only_filename(
 ):
     response = client.post(
         f"/api/roms/{game_folder_rom.id}/soundtracks",
-        headers={**_auth(access_token), "x-upload-filename": ".."},
+        headers={**bearer(access_token), "x-upload-filename": ".."},
         files={"..": ("..", MP3_BYTES, "audio/mpeg")},
     )
     assert response.status_code == status.HTTP_400_BAD_REQUEST
-    assert "filename" in response.json()["detail"].lower()
 
 
 # ---------- 404 metadata ----------
@@ -480,7 +551,7 @@ def test_get_soundtrack_metadata_unknown_rom_returns_404(
 ):
     response = client.get(
         "/api/roms/999999/soundtracks/metadata",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -498,12 +569,13 @@ def test_upload_soundtrack_with_malformed_audio_still_succeeds(
     audio_meta=None, not a 500."""
     response = client.post(
         f"/api/roms/{game_folder_rom.id}/soundtracks",
-        headers={**_auth(access_token), "x-upload-filename": "bad.mp3"},
+        headers={**bearer(access_token), "x-upload-filename": "bad.mp3"},
         files={"bad.mp3": ("bad.mp3", b"\x00\x01\x02 not audio", "audio/mpeg")},
     )
     assert response.status_code == status.HTTP_201_CREATED
 
     rom_after = db_rom_handler.get_rom(game_folder_rom.id)
+    assert rom_after is not None
     soundtracks = [
         f for f in rom_after.files if f.category == RomFileCategory.SOUNDTRACK
     ]
@@ -535,7 +607,7 @@ def test_delete_soundtrack_tolerates_missing_disk_file(
 
     response = client.delete(
         f"/api/roms/{game_folder_rom.id}/soundtracks/{track.id}",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
     assert response.status_code == status.HTTP_200_OK
     assert db_rom_handler.get_rom_file_by_id(track.id) is None
@@ -575,7 +647,7 @@ def test_delete_soundtrack_removes_persisted_cover(
 
     response = client.delete(
         f"/api/roms/{game_folder_rom.id}/soundtracks/{track.id}",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
     assert response.status_code == status.HTTP_200_OK
     assert removed == [

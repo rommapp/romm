@@ -5,5 +5,10 @@
 export type EmulationDict = {
     DISABLE_EMULATOR_JS: boolean;
     DISABLE_RUFFLE_RS: boolean;
+    DISABLE_JSDOS: boolean;
+    DISABLE_PICO8: boolean;
+    DISABLE_EASYRPG: boolean;
+    EJS_CORES: Record<string, Array<string>>;
+    EJS_NIGHTLY_CORES: Record<string, Array<string>>;
 };
 

@@ -1,5 +1,7 @@
 import asyncio
 import errno
+import os
+import re
 import shutil
 import tempfile
 from io import BytesIO
@@ -9,8 +11,17 @@ from unittest.mock import Mock, patch
 import pytest
 from fastapi import UploadFile
 
-from handler.filesystem.base_handler import FSHandler
-from models.base import FILE_NAME_MAX_LENGTH
+from config.config_manager import DEFAULT_EXCLUDED_FILES
+from handler.filesystem.base_handler import (
+    FSHandler,
+    normalize_language,
+    normalize_provider_languages,
+    normalize_provider_regions,
+    provider_language_name,
+    provider_region_name,
+    region_ranks_for_priority,
+    translation_language,
+)
 
 
 class TestFSHandler:
@@ -41,15 +52,15 @@ class TestFSHandler:
         mock_file.file = BytesIO(sample_file_content)
         return mock_file
 
-    def test_init_creates_base_directory(self, temp_dir):
-        """Test that FSHandler creates base directory on initialization"""
-        # Remove the directory to test creation
+    async def test_base_directory_is_created_on_first_write(self, temp_dir):
         shutil.rmtree(temp_dir)
 
         handler = FSHandler(temp_dir)
+        assert not handler.base_path.exists()
 
-        assert handler.base_path.exists()
-        assert handler.base_path.is_dir()
+        await handler.write_file(b"data", path="", filename="test.txt")
+
+        assert (handler.base_path / "test.txt").read_bytes() == b"data"
 
     def test_init_resolves_path(self, temp_dir):
         """Test that FSHandler resolves the base path"""
@@ -70,6 +81,15 @@ class TestFSHandler:
         assert handler._sanitize_filename("/etc/passwd") == "passwd"
         assert handler._sanitize_filename("dir/../test.txt") == "test.txt"
 
+    def test_sanitize_filename_over_255_bytes(self, handler: FSHandler):
+        """The filesystem caps a name at 255 bytes, well under the column's
+        450 characters, so a multibyte name hits it first."""
+        assert handler._sanitize_filename("あ" * 85) == "あ" * 85
+        with pytest.raises(ValueError, match="255 bytes"):
+            handler._sanitize_filename("あ" * 86)
+        with pytest.raises(ValueError, match="255 bytes"):
+            handler._sanitize_filename("a" * 256)
+
     def test_sanitize_filename_invalid(self, handler: FSHandler):
         """Test filename sanitization with invalid filenames"""
         with pytest.raises(ValueError, match="Empty filename"):
@@ -80,12 +100,6 @@ class TestFSHandler:
 
         with pytest.raises(ValueError, match="Invalid filename"):
             handler._sanitize_filename("..")
-
-    def test_sanitize_filename_too_long(self, handler: FSHandler):
-        """Test filename sanitization with too long filenames"""
-        long_name = "a" * (FILE_NAME_MAX_LENGTH + 1)
-        with pytest.raises(ValueError, match="Filename .* exceeds maximum length"):
-            handler._sanitize_filename(long_name)
 
     def test_validate_path_valid(self, handler: FSHandler):
         """Test path validation with valid paths"""
@@ -99,6 +113,22 @@ class TestFSHandler:
         for path in valid_paths:
             result = handler.validate_path(path)
             assert result.is_relative_to(handler.base_path)
+
+    def test_validate_path_base_directory(self, handler: FSHandler):
+        base = Path(handler.base_path).resolve()
+        assert handler.validate_path("") == base
+        assert handler.validate_path(".") == base
+
+    async def test_compute_file_md5(self, handler: FSHandler):
+        await handler.write_file(b"romm", ".", "file.bin")
+        assert (
+            await handler.compute_file_md5("file.bin")
+            == "356bc0b7ad776f256d85069abcb4698c"
+        )
+
+    async def test_compute_file_md5_missing_file_raises(self, handler: FSHandler):
+        with pytest.raises(FileNotFoundError):
+            await handler.compute_file_md5("missing.bin")
 
     def test_validate_path_traversal_attack(self, handler: FSHandler):
         """Test path validation prevents directory traversal attacks"""
@@ -115,6 +145,33 @@ class TestFSHandler:
             ):
                 handler.validate_path(path)
 
+    def test_validate_path_never_escapes_its_base(self, handler: FSHandler):
+        base = Path(handler.base_path).resolve()
+        hostile = [
+            "..",
+            "../x",
+            "../../etc/passwd",
+            "a/../../x",
+            "a/./../../x",
+            "./../x",
+            "a//../../x",
+            "/etc/passwd",
+            "//etc/passwd",
+            "a/b/../../../x",
+            "...",
+            "a/..x",
+            "x/",
+        ]
+        escaped = []
+        for path in hostile:
+            try:
+                resolved = handler.validate_path(path)
+            except ValueError:
+                continue
+            if not resolved.resolve().is_relative_to(base):
+                escaped.append(path)
+        assert escaped == []
+
     def test_validate_path_absolute(self, handler: FSHandler):
         """Test path validation rejects absolute paths"""
         absolute_paths = ["/etc/passwd", "/tmp/test.txt", "/home/user/file.txt"]
@@ -124,6 +181,47 @@ class TestFSHandler:
                 ValueError, match="Path .* must be relative, not absolute"
             ):
                 handler.validate_path(path)
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "",
+            ".",
+            "test.txt",
+            "dir/test.txt",
+            "dir//sub/./test.txt",
+            "dir/",
+            "linked/test.txt",
+            "dir/../test.txt",
+            "../test.txt",
+            "/etc/passwd",
+        ],
+    )
+    def test_cached_path_validator_matches_validate_path(
+        self, handler: FSHandler, temp_dir: str, tmp_path: Path, path: str
+    ):
+        (Path(temp_dir) / "dir").mkdir()
+        (Path(temp_dir) / "linked").symlink_to(tmp_path, target_is_directory=True)
+        validate = handler.cached_path_validator()
+
+        try:
+            expected = handler.validate_path(path)
+        except ValueError as exc:
+            with pytest.raises(ValueError, match=re.escape(str(exc))):
+                validate(path)
+        else:
+            assert validate(path) == expected
+
+    def test_cached_path_validator_checks_each_directory_once(self, handler: FSHandler):
+        validate = handler.cached_path_validator()
+
+        with patch.object(
+            handler, "validate_path", wraps=handler.validate_path
+        ) as validate_path:
+            paths = [validate(f"dir/{name}.png") for name in ("a", "b", "c")]
+
+        validate_path.assert_called_once_with("dir")
+        assert paths == [handler.base_path / "dir" / f"{n}.png" for n in "abc"]
 
     def test_get_file_name_with_no_extension(self, handler: FSHandler):
         """Test file name extraction without extension"""
@@ -138,6 +236,18 @@ class TestFSHandler:
         assert handler.get_file_name_with_no_tags("game [Beta].rom") == "game"
         assert handler.get_file_name_with_no_tags("game (USA) [Beta].rom") == "game"
         assert handler.get_file_name_with_no_tags("plain_name.rom") == "plain_name"
+
+    @pytest.mark.parametrize(
+        "file_name",
+        ["celeste.p8.png", "celeste.P8.PNG", "celeste (v1.1).p8.png", "celeste.p8"],
+    )
+    def test_a_pico8_cart_title_drops_the_cart_extension(
+        self, handler: FSHandler, file_name: str
+    ):
+        assert handler.get_file_name_with_no_tags(file_name) == "celeste"
+
+    def test_only_a_pico8_cart_loses_a_p8_suffix(self, handler: FSHandler):
+        assert handler.get_file_name_with_no_tags("Game.p8.zip") == "Game.p8"
 
     def test_parse_file_extension(self, handler: FSHandler):
         """Test file extension parsing"""
@@ -198,6 +308,24 @@ class TestFSHandler:
             assert "readme.txt" in result
             assert "game.nds" in result
             assert "game.rom" in result
+
+    def test_exclude_single_files_zone_identifier(self, handler: FSHandler):
+        files = ["game.iso", "game.iso:Zone.Identifier"]
+
+        with patch("handler.filesystem.base_handler.cm.get_config") as mock_config:
+            mock_config.return_value.EXCLUDED_SINGLE_EXT = []
+            mock_config.return_value.EXCLUDED_SINGLE_FILES = DEFAULT_EXCLUDED_FILES
+
+            assert handler.exclude_single_files(files) == ["game.iso"]
+
+    def test_exclude_single_files_appledouble(self, handler: FSHandler):
+        files = ["Tetris (World) (Rev 1).gb", "._Tetris (World) (Rev 1).gb"]
+
+        with patch("handler.filesystem.base_handler.cm.get_config") as mock_config:
+            mock_config.return_value.EXCLUDED_SINGLE_EXT = []
+            mock_config.return_value.EXCLUDED_SINGLE_FILES = DEFAULT_EXCLUDED_FILES
+
+            assert handler.exclude_single_files(files) == ["Tetris (World) (Rev 1).gb"]
 
     async def test_make_directory(self, handler: FSHandler):
         """Test directory creation"""
@@ -318,7 +446,7 @@ class TestFSHandler:
 
     async def test_write_file_streamed(self, handler: FSHandler, sample_file_content):
         """Test streamed file writing"""
-        async with await handler.write_file_streamed(".", "test_file.txt") as f:
+        async with handler.write_file_streamed(".", "test_file.txt") as f:
             await f.write(sample_file_content)
 
         file_path = handler.base_path / "test_file.txt"
@@ -386,6 +514,110 @@ class TestFSHandler:
         """Test moving nonexistent file"""
         with pytest.raises(FileNotFoundError, match="Source file or folder not found"):
             await handler.move_file_or_folder("nonexistent.txt", "destination.txt")
+
+    async def test_rename_file_stays_in_its_directory(
+        self, handler: FSHandler, sample_file_content
+    ):
+        await handler.write_file(sample_file_content, "saves/gba", "old.srm")
+
+        await handler.rename_file("saves/gba/old.srm", "new.srm")
+
+        assert not (handler.base_path / "saves/gba/old.srm").exists()
+        assert (
+            handler.base_path / "saves/gba/new.srm"
+        ).read_bytes() == sample_file_content
+
+    async def test_rename_file_keeps_only_the_base_name(
+        self, handler: FSHandler, sample_file_content
+    ):
+        await handler.write_file(sample_file_content, "saves/gba", "old.srm")
+
+        await handler.rename_file("saves/gba/old.srm", "../../escaped.srm")
+
+        assert (handler.base_path / "saves/gba/escaped.srm").exists()
+        assert not (handler.base_path / "escaped.srm").exists()
+
+    async def test_rename_file_refuses_to_replace_another_file(
+        self, handler: FSHandler, sample_file_content
+    ):
+        await handler.write_file(sample_file_content, ".", "old.srm")
+        await handler.write_file(b"other", ".", "taken.srm")
+
+        with pytest.raises(FileExistsError, match="File already exists"):
+            await handler.rename_file("old.srm", "taken.srm")
+
+        assert (handler.base_path / "old.srm").read_bytes() == sample_file_content
+        assert (handler.base_path / "taken.srm").read_bytes() == b"other"
+
+    async def test_rename_file_to_its_own_name_is_a_no_op(
+        self, handler: FSHandler, sample_file_content
+    ):
+        await handler.write_file(sample_file_content, ".", "same.srm")
+
+        await handler.rename_file("same.srm", "same.srm")
+
+        assert (handler.base_path / "same.srm").read_bytes() == sample_file_content
+
+    async def test_copy_to_new_file_leaves_the_source(
+        self, handler: FSHandler, sample_file_content
+    ):
+        await handler.write_file(sample_file_content, ".", "shot.png")
+
+        await handler.copy_to_new_file("shot.png", "copy.png")
+
+        assert (handler.base_path / "shot.png").read_bytes() == sample_file_content
+        assert (handler.base_path / "copy.png").read_bytes() == sample_file_content
+
+    async def test_copy_to_new_file_refuses_to_replace_a_file(
+        self, handler: FSHandler, sample_file_content
+    ):
+        await handler.write_file(sample_file_content, ".", "shot.png")
+        await handler.write_file(b"other", ".", "taken.png")
+
+        with pytest.raises(FileExistsError):
+            await handler.copy_to_new_file("shot.png", "taken.png")
+        with pytest.raises(FileExistsError):
+            await handler.copy_to_new_file("shot.png", "shot.png")
+
+        assert (handler.base_path / "taken.png").read_bytes() == b"other"
+
+    async def test_copy_to_new_file_leaves_nothing_when_the_copy_fails(
+        self, handler: FSHandler, sample_file_content
+    ):
+        await handler.write_file(sample_file_content, ".", "shot.png")
+
+        with (
+            patch(
+                "handler.filesystem.base_handler.os.link",
+                side_effect=OSError(errno.EXDEV, "cross-device link"),
+            ),
+            patch(
+                "handler.filesystem.base_handler.shutil.copyfileobj",
+                side_effect=OSError(errno.ENOSPC, "no space left"),
+            ),
+            pytest.raises(OSError, match="no space left"),
+        ):
+            await handler.copy_to_new_file("shot.png", "copy.png")
+
+        assert not (handler.base_path / "copy.png").exists()
+        assert (handler.base_path / "shot.png").read_bytes() == sample_file_content
+
+    async def test_is_same_file_follows_the_file_not_the_name(
+        self, handler: FSHandler, sample_file_content
+    ):
+        await handler.write_file(sample_file_content, ".", "shot.png")
+        await handler.write_file(b"other", ".", "other.png")
+        # A second link stands in for a case-insensitive filesystem's alias.
+        os.link(handler.base_path / "shot.png", handler.base_path / "Shot.png")
+
+        assert handler.is_same_file("shot.png", "shot.png")
+        assert handler.is_same_file("shot.png", "Shot.png")
+        assert not handler.is_same_file("shot.png", "other.png")
+        assert not handler.is_same_file("shot.png", "missing.png")
+
+    async def test_rename_file_nonexistent(self, handler: FSHandler):
+        with pytest.raises(FileNotFoundError, match="File not found"):
+            await handler.rename_file("nonexistent.srm", "new.srm")
 
     async def test_remove_file(self, handler: FSHandler, sample_file_content):
         """Test file removal"""
@@ -586,12 +818,210 @@ class TestFSHandler:
 
 
 class TestFSHandlerInit:
-    def test_raises_on_mkdir_failure(self):
-        """OSError from mkdir propagates, so misconfigured paths fail loudly
-        at construction time. Optional features should defer construction
-        (e.g. via a lazy factory) rather than swallow the error."""
+    def test_does_not_touch_an_unwritable_base_path(self):
+        """Handlers are built at import, so an unmounted base path can't block boot."""
         with patch.object(
             Path, "mkdir", side_effect=PermissionError(errno.EACCES, "denied")
-        ):
-            with pytest.raises(PermissionError):
-                FSHandler("/some/unwritable/path")
+        ) as mkdir:
+            FSHandler("/some/unwritable/path")
+
+        mkdir.assert_not_called()
+
+
+class TestRegionRanksForPriority:
+    """Ranking is per configured shortcode, not per expanded region name."""
+
+    def test_two_names_sharing_a_shortcode_rank_equally(self):
+        ranks = region_ranks_for_priority(["nl", "jp"])
+
+        assert ranks["Holland"] == ranks["Netherlands"]
+        # And the next shortcode still ranks strictly below them.
+        assert ranks["Japan"] > ranks["Netherlands"]
+
+    def test_unknown_shortcode_does_not_shift_later_ranks(self):
+        # "ss" is a ScreenScraper bucket, not a region.
+        assert region_ranks_for_priority(["us", "ss", "jp"]) == {
+            "USA": 0,
+            "Japan": 1,
+        }
+
+    def test_repeated_shortcode_does_not_shift_later_ranks(self):
+        assert region_ranks_for_priority(["us", "us", "jp"]) == {
+            "USA": 0,
+            "Japan": 1,
+        }
+
+    def test_ranks_follow_the_configured_order(self):
+        ranks = region_ranks_for_priority(["jp", "us"])
+
+        assert ranks["Japan"] < ranks["USA"]
+
+    def test_empty_priority_yields_no_ranks(self):
+        assert region_ranks_for_priority([]) == {}
+
+
+class TestTranslationLanguage:
+    @pytest.mark.parametrize(
+        ("code", "expected"),
+        [
+            ("Eng", "English"),
+            ("En", "English"),
+            ("Ita", "Italian"),
+            ("It", "Italian"),
+            ("Ge", "German"),
+            ("Sp", "Spanish"),
+            ("Du", "Dutch"),
+            ("Gr", "Greek"),
+            ("Jp", "Japanese"),
+            ("Pt-BR", "Brazilian Portuguese"),
+        ],
+    )
+    def test_resolves_the_forms_a_translation_tag_uses(self, code: str, expected: str):
+        assert translation_language(code) == expected
+
+    def test_an_unnamed_language_resolves_to_none(self):
+        assert translation_language("Tha") is None
+
+
+class TestNormalizeProviderRegions:
+    """Provider shortcodes collapse onto the names filename parsing produces."""
+
+    def test_provider_shortcodes_resolve_to_canonical_names(self):
+        assert normalize_provider_regions(["us", "eu", "wor", "asi"]) == [
+            "USA",
+            "Europe",
+            "World",
+            "Asia",
+        ]
+
+    def test_filename_spellings_are_accepted_too(self):
+        assert normalize_provider_regions(["usa", "J", "EUROPE"]) == [
+            "USA",
+            "Japan",
+            "Europe",
+        ]
+
+    def test_shortcode_shared_with_a_language_stays_a_region(self):
+        # "de" and "fr" also spell a language tag, but a provider reporting
+        # them under a region field means Germany and France.
+        assert normalize_provider_regions(["de", "fr"]) == ["Germany", "France"]
+
+    def test_duplicate_spellings_collapse_to_one_value(self):
+        assert normalize_provider_regions(["us", "USA", "U"]) == ["USA"]
+
+    def test_unknown_value_is_kept_as_given(self):
+        assert normalize_provider_regions([" Neptune "]) == ["Neptune"]
+
+    def test_blank_values_are_dropped(self):
+        assert normalize_provider_regions(["", "  ", "us"]) == ["USA"]
+
+
+class TestNormalizeProviderLanguages:
+    """ISO-639-1 codes collapse onto the names filename parsing produces."""
+
+    def test_iso_codes_resolve_to_canonical_names(self):
+        assert normalize_provider_languages(["en", "fr", "ja"]) == [
+            "English",
+            "French",
+            "Japanese",
+        ]
+
+    def test_duplicate_spellings_collapse_to_one_value(self):
+        assert normalize_provider_languages(["en", "English", "EN"]) == ["English"]
+
+    def test_unknown_value_is_kept_as_given(self):
+        assert normalize_provider_languages([" Klingon "]) == ["Klingon"]
+
+    def test_blank_values_are_dropped(self):
+        assert normalize_provider_languages(["", "  ", "en"]) == ["English"]
+
+
+# Every region ScreenScraper can report, from its published list. Providers
+# send these bare, so one that resolves to nothing becomes a facet value.
+SCREENSCRAPER_REGION_CODES = (
+    "de",
+    "asi",
+    "au",
+    "br",
+    "bg",
+    "ca",
+    "cl",
+    "cn",
+    "ame",
+    "kr",
+    "dk",
+    "sp",
+    "eu",
+    "fi",
+    "fr",
+    "gr",
+    "hu",
+    "il",
+    "it",
+    "jp",
+    "kw",
+    "wor",
+    "mor",
+    "no",
+    "nz",
+    "oce",
+    "nl",
+    "pe",
+    "pl",
+    "pt",
+    "cz",
+    "uk",
+    "ru",
+    "sk",
+    "se",
+    "tw",
+    "tr",
+    "us",
+)
+
+# The buckets that name no place. Both readers drop these rather than store them.
+SCREENSCRAPER_PSEUDO_REGIONS = ("ss", "cus")
+
+
+class TestProviderVocabularyCoverage:
+    """A code a provider can send has to resolve, or it lands in a facet raw."""
+
+    @pytest.mark.parametrize("code", SCREENSCRAPER_REGION_CODES)
+    def test_every_screenscraper_region_resolves(self, code: str):
+        assert provider_region_name(code) is not None
+
+    @pytest.mark.parametrize("code", SCREENSCRAPER_PSEUDO_REGIONS)
+    def test_the_screenscraper_buckets_resolve_to_nothing(self, code: str):
+        assert provider_region_name(code) is None
+
+    @pytest.mark.parametrize(
+        "code,expected",
+        [
+            ("pl", "Poland"),
+            ("cz", "Czech Republic"),
+            ("tr", "Turkey"),
+            ("wor", "World"),
+        ],
+    )
+    def test_a_region_with_no_filename_shortcode_still_canonicalizes(
+        self, code: str, expected: str
+    ):
+        assert normalize_provider_regions([code]) == [expected]
+
+    @pytest.mark.parametrize(
+        "code,expected",
+        [("cs", "Czech"), ("tr", "Turkish"), ("he", "Hebrew"), ("uk", "Ukrainian")],
+    )
+    def test_an_iso_language_with_no_filename_shortcode_canonicalizes(
+        self, code: str, expected: str
+    ):
+        assert normalize_provider_languages([code]) == [expected]
+
+    def test_the_provider_languages_stay_out_of_filename_parsing(self):
+        """A filename "(Tr)" marks a translation, not Turkish."""
+        assert normalize_language("tr") is None
+        assert provider_language_name("tr") == "Turkish"
+
+    def test_a_provider_name_resolves_to_the_same_value_as_its_code(self):
+        assert provider_region_name("Poland") == provider_region_name("pl")
+        assert provider_language_name("czech") == provider_language_name("cs")

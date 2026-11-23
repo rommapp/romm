@@ -1,9 +1,21 @@
+import bz2
+import gzip
+import hashlib
+import io
+import lzma
+import shutil
+import struct
+import subprocess
+import tarfile
 import time
+import zipfile
+from collections.abc import Iterator
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from logger.logger import log
 from utils import archives
 
 
@@ -108,8 +120,8 @@ def test_read_7z_archive_files_timeout_raises_without_spawning_per_member(monkey
     monkeypatch.setattr(archives, "SEVEN_ZIP_TIMEOUT", -1)
 
     with (
-        patch.object(archives.subprocess, "run", return_value=listing),
-        patch.object(archives.subprocess, "Popen") as popen_patch,
+        patch.object(subprocess, "run", return_value=listing),
+        patch.object(subprocess, "Popen") as popen_patch,
         pytest.raises(archives.ArchiveReadError),
     ):
         list(archives.read_7z_archive_files(Path("/fake.7z"), [], []))
@@ -125,14 +137,77 @@ def test_read_7z_archive_files_raises_when_a_member_fails_midway():
     popen = _mock_popen_streaming([[b"aaa"], [b"bbb"]], [0, 2])
 
     with (
-        patch.object(archives.subprocess, "run", return_value=listing),
-        patch.object(archives.subprocess, "Popen", popen),
+        patch.object(subprocess, "run", return_value=listing),
+        patch.object(subprocess, "Popen", popen),
         pytest.raises(archives.ArchiveReadError),
     ):
         for _name, _size, chunks in archives.read_7z_archive_files(
             Path("/fake.7z"), [], []
         ):
             list(chunks)
+
+
+def test_largest_member_hashing_terminates_switches_before_the_member():
+    """The hashing path builds its own 7-Zip command, so a switch-shaped member
+    name from the archive's own listing must reach it as a name too."""
+    # The size comparison has to pick "-x" for it to be the name passed on.
+    listing = MagicMock(stdout=_fake_7z_listing_sized([("game.bin", 5), ("-x", 99)]))
+    popen = _mock_popen_streaming([[b"data"]], [0])
+
+    with (
+        patch.object(subprocess, "run", return_value=listing),
+        patch.object(subprocess, "Popen", popen),
+    ):
+        assert _last_candidate(archives.read_7z_or_rar_file(Path("/fake/game.7z"))) == (
+            b"data"
+        )
+
+    command = popen.call_args[0][0]
+    assert command[-2:] == ["--", "-x"]
+
+
+class TestStalledExtractorIsKilled:
+    """A read of a stalled extractor's stdout blocks, so the clock check
+    between chunks never runs; the deadline has to kill the process."""
+
+    @pytest.fixture
+    def stalling_7zz(self, tmp_path, monkeypatch):
+        script = tmp_path / "7zz"
+        script.write_text("#!/bin/sh\nprintf abc\nexec sleep 30\n")
+        script.chmod(0o755)
+        monkeypatch.setattr(archives, "SEVEN_ZIP_PATH", str(script))
+        monkeypatch.setattr(archives, "SEVEN_ZIP_TIMEOUT", 1)
+        listing = MagicMock(stdout=_fake_7z_listing_sized([("game.iso", 10)]))
+        with patch.object(subprocess, "run", return_value=listing):
+            yield
+
+    @pytest.mark.usefixtures("stalling_7zz")
+    def test_member_streaming_raises(self):
+        start = time.monotonic()
+        with pytest.raises(archives.ArchiveReadError, match="timed out"):
+            for _name, _size, chunks in archives.read_7z_archive_files(
+                Path("/fake.7z"), [], []
+            ):
+                list(chunks)
+        assert time.monotonic() - start < 10
+
+    @pytest.mark.usefixtures("stalling_7zz")
+    def test_largest_member_hashing_fails(self):
+        start = time.monotonic()
+        with pytest.raises(archives.ArchiveReadError, match="timed out"):
+            _last_candidate(archives.read_7z_or_rar_file(Path("/fake/game.7z")))
+        assert time.monotonic() - start < 10
+
+    @pytest.mark.usefixtures("stalling_7zz")
+    def test_largest_member_extraction_leaves_no_file(self, tmp_path):
+        dest = tmp_path / "out"
+        dest.mkdir()
+        start = time.monotonic()
+        assert (
+            archives.extract_largest_archive_member(Path("/fake/game.7z"), dest) is None
+        )
+        assert time.monotonic() - start < 10
+        assert not any(dest.iterdir())
 
 
 class TestExtractLargestArchiveMember:
@@ -147,8 +222,8 @@ class TestExtractLargestArchiveMember:
         popen = _mock_popen_streaming([[b"abc", b"def"]], [0])
 
         with (
-            patch.object(archives.subprocess, "run", return_value=listing),
-            patch.object(archives.subprocess, "Popen", popen),
+            patch.object(subprocess, "run", return_value=listing),
+            patch.object(subprocess, "Popen", popen),
         ):
             result = archives.extract_largest_archive_member(
                 Path("/fake/game.7z"), tmp_path
@@ -170,8 +245,8 @@ class TestExtractLargestArchiveMember:
         popen = _mock_popen_streaming([[b"abc"]], [0])
 
         with (
-            patch.object(archives.subprocess, "run", return_value=listing),
-            patch.object(archives.subprocess, "Popen", popen),
+            patch.object(subprocess, "run", return_value=listing),
+            patch.object(subprocess, "Popen", popen),
         ):
             result = archives.extract_largest_archive_member(
                 Path("/fake/game.7z"), tmp_path
@@ -188,8 +263,8 @@ class TestExtractLargestArchiveMember:
         popen = _mock_popen_streaming([[b"abc"]], [0])
 
         with (
-            patch.object(archives.subprocess, "run", return_value=listing),
-            patch.object(archives.subprocess, "Popen", popen),
+            patch.object(subprocess, "run", return_value=listing),
+            patch.object(subprocess, "Popen", popen),
         ):
             result = archives.extract_largest_archive_member(
                 Path("/fake/game.gba.gz"), tmp_path
@@ -207,8 +282,8 @@ class TestExtractLargestArchiveMember:
         popen = _mock_popen_streaming([[b"abc"]], [0])
 
         with (
-            patch.object(archives.subprocess, "run", return_value=listing),
-            patch.object(archives.subprocess, "Popen", popen),
+            patch.object(subprocess, "run", return_value=listing),
+            patch.object(subprocess, "Popen", popen),
         ):
             result = archives.extract_largest_archive_member(
                 Path("/fake/game.7z"), tmp_path
@@ -226,8 +301,8 @@ class TestExtractLargestArchiveMember:
         popen = _mock_popen_streaming([[b"tarbytes"], [b"rombytes"]], [0, 0])
 
         with (
-            patch.object(archives.subprocess, "run", side_effect=listings),
-            patch.object(archives.subprocess, "Popen", popen),
+            patch.object(subprocess, "run", side_effect=listings),
+            patch.object(subprocess, "Popen", popen),
         ):
             result = archives.extract_largest_archive_member(
                 Path("/fake/game.tgz"), tmp_path
@@ -249,8 +324,8 @@ class TestExtractLargestArchiveMember:
         popen = _mock_popen_streaming([[b"tarbytes"], [b"7zbytes"]], [0, 0])
 
         with (
-            patch.object(archives.subprocess, "run", side_effect=listings),
-            patch.object(archives.subprocess, "Popen", popen),
+            patch.object(subprocess, "run", side_effect=listings),
+            patch.object(subprocess, "Popen", popen),
         ):
             result = archives.extract_largest_archive_member(
                 Path("/fake/game.tgz"), tmp_path
@@ -261,9 +336,9 @@ class TestExtractLargestArchiveMember:
 
     def test_returns_none_when_listing_fails(self, tmp_path):
         with patch.object(
-            archives.subprocess,
+            subprocess,
             "run",
-            side_effect=archives.subprocess.CalledProcessError(2, "7zz"),
+            side_effect=subprocess.CalledProcessError(2, "7zz"),
         ):
             result = archives.extract_largest_archive_member(
                 Path("/fake/game.7z"), tmp_path
@@ -274,7 +349,7 @@ class TestExtractLargestArchiveMember:
     def test_returns_none_when_archive_has_no_members(self, tmp_path):
         listing = MagicMock(stdout="")
 
-        with patch.object(archives.subprocess, "run", return_value=listing):
+        with patch.object(subprocess, "run", return_value=listing):
             result = archives.extract_largest_archive_member(
                 Path("/fake/game.7z"), tmp_path
             )
@@ -291,9 +366,9 @@ class TestExtractLargestArchiveMember:
         )
 
         with (
-            patch.object(archives.subprocess, "run", return_value=listing),
-            patch.object(archives.subprocess, "Popen", popen),
-            patch.object(archives.log, "error") as log_error,
+            patch.object(subprocess, "run", return_value=listing),
+            patch.object(subprocess, "Popen", popen),
+            patch.object(log, "error") as log_error,
         ):
             result = archives.extract_largest_archive_member(
                 Path("/fake/game.7z"), tmp_path
@@ -309,8 +384,8 @@ class TestExtractLargestArchiveMember:
         popen = _mock_popen_streaming([[b"abc", b"def"]], [0])
 
         with (
-            patch.object(archives.subprocess, "run", return_value=listing),
-            patch.object(archives.subprocess, "Popen", popen),
+            patch.object(subprocess, "run", return_value=listing),
+            patch.object(subprocess, "Popen", popen),
         ):
             result = archives.extract_largest_archive_member(
                 Path("/fake/game.7z"), tmp_path
@@ -335,7 +410,7 @@ class TestRarArchives:
             )
         )
 
-        with patch.object(archives.subprocess, "run", return_value=listing) as run:
+        with patch.object(subprocess, "run", return_value=listing) as run:
             members = archives._list_rar_file_members(Path("/fake/game.rar"))
 
         # The archive-root "./" prefix is not part of the stored member name.
@@ -354,7 +429,7 @@ class TestRarArchives:
             )
         )
 
-        with patch.object(archives.subprocess, "run", return_value=listing):
+        with patch.object(subprocess, "run", return_value=listing):
             members = archives._list_rar_file_members(Path("/fake/game.rar"))
 
         assert members == [("subdir/game.gba", 500)]
@@ -368,7 +443,7 @@ class TestRarArchives:
             )
         )
 
-        with patch.object(archives.subprocess, "run", return_value=listing):
+        with patch.object(subprocess, "run", return_value=listing):
             members = archives._list_rar_file_members(Path("/fake/game.rar"))
 
         assert members == [("café #1\\x.gba", 500)]
@@ -377,11 +452,11 @@ class TestRarArchives:
         """Encrypted headers and corrupt archives make bsdtar exit non-zero."""
         with (
             patch.object(
-                archives.subprocess,
+                subprocess,
                 "run",
-                side_effect=archives.subprocess.CalledProcessError(1, "bsdtar"),
+                side_effect=subprocess.CalledProcessError(1, "bsdtar"),
             ),
-            patch.object(archives.log, "error") as log_error,
+            patch.object(log, "error") as log_error,
         ):
             members = archives._list_rar_file_members(Path("/fake/game.rar"))
 
@@ -408,6 +483,19 @@ class TestRarArchives:
             Path("/fake/game.7z"), "a.gba"
         )
         assert seven_zip_command[0] == archives.SEVEN_ZIP_PATH
+        assert seven_zip_command[-2:] == ["--", "a.gba"]
+
+    def test_extraction_command_terminates_switches_before_the_member(self):
+        """Member names come from the archive's own listing, so one shaped like
+        a switch has to reach 7-Zip as a name."""
+        for member in ("-x", "@listfile", "-so"):
+            command = archives._archive_member_command(Path("/fake/game.7z"), member)
+            assert command[-2:] == ["--", member]
+
+            rar_command = archives._archive_member_command(
+                Path("/fake/GAME.RAR"), member
+            )
+            assert rar_command[-2:] == ["--", member]
 
     def test_read_rar_archive_files_streams_members_in_ascii_order(self):
         listing = MagicMock(
@@ -423,8 +511,8 @@ class TestRarArchives:
         popen = _mock_popen_streaming([[b"aaa"], [b"bbb"]], [0, 0])
 
         with (
-            patch.object(archives.subprocess, "run", return_value=listing),
-            patch.object(archives.subprocess, "Popen", popen),
+            patch.object(subprocess, "run", return_value=listing),
+            patch.object(subprocess, "Popen", popen),
         ):
             results = [
                 (name, size, b"".join(chunks))
@@ -454,8 +542,8 @@ class TestRarArchives:
         popen = _mock_popen_streaming([[b"abc", b"def"]], [0])
 
         with (
-            patch.object(archives.subprocess, "run", return_value=listing),
-            patch.object(archives.subprocess, "Popen", popen),
+            patch.object(subprocess, "run", return_value=listing),
+            patch.object(subprocess, "Popen", popen),
         ):
             result = archives.extract_largest_archive_member(
                 Path("/fake/game.rar"), tmp_path
@@ -471,3 +559,509 @@ class TestRarArchives:
             "--",
             "game.gba",
         ]
+
+
+class TestZipAndTarReadFailures:
+    """Unreadable zip/tar archives must be reported, not silently swallowed.
+
+    A swallowed failure yields no members, which the hashing path can't tell
+    apart from an empty archive: it falls back to hashing the container's raw
+    bytes, so the ROM ends up with hashes that match no hash database and no
+    log line saying why (GitHub issue #4159).
+    """
+
+    def _write_zip(self, path: Path, members: dict[str, bytes]) -> None:
+        path.write_bytes(_zip_bytes(members, zipfile.ZIP_STORED))
+
+    def test_unopenable_zip_raises(self, tmp_path):
+        path = tmp_path / "game.zip"
+        path.write_bytes(b"not a zip at all")
+
+        with pytest.raises(archives.ArchiveReadError):
+            list(archives.read_zip_archive_files(path, [], []))
+
+    def test_corrupt_zip_member_raises_while_streaming(self, tmp_path):
+        """The failure surfaces as the member's bytes are consumed, which
+        happens outside the reader's own error handling."""
+        path = tmp_path / "game.zip"
+        self._write_zip(path, {"a.bin": b"A" * 64, "b.bin": b"B" * 64})
+
+        # Corrupt b.bin's stored data so its CRC check fails on read.
+        raw = bytearray(path.read_bytes())
+        start = raw.index(b"B" * 64)
+        raw[start : start + 64] = b"C" * 64
+        path.write_bytes(bytes(raw))
+
+        with pytest.raises(archives.ArchiveReadError):
+            for _name, _size, chunks in archives.read_zip_archive_files(path, [], []):
+                list(chunks)
+
+    def test_healthy_zip_streams_every_member(self, tmp_path):
+        path = tmp_path / "game.zip"
+        self._write_zip(path, {"b.bin": b"B" * 32, "a.bin": b"A" * 16})
+
+        result = [
+            (name, size, b"".join(chunks))
+            for name, size, chunks in archives.read_zip_archive_files(path, [], [])
+        ]
+
+        assert result == [("a.bin", 16, b"A" * 16), ("b.bin", 32, b"B" * 32)]
+
+    def test_unopenable_tar_raises(self, tmp_path):
+        path = tmp_path / "game.tar"
+        path.write_bytes(b"not a tar at all")
+
+        with pytest.raises(archives.ArchiveReadError):
+            list(archives.read_tar_archive_files(path, [], []))
+
+    def test_truncated_tar_raises(self, tmp_path):
+        path = tmp_path / "game.tar"
+        with tarfile.open(path, "w") as tf:
+            for name, data in (("a.bin", b"A" * 4096), ("b.bin", b"B" * 8192)):
+                info = tarfile.TarInfo(name)
+                info.size = len(data)
+                tf.addfile(info, io.BytesIO(data))
+
+        # Cut into the second member's data, not just the trailing padding.
+        raw = path.read_bytes()
+        path.write_bytes(raw[: len(raw) // 2])
+
+        with pytest.raises(archives.ArchiveReadError):
+            for _name, _size, chunks in archives.read_tar_archive_files(path, [], []):
+                list(chunks)
+
+    def test_member_read_failure_is_wrapped(self):
+        """A member that fails mid-stream is reported as an archive error.
+
+        Tar failures surface while listing rather than while streaming, since
+        `getmembers()` walks the whole archive first, so the streaming guard is
+        covered directly here for every archive type that uses it.
+        """
+
+        class _FailingReader(io.BytesIO):
+            def read(self, size: int | None = -1) -> bytes:
+                raise EOFError("Compressed file ended before the end-of-stream marker")
+
+        with pytest.raises(archives.ArchiveReadError):
+            list(
+                archives._iter_chunks(
+                    _FailingReader(),
+                    Path("/fake.tar.gz"),
+                    "a.bin",
+                    time.monotonic() + 60,
+                )
+            )
+
+
+class TestReadTarFile:
+    def _write_tar(self, path: Path, members: dict[str, bytes]) -> None:
+        path.write_bytes(_tar_bytes(members))
+
+    def test_streams_the_largest_member(self, tmp_path):
+        path = tmp_path / "game.tar"
+        self._write_tar(path, {"small.bin": b"S" * 16, "large.bin": b"L" * 64})
+
+        assert _last_candidate(archives.read_tar_file(path)) == b"L" * 64
+
+    def test_a_later_larger_member_wins_in_one_pass(self, tmp_path):
+        path = tmp_path / "game.tar.gz"
+        path.write_bytes(
+            gzip.compress(
+                _tar_bytes({"a.bin": b"A" * 16, "b.bin": b"B" * 64, "c.bin": b"C" * 32})
+            )
+        )
+
+        with patch.object(tarfile, "open", wraps=tarfile.open) as tar_open:
+            candidates = [b"".join(chunks) for chunks in archives.read_tar_file(path)]
+
+        assert candidates == [b"A" * 16, b"B" * 64]
+        tar_open.assert_called_once()
+
+    def test_equal_sizes_keep_the_first_member(self, tmp_path):
+        path = tmp_path / "game.tar"
+        self._write_tar(path, {"a.bin": b"A" * 16, "b.bin": b"B" * 16})
+
+        assert _last_candidate(archives.read_tar_file(path)) == b"A" * 16
+
+    def test_member_without_a_stream_raises(self, tmp_path):
+        path = tmp_path / "game.tar"
+        self._write_tar(path, {"game.bin": b"G" * 16})
+
+        with (
+            patch.object(tarfile.TarFile, "extractfile", return_value=None),
+            pytest.raises(archives.ArchiveReadError),
+        ):
+            _last_candidate(archives.read_tar_file(path))
+
+
+ROM = b"Tetris ROM bytes " * 64
+DEFLATE64_METHOD = 9
+
+
+def _tar_bytes(members: dict[str, bytes]) -> bytes:
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w") as tf:
+        for name, data in members.items():
+            info = tarfile.TarInfo(name)
+            info.size = len(data)
+            tf.addfile(info, io.BytesIO(data))
+    return buf.getvalue()
+
+
+def _zip_bytes(
+    members: dict[str, bytes], compression: int = zipfile.ZIP_DEFLATED
+) -> bytes:
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", compression) as z:
+        for name, data in members.items():
+            z.writestr(name, data)
+    return buf.getvalue()
+
+
+def _write_zip_with_method(
+    path: Path, members: dict[str, bytes], stamped: frozenset[str], method: int
+) -> None:
+    """Write a stored zip, then relabel the `stamped` members' compression method."""
+    raw = bytearray(_zip_bytes(members, zipfile.ZIP_STORED))
+    for name in stamped:
+        encoded = name.encode()
+        # The name follows a 30-byte local header and a 46-byte central one.
+        local = raw.index(encoded, raw.index(b"PK\x03\x04")) - 30
+        struct.pack_into("<H", raw, local + 8, method)
+        central = raw.index(encoded, raw.index(b"PK\x01\x02")) - 46
+        struct.pack_into("<H", raw, central + 10, method)
+    path.write_bytes(bytes(raw))
+
+
+def _last_candidate(candidates: Iterator[Iterator[bytes]]) -> bytes:
+    content = b""
+    for chunks in candidates:
+        content = b"".join(chunks)
+    return content
+
+
+class _ContentHasher:
+    def __init__(self) -> None:
+        self.content = bytearray()
+
+    def update(self, chunk: bytes | bytearray, /) -> None:
+        self.content += chunk
+
+    def copy(self) -> "_ContentHasher":
+        other = _ContentHasher()
+        other.content = bytearray(self.content)
+        return other
+
+
+def _hash_content(path: Path) -> bytes | None:
+    fed = archives.hash_largest_member(path, _ContentHasher())
+    return None if fed is None else bytes(fed.content)
+
+
+class TestHashLargestMember:
+    """Every compressed format hashes its content, never its compressed bytes
+    (GitHub issue #5328)."""
+
+    TARBALL = _tar_bytes({"small.txt": b"readme", "game.gb": ROM})
+
+    @pytest.mark.parametrize(
+        ("name", "data"),
+        [
+            ("game.zip", _zip_bytes({"small.txt": b"readme", "game.gb": ROM})),
+            ("game.tar", TARBALL),
+            ("game.tar.gz", gzip.compress(TARBALL)),
+            ("game.tgz", gzip.compress(TARBALL)),
+            ("game.tar.bz2", bz2.compress(TARBALL)),
+            ("game.tbz2", bz2.compress(TARBALL)),
+            ("game.tar.xz", lzma.compress(TARBALL)),
+            ("game.txz", lzma.compress(TARBALL)),
+            ("game.gb.gz", gzip.compress(ROM)),
+            ("game.gb.bz2", bz2.compress(ROM)),
+            ("game.gb.xz", lzma.compress(ROM)),
+            ("tarball.gz", gzip.compress(TARBALL)),
+            ("trailing.gb.gz", gzip.compress(ROM) + b"padding!"),
+            ("zero-padded.gb.gz", gzip.compress(ROM) + bytes(64)),
+            ("multi-member.gb.gz", gzip.compress(ROM[:100]) + gzip.compress(ROM[100:])),
+        ],
+    )
+    def test_hashes_the_content(self, tmp_path, name, data):
+        path = tmp_path / name
+        path.write_bytes(data)
+
+        assert _hash_content(path) == ROM
+
+    @pytest.mark.parametrize(
+        ("name", "compress"),
+        [
+            ("disc.iso.gz", gzip.compress),
+            ("disc.iso.bz2", bz2.compress),
+            ("disc.iso.xz", lzma.compress),
+        ],
+    )
+    def test_a_zero_filled_opening_is_not_a_tarball(self, tmp_path, name, compress):
+        image = bytes(4096) + ROM
+        path = tmp_path / name
+        path.write_bytes(compress(image))
+
+        assert _hash_content(path) == image
+
+    @pytest.mark.parametrize(
+        ("data", "mime"),
+        [
+            (gzip.compress(TARBALL), "application/gzip"),
+            (gzip.compress(ROM), "application/x-gzip"),
+            (lzma.compress(ROM), "application/x-xz"),
+        ],
+    )
+    def test_detects_the_format_by_mime_type(self, tmp_path, data, mime):
+        path = tmp_path / "game.bin"
+        path.write_bytes(data)
+
+        with patch.object(archives, "detect_mime_type", return_value=mime):
+            assert _hash_content(path) == ROM
+
+    @pytest.mark.parametrize(
+        ("name", "data"),
+        [
+            ("empty.zip", _zip_bytes({})),
+            ("empty.tar", _tar_bytes({})),
+            ("empty.tar.gz", gzip.compress(_tar_bytes({}))),
+            ("empty-member.zip", _zip_bytes({"game.gb": b""})),
+            ("empty-stream.gb.gz", gzip.compress(b"")),
+            ("empty-stream.gb.xz", lzma.compress(b"")),
+            ("corrupt.zip", b"PK\x03\x04 not a zip"),
+            ("corrupt.gz", gzip.compress(ROM)[:40]),
+            ("corrupt.xz", lzma.compress(ROM)[:40]),
+        ],
+    )
+    def test_empty_or_unreadable_archive_reports_failure(self, tmp_path, name, data):
+        path = tmp_path / name
+        path.write_bytes(data)
+
+        assert _hash_content(path) is None
+
+    def test_corrupt_deflate64_member_reports_failure(self, tmp_path):
+        path = tmp_path / "game.zip"
+        # A reserved deflate block type, so inflate64 rejects the stream.
+        _write_zip_with_method(
+            path, {"game.gb": b"\xff" * 64}, frozenset({"game.gb"}), DEFLATE64_METHOD
+        )
+
+        assert _hash_content(path) is None
+
+    def test_reading_past_the_deadline_reports_failure(self, tmp_path, monkeypatch):
+        path = tmp_path / "game.gb.xz"
+        path.write_bytes(lzma.compress(ROM))
+        monkeypatch.setattr(archives, "SEVEN_ZIP_TIMEOUT", -1)
+
+        assert _hash_content(path) is None
+
+    def test_rar_hashes_its_largest_member_through_bsdtar(self, tmp_path):
+        path = tmp_path / "game.rar"
+        path.write_bytes(b"Rar!\x1a\x07\x00")
+        listing = MagicMock(
+            stdout=_fake_mtree_listing(
+                ["./readme.txt type=file size=12", "./game.gba type=file size=500"]
+            )
+        )
+        popen = _mock_popen_streaming([[b"G" * 500]], [0])
+
+        with (
+            patch.object(subprocess, "run", return_value=listing),
+            patch.object(subprocess, "Popen", popen),
+        ):
+            assert _hash_content(path) == b"G" * 500
+
+        command = popen.call_args[0][0]
+        assert command[0] == archives.BSDTAR_PATH
+        assert command[-1] == "game.gba"
+
+    def test_a_given_mime_type_skips_detection(self, tmp_path):
+        path = tmp_path / "game.bin"
+        path.write_bytes(gzip.compress(ROM))
+
+        with patch.object(archives, "detect_mime_type") as detect:
+            fed = archives.hash_largest_member(
+                path, _ContentHasher(), "application/gzip"
+            )
+
+        assert fed is not None and bytes(fed.content) == ROM
+        detect.assert_not_called()
+
+    def test_plain_file_is_not_an_archive(self, tmp_path):
+        path = tmp_path / "game.gb"
+        path.write_bytes(ROM)
+
+        assert _hash_content(path) is None
+
+
+class TestZipUndecodableCompression:
+    """Zips using a method zipfile can't decode must be read through 7zz, not
+    hashed as a container (GitHub issue #4159)."""
+
+    # An id the zip spec never assigned, so no Python release can learn to decode it.
+    UNASSIGNED_METHOD = 0xFFFF
+
+    def _write_zip(
+        self, path: Path, members: dict[str, bytes], stamped: frozenset[str]
+    ) -> None:
+        _write_zip_with_method(path, members, stamped, self.UNASSIGNED_METHOD)
+
+    def test_stamped_zip_is_rejected_by_zipfile(self, tmp_path):
+        path = tmp_path / "game.zip"
+        self._write_zip(path, {"game.bin": b"G" * 64}, frozenset({"game.bin"}))
+
+        with zipfile.ZipFile(path) as z, pytest.raises(NotImplementedError):
+            z.open("game.bin").close()
+
+    def test_undecodable_member_reads_whole_archive_through_7zz(self, tmp_path):
+        path = tmp_path / "game.zip"
+        self._write_zip(path, {"game.bin": b"G" * 64}, frozenset({"game.bin"}))
+        listing = MagicMock(stdout=_fake_7z_listing_sized([("game.bin", 64)]))
+        popen = _mock_popen_streaming([[b"G" * 32, b"G" * 32]], [0])
+
+        with (
+            patch.object(subprocess, "run", return_value=listing),
+            patch.object(subprocess, "Popen", popen),
+        ):
+            result = [
+                (name, size, b"".join(chunks))
+                for name, size, chunks in archives.read_zip_archive_files(path, [], [])
+            ]
+
+        assert result == [("game.bin", 64, b"G" * 64)]
+        extract_args = popen.call_args[0][0]
+        assert extract_args[:3] == [archives.SEVEN_ZIP_PATH, "e", str(path)]
+        assert "game.bin" in extract_args
+
+    def test_undecodable_largest_member_hashes_through_7zz(self, tmp_path):
+        path = tmp_path / "game.zip"
+        self._write_zip(path, {"game.bin": b"G" * 64}, frozenset({"game.bin"}))
+
+        with patch.object(
+            archives, "read_7z_or_rar_file", return_value=iter([iter([b"G" * 64])])
+        ) as seven_zip:
+            assert _hash_content(path) == b"G" * 64
+
+        seven_zip.assert_called_once()
+
+    def test_mixed_methods_do_not_split_the_read(self, tmp_path):
+        """Splitting the read between zipfile and 7zz would double-count the composite hash."""
+        path = tmp_path / "game.zip"
+        self._write_zip(
+            path,
+            {"game.bin": b"B" * 64, "game.cue": b"C" * 16},
+            frozenset({"game.bin"}),
+        )
+        listing = MagicMock(
+            stdout=_fake_7z_listing_sized([("game.bin", 64), ("game.cue", 16)])
+        )
+        popen = _mock_popen_streaming([[b"B" * 64], [b"C" * 16]], [0, 0])
+
+        with (
+            patch.object(subprocess, "run", return_value=listing),
+            patch.object(subprocess, "Popen", popen),
+        ):
+            result = [
+                (name, size, b"".join(chunks))
+                for name, size, chunks in archives.read_zip_archive_files(path, [], [])
+            ]
+
+        assert result == [("game.bin", 64, b"B" * 64), ("game.cue", 16, b"C" * 16)]
+        assert popen.call_count == 2
+
+    def test_excluded_undecodable_member_does_not_trigger_7zz(self, tmp_path):
+        path = tmp_path / "game.zip"
+        self._write_zip(
+            path,
+            {"game.bin": b"B" * 64, "readme.txt": b"R" * 8},
+            frozenset({"readme.txt"}),
+        )
+
+        with (
+            patch.object(subprocess, "run", side_effect=AssertionError),
+            patch.object(subprocess, "Popen", side_effect=AssertionError),
+        ):
+            result = [
+                (name, size, b"".join(chunks))
+                for name, size, chunks in archives.read_zip_archive_files(
+                    path, [], ["txt"]
+                )
+            ]
+
+        assert result == [("game.bin", 64, b"B" * 64)]
+
+    def test_decodable_zip_never_spawns_7zz(self, tmp_path):
+        path = tmp_path / "game.zip"
+        self._write_zip(path, {"game.bin": b"B" * 64}, frozenset())
+
+        with (
+            patch.object(subprocess, "run", side_effect=AssertionError),
+            patch.object(subprocess, "Popen", side_effect=AssertionError),
+        ):
+            result = [
+                (name, size, b"".join(chunks))
+                for name, size, chunks in archives.read_zip_archive_files(path, [], [])
+            ]
+
+        assert result == [("game.bin", 64, b"B" * 64)]
+
+
+_SEVEN_ZIP = shutil.which("7zz") or archives.SEVEN_ZIP_PATH
+
+
+@pytest.mark.skipif(not shutil.which(_SEVEN_ZIP), reason="7zz not installed")
+def test_real_ppmd_zip_hashes_through_7zz(tmp_path):
+    """End-to-end on a zip 7zz itself wrote: a PPMd .bin next to a stored .cue."""
+    source = tmp_path / "src"
+    source.mkdir()
+    # Random bytes don't compress, so 7zz would silently store them instead.
+    track = (b"sector data track audio pregap index " * 4000)[:150000]
+    cue = b'FILE "Game (USA) (Track 01).cue" BINARY\n  TRACK 01 MODE2/2352\n'
+    (source / "Game (USA) (Track 01).bin").write_bytes(track)
+    (source / "Game (USA).cue").write_bytes(cue)
+    zip_path = tmp_path / "Game (USA).zip"
+    for member, method in (
+        ("Game (USA) (Track 01).bin", "PPMd"),
+        ("Game (USA).cue", "Copy"),
+    ):
+        subprocess.run(
+            [_SEVEN_ZIP, "a", "-tzip", f"-mm={method}", str(zip_path), member],
+            cwd=source,
+            check=True,
+            capture_output=True,
+        )
+
+    with zipfile.ZipFile(zip_path) as z, pytest.raises(NotImplementedError):
+        z.open("Game (USA) (Track 01).bin").close()
+
+    with patch.object(archives, "SEVEN_ZIP_PATH", _SEVEN_ZIP):
+        result = [
+            (name, size, hashlib.sha1(b"".join(chunks)).hexdigest())
+            for name, size, chunks in archives.read_zip_archive_files(zip_path, [], [])
+        ]
+
+    assert result == [
+        ("Game (USA) (Track 01).bin", len(track), hashlib.sha1(track).hexdigest()),
+        ("Game (USA).cue", len(cue), hashlib.sha1(cue).hexdigest()),
+    ]
+
+
+@pytest.mark.parametrize(
+    "compression",
+    [zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED, zipfile.ZIP_ZSTANDARD],
+)
+def test_zip_writes_after_inflate64_patch(compression: int, tmp_path: Path) -> None:
+    src = tmp_path / "src.bin"
+    src.write_bytes(b"from disk")
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", compression, compresslevel=1) as z:
+        z.writestr("a.txt", b"hello")
+        z.write(src, arcname="b.bin")
+        with z.open("c.txt", "w") as member:
+            member.write(b"streamed")
+
+    with zipfile.ZipFile(buf) as z:
+        assert z.read("a.txt") == b"hello"
+        assert z.read("b.bin") == b"from disk"
+        assert z.read("c.txt") == b"streamed"

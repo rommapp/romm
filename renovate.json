@@ -1,0 +1,196 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":semanticCommitTypeAll(chore)"],
+  "description": "Updates wait out a week before Renovate proposes them, so a compromised release has time to be pulled before it reaches a PR here.",
+  "minimumReleaseAge": "7 days",
+  "enabledManagers": [
+    "github-actions",
+    "docker-compose",
+    "npm",
+    "pep621",
+    "custom.regex"
+  ],
+  "ignorePaths": ["examples/**"],
+  "packageRules": [
+    {
+      "description": "One PR per service, since each tag is repeated across several workflows and compose files.",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["mariadb"],
+      "groupName": "mariadb"
+    },
+    {
+      "description": "The shipped image installs valkey from Alpine's package repo, currently the 9.0 line. Hold the test pins there so they keep matching what users run, and raise this bound deliberately when ALPINE_VERSION in docker/Dockerfile moves.",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["valkey/valkey"],
+      "groupName": "valkey",
+      "allowedVersions": "<9.1"
+    },
+    {
+      "description": "TypeScript 7 ships no JavaScript compiler API, which vue-tsc, typescript-eslint and vue-component-meta load. Raise this bound once they support it.",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["typescript"],
+      "allowedVersions": "<7"
+    },
+    {
+      "description": "From 0.30, json-schema-ref-parser 14 refuses localhost URLs, so `npm run generate` can't read the schema from the local backend. The CLI has no flag to allow them.",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["openapi-typescript-codegen"],
+      "allowedVersions": "<0.30"
+    },
+    {
+      "description": "The rolldown override must stay inside Vite's own rolldown range (~1.2.18 for Vite 8.3). Rolldown 1.3 under Vite 8.3 builds chunks the browser can't parse. Raise this bound when a Vite update moves its rolldown range.",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["rolldown"],
+      "allowedVersions": "<1.3"
+    },
+    {
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["postgres"],
+      "groupName": "postgres"
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "matchDepTypes": ["action"],
+      "groupName": "github actions"
+    },
+    {
+      "description": "Keep the ranges maintainers chose in package.json and pyproject.toml; in-range updates only refresh the lockfile.",
+      "matchManagers": ["npm", "pep621"],
+      "rangeStrategy": "update-lockfile"
+    },
+    {
+      "description": "rom-patcher is pinned to a git tag, and its lockfile entry carries the version from upstream's package.json, stuck at 3.0.0. Compare the tag itself, or Renovate keeps proposing the tag already pinned.",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["rom-patcher"],
+      "rangeStrategy": "replace"
+    },
+    {
+      "description": "One weekly PR per ecosystem for minor and patch updates, so app dependencies don't open a PR each.",
+      "matchManagers": ["npm"],
+      "matchFileNames": ["frontend/package.json"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "frontend dependencies",
+      "schedule": ["before 6am on monday"]
+    },
+    {
+      "matchManagers": ["pep621"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "backend dependencies",
+      "schedule": ["before 6am on monday"]
+    },
+    {
+      "description": "Storybook packages require matching versions, so a major moves them in one PR. Security PRs ignore groupName and must be widened by hand.",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["storybook", "@storybook/**"],
+      "matchUpdateTypes": ["major"],
+      "groupName": "storybook"
+    },
+    {
+      "description": "Major updates usually need code changes, so they wait for approval on the Dependency Dashboard.",
+      "matchManagers": ["npm", "pep621"],
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Dockerfile base images take digest updates only: ALPINE_VERSION is part of all three tags, so a version move is a deliberate edit to both Dockerfiles.",
+      "matchManagers": ["custom.regex"],
+      "matchDepNames": ["alpine", "python", "node"],
+      "matchFileNames": ["Dockerfile", "docker/Dockerfile"],
+      "matchUpdateTypes": ["major", "minor", "patch"],
+      "enabled": false
+    },
+    {
+      "matchManagers": ["custom.regex"],
+      "matchDepNames": ["alpine", "python", "node"],
+      "matchFileNames": ["Dockerfile", "docker/Dockerfile"],
+      "matchUpdateTypes": ["digest"],
+      "groupName": "docker base images",
+      "description": "Docker Hub reports no release date for a digest, so the week-long wait would hold these rebuilds forever. They are official images rebuilt for security patches, and the PR still needs a merge.",
+      "minimumReleaseAgeBehaviour": "timestamp-optional"
+    },
+    {
+      "description": "Renovate can't hash the release zip, so JSDOS_SHA256 is updated by hand in the PR; the Docker Image Check fails until it is.",
+      "matchManagers": ["custom.regex"],
+      "matchDepNames": ["caiiiycuk/js-dos"],
+      "prBodyNotes": [
+        "**Update `JSDOS_SHA256` in `Dockerfile` and `docker/Dockerfile` before merging:** `curl -sL https://github.com/caiiiycuk/js-dos/releases/download/v{{{newVersion}}}/release.zip | shasum -a 256`. Also check the release for new files to strip (see the `find` in the js-dos stage)."
+      ]
+    }
+  ],
+  "customManagers": [
+    {
+      "description": "Image tags built at runtime in workflow steps, marked with a renovate comment. Legs deliberately left unmarked stay pinned.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.github/workflows/[^/]+\\.ya?ml$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>[a-z-]+?) depName=(?<depName>[^\\s]+?)\\s+-?\\s*[A-Za-z0-9_-]+?: [\"'](?<currentValue>[^\"'\\s]+)[\"']"
+      ],
+      "versioningTemplate": "docker"
+    },
+    {
+      "description": "The Trunk plugins release in .trunk/trunk.yaml, which no built-in manager reads. The CLI version publishes no release dates, so minimumReleaseAge can't gate it and it stays a manual bump.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.trunk/trunk\\.yaml$/"],
+      "matchStrings": [
+        "- id: trunk\\s+ref: (?<currentValue>v[^\\s]+)\\s+uri: https://github\\.com/(?<depName>trunk-io/plugins)\\s"
+      ],
+      "datasourceTemplate": "github-tags"
+    },
+    {
+      "description": "The alpine base image digest in the Dockerfiles, kept in ARGs the dockerfile manager can't resolve.",
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/)Dockerfile$/"],
+      "matchStringsStrategy": "combination",
+      "matchStrings": [
+        "ARG ALPINE_VERSION=(?<alpine>\\S+)\\n",
+        "ARG ALPINE_DIGEST=(?<currentDigest>sha256:[a-f0-9]{64})"
+      ],
+      "datasourceTemplate": "docker",
+      "depNameTemplate": "alpine",
+      "currentValueTemplate": "{{{alpine}}}"
+    },
+    {
+      "description": "The python base image digest in the Dockerfiles, kept in ARGs the dockerfile manager can't resolve.",
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/)Dockerfile$/"],
+      "matchStringsStrategy": "combination",
+      "matchStrings": [
+        "ARG ALPINE_VERSION=(?<alpine>\\S+)\\n",
+        "ARG PYTHON_VERSION=(?<python>\\S+)\\n",
+        "ARG PYTHON_ALPINE_DIGEST=(?<currentDigest>sha256:[a-f0-9]{64})"
+      ],
+      "datasourceTemplate": "docker",
+      "depNameTemplate": "python",
+      "currentValueTemplate": "{{{python}}}-alpine{{{alpine}}}"
+    },
+    {
+      "description": "The node base image digest in the Dockerfiles, kept in ARGs the dockerfile manager can't resolve.",
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/)Dockerfile$/"],
+      "matchStringsStrategy": "combination",
+      "matchStrings": [
+        "ARG ALPINE_VERSION=(?<alpine>\\S+)\\n",
+        "ARG NODE_VERSION=(?<node>\\S+)\\n",
+        "ARG NODE_ALPINE_DIGEST=(?<currentDigest>sha256:[a-f0-9]{64})"
+      ],
+      "datasourceTemplate": "docker",
+      "depNameTemplate": "node",
+      "currentValueTemplate": "{{{node}}}-alpine{{{alpine}}}"
+    },
+    {
+      "description": "The js-dos release the Dockerfiles bundle and the jsDelivr fallback the player loads, which must stay on the same version.",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/(^|/)Dockerfile$/",
+        "/^frontend/src/views/Player/jsDosRuntime\\.ts$/"
+      ],
+      "matchStrings": [
+        "ARG JSDOS_VERSION=(?<currentValue>\\S+)",
+        "cdn\\.jsdelivr\\.net/npm/js-dos@(?<currentValue>[^/]+)/dist"
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "caiiiycuk/js-dos",
+      "extractVersionTemplate": "^v(?<version>\\d+\\.\\d+\\.\\d+)$"
+    }
+  ]
+}

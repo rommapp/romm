@@ -7,9 +7,12 @@ from fastapi.responses import FileResponse, Response
 
 from decorators.auth import protected_route
 from endpoints.responses.assets import ScreenshotSchema
-from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_rom_visible
+from handler.auth.dependencies import (
+    assert_rom_visible,
+    owned_rom_asset_or_404,
+    visible_rom_or_404,
+)
 from handler.database import db_rom_handler, db_screenshot_handler
 from handler.filesystem import fs_asset_handler
 from handler.filesystem.assets_handler import build_asset_file_response
@@ -17,13 +20,12 @@ from handler.scan_handler import scan_screenshot
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from utils.filesystem import sanitize_filename
 from utils.media_types import (
-    ALLOWED_IMAGE_EXTENSIONS,
-    is_allowed_image_file,
+    SCREENSHOT_UPLOAD_EXTENSIONS,
+    is_allowed_screenshot_upload,
 )
-from utils.router import APIRouter
-from utils.uploads import check_asset_upload_size
+from utils.router import APIRouter, RomIdQuery
+from utils.uploads import check_asset_upload_size, sanitize_asset_filename
 
 router = APIRouter(
     prefix="/screenshots",
@@ -33,10 +35,28 @@ router = APIRouter(
 SCREENSHOT_FILE_UPLOAD = File(..., description="Screenshot file to upload.")
 
 
-@protected_route(router.post, "", [Scope.ASSETS_WRITE])
+@protected_route(
+    router.post,
+    "",
+    [Scope.ASSETS_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": (
+                "The screenshot file has no name, its name is not valid, or it is"
+                " not a supported image type."
+            )
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID."
+        },
+        status.HTTP_413_CONTENT_TOO_LARGE: {
+            "description": "The screenshot is larger than the server allows."
+        },
+    },
+)
 async def add_screenshot(
     request: Request,
-    rom_id: int,
+    rom_id: RomIdQuery,
     screenshotFile: UploadFile = SCREENSHOT_FILE_UPLOAD,
 ) -> ScreenshotSchema:
     """Upload a per-user gallery screenshot for a ROM.
@@ -47,9 +67,7 @@ async def add_screenshot(
     """
     check_asset_upload_size(screenshotFile, "Screenshot file")
 
-    rom = db_rom_handler.get_rom(id=rom_id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(rom_id)
+    rom = visible_rom_or_404(request, db_rom_handler.get_rom(id=rom_id), rom_id)
 
     current_user = request.user
     log.info(f"Uploading screenshot to {hl(str(rom.name), color=BLUE)}")
@@ -65,20 +83,16 @@ async def add_screenshot(
             detail="Screenshot file has no filename",
         )
 
-    try:
-        sanitized_screenshot_filename = sanitize_filename(screenshotFile.filename)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid screenshot filename: {str(exc)}",
-        ) from exc
+    sanitized_screenshot_filename = sanitize_asset_filename(
+        screenshotFile.filename, "screenshot"
+    )
 
-    if not is_allowed_image_file(sanitized_screenshot_filename):
+    if not is_allowed_screenshot_upload(sanitized_screenshot_filename):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
                 f"Unsupported image file type. Allowed: "
-                f"{', '.join(sorted(ALLOWED_IMAGE_EXTENSIONS))}"
+                f"{', '.join(sorted(SCREENSHOT_UPLOAD_EXTENSIONS))}"
             ),
         )
 
@@ -124,7 +138,14 @@ async def add_screenshot(
     router.get,
     "/{id}/content",
     [Scope.ASSETS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": (
+                "No screenshot the caller can read has this ID, or the screenshot's"
+                " file is missing."
+            )
+        }
+    },
 )
 def download_screenshot(
     request: Request,
@@ -166,20 +187,24 @@ def download_screenshot(
     router.put,
     "/{id}",
     [Scope.ASSETS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no screenshot with this ID that it can see."
+        }
+    },
 )
 async def update_screenshot(
     request: Request,
     id: Annotated[int, PathVar(description="Screenshot internal id.", ge=1)],
-    is_public: Annotated[bool, Body(embed=True)],
+    is_public: Annotated[
+        bool,
+        Body(embed=True),
+    ],
 ) -> ScreenshotSchema:
     """Toggle a gallery screenshot's public/private visibility (owner only)."""
-    screenshot = db_screenshot_handler.get_screenshot_by_id(id)
-    if not screenshot or screenshot.user_id != request.user.id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Screenshot not found",
-        )
+    owned_rom_asset_or_404(
+        request, db_screenshot_handler.get_screenshot_by_id(id), "Screenshot not found"
+    )
 
     updated = db_screenshot_handler.update_screenshot(id, {"is_public": is_public})
     return ScreenshotSchema.model_validate(updated)
@@ -189,19 +214,20 @@ async def update_screenshot(
     router.delete,
     "/{id}",
     [Scope.ASSETS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no screenshot with this ID that it can see."
+        }
+    },
 )
 async def delete_screenshot(
     request: Request,
     id: Annotated[int, PathVar(description="Screenshot internal id.", ge=1)],
 ) -> Response:
     """Delete a gallery screenshot — its file and DB row (owner only)."""
-    screenshot = db_screenshot_handler.get_screenshot_by_id(id)
-    if not screenshot or screenshot.user_id != request.user.id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Screenshot not found",
-        )
+    screenshot = owned_rom_asset_or_404(
+        request, db_screenshot_handler.get_screenshot_by_id(id), "Screenshot not found"
+    )
 
     try:
         await fs_asset_handler.remove_file(file_path=screenshot.full_path)

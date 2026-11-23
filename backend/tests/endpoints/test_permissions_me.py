@@ -1,7 +1,14 @@
 """`/permissions/me` returns backend-enforced grants in the UI action vocabulary."""
 
+import pytest
+
 from handler.database.base_handler import sync_session
-from models.permission import HiddenEntity, PermEntity
+from models.permission import (
+    HiddenEntity,
+    PermAction,
+    PermEntity,
+    UserPermissionOverride,
+)
 
 VIEWER_ACTIONS = {
     "rom.view",
@@ -13,6 +20,9 @@ VIEWER_ACTIONS = {
     "collection.create",
     "collection.edit",
     "collection.delete",
+    "playlist.edit",
+    "stream.start",
+    "netplay.host",
 }
 
 
@@ -21,7 +31,7 @@ def _actions(payload):
 
 
 def test_requires_auth(client):
-    assert client.get("/api/permissions/me").status_code == 403
+    assert client.get("/api/permissions/me").status_code == 401
 
 
 def test_admin_is_admin_and_all_actions(client, access_token):
@@ -93,3 +103,47 @@ def test_grant_scopes_are_global(client, viewer_access_token):
         headers={"Authorization": f"Bearer {viewer_access_token}"},
     ).json()
     assert all(g["scope"]["kind"] == "global" for g in body["grants"])
+
+
+def test_revoking_streaming_write_drops_stream_start(
+    client, viewer_user, viewer_access_token
+):
+    with sync_session.begin() as s:
+        s.add(
+            UserPermissionOverride(
+                user_id=viewer_user.id,
+                entity=PermEntity.STREAMING,
+                action=PermAction.WRITE,
+                granted=False,
+            )
+        )
+    body = client.get(
+        "/api/permissions/me",
+        headers={"Authorization": f"Bearer {viewer_access_token}"},
+    ).json()
+    assert "stream.start" not in _actions(body)
+
+
+@pytest.mark.parametrize(
+    "action, dropped",
+    [(PermAction.READ, "rom.play"), (PermAction.WRITE, "netplay.host")],
+)
+def test_revoking_emulation_drops_its_key(
+    client, viewer_user, viewer_access_token, action, dropped
+):
+    with sync_session.begin() as s:
+        s.add(
+            UserPermissionOverride(
+                user_id=viewer_user.id,
+                entity=PermEntity.EMULATION,
+                action=action,
+                granted=False,
+            )
+        )
+    body = client.get(
+        "/api/permissions/me",
+        headers={"Authorization": f"Bearer {viewer_access_token}"},
+    ).json()
+    actions = _actions(body)
+    assert dropped not in actions
+    assert "rom.view" in actions

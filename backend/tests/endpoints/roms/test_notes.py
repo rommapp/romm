@@ -1,0 +1,79 @@
+"""Note responses: author identity, deletion and search."""
+
+from fastapi import status
+from fastapi.testclient import TestClient
+from tests.auth_helpers import bearer
+
+from models.rom import Rom
+from models.user import User
+
+
+def test_note_responses_carry_author_identity(
+    client: TestClient, access_token: str, rom: Rom, admin_user: User
+):
+    created = client.post(
+        f"/api/roms/{rom.id}/notes",
+        headers=bearer(access_token),
+        json={
+            "title": "Route order",
+            "content": "Third phase first",
+            "is_public": True,
+        },
+    )
+    assert created.status_code == status.HTTP_200_OK
+
+    listed = client.get(f"/api/roms/{rom.id}/notes", headers=bearer(access_token))
+    assert listed.status_code == status.HTTP_200_OK
+
+    notes = listed.json()
+    assert [n["id"] for n in notes] == [created.json()["id"]]
+    assert notes[0]["username"] == admin_user.username
+    assert notes[0]["user_avatar_path"] == admin_user.avatar_path
+    assert notes[0]["user_updated_at"] is not None
+
+    detailed = client.get(f"/api/roms/{rom.id}", headers=bearer(access_token))
+    assert detailed.status_code == status.HTTP_200_OK
+    all_user_notes = detailed.json()["all_user_notes"]
+    assert [n["id"] for n in all_user_notes] == [created.json()["id"]]
+    assert all_user_notes[0]["username"] == admin_user.username
+
+
+def test_delete_note_removes_it_once(client: TestClient, access_token: str, rom: Rom):
+    created = client.post(
+        f"/api/roms/{rom.id}/notes",
+        headers=bearer(access_token),
+        json={"title": "Scratch", "content": "Temp", "is_public": False},
+    )
+    note_id = created.json()["id"]
+    url = f"/api/roms/{rom.id}/notes/{note_id}"
+
+    deleted = client.delete(url, headers=bearer(access_token))
+    assert deleted.status_code == status.HTTP_200_OK
+    listed = client.get(f"/api/roms/{rom.id}/notes", headers=bearer(access_token))
+    assert listed.json() == []
+
+    # Nothing left to match, so the handler reports no rows deleted.
+    again = client.delete(url, headers=bearer(access_token))
+    assert again.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_note_search_matches_wildcards_literally(
+    client: TestClient, access_token: str, rom: Rom
+):
+    for title in ("100% run", "1000 coins"):
+        client.post(
+            f"/api/roms/{rom.id}/notes",
+            headers=bearer(access_token),
+            json={"title": title, "content": "", "is_public": False},
+        )
+
+    def search(term: str) -> list[str]:
+        listed = client.get(
+            f"/api/roms/{rom.id}/notes",
+            headers=bearer(access_token),
+            params={"search": term},
+        )
+        return sorted(n["title"] for n in listed.json())
+
+    assert search("100%") == ["100% run"]
+    assert search("1_0") == []

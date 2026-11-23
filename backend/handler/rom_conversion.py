@@ -1,21 +1,56 @@
-from exceptions.fs_exceptions import RomAlreadyExistsException
+import asyncio
+
+from exceptions.fs_exceptions import (
+    RomAlreadyExistsException,
+    RomListedByPlaylistException,
+)
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
+from handler.redis_handler import redis_lock
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import Rom
+from utils.filesystem import TEMP_FILE_PREFIX
+from utils.m3u import listing_playlist
 
-_STAGE_PREFIX = ".romm_tmp_"
+# Parallel uploads each promote the ROM, maybe on different gunicorn workers.
+# Keyed by the target folder, since lone files sharing a stem promote into one.
+PROMOTION_LOCK_TIMEOUT_SECONDS = 600
+
+
+def promotion_lock_key(rom: Rom) -> str:
+    return f"rom_promotion:{rom.fs_path}/{rom.fs_name_no_ext}"
+
+
+def assert_promotable(rom: Rom) -> None:
+    """Refuse to move a lone file into a folder when a playlist beside it lists it.
+
+    Raises:
+        RomListedByPlaylistException: An .m3u in the file's folder lists it.
+    """
+    if not rom.has_simple_single_file:
+        return
+    playlist = listing_playlist(fs_rom_handler.validate_path(rom.full_path))
+    if playlist:
+        raise RomListedByPlaylistException(playlist)
 
 
 async def promote_single_file_to_folder(rom: Rom) -> Rom:
     """Promote a simple single-file ROM to a folder ROM in place, keeping rom.id
     and every relation. Idempotent; raises RomAlreadyExistsException on a
-    folder-name collision.
+    folder-name collision and RomListedByPlaylistException when an .m3u lists it.
     """
+    async with redis_lock(
+        promotion_lock_key(rom), timeout_seconds=PROMOTION_LOCK_TIMEOUT_SECONDS
+    ):
+        return await _promote(db_rom_handler.get_rom(rom.id) or rom)
+
+
+async def _promote(rom: Rom) -> Rom:
     if not rom.has_simple_single_file:
         return rom
+    await asyncio.to_thread(assert_promotable, rom)
 
     folder = rom.fs_name_no_ext
     fs_path = rom.fs_path
@@ -23,7 +58,7 @@ async def promote_single_file_to_folder(rom: Rom) -> Rom:
     origin = f"{fs_path}/{fs_name}"
     dest_dir = f"{fs_path}/{folder}"
     final = f"{dest_dir}/{fs_name}"
-    staged = f"{fs_path}/{_STAGE_PREFIX}{fs_name}"
+    staged = f"{fs_path}/{TEMP_FILE_PREFIX}{fs_name}"
     extensionless = folder == fs_name
 
     # Extensionless dest_dir is the file's own path; only a directory collides.
@@ -32,33 +67,47 @@ async def promote_single_file_to_folder(rom: Rom) -> Rom:
     if collision:
         raise RomAlreadyExistsException(folder)
 
+    # A promotion racing this one from another worker can win the move and own
+    # the folder, so undo only what this call did. Removal is recursive, and a
+    # folder with anything left in it holds someone else's ROM.
+    moved = False
+
+    async def _drop_dir() -> None:
+        path = fs_rom_handler.validate_path(dest_dir)
+        if path.is_dir() and not any(path.iterdir()):
+            await fs_rom_handler.remove_directory(dest_dir)
+
     async def _restore() -> None:
         """Return the lone file to its original path and drop the new folder."""
         src = next(
-            (p for p in (final, staged) if fs_rom_handler.validate_path(p).exists()),
+            (
+                p
+                for p in (final, staged)
+                if moved and fs_rom_handler.validate_path(p).exists()
+            ),
             None,
         )
         if src is not None and extensionless:
             if src != staged:
                 await fs_rom_handler.move_file_or_folder(src, staged)
-            if fs_rom_handler.validate_path(dest_dir).is_dir():
-                await fs_rom_handler.remove_directory(dest_dir)
+            await _drop_dir()
             await fs_rom_handler.move_file_or_folder(staged, origin)
         elif src is not None:
             await fs_rom_handler.move_file_or_folder(src, origin)
-            if fs_rom_handler.validate_path(dest_dir).is_dir():
-                await fs_rom_handler.remove_directory(dest_dir)
-        elif fs_rom_handler.validate_path(dest_dir).is_dir():
-            await fs_rom_handler.remove_directory(dest_dir)
+            await _drop_dir()
+        else:
+            await _drop_dir()
 
     try:
         if extensionless:
             await fs_rom_handler.move_file_or_folder(origin, staged)
+            moved = True
             await fs_rom_handler.make_directory(dest_dir)
             await fs_rom_handler.move_file_or_folder(staged, final)
         else:
             await fs_rom_handler.make_directory(dest_dir)
             await fs_rom_handler.move_file_or_folder(origin, final)
+            moved = True
         db_rom_handler.convert_rom_to_folder(rom.id, folder, dest_dir)
     except Exception:
         try:

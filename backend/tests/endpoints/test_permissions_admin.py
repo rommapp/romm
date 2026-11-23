@@ -1,32 +1,23 @@
 """Admin CRUD for groups, memberships, overrides and hidden entities, and the
 end-to-end effect on a member's /permissions/me."""
 
-from datetime import timedelta
+from unittest.mock import AsyncMock
 
-from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
-from handler.auth import oauth_handler
+from tests.auth_helpers import bearer, user_headers
+from tests.factories import make_device_token
+
+from endpoints import permissions as permissions_endpoints
 from handler.database import db_user_handler
 from handler.database.base_handler import sync_session
+from handler.database.permissions_handler import DBPermissionsHandler
 from models.permission import PermissionGroup
 
 
-def _bearer(token):
-    return {"Authorization": f"Bearer {token}"}
-
-
 def _fresh_user_auth(user_id):
-    # Mint a token from the user's CURRENT (post-change) projected scopes.
+    # Reload the user so the token carries the post-change projected scopes.
     user = db_user_handler.get_user(user_id)
-    return _bearer(
-        oauth_handler.create_access_token(
-            data={
-                "sub": user.username,
-                "iss": "romm:oauth",
-                "scopes": " ".join(user.oauth_scopes),
-            },
-            expires_delta=timedelta(seconds=OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS),
-        )
-    )
+    assert user is not None
+    return user_headers(user)
 
 
 def _me_actions(client, user_id):
@@ -36,13 +27,13 @@ def _me_actions(client, user_id):
 
 def _cleanup():
     with sync_session.begin() as s:
-        s.query(PermissionGroup).filter(PermissionGroup.is_system.is_(False)).delete(
+        s.query(PermissionGroup).filter(PermissionGroup.system_key.is_(None)).delete(
             synchronize_session="evaluate"
         )
 
 
 def test_non_admin_forbidden(client, viewer_access_token):
-    h = _bearer(viewer_access_token)
+    h = bearer(viewer_access_token)
     assert client.get("/api/permissions/groups", headers=h).status_code == 403
     assert client.get("/api/permissions/catalog", headers=h).status_code == 403
     assert (
@@ -54,9 +45,92 @@ def test_non_admin_forbidden(client, viewer_access_token):
 
 
 def test_catalog_lists_vocabulary(client, access_token):
-    body = client.get("/api/permissions/catalog", headers=_bearer(access_token)).json()
+    body = client.get("/api/permissions/catalog", headers=bearer(access_token)).json()
     assert "roms" in body["entities"] and "platforms" in body["entities"]
     assert set(body["actions"]) == {"read", "write", "delete"}
+
+
+def test_catalog_lists_the_ownable_entities(client, access_token):
+    body = client.get("/api/permissions/catalog", headers=bearer(access_token)).json()
+    assert "collections" in body["ownable_entities"]
+    assert not {"users", "tasks", "logs", "roms"} & set(body["ownable_entities"])
+
+
+def test_own_only_is_rejected_on_an_entity_without_owners(client, access_token):
+    h = bearer(access_token)
+    own_users = {"entity": "users", "action": "write", "own_only": True}
+    try:
+        created = client.post(
+            "/api/permissions/groups",
+            headers=h,
+            json={"name": "x", "grants": [own_users]},
+        )
+        assert created.status_code == 422
+
+        gid = client.post(
+            "/api/permissions/groups",
+            headers=h,
+            json={
+                "name": "Own collections",
+                "grants": [
+                    {"entity": "collections", "action": "write", "own_only": True}
+                ],
+            },
+        ).json()["id"]
+        updated = client.put(
+            f"/api/permissions/groups/{gid}", headers=h, json={"grants": [own_users]}
+        )
+        assert updated.status_code == 422
+    finally:
+        _cleanup()
+
+
+def test_own_only_override_is_rejected_on_an_entity_without_owners(
+    client, access_token, viewer_user
+):
+    response = client.put(
+        f"/api/permissions/users/{viewer_user.id}",
+        headers=bearer(access_token),
+        json={
+            "overrides": [
+                {
+                    "entity": "tasks",
+                    "action": "write",
+                    "granted": True,
+                    "own_only": True,
+                }
+            ]
+        },
+    )
+    assert response.status_code == 422
+
+
+def test_own_only_revoke_override_is_accepted_on_an_entity_without_owners(
+    client, access_token, viewer_user
+):
+    response = client.put(
+        f"/api/permissions/users/{viewer_user.id}",
+        headers=bearer(access_token),
+        json={
+            "overrides": [
+                {
+                    "entity": "tasks",
+                    "action": "write",
+                    "granted": False,
+                    "own_only": True,
+                }
+            ]
+        },
+    )
+    assert response.status_code == 200
+
+
+def test_groups_expose_the_system_key(client, access_token):
+    groups = client.get("/api/permissions/groups", headers=bearer(access_token)).json()
+    keys = {g["name"]: g["system_key"] for g in groups}
+    assert keys["Viewer"] == "viewer"
+    assert keys["Editor"] == "editor"
+    assert "is_system" not in groups[0]
 
 
 def test_group_create_assign_and_effective_permissions(
@@ -65,7 +139,7 @@ def test_group_create_assign_and_effective_permissions(
     try:
         created = client.post(
             "/api/permissions/groups",
-            headers=_bearer(access_token),
+            headers=bearer(access_token),
             json={
                 "name": "Curators",
                 "description": "roms + platform read",
@@ -88,7 +162,7 @@ def test_group_create_assign_and_effective_permissions(
 
         assigned = client.put(
             f"/api/permissions/users/{viewer_user.id}",
-            headers=_bearer(access_token),
+            headers=bearer(access_token),
             json={"set_group": True, "permission_group_id": gid},
         )
         assert assigned.status_code == 200
@@ -106,12 +180,12 @@ def test_user_override_adds_capability(client, access_token, viewer_user):
     try:
         gid = client.post(
             "/api/permissions/groups",
-            headers=_bearer(access_token),
+            headers=bearer(access_token),
             json={"name": "RO", "grants": [{"entity": "roms", "action": "read"}]},
         ).json()["id"]
         client.put(
             f"/api/permissions/users/{viewer_user.id}",
-            headers=_bearer(access_token),
+            headers=bearer(access_token),
             json={
                 "set_group": True,
                 "permission_group_id": gid,
@@ -124,10 +198,65 @@ def test_user_override_adds_capability(client, access_token, viewer_user):
         _cleanup()
 
 
+def test_a_permission_change_closes_the_users_device_sockets(
+    mocker, client, access_token, viewer_user
+):
+    token, _ = make_device_token(viewer_user, None, scopes="devices.read")
+    close = mocker.patch.object(
+        permissions_endpoints, "close_client_token_sockets", AsyncMock()
+    )
+
+    response = client.put(
+        f"/api/permissions/users/{viewer_user.id}",
+        headers=bearer(access_token),
+        json={"overrides": [{"entity": "roms", "action": "delete", "granted": True}]},
+    )
+
+    assert response.status_code == 200
+    close.assert_awaited_once_with([token.id])
+
+
+def test_a_group_edit_closes_every_members_device_sockets_at_once(
+    mocker, client, access_token, viewer_user, editor_user
+):
+    try:
+        gid = client.post(
+            "/api/permissions/groups",
+            headers=bearer(access_token),
+            json={"name": "Handhelds"},
+        ).json()["id"]
+        for user in (viewer_user, editor_user):
+            client.put(
+                f"/api/permissions/users/{user.id}",
+                headers=bearer(access_token),
+                json={"set_group": True, "permission_group_id": gid},
+            )
+        viewer_token, _ = make_device_token(viewer_user, None, scopes="devices.read")
+        editor_token, _ = make_device_token(editor_user, None, scopes="devices.read")
+        close = mocker.patch.object(
+            permissions_endpoints, "close_client_token_sockets", AsyncMock()
+        )
+
+        response = client.put(
+            f"/api/permissions/groups/{gid}",
+            headers=bearer(access_token),
+            json={"grants": [{"entity": "roms", "action": "read"}]},
+        )
+
+        assert response.status_code == 200
+        close.assert_awaited_once()
+        assert close.await_args is not None
+        assert sorted(close.await_args.args[0]) == sorted(
+            [viewer_token.id, editor_token.id]
+        )
+    finally:
+        _cleanup()
+
+
 def test_hide_entity_for_user(client, access_token, viewer_user):
     resp = client.post(
         "/api/permissions/hidden",
-        headers=_bearer(access_token),
+        headers=bearer(access_token),
         json={"entity": "platforms", "entity_id": 11, "user_id": viewer_user.id},
     )
     assert resp.status_code == 200
@@ -138,13 +267,13 @@ def test_hide_entity_for_user(client, access_token, viewer_user):
     # Idempotent + removable.
     client.post(
         "/api/permissions/hidden",
-        headers=_bearer(access_token),
+        headers=bearer(access_token),
         json={"entity": "platforms", "entity_id": 11, "user_id": viewer_user.id},
     )
     removed = client.request(
         "DELETE",
         "/api/permissions/hidden",
-        headers=_bearer(access_token),
+        headers=bearer(access_token),
         json={"entity": "platforms", "entity_id": 11, "user_id": viewer_user.id},
     )
     assert removed.status_code == 204
@@ -155,40 +284,58 @@ def test_hide_entity_for_user(client, access_token, viewer_user):
 def test_hidden_requires_exactly_one_principal(client, access_token):
     resp = client.post(
         "/api/permissions/hidden",
-        headers=_bearer(access_token),
+        headers=bearer(access_token),
         json={"entity": "roms", "entity_id": 1, "user_id": 1, "group_id": 1},
     )
     assert resp.status_code == 400
 
 
 def test_cannot_delete_default_group(client, access_token):
-    groups = client.get("/api/permissions/groups", headers=_bearer(access_token)).json()
+    groups = client.get("/api/permissions/groups", headers=bearer(access_token)).json()
     default = next(g for g in groups if g["is_default"])
     resp = client.delete(
-        f"/api/permissions/groups/{default['id']}", headers=_bearer(access_token)
+        f"/api/permissions/groups/{default['id']}", headers=bearer(access_token)
     )
     assert resp.status_code == 400
+
+
+def test_update_group_deleted_mid_update_returns_404(client, access_token, mocker):
+    try:
+        gid = client.post(
+            "/api/permissions/groups",
+            headers=bearer(access_token),
+            json={"name": "Vanishing"},
+        ).json()["id"]
+        mocker.patch.object(DBPermissionsHandler, "update_group", return_value=None)
+
+        resp = client.put(
+            f"/api/permissions/groups/{gid}",
+            headers=bearer(access_token),
+            json={"description": "renamed"},
+        )
+        assert resp.status_code == 404
+    finally:
+        _cleanup()
 
 
 def test_delete_group_falls_members_back(client, access_token, viewer_user):
     gid = client.post(
         "/api/permissions/groups",
-        headers=_bearer(access_token),
+        headers=bearer(access_token),
         json={"name": "Temp", "grants": [{"entity": "roms", "action": "read"}]},
     ).json()["id"]
     client.put(
         f"/api/permissions/users/{viewer_user.id}",
-        headers=_bearer(access_token),
+        headers=bearer(access_token),
         json={"set_group": True, "permission_group_id": gid},
     )
 
-    resp = client.delete(
-        f"/api/permissions/groups/{gid}", headers=_bearer(access_token)
-    )
+    resp = client.delete(f"/api/permissions/groups/{gid}", headers=bearer(access_token))
     assert resp.status_code == 200
 
     # FK SET NULL -> user falls back to the default (viewer) matrix.
     user = db_user_handler.get_user(viewer_user.id)
+    assert user is not None
     assert user.permission_group_id is None
     actions, _ = _me_actions(client, viewer_user.id)
     assert "collection.create" in actions  # default viewer behaviour restored

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
-from sqlalchemy import Integer, String, Text, func, select
+from sqlalchemy import Index, Integer, String, Text, func, select
 from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
 
 from models.base import BaseModel
@@ -14,6 +14,21 @@ if TYPE_CHECKING:
 
 DEFAULT_COVER_ASPECT_RATIO = "2 / 3"
 
+# The columns a provider fills when it recognises the platform. sgdb only
+# supplies artwork, so it does not count.
+PLATFORM_MATCH_FIELDS: Final = (
+    "igdb_id",
+    "moby_id",
+    "ss_id",
+    "ra_id",
+    "launchbox_id",
+    "hasheous_id",
+    "tgdb_id",
+    "flashpoint_id",
+    "hltb_slug",
+    "libretro_slug",
+)
+
 # Bounds for the user-authored fields
 CUSTOM_NAME_MAX_LENGTH = 400
 DESCRIPTION_MAX_LENGTH = 65535  # TEXT
@@ -21,6 +36,8 @@ DESCRIPTION_MAX_LENGTH = 65535  # TEXT
 
 class Platform(BaseModel):
     __tablename__ = "platforms"
+
+    __table_args__ = (Index("ix_platforms_updated_at", "updated_at"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     igdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
@@ -45,6 +62,7 @@ class Platform(BaseModel):
     description: Mapped[str | None] = mapped_column(Text, default="")
     category: Mapped[str | None] = mapped_column(String(length=100), default="")
     generation: Mapped[int | None]
+    first_release_year: Mapped[int | None] = mapped_column(Integer(), default=None)
     family_name: Mapped[str | None] = mapped_column(String(length=1000), default="")
     family_slug: Mapped[str | None] = mapped_column(String(length=1000), default="")
     url: Mapped[str | None] = mapped_column(String(length=1000), default="")
@@ -81,18 +99,11 @@ class Platform(BaseModel):
 
     @property
     def is_unidentified(self) -> bool:
-        return (
-            not self.igdb_id
-            and not self.moby_id
-            and not self.ss_id
-            and not self.launchbox_id
-            and not self.ra_id
-            and not self.hasheous_id
-        )
+        return not self.is_identified
 
     @property
     def is_identified(self) -> bool:
-        return not self.is_unidentified
+        return any(getattr(self, field) for field in PLATFORM_MATCH_FIELDS)
 
     def __repr__(self) -> str:
         return f"{self.name} ({self.slug}) ({self.id})"

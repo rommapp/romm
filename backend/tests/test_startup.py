@@ -1,134 +1,278 @@
 """Tests for startup-time auto-enqueue of the recompute task."""
 
+from unittest.mock import AsyncMock
+
+import pytest
 import startup
-from rq.job import JOB_ID_PATTERN
+from rq.exceptions import DuplicateJobError, NoSuchJobError
+from rq.job import JOB_ID_PATTERN, Job, JobStatus
+
+from config.config_manager import config_manager
+from handler.database import db_save_handler
+from handler.metadata.launchbox_handler.types import LAUNCHBOX_METADATA_STORE
+from handler.redis_handler import default_queue, high_prio_queue, low_prio_queue
+from tasks.manual.recompute_name_sort_keys import articles_digest
+from tasks.registry import get_task
+from tasks.scheduled.update_switch_titledb import SWITCH_TITLEDB_STORE
+from utils.cache import VersionedCacheStore
 
 
-def test_enqueue_recompute_skips_when_no_missing_hashes(mocker):
+@pytest.fixture
+def enqueue_task(mocker):
+    return mocker.patch.object(startup, "enqueue_task")
+
+
+def test_enqueue_recompute_skips_when_no_missing_hashes(mocker, enqueue_task):
     """Saves all have content_hash -> no enqueue."""
     mocker.patch.object(
-        startup.db_save_handler, "count_saves_missing_content_hash", return_value=0
+        db_save_handler, "count_saves_missing_content_hash", return_value=0
     )
-    enqueue = mocker.patch.object(startup.low_prio_queue, "enqueue")
 
     startup._enqueue_recompute_save_hashes_if_needed()
 
-    enqueue.assert_not_called()
+    enqueue_task.assert_not_called()
 
 
-def test_enqueue_recompute_fires_when_missing_hashes_present(mocker):
+def test_enqueue_recompute_fires_when_missing_hashes_present(mocker, enqueue_task):
     """At least one Save row has NULL content_hash -> enqueue exactly once."""
     mocker.patch.object(
-        startup.db_save_handler, "count_saves_missing_content_hash", return_value=42
+        db_save_handler, "count_saves_missing_content_hash", return_value=42
     )
-    mocker.patch.object(startup.Job, "exists", return_value=False)
-    enqueue = mocker.patch.object(startup.low_prio_queue, "enqueue")
 
     startup._enqueue_recompute_save_hashes_if_needed()
 
-    enqueue.assert_called_once()
-    args, kwargs = enqueue.call_args
-    # First positional arg is the bound task.run method
-    assert args[0].__self__ is startup.recompute_save_content_hashes_task
-    # Sanity-check the meta payload routes correctly in the task list UI
-    assert kwargs["meta"]["task_name"] == (
-        startup.recompute_save_content_hashes_task.title
+    enqueue_task.assert_called_once_with(
+        "recompute_save_content_hashes",
+        job_id=startup.RECOMPUTE_SAVE_HASHES_JOB_ID,
+        # RQ settles the duplicate check and the enqueue in one round trip
+        unique=True,
     )
-    assert kwargs["meta"]["task_type"] == (
-        startup.recompute_save_content_hashes_task.task_type.value
-    )
-    # Job timeout must be passed; otherwise long-running recomputes get killed
-    # by RQ's default short timeout on very large libraries.
-    assert kwargs["job_timeout"] == startup.TASK_TIMEOUT
-    assert kwargs["job_id"] == startup.RECOMPUTE_SAVE_HASHES_JOB_ID
 
 
-def test_recompute_job_id_is_valid_rq_id():
+@pytest.mark.parametrize(
+    ("applied", "queued"),
+    [(("the", "a", "an"), False), (("the", "die"), True), (None, True)],
+    ids=["unchanged", "changed", "unrecorded"],
+)
+def test_enqueue_recompute_name_sort_keys_when_the_articles_change(
+    mocker, enqueue_task, applied, queued
+):
+    mocker.patch.object(startup, "applied_sort_articles", return_value=applied)
+    mocker.patch.object(startup, "sort_articles", return_value=("the", "a", "an"))
+    mocker.patch.object(startup, "_free_finished_job_id")
+
+    startup._enqueue_recompute_name_sort_keys_if_needed()
+
+    if queued:
+        enqueue_task.assert_called_once_with(
+            "recompute_name_sort_keys",
+            job_id=(
+                f"{startup.RECOMPUTE_NAME_SORT_KEYS_JOB_ID}_"
+                f"{articles_digest(('the', 'a', 'an'))}"
+            ),
+            unique=True,
+        )
+    else:
+        enqueue_task.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("status", "freed"),
+    [
+        (JobStatus.FINISHED, True),
+        (JobStatus.FAILED, True),
+        (JobStatus.QUEUED, False),
+        (JobStatus.STARTED, False),
+    ],
+)
+def test_a_stopped_job_frees_its_id_and_a_live_one_keeps_it(mocker, status, freed):
+    job = mocker.Mock(get_status=mocker.Mock(return_value=status))
+    mocker.patch.object(Job, "fetch", return_value=job)
+
+    startup._free_finished_job_id("recompute_name_sort_keys_bootstrap_abc")
+
+    assert job.delete.called is freed
+
+
+def test_a_missing_job_leaves_nothing_to_free(mocker):
+    mocker.patch.object(Job, "fetch", side_effect=NoSuchJobError)
+
+    startup._free_finished_job_id("recompute_name_sort_keys_bootstrap_abc")
+
+
+def test_enqueue_convert_webp_fires_when_not_queued(enqueue_task):
+    """No in-flight bootstrap job -> enqueue the backfill exactly once."""
+    startup._enqueue_convert_images_to_webp()
+
+    enqueue_task.assert_called_once_with(
+        "convert_images_to_webp",
+        job_id=startup.CONVERT_IMAGES_TO_WEBP_JOB_ID,
+        unique=True,
+    )
+
+
+@pytest.mark.parametrize(
+    "job_id",
+    (startup.RECOMPUTE_SAVE_HASHES_JOB_ID, startup.CONVERT_IMAGES_TO_WEBP_JOB_ID),
+)
+def test_backfill_job_ids_are_valid_rq_ids(job_id):
     """RQ rejects any job_id not matching [A-Za-z0-9_-]+ (ValueError in set_id),
-    which the broad except here would swallow -> backfill silently never enqueues.
-    A colon was the original culprit; assert the full contract, not just that."""
-    assert JOB_ID_PATTERN.fullmatch(startup.RECOMPUTE_SAVE_HASHES_JOB_ID)
+    which the broad except here would swallow -> backfill silently never
+    enqueues. A colon was the original culprit."""
+    assert JOB_ID_PATTERN.fullmatch(job_id)
 
 
-def test_enqueue_recompute_skips_when_already_queued(mocker):
-    """An in-flight job from a previous restart -> skip enqueue, don't double up."""
+def test_both_backfills_name_a_registered_task():
+    """The name in the payload is all the runner gets, so it has to resolve."""
+    assert get_task("recompute_save_content_hashes") is not None
+    assert get_task("convert_images_to_webp") is not None
+
+
+@pytest.mark.parametrize(
+    "error", (DuplicateJobError("exists"), RuntimeError("redis gone"))
+)
+def test_a_failed_backfill_enqueue_does_not_crash_startup(mocker, error):
+    """An in-flight job from a previous restart, or a Redis outage, is survivable."""
     mocker.patch.object(
-        startup.db_save_handler, "count_saves_missing_content_hash", return_value=10
+        db_save_handler, "count_saves_missing_content_hash", return_value=10
     )
-    mocker.patch.object(startup.Job, "exists", return_value=True)
-    enqueue = mocker.patch.object(startup.low_prio_queue, "enqueue")
+    mocker.patch.object(startup, "enqueue_task", side_effect=error)
 
     startup._enqueue_recompute_save_hashes_if_needed()
+    startup._enqueue_convert_images_to_webp()
 
-    enqueue.assert_not_called()
 
-
-def test_enqueue_recompute_swallows_count_error(mocker):
+def test_enqueue_recompute_swallows_count_error(mocker, enqueue_task):
     """A failed COUNT query must not crash startup."""
     mocker.patch.object(
-        startup.db_save_handler,
+        db_save_handler,
         "count_saves_missing_content_hash",
         side_effect=RuntimeError("db gone"),
     )
-    enqueue = mocker.patch.object(startup.low_prio_queue, "enqueue")
 
     startup._enqueue_recompute_save_hashes_if_needed()
 
-    enqueue.assert_not_called()
+    enqueue_task.assert_not_called()
 
 
-def test_enqueue_recompute_swallows_enqueue_error(mocker):
-    """A failed enqueue must not crash startup."""
-    mocker.patch.object(
-        startup.db_save_handler, "count_saves_missing_content_hash", return_value=5
+class TestDropLegacySchedulerState:
+    """The old scheduler's keys go on the first start after the migration."""
+
+    @pytest.fixture
+    def redis(self, mocker):
+        redis = mocker.patch.object(startup, "redis_client")
+        redis.scan_iter.return_value = []
+        return redis
+
+    def test_removes_the_scheduler_keys_with_no_jobs_left_behind(self, redis):
+        redis.zrange.return_value = []
+
+        startup._drop_legacy_scheduler_state()
+
+        redis.delete.assert_called_once_with(*startup.LEGACY_SCHEDULER_KEYS)
+
+    def test_deletes_orphaned_jobs_but_not_queued_ones(self, mocker, redis):
+        redis.zrange.return_value = [b"orphan", b"queued"]
+        for queue in (high_prio_queue, default_queue):
+            mocker.patch.object(queue, "get_job_ids", return_value=[])
+        mocker.patch.object(low_prio_queue, "get_job_ids", return_value=["queued"])
+
+        startup._drop_legacy_scheduler_state()
+
+        assert redis.delete.call_args_list[0].args == ("rq:job:orphan",)
+        assert redis.delete.call_args_list[-1].args == startup.LEGACY_SCHEDULER_KEYS
+
+    def test_survives_a_redis_failure(self, redis):
+        redis.zrange.side_effect = RuntimeError("redis gone")
+
+        startup._drop_legacy_scheduler_state()
+
+
+class TestRebuildOutdatedMetadataStores:
+    """A store an older release wrote is dropped, and its rebuild queued."""
+
+    @pytest.fixture
+    def drop_stale(self, mocker):
+        """Report only the stores named as stale, whatever order they run in."""
+
+        def patch_drop(*stale: VersionedCacheStore):
+            async def drop(_cache, store):
+                return store in stale
+
+            return mocker.patch.object(
+                startup, "drop_stale_cache_store", new=AsyncMock(side_effect=drop)
+            )
+
+        return patch_drop
+
+    async def test_stale_launchbox_store_is_dropped_and_rebuilt(
+        self, mocker, drop_stale, enqueue_task
+    ):
+        mocker.patch.object(startup, "LAUNCHBOX_API_ENABLED", True)
+        drop_stale(LAUNCHBOX_METADATA_STORE)
+
+        await startup._rebuild_outdated_metadata_stores()
+
+        enqueue_task.assert_called_once_with(
+            "update_launchbox_metadata",
+            job_id=startup.UPDATE_LAUNCHBOX_METADATA_JOB_ID,
+            unique=True,
+        )
+
+    async def test_launchbox_rebuild_waits_on_the_provider_being_enabled(
+        self, mocker, drop_stale, enqueue_task
+    ):
+        """Dropping reclaims the memory; refilling it would serve nobody."""
+        mocker.patch.object(startup, "LAUNCHBOX_API_ENABLED", False)
+        mocker.patch.object(
+            startup,
+            "VERSIONED_METADATA_STORES",
+            (
+                (
+                    LAUNCHBOX_METADATA_STORE,
+                    "update_launchbox_metadata",
+                    startup.UPDATE_LAUNCHBOX_METADATA_JOB_ID,
+                    False,
+                ),
+            ),
+        )
+        drop_stale(LAUNCHBOX_METADATA_STORE)
+
+        await startup._rebuild_outdated_metadata_stores()
+
+        enqueue_task.assert_not_called()
+
+    async def test_stale_switch_store_is_dropped_and_rebuilt(
+        self, drop_stale, enqueue_task
+    ):
+        drop_stale(SWITCH_TITLEDB_STORE)
+
+        await startup._rebuild_outdated_metadata_stores()
+
+        enqueue_task.assert_called_once_with(
+            "update_switch_titledb",
+            job_id=startup.UPDATE_SWITCH_TITLEDB_JOB_ID,
+            unique=True,
+        )
+
+    async def test_current_stores_queue_nothing(self, drop_stale, enqueue_task):
+        drop_stale()
+
+        await startup._rebuild_outdated_metadata_stores()
+
+        enqueue_task.assert_not_called()
+
+
+def test_warns_about_each_binding_to_an_unknown_platform(mocker):
+    warnings = mocker.patch.object(
+        startup, "unknown_binding_warnings", return_value=["first", "second"]
     )
-    mocker.patch.object(startup.Job, "exists", return_value=False)
-    mocker.patch.object(
-        startup.low_prio_queue, "enqueue", side_effect=RuntimeError("redis gone")
-    )
+    log = mocker.patch.object(startup, "log")
 
-    startup._enqueue_recompute_save_hashes_if_needed()
+    startup._warn_about_unknown_platform_bindings()
 
-
-def test_enqueue_convert_webp_fires_when_not_queued(mocker):
-    """No in-flight bootstrap job -> enqueue the backfill exactly once."""
-    mocker.patch.object(startup.Job, "exists", return_value=False)
-    enqueue = mocker.patch.object(startup.low_prio_queue, "enqueue")
-
-    startup._enqueue_convert_images_to_webp()
-
-    enqueue.assert_called_once()
-    args, kwargs = enqueue.call_args
-    assert args[0].__self__ is startup.convert_images_to_webp_task
-    assert kwargs["meta"]["task_name"] == startup.convert_images_to_webp_task.title
-    assert kwargs["meta"]["task_type"] == (
-        startup.convert_images_to_webp_task.task_type.value
-    )
-    assert kwargs["job_timeout"] == startup.TASK_TIMEOUT
-    assert kwargs["job_id"] == startup.CONVERT_IMAGES_TO_WEBP_JOB_ID
-
-
-def test_convert_webp_job_id_is_valid_rq_id():
-    """An invalid job_id raises in set_id, which the broad except swallows ->
-    backfill silently never enqueues. Assert the id matches RQ's contract."""
-    assert JOB_ID_PATTERN.fullmatch(startup.CONVERT_IMAGES_TO_WEBP_JOB_ID)
-
-
-def test_enqueue_convert_webp_skips_when_already_queued(mocker):
-    """An in-flight job from a previous restart -> skip enqueue, don't double up."""
-    mocker.patch.object(startup.Job, "exists", return_value=True)
-    enqueue = mocker.patch.object(startup.low_prio_queue, "enqueue")
-
-    startup._enqueue_convert_images_to_webp()
-
-    enqueue.assert_not_called()
-
-
-def test_enqueue_convert_webp_swallows_enqueue_error(mocker):
-    """A failed enqueue must not crash startup."""
-    mocker.patch.object(startup.Job, "exists", return_value=False)
-    mocker.patch.object(
-        startup.low_prio_queue, "enqueue", side_effect=RuntimeError("redis gone")
-    )
-
-    startup._enqueue_convert_images_to_webp()
+    warnings.assert_called_once_with(config_manager.config)
+    assert [call.args[0] for call in log.warning.call_args_list] == [
+        "first",
+        "second",
+    ]

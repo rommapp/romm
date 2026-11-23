@@ -1,0 +1,162 @@
+<script setup lang="ts">
+// ConfirmDialog: single mounted shared composite that renders confirmation
+// prompts on demand. Consumers don't render this directly; they go through
+// `useConfirm()` (src/composables/useConfirm), which emits the
+// `showConfirm` event and resolves a Promise<boolean> when the user picks.
+//
+// Three friction levels:
+//   * Low:    title + body + Cancel + Confirm. Default focus on Cancel so
+//             a stray Enter cancels.
+//   * High:   `requireTyped` populated, the confirm button stays disabled
+//             until the user types the matching string. Use for actions
+//             that touch filesystem (per the constitution).
+// Tone defaults to "warning"; pass "danger" for irreversible-and-serious.
+import type { Emitter } from "mitt";
+import { computed, inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
+import { useEmitterEvent } from "@/composables/useEmitterEvent";
+import { RBtn, RDialog, RTextField } from "@/lib";
+import type { Events } from "@/types/emitter";
+
+defineOptions({ inheritAttrs: false });
+
+const { t } = useI18n();
+
+type Payload = Events["showConfirm"];
+
+const emitter = inject<Emitter<Events>>("emitter");
+const open = ref(false);
+const payload = ref<Payload | null>(null);
+const typed = ref("");
+
+const tone = computed(() => payload.value?.tone ?? "warning");
+const confirmColor = computed(() =>
+  tone.value === "danger" ? "error" : "warning",
+);
+// The hint renders the required string as HTML, which collapses runs of
+// whitespace, so a name carrying a double space (an unidentified platform
+// named from its folder, say) can never be typed back as stored. Compare on
+// the shape the user actually sees. Only the whitespace HTML actually
+// collapses counts: NBSP and friends render as themselves, so they stay
+// significant.
+const COLLAPSIBLE_WHITESPACE = /[ \t\n\r\f]+/g;
+
+function normalize(value: string): string {
+  return value.replace(COLLAPSIBLE_WHITESPACE, " ").replace(/^ | $/g, "");
+}
+
+const confirmDisabled = computed(() => {
+  const required = payload.value?.requireTyped;
+  if (!required) return false;
+  const normalizedRequired = normalize(required);
+  // A phrase that renders as nothing would otherwise match the empty field
+  // and hand out the action for free, so demand it character for character.
+  if (!normalizedRequired) return typed.value !== required;
+  return normalize(typed.value) !== normalizedRequired;
+});
+
+function onShow(p: Payload) {
+  payload.value = p;
+  typed.value = "";
+  open.value = true;
+}
+
+// Closing without picking (header X, route change) counts as a cancel.
+// `useConfirm`'s promise is awaited, so it has to settle either way.
+function resolve(confirmed: boolean) {
+  const id = payload.value?.id;
+  open.value = false;
+  if (id != null) emitter?.emit("confirmResolved", { id, confirmed });
+  payload.value = null;
+  typed.value = "";
+}
+
+function onCancel() {
+  resolve(false);
+}
+
+function onConfirm() {
+  if (confirmDisabled.value) return;
+  resolve(true);
+}
+
+useEmitterEvent("showConfirm", onShow);
+</script>
+
+<template>
+  <RDialog v-model="open" width="440" persistent @close="onCancel">
+    <template v-if="payload" #header>
+      <span>{{ payload.title }}</span>
+    </template>
+    <template v-if="payload" #content>
+      <div class="r-confirm">
+        <p v-if="payload.body" class="r-confirm__body">{{ payload.body }}</p>
+
+        <div v-if="payload.requireTyped" class="r-confirm__typed">
+          <i18n-t
+            keypath="common.type-to-confirm"
+            tag="p"
+            class="r-confirm__typed-hint"
+          >
+            <template #label>
+              <strong>{{ payload.requireTyped }}</strong>
+            </template>
+          </i18n-t>
+          <RTextField
+            v-model="typed"
+            density="comfortable"
+            variant="outlined"
+          />
+        </div>
+      </div>
+    </template>
+    <template v-if="payload" #footer-start>
+      <!-- eslint-disable vuejs-accessibility/no-autofocus -- RDialog reads [autofocus] to place initial focus, and Cancel is the safe default -->
+      <RBtn autofocus variant="outlined" @click="onCancel">
+        {{ payload.cancelText ?? t("common.cancel") }}
+      </RBtn>
+      <!-- eslint-enable vuejs-accessibility/no-autofocus -->
+    </template>
+    <template v-if="payload" #footer>
+      <RBtn
+        :color="confirmColor"
+        :disabled="confirmDisabled"
+        @click="onConfirm"
+      >
+        {{ payload.confirmText ?? t("common.confirm") }}
+      </RBtn>
+    </template>
+  </RDialog>
+</template>
+
+<style scoped>
+.r-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--r-space-4);
+}
+
+.r-confirm__body {
+  margin: 0;
+  color: var(--r-color-fg-secondary);
+  font-size: var(--r-font-size-md);
+  line-height: var(--r-line-height-normal);
+}
+
+.r-confirm__typed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--r-space-2);
+}
+
+.r-confirm__typed-hint {
+  margin: 0;
+  font-size: var(--r-font-size-sm);
+  color: var(--r-color-fg-muted);
+}
+
+.r-confirm__typed-hint strong {
+  color: var(--r-color-fg);
+  font-family: var(--r-font-family-mono);
+}
+</style>

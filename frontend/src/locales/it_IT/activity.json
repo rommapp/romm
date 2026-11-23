@@ -4,11 +4,16 @@
   "hours-ago": "{n} h fa",
   "hours-minutes-ago": "{h} h {m} min fa",
   "just-now": "Proprio ora",
-  "live": "IN DIRETTA",
   "minutes-ago": "{n} min fa",
   "no-activity": "Al momento non sta giocando nessuno",
-  "now-playing": "In gioco",
-  "playing-on": "Sta giocando su {device}",
-  "playing-since": "Sta giocando da {time}",
-  "total-sessions": "Sessioni totali"
+  "release-failed": "Impossibile liberare la sessione",
+  "release-reason": "Motivo (opzionale)",
+  "release-reason-placeholder": "Mostrato al giocatore quando la sessione finisce",
+  "release-session": "Libera",
+  "release-session-body": "Questo fermerà immediatamente {game} e disconnetterà {user}. I progressi non salvati andranno persi.",
+  "release-session-title": "Liberare la sessione di streaming?",
+  "session-released": "Sessione liberata",
+  "streaming-sessions": "Sessioni di streaming",
+  "total-sessions": "Sessioni totali",
+  "unknown-user": "Utente sconosciuto"
 }

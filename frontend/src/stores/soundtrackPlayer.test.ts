@@ -1,0 +1,266 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { FRONTEND_RESOURCES_PATH } from "@/utils";
+import { romFixture } from "@/utils/rom.fixtures";
+import useSoundtrackPlayer, {
+  resolveSoundtrackGameArtwork,
+  type SoundtrackArtworkRom,
+} from "./soundtrackPlayer";
+
+function artworkRom(
+  overrides: Partial<SoundtrackArtworkRom> = {},
+): SoundtrackArtworkRom {
+  return romFixture({ platform_slug: "psx", ...overrides });
+}
+
+describe("resolveSoundtrackGameArtwork", () => {
+  it("prefers the ScreenScraper disc over the logo on a CD system", () => {
+    const url = resolveSoundtrackGameArtwork(
+      artworkRom({
+        ss_metadata: { physical_path: "disc.png", logo_path: "logo.png" },
+      }),
+    );
+    expect(url).toBe(`${FRONTEND_RESOURCES_PATH}/disc.png`);
+  });
+
+  it("falls back to the LaunchBox disc when ScreenScraper has none", () => {
+    const url = resolveSoundtrackGameArtwork(
+      artworkRom({
+        ss_metadata: { logo_path: "logo.png" },
+        launchbox_metadata: {
+          images: [
+            {
+              url: "https://images.launchbox-app.com/box.png",
+              type: "Box - Front",
+            },
+            { url: "https://images.launchbox-app.com/disc.png", type: "Disc" },
+          ],
+        },
+      }),
+    );
+    expect(url).toBe("https://images.launchbox-app.com/disc.png");
+  });
+
+  it("skips LaunchBox media the browser cannot load", () => {
+    const url = resolveSoundtrackGameArtwork(
+      artworkRom({
+        ss_metadata: { logo_path: "logo.png" },
+        launchbox_metadata: {
+          images: [
+            { url: "launchbox-file://Images/PS1/Disc/game.png", type: "Disc" },
+          ],
+        },
+      }),
+    );
+    expect(url).toBe(`${FRONTEND_RESOURCES_PATH}/logo.png`);
+  });
+
+  it("ignores physical media on a non-CD system", () => {
+    const url = resolveSoundtrackGameArtwork(
+      artworkRom({
+        platform_slug: "snes",
+        ss_metadata: { physical_path: "cart.png", logo_path: "logo.png" },
+        launchbox_metadata: {
+          images: [
+            { url: "https://images.launchbox-app.com/disc.png", type: "Disc" },
+          ],
+        },
+      }),
+    );
+    expect(url).toBe(`${FRONTEND_RESOURCES_PATH}/logo.png`);
+  });
+
+  it("falls back to the cover chain when no artwork is scraped", () => {
+    expect(
+      resolveSoundtrackGameArtwork(
+        artworkRom({ path_cover_small: "small.png", url_cover: "remote.png" }),
+      ),
+    ).toBe("small.png");
+    expect(resolveSoundtrackGameArtwork(artworkRom())).toBeUndefined();
+  });
+
+  it("treats the backend's empty cover paths as missing", () => {
+    expect(
+      resolveSoundtrackGameArtwork(
+        artworkRom({
+          path_cover_large: "",
+          path_cover_small: "",
+          url_cover: "",
+        }),
+      ),
+    ).toBeUndefined();
+    expect(
+      resolveSoundtrackGameArtwork(
+        artworkRom({ path_cover_large: "", path_cover_small: "small.png" }),
+      ),
+    ).toBe("small.png");
+  });
+});
+
+describe("loadPlaylist with preserved shuffle", () => {
+  function makeTracks(count: number, offset = 0) {
+    return Array.from({ length: count }, (_, i) => ({
+      romId: 1,
+      fileId: offset + i + 1,
+      fileName: `track-${offset + i + 1}.mp3`,
+      url: `/tracks/${offset + i + 1}`,
+    }));
+  }
+
+  it("shuffles freshly paged-in tracks instead of appending them in order", () => {
+    const player = useSoundtrackPlayer();
+    const firstPage = makeTracks(4);
+    player.loadPlaylist(firstPage, {}, null);
+    player.toggleShuffle();
+    const shuffledFirstPage = [...player.playlist];
+
+    const nextPage = makeTracks(4, 4);
+    // Force the worst shuffle luck: Math.random() = 0 still may not produce
+    // the identity permutation, so an in-order tail proves the bug.
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    player.loadPlaylist([...firstPage, ...nextPage], {}, null, true);
+    randomSpy.mockRestore();
+
+    const ids = (tracks: { fileId: number }[]) => tracks.map((t) => t.fileId);
+    // The already-shuffled window keeps its order.
+    expect(ids(player.playlist.slice(0, 4))).toEqual(ids(shuffledFirstPage));
+    // The appended window holds the same tracks but not in server order.
+    expect(ids(player.playlist.slice(4)).sort()).toEqual(ids(nextPage).sort());
+    expect(ids(player.playlist.slice(4))).not.toEqual(ids(nextPage));
+  });
+});
+
+describe("session restore", () => {
+  const track = {
+    romId: 1,
+    fileId: 2,
+    fileName: "02 Theme.mp3",
+    url: "/theme.mp3",
+  };
+  const saved = {
+    track,
+    meta: { title: "Theme", duration: 180 },
+    playlist: [track],
+    originalPlaylist: [track],
+    isShuffled: false,
+    playlistMeta: { 2: { title: "Theme" } },
+    activePlaylistRomId: 1,
+    position: 42,
+    wasPlaying: true,
+  };
+
+  it("rebuilds the session it was given", () => {
+    const player = useSoundtrackPlayer();
+    player.restore(saved);
+
+    expect(player.session).toEqual(saved);
+    expect(player.currentTime).toBe(42);
+    expect(player.duration).toBe(180);
+  });
+
+  it("keeps the position for the player until another track plays", () => {
+    const player = useSoundtrackPlayer();
+    player.restore(saved);
+
+    expect(player.pendingResume).toEqual({ position: 42, autoplay: true });
+    player.play(track, {});
+    expect(player.pendingResume).toBeNull();
+  });
+
+  it("stops counting as playing once playback reports in", () => {
+    const player = useSoundtrackPlayer();
+    player.restore(saved);
+    player.setPlaying(true);
+    player.setPlaying(false);
+
+    expect(player.session?.wasPlaying).toBe(false);
+  });
+
+  it("drops a pending resume on stop", () => {
+    const player = useSoundtrackPlayer();
+    player.restore(saved);
+    player.stop();
+
+    expect(player.session).toBeNull();
+    expect(player.pendingResume).toBeNull();
+  });
+});
+
+describe("reportCurrentTime throttling", () => {
+  const track = {
+    romId: 1,
+    fileId: 2,
+    fileName: "02 Theme.mp3",
+    url: "/theme.mp3",
+  };
+
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("applies the leading report and then the latest queued one", () => {
+    const player = useSoundtrackPlayer();
+    player.play(track, {});
+    player.reportCurrentTime(1);
+    player.reportCurrentTime(2);
+    player.reportCurrentTime(3);
+    expect(player.currentTime).toBe(1);
+
+    vi.advanceTimersByTime(200);
+    expect(player.currentTime).toBe(3);
+  });
+
+  it("drops a queued report when another track plays", () => {
+    const player = useSoundtrackPlayer();
+    player.play(track, {});
+    player.reportCurrentTime(1);
+    player.reportCurrentTime(50);
+    player.play(track, {});
+
+    vi.advanceTimersByTime(200);
+    expect(player.currentTime).toBe(0);
+  });
+
+  it("drops a queued report on stop", () => {
+    const player = useSoundtrackPlayer();
+    player.play(track, {});
+    player.reportCurrentTime(1);
+    player.reportCurrentTime(50);
+    player.stop();
+
+    vi.advanceTimersByTime(200);
+    expect(player.currentTime).toBe(0);
+  });
+
+  it("keeps the restored position over a queued report", () => {
+    const player = useSoundtrackPlayer();
+    player.play(track, {});
+    player.reportCurrentTime(1);
+    player.reportCurrentTime(50);
+    player.restore({
+      track,
+      meta: {},
+      playlist: [track],
+      originalPlaylist: [track],
+      isShuffled: false,
+      playlistMeta: {},
+      activePlaylistRomId: null,
+      position: 42,
+      wasPlaying: false,
+    });
+
+    vi.advanceTimersByTime(200);
+    expect(player.currentTime).toBe(42);
+  });
+
+  it("still applies reports for the new track", () => {
+    const player = useSoundtrackPlayer();
+    player.play(track, {});
+    player.reportCurrentTime(1);
+    player.reportCurrentTime(50);
+    player.play(track, {});
+    vi.advanceTimersByTime(200);
+
+    player.reportCurrentTime(7);
+    vi.advanceTimersByTime(200);
+    expect(player.currentTime).toBe(7);
+  });
+});

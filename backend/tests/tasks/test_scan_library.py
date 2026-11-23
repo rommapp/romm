@@ -1,20 +1,11 @@
+from dataclasses import replace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from handler.metadata.flashpoint_handler import FlashpointHandler
-from handler.metadata.hasheous_handler import HasheousHandler
-from handler.metadata.hltb_handler import HLTBHandler
-from handler.metadata.igdb_handler import IGDBHandler
-from handler.metadata.launchbox_handler.handler import LaunchboxHandler
-from handler.metadata.libretro_handler import LibretroHandler
-from handler.metadata.moby_handler import MobyGamesHandler
-from handler.metadata.playmatch_handler import PlaymatchHandler
-from handler.metadata.ra_handler import RAHandler
-from handler.metadata.sgdb_handler import SGDBBaseHandler
-from handler.metadata.ss_handler import SSHandler
-from handler.metadata.tgdb_handler import TGDBHandler
-from handler.scan_handler import MetadataSource, ScanType
+from config import SCAN_TIMEOUT
+from handler import metadata
+from handler.scan.sources import MetadataSource, ScanType
 from tasks.scheduled.scan_library import ScanLibraryTask, scan_library_task
 
 
@@ -23,26 +14,28 @@ class TestScanLibraryTask:
     def task(self):
         return ScanLibraryTask()
 
+    @pytest.fixture
+    def providers(self, mocker):
+        """Every metadata provider off, so one configured in the environment
+        cannot add itself to the scan."""
+        handlers = {
+            name: handler
+            for name, handler in vars(metadata).items()
+            if name.startswith("meta_") and hasattr(handler, "is_enabled")
+        }
+        for handler in handlers.values():
+            mocker.patch.object(handler, "is_enabled", return_value=False)
+        return handlers
+
     def test_init(self, task):
         """Test task initialization"""
-        assert task.func == "tasks.scheduled.scan_library.scan_library_task.run"
-        assert task.description == "Rescans the entire library"
+        assert task.spec.description == "Rescans the entire library"
 
-    async def test_run_enabled(self, task, mocker):
+    async def test_run_enabled(self, task, mocker, providers):
         """Test run when scheduled rescan is enabled"""
-        mocker.patch.object(HasheousHandler, "is_enabled", return_value=False)
-        mocker.patch.object(IGDBHandler, "is_enabled", return_value=False)
-        mocker.patch.object(LaunchboxHandler, "is_enabled", return_value=True)
-        mocker.patch.object(MobyGamesHandler, "is_enabled", return_value=False)
-        mocker.patch.object(PlaymatchHandler, "is_enabled", return_value=False)
-        mocker.patch.object(RAHandler, "is_enabled", return_value=True)
-        mocker.patch.object(SGDBBaseHandler, "is_enabled", return_value=False)
-        mocker.patch.object(SSHandler, "is_enabled", return_value=False)
-        mocker.patch.object(FlashpointHandler, "is_enabled", return_value=False)
-        mocker.patch.object(HLTBHandler, "is_enabled", return_value=False)
-        mocker.patch.object(TGDBHandler, "is_enabled", return_value=False)
-        mocker.patch.object(LibretroHandler, "is_enabled", return_value=False)
-        mocker.patch("tasks.scheduled.scan_library.ENABLE_SCHEDULED_RESCAN", True)
+        for name in ("meta_ra_handler", "meta_launchbox_handler"):
+            mocker.patch.object(providers[name], "is_enabled", return_value=True)
+        task.spec = replace(task.spec, enabled=True)
 
         scan_result = MagicMock()
         mock_scan_platforms = mocker.patch(
@@ -63,25 +56,24 @@ class TestScanLibraryTask:
 
     async def test_run_disabled(self, task, mocker):
         """Test run when scheduled rescan is disabled"""
-        mocker.patch("tasks.scheduled.scan_library.ENABLE_SCHEDULED_RESCAN", False)
+        task.spec = replace(task.spec, enabled=False)
         mock_scan_platforms = mocker.patch(
             "tasks.scheduled.scan_library.scan_platforms"
         )
         mock_log = mocker.patch("tasks.scheduled.scan_library.log")
-        task.unschedule = MagicMock()
 
         await task.run()
 
         mock_log.info.assert_called_once_with(
-            "Scheduled library scan not enabled, unscheduling..."
+            "Scheduled library scan not enabled, skipping..."
         )
-        task.unschedule.assert_called_once()
         mock_scan_platforms.assert_not_called()
 
     def test_task_instance(self):
         """Test that the module-level task instance is created correctly"""
         assert isinstance(scan_library_task, ScanLibraryTask)
-        assert (
-            scan_library_task.func
-            == "tasks.scheduled.scan_library.scan_library_task.run"
-        )
+
+
+def test_scheduled_rescan_gets_the_scan_timeout():
+    """It inherits the five-minute task timeout otherwise, which kills it."""
+    assert scan_library_task.spec.timeout == SCAN_TIMEOUT

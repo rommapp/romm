@@ -1,0 +1,273 @@
+from typing import Any, cast
+
+import pytest
+from fastapi import status
+from fastapi.testclient import TestClient
+from tests.factories import make_rom
+
+from handler.database import db_rom_handler
+from models.platform import Platform
+from models.rom import Rom, RomFile, RomFileCategory
+from models.user import User
+
+LAST_MODIFIED = 1700000000.0
+
+FILE_STAT_FIELDS = (
+    "has_simple_single_file",
+    "has_nested_single_file",
+    "has_multiple_files",
+    "has_soundtrack",
+    "is_easyrpg_game",
+    "has_jsdos_bundle",
+)
+
+
+def _add_rom(
+    admin_user: User, platform: Platform, name: str, fs_extension: str = "zip"
+) -> Rom:
+    rom = make_rom(platform, name, fs_extension=fs_extension)
+    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
+    return rom
+
+
+def _add_file(
+    rom: Rom,
+    file_name: str,
+    *,
+    file_path: str,
+    category: RomFileCategory = RomFileCategory.GAME,
+    missing_from_fs: bool = False,
+) -> None:
+    db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name=file_name,
+            file_path=file_path,
+            file_size_bytes=10,
+            last_modified=LAST_MODIFIED,
+            category=category,
+            missing_from_fs=missing_from_fs,
+        )
+    )
+
+
+@pytest.fixture
+def fileless_rom(admin_user: User, platform: Platform) -> Rom:
+    """A ROM with no file rows at all, as a scan leaves one missing from disk."""
+    return _add_rom(admin_user, platform, "fileless_rom")
+
+
+@pytest.fixture
+def flat_rom(admin_user: User, platform: Platform) -> Rom:
+    """A single file sitting directly in the platform's roms directory."""
+    rom = _add_rom(admin_user, platform, "flat_rom")
+    _add_file(rom, "flat_rom.zip", file_path=rom.fs_path)
+    return rom
+
+
+@pytest.fixture
+def folder_rom(admin_user: User, platform: Platform) -> Rom:
+    """A folder ROM with two files side by side at its top level."""
+    rom = _add_rom(admin_user, platform, "folder_rom", fs_extension="")
+    for file_name in ("game.bin", "readme.txt"):
+        _add_file(rom, file_name, file_path=f"{rom.fs_path}/folder_rom")
+    return rom
+
+
+@pytest.fixture
+def nested_rom(admin_user: User, platform: Platform) -> Rom:
+    """A folder ROM whose only content file sits in a subdirectory."""
+    rom = _add_rom(admin_user, platform, "nested_rom", fs_extension="")
+    _add_file(rom, "disc.bin", file_path=f"{rom.fs_path}/nested_rom/data")
+    return rom
+
+
+@pytest.fixture
+def soundtrack_rom(admin_user: User, platform: Platform) -> Rom:
+    """A folder ROM carrying a game file and a soundtrack track."""
+    rom = _add_rom(admin_user, platform, "ost_rom", fs_extension="")
+    file_path = f"{rom.fs_path}/ost_rom"
+    _add_file(rom, "game.bin", file_path=file_path)
+    _add_file(
+        rom, "01.mp3", file_path=f"{file_path}/ost", category=RomFileCategory.SOUNDTRACK
+    )
+    return rom
+
+
+@pytest.fixture
+def easyrpg_rom(admin_user: User, platform: Platform) -> Rom:
+    """An RPG Maker 2000/2003 game folder, its database named in upper case."""
+    rom = _add_rom(admin_user, platform, "rpg_game", fs_extension="")
+    file_path = f"{rom.fs_path}/rpg_game"
+    _add_file(rom, "RPG_RT.ldb", file_path=file_path)
+    _add_file(rom, "Title.png", file_path=f"{file_path}/Title")
+    return rom
+
+
+@pytest.fixture
+def jsdos_rom(admin_user: User, platform: Platform) -> Rom:
+    """A single js-dos bundle, its extension in upper case."""
+    rom = _add_rom(admin_user, platform, "dos_game", fs_extension="JSDOS")
+    _add_file(rom, "dos_game.JSDOS", file_path=rom.fs_path)
+    return rom
+
+
+@pytest.fixture
+def jsdos_folder_rom(admin_user: User, platform: Platform) -> Rom:
+    """A folder holding a js-dos bundle beside its manual."""
+    rom = _add_rom(admin_user, platform, "Dos Game (1996)", fs_extension="")
+    file_path = f"{rom.fs_path}/Dos Game (1996)"
+    _add_file(rom, "Dos Game (1996).jsdos", file_path=file_path)
+    _add_file(rom, "manual.pdf", file_path=file_path)
+    return rom
+
+
+@pytest.fixture
+def nested_jsdos_rom(admin_user: User, platform: Platform) -> Rom:
+    """A folder whose only bundle sits in a subdirectory."""
+    rom = _add_rom(admin_user, platform, "nested_dos", fs_extension="")
+    _add_file(rom, "game.jsdos", file_path=f"{rom.fs_path}/nested_dos/extras")
+    return rom
+
+
+@pytest.fixture
+def missing_jsdos_rom(admin_user: User, platform: Platform) -> Rom:
+    """A folder whose only bundle is gone from disk."""
+    rom = _add_rom(admin_user, platform, "gone_dos", fs_extension="")
+    file_path = f"{rom.fs_path}/gone_dos"
+    _add_file(rom, "game.jsdos", file_path=file_path, missing_from_fs=True)
+    _add_file(rom, "manual.pdf", file_path=file_path)
+    return rom
+
+
+def _fetch_one(
+    client: TestClient, access_token: str, platform: Platform, *, with_files: bool
+) -> dict[str, Any]:
+    response = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"platform_ids": platform.id, "with_files": with_files},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    items = response.json()["items"]
+    assert len(items) == 1
+    return cast(dict[str, Any], items[0])
+
+
+@pytest.mark.parametrize(
+    "rom_fixture",
+    [
+        "flat_rom",
+        "folder_rom",
+        "nested_rom",
+        "soundtrack_rom",
+        "fileless_rom",
+        "easyrpg_rom",
+        "jsdos_rom",
+        "jsdos_folder_rom",
+        "nested_jsdos_rom",
+        "missing_jsdos_rom",
+    ],
+)
+def test_file_stats_match_between_derived_and_sql_paths(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    rom_fixture: str,
+    request: pytest.FixtureRequest,
+) -> None:
+    """Pin the two implementations to each other, not to a hardcoded expectation.
+
+    `with_files=true` derives the flags in Python; `false` reads the subqueries.
+    """
+    request.getfixturevalue(rom_fixture)
+
+    derived = _fetch_one(client, access_token, platform, with_files=True)
+    from_sql = _fetch_one(client, access_token, platform, with_files=False)
+
+    assert {field: derived[field] for field in FILE_STAT_FIELDS} == {
+        field: from_sql[field] for field in FILE_STAT_FIELDS
+    }
+
+
+@pytest.mark.parametrize("with_files", [True, False])
+@pytest.mark.parametrize(
+    ("field", "rom_fixture", "expected"),
+    [
+        ("is_easyrpg_game", "easyrpg_rom", True),
+        ("is_easyrpg_game", "folder_rom", False),
+        ("has_jsdos_bundle", "jsdos_rom", True),
+        ("has_jsdos_bundle", "jsdos_folder_rom", True),
+        ("has_jsdos_bundle", "nested_jsdos_rom", False),
+        ("has_jsdos_bundle", "missing_jsdos_rom", False),
+        ("has_jsdos_bundle", "folder_rom", False),
+        ("has_jsdos_bundle", "flat_rom", False),
+    ],
+)
+def test_marker_file_flags_need_a_top_level_file(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    field: str,
+    rom_fixture: str,
+    expected: bool,
+    with_files: bool,
+    request: pytest.FixtureRequest,
+) -> None:
+    request.getfixturevalue(rom_fixture)
+
+    rom = _fetch_one(client, access_token, platform, with_files=with_files)
+
+    assert rom[field] is expected
+
+
+def test_with_files_query_count_does_not_scale_with_file_count(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    admin_user: User,
+    executed_statements: list[str],
+) -> None:
+    """Track metadata is eager-loaded, so files cost a fixed number of queries."""
+    rom = _add_rom(admin_user, platform, "many_files_rom", fs_extension="")
+    for index in range(25):
+        _add_file(
+            rom,
+            f"{index:02d}.mp3",
+            file_path=f"{rom.fs_path}/many_files_rom/ost",
+            category=RomFileCategory.SOUNDTRACK,
+        )
+
+    executed_statements.clear()
+    item = _fetch_one(client, access_token, platform, with_files=True)
+    assert len(item["files"]) == 25
+
+    track_meta_queries = [s for s in executed_statements if "track_meta" in s]
+    assert len(track_meta_queries) <= 1
+
+
+def test_identifiers_does_not_load_the_roms_it_lists(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    admin_user: User,
+    executed_statements: list[str],
+) -> None:
+    """The endpoint answers with ids, so the joins a `Rom` brings are pure cost."""
+    rom = _add_rom(admin_user, platform, "identifiers_rom")
+
+    executed_statements.clear()
+    response = client.get(
+        "/api/roms/identifiers",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == [rom.id]
+
+    loaded_related = [
+        statement
+        for statement in executed_statements
+        if "roms_metadata" in statement or "platforms" in statement
+    ]
+    assert loaded_related == []

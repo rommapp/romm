@@ -1,0 +1,19 @@
+{
+  "active-sessions": "Активні сеанси",
+  "days-ago": "{n} дн. тому",
+  "hours-ago": "{n} год тому",
+  "hours-minutes-ago": "{h} год {m} хв тому",
+  "just-now": "Щойно",
+  "minutes-ago": "{n} хв тому",
+  "no-activity": "Зараз ніхто не грає",
+  "release-failed": "Не вдалося завершити сеанс",
+  "release-reason": "Причина (не обов’язково)",
+  "release-reason-placeholder": "Буде показано гравцеві, чий сеанс завершується",
+  "release-session": "Завершити",
+  "release-session-body": "Гра «{game}» зупиниться негайно, а користувача {user} буде від’єднано. Незбережений прогрес буде втрачено.",
+  "release-session-title": "Завершити сеанс трансляції?",
+  "session-released": "Сеанс завершено",
+  "streaming-sessions": "Сеанси трансляції",
+  "total-sessions": "Усього сеансів",
+  "unknown-user": "Невідомий користувач"
+}

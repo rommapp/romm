@@ -7,7 +7,7 @@ interactions:
         Accept-Encoding:
           - gzip, deflate, br
         Authorization:
-          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+          - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         Host:
           - steamgriddb.com
         User-Agent:
@@ -50,7 +50,7 @@ interactions:
         Accept-Encoding:
           - gzip, deflate, br
         Authorization:
-          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+          - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         Host:
           - www.steamgriddb.com
         User-Agent:

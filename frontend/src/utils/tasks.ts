@@ -6,7 +6,6 @@ import type {
   GenericTaskStatusResponse,
   WatcherTaskStatusResponse,
   JobStatus,
-  TaskType,
 } from "@/__generated__";
 import i18n from "@/locales";
 
@@ -31,6 +30,18 @@ export const TaskStatusItem: Record<
     text: t("settings.queued"),
   },
   queued: {
+    color: "orange",
+    icon: "mdi-clock-outline",
+    status: "queued",
+    text: t("settings.queued"),
+  },
+  rate_limited: {
+    color: "orange",
+    icon: "mdi-clock-outline",
+    status: "queued",
+    text: t("settings.queued"),
+  },
+  ready_to_enqueue: {
     color: "orange",
     icon: "mdi-clock-outline",
     status: "queued",
@@ -78,14 +89,4 @@ export const TaskStatusItem: Record<
     status: "grey",
     text: t("settings.scheduled"),
   },
-};
-
-export const TaskTypeItem: Record<TaskType, { title: string; icon: string }> = {
-  scan: { title: "Scan", icon: "mdi-magnify-scan" },
-  conversion: { title: "Conversion", icon: "mdi-image-multiple" },
-  cleanup: { title: "Cleanup", icon: "mdi-broom" },
-  update: { title: "Update", icon: "mdi-update" },
-  watcher: { title: "Watcher", icon: "mdi-eye" },
-  generic: { title: "Task", icon: "mdi-help-circle" },
-  sync: { title: "Sync", icon: "mdi-sync" },
 };

@@ -1,5 +1,6 @@
 import type { AxiosResponse } from "axios";
 import type {
+  ConvertoSettingsPayload,
   ExclusionPayload,
   PlatformBindingPayload,
   ScanSettingsPayload,
@@ -22,7 +23,7 @@ async function addPlatformBindConfig({
 }
 
 async function deletePlatformBindConfig({ fsSlug }: { fsSlug: string }) {
-  return api.delete(`/config/system/platforms/${fsSlug}`);
+  return api.delete(`/config/system/platforms/${encodeURIComponent(fsSlug)}`);
 }
 
 async function addPlatformVersionConfig({
@@ -39,7 +40,7 @@ async function addPlatformVersionConfig({
 }
 
 async function deletePlatformVersionConfig({ fsSlug }: { fsSlug: string }) {
-  return api.delete(`/config/system/versions/${fsSlug}`);
+  return api.delete(`/config/system/versions/${encodeURIComponent(fsSlug)}`);
 }
 
 async function addExclusion({
@@ -65,12 +66,21 @@ async function deleteExclusion({
   exclusionValue: string;
   exclusionType: string;
 }) {
-  return api.delete(`/config/exclude/${exclusionType}/${exclusionValue}`);
+  return api.delete(
+    `/config/exclude/${exclusionType}/${encodeURIComponent(exclusionValue)}`,
+  );
 }
 
 async function updateScanSettings(payload: ScanSettingsPayload) {
   return api.put<void, AxiosResponse<void>, ScanSettingsPayload>(
     "/config/scan",
+    payload,
+  );
+}
+
+async function updateConvertoSettings(payload: ConvertoSettingsPayload) {
+  return api.put<void, AxiosResponse<void>, ConvertoSettingsPayload>(
+    "/config/converto_settings",
     payload,
   );
 }
@@ -83,4 +93,5 @@ export default {
   addExclusion,
   deleteExclusion,
   updateScanSettings,
+  updateConvertoSettings,
 };

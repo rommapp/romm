@@ -1,9 +1,12 @@
-import { type TaskExecutionResponse, type TaskInfo } from "@/__generated__";
+import {
+  type GroupedTasksDict,
+  type TaskExecutionResponse,
+} from "@/__generated__";
 import api from "@/services/api";
 import type { TaskStatusResponse } from "@/utils/tasks";
 
 async function getTasks() {
-  return api.get<Record<string, TaskInfo[]>>("/tasks");
+  return api.get<GroupedTasksDict>("/tasks");
 }
 
 async function getTaskById(taskId: string) {

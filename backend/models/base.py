@@ -1,9 +1,9 @@
 import re
 from datetime import datetime, timezone
-from typing import NamedTuple
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 from sqlalchemy import TIMESTAMP
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, validates
 
 FILE_NAME_MAX_LENGTH = 450
 FILE_PATH_MAX_LENGTH = 1000
@@ -13,6 +13,26 @@ FILE_EXTENSION_MAX_LENGTH = 100
 TAG_GROUP_REGEX = re.compile(r"(?:\s*(?:\([^)]*\)|\[[^]]*\]))+\s*$")
 # Matches a trailing file extension, including multi-part ones like ".tar.gz".
 EXTENSION_REGEX = re.compile(r"\.(([a-z]+\.)*\w+)$")
+
+# No-Intro and Redump name a game released under several titles by all of them.
+TITLE_SEPARATOR = " ~ "
+# Each title costs a lookup per provider, so only this many are tried.
+MAX_TITLES = 4
+
+# PICO-8 carts are often saved as PNG images, so the `.p8` outlives the extension.
+PICO8_CARTRIDGE_EXTENSION = ".p8.png"
+
+# Filename tags that mark a dump as a pre-release rather than the shipped game.
+# Lowercase and unterminated so one prefix covers its variants: "demo" also
+# matches "(Demo Kiosk)", "proto" also matches "(Prototype)".
+PRERELEASE_FILENAME_TAGS = (
+    "demo",
+    "beta",
+    "proto",
+    "sample",
+    "kiosk",
+    "preview",
+)
 
 
 def utc_now() -> datetime:
@@ -31,7 +51,27 @@ def compute_file_name_no_tags(file_name: str) -> str:
     legitimately contains parentheses/brackets mid-name is not truncated.
     """
     name = compute_file_name_no_ext(file_name)
+    if file_name.lower().endswith(PICO8_CARTRIDGE_EXTENSION):
+        name = name[: -len(".p8")]
     return TAG_GROUP_REGEX.sub("", name).strip()
+
+
+def compute_titles(file_name: str) -> list[str]:
+    """Each title of a game named by several, else []."""
+    parts = compute_file_name_no_tags(file_name).split(TITLE_SEPARATOR)
+    if len(parts) < 2:
+        return []
+    titles = [title for title in dict.fromkeys(part.strip() for part in parts) if title]
+    return titles[:MAX_TITLES]
+
+
+def compute_title_file_names(file_name: str) -> list[str]:
+    """The file name once per title of a game named by several, else []."""
+    title = compute_file_name_no_tags(file_name)
+    if not file_name.startswith(title):
+        return []
+    tags_and_extension = file_name[len(title) :]
+    return [part + tags_and_extension for part in compute_titles(file_name)]
 
 
 def compute_file_extension(file_name: str) -> str:
@@ -58,6 +98,38 @@ def compute_file_name_parts(file_name: str) -> FileNameParts:
         no_ext=compute_file_name_no_ext(file_name),
         extension=compute_file_extension(file_name),
     )
+
+
+def with_file_name_parts(data: dict[str, Any]) -> dict[str, Any]:
+    """`data` plus the columns derived from its `file_name`, which a bulk
+    update() must write itself since it skips the `@validates` hook."""
+    if "file_name" not in data:
+        return data
+    parts = compute_file_name_parts(data["file_name"])
+    return {
+        **data,
+        "file_name_no_tags": parts.no_tags,
+        "file_name_no_ext": parts.no_ext,
+        "file_extension": parts.extension,
+    }
+
+
+class FileNamePartsMixin:
+    """Derives the `file_name_no_tags` / `file_name_no_ext` / `file_extension`
+    columns whenever `file_name` is assigned."""
+
+    if TYPE_CHECKING:
+        file_name_no_tags: str
+        file_name_no_ext: str
+        file_extension: str
+
+    @validates("file_name")
+    def _sync_file_name_parts(self, _key: str, file_name: str) -> str:
+        parts = compute_file_name_parts(file_name)
+        self.file_name_no_tags = parts.no_tags
+        self.file_name_no_ext = parts.no_ext
+        self.file_extension = parts.extension
+        return file_name
 
 
 class BaseModel(DeclarativeBase):

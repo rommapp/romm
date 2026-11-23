@@ -8,7 +8,7 @@ from config import (
     OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS,
     OAUTH_REFRESH_TOKEN_EXPIRE_SECONDS,
 )
-from handler.auth import oauth_handler
+from handler.auth.base_handler import oauth_handler
 from handler.redis_handler import sync_cache
 
 
@@ -16,6 +16,18 @@ from handler.redis_handler import sync_cache
 def client():
     with TestClient(app) as client:
         yield client
+
+
+@pytest.fixture
+def _isolated_assets_dir(tmp_path, monkeypatch):
+    """Point the shared fs_asset_handler at the test's tmp dir."""
+    from pathlib import Path
+
+    from handler.filesystem import fs_asset_handler
+
+    new_base = Path(tmp_path).resolve()
+    monkeypatch.setattr(fs_asset_handler, "base_path", new_base)
+    return new_base
 
 
 @pytest.fixture(autouse=True)
@@ -61,6 +73,16 @@ def editor_access_token(editor_user):  # noqa
         },
         expires_delta=timedelta(seconds=OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS),
     )
+
+
+@pytest.fixture
+def headers(access_token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {access_token}"}
+
+
+@pytest.fixture
+def editor_headers(editor_access_token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {editor_access_token}"}
 
 
 @pytest.fixture

@@ -1,0 +1,172 @@
+"""The ROM visibility rule a caller's queries and loaded-ROM checks share."""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from dataclasses import dataclass
+from functools import cached_property
+from typing import Any, Final, Protocol
+
+from sqlalchemy import Select, and_, not_, or_
+from sqlalchemy.orm import InstrumentedAttribute
+from sqlalchemy.sql.elements import ColumnElement
+
+from models.rom import Rom, RomFacets
+
+
+class VisibilityColumns(Protocol):
+    """The ROM columns `RomVisibilityFilter.allows` reads."""
+
+    @property
+    def id(self) -> int: ...
+
+    @property
+    def platform_id(self) -> int: ...
+
+    @property
+    def min_age(self) -> int | None: ...
+
+
+def _always_visible(rom: VisibilityColumns) -> bool:
+    return True
+
+
+@dataclass(frozen=True)
+class RomVisibilityFilter:
+    """Which ROMs a caller may see: none on a hidden platform, none hidden
+    directly, and none rated above the age limit."""
+
+    hidden_platform_ids: frozenset[int] = frozenset()
+    hidden_rom_ids: frozenset[int] = frozenset()
+    age_limit: int | None = None
+    # Whether a ROM no rating covers is hidden while an age rule applies.
+    hide_unrated_roms: bool = False
+
+    @property
+    def has_age_rule(self) -> bool:
+        return self.age_limit is not None or self.hide_unrated_roms
+
+    @property
+    def is_unrestricted(self) -> bool:
+        return not (self.hidden_platform_ids or self.hidden_rom_ids) and (
+            not self.has_age_rule
+        )
+
+    def clauses(
+        self,
+        *,
+        rom_id_col: InstrumentedAttribute[int] = Rom.id,
+        platform_id_col: InstrumentedAttribute[int] = Rom.platform_id,
+        min_age_col: InstrumentedAttribute[int | None] = Rom.min_age,
+    ) -> list[ColumnElement[bool]]:
+        """WHERE clauses keeping only visible ROMs, on columns a query on the
+        `roms_facets` mirror overrides to skip a join to `roms`."""
+        clauses = self._row_clauses(platform_id_col, min_age_col)
+        if self.hidden_rom_ids:
+            clauses.append(rom_id_col.not_in(self.hidden_rom_ids))
+        return clauses
+
+    def facets_clauses(self) -> list[ColumnElement[bool]]:
+        """`clauses()` over the `roms_facets` mirror, so it needs no join to `roms`."""
+        return list(self._facets_clauses)
+
+    @cached_property
+    def _facets_clauses(self) -> tuple[ColumnElement[bool], ...]:
+        # Built once, so the statements of one request share the hidden-id binds.
+        return tuple(
+            self.clauses(
+                rom_id_col=RomFacets.rom_id,
+                platform_id_col=RomFacets.platform_id,
+                min_age_col=RomFacets.min_age,
+            )
+        )
+
+    def restrict[S: Select[*tuple[Any, ...]]](
+        self,
+        query: S,
+        rom_id_col: InstrumentedAttribute[int] | InstrumentedAttribute[int | None],
+    ) -> S:
+        """Narrow `query` to the rows whose `rom_id_col` ROM is visible."""
+        if self.is_unrestricted:
+            return query
+        return query.join(RomFacets, RomFacets.rom_id == rom_id_col).where(
+            *self._facets_clauses
+        )
+
+    def row_hidden_clause(
+        self,
+        *,
+        platform_id_col: InstrumentedAttribute[int] = Rom.platform_id,
+        min_age_col: InstrumentedAttribute[int | None] = Rom.min_age,
+    ) -> ColumnElement[bool] | None:
+        """WHERE clause matching the rows a rule other than a direct hide keeps
+        out, or None when no such rule applies."""
+        clauses = self._row_clauses(platform_id_col, min_age_col)
+        return not_(and_(*clauses)) if clauses else None
+
+    def hidden_on_visible_platforms_clause(self) -> ColumnElement[bool] | None:
+        """WHERE clause matching the `roms` rows hidden directly or by the age rule,
+        or None when neither applies; hidden platforms are left to the caller."""
+        clauses: list[ColumnElement[bool]] = []
+        if self.hidden_rom_ids:
+            clauses.append(Rom.id.in_(self.hidden_rom_ids))
+        if self.has_age_rule:
+            clauses.append(self._age_hidden_clause(Rom.min_age))
+        return or_(*clauses) if clauses else None
+
+    def _row_clauses(
+        self,
+        platform_id_col: InstrumentedAttribute[int],
+        min_age_col: InstrumentedAttribute[int | None],
+    ) -> list[ColumnElement[bool]]:
+        """The rules decided by a ROM's row rather than by its id alone, each true
+        or false and never NULL so `row_hidden_clause` can negate it."""
+        clauses: list[ColumnElement[bool]] = []
+        if self.hidden_platform_ids:
+            clauses.append(platform_id_col.not_in(self.hidden_platform_ids))
+        if self.has_age_rule:
+            clauses.append(self._age_clause(min_age_col))
+        return clauses
+
+    def _age_clause(
+        self, min_age_col: InstrumentedAttribute[int | None]
+    ) -> ColumnElement[bool]:
+        if self.age_limit is None:
+            return min_age_col.is_not(None)
+        if self.hide_unrated_roms:
+            return and_(min_age_col.is_not(None), min_age_col <= self.age_limit)
+        return or_(min_age_col.is_(None), min_age_col <= self.age_limit)
+
+    def _age_hidden_clause(
+        self, min_age_col: InstrumentedAttribute[int | None]
+    ) -> ColumnElement[bool]:
+        """The negation of `_age_clause`, spelled as ranges an index on `min_age` serves."""
+        if self.age_limit is None:
+            return min_age_col.is_(None)
+        if self.hide_unrated_roms:
+            return or_(min_age_col.is_(None), min_age_col > self.age_limit)
+        return min_age_col > self.age_limit
+
+    @cached_property
+    def allows(self) -> Callable[[VisibilityColumns], bool]:
+        """Whether a loaded ROM is visible, picked once so a per-ROM loop pays one call."""
+        if self.is_unrestricted:
+            return _always_visible
+        return self._allows_with_age if self.has_age_rule else self._allows
+
+    def _allows(self, rom: VisibilityColumns) -> bool:
+        return (
+            rom.platform_id not in self.hidden_platform_ids
+            and rom.id not in self.hidden_rom_ids
+        )
+
+    def _allows_with_age(self, rom: VisibilityColumns) -> bool:
+        if not self._allows(rom):
+            return False
+        min_age = rom.min_age
+        if min_age is None:
+            return not self.hide_unrated_roms
+        return self.age_limit is None or min_age <= self.age_limit
+
+
+UNRESTRICTED: Final = RomVisibilityFilter()

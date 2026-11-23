@@ -4,15 +4,15 @@ Provides methods to connect to remote devices via SSH, list remote save files,
 and perform bidirectional file transfers using SFTP.
 
 SSH keys are expected to be pre-mounted on the server (e.g. via Docker volume)
-at the path configured by SYNC_SSH_KEYS_PATH. Keys are looked up by device_id
-({SYNC_SSH_KEYS_PATH}/{device_id}.pem) or via an explicit ssh_key_path in the
-device's sync_config.
+at the path configured by SYNC_SSH_KEYS_PATH, one per device, named
+{SYNC_SSH_KEYS_PATH}/{device_id}.pem.
 """
 
 from __future__ import annotations
 
+import asyncio
 import functools
-import hashlib
+import ipaddress
 import os
 import tempfile
 from dataclasses import dataclass
@@ -22,9 +22,9 @@ from typing import Any
 
 import asyncssh
 from anyio import Path as AnyioPath
-from anyio import open_file
 
 from config import SYNC_SSH_KEYS_PATH, SYNC_SSH_KNOWN_HOSTS_PATH
+from handler.filesystem.assets_handler import hash_save_file
 from logger.logger import log
 
 
@@ -40,12 +40,32 @@ class RemoteSaveInfo:
     content_hash: str | None = None
 
 
+def _is_known_host(known_hosts: asyncssh.SSHKnownHosts, host: str, port: int) -> bool:
+    """Whether known_hosts trusts a key, a CA, or a certificate for this host and port."""
+    try:
+        addr = str(ipaddress.ip_address(host))
+    except ValueError:
+        addr = ""
+    if port and port != asyncssh.constants.DEFAULT_PORT:
+        # match() falls back to the bare host entry, which would admit every port.
+        names = dict.fromkeys(name for name in (host, addr) if name)
+        lookups = [(f"[{name}]:{port}", "") for name in names]
+    else:
+        lookups = [(host, addr)]
+    for name, address in lookups:
+        host_keys, ca_keys, _, x509_certs, _, x509_subjects, _ = known_hosts.match(
+            name, address, None
+        )
+        if host_keys or ca_keys or x509_certs or x509_subjects:
+            return True
+    return False
+
+
 class SSHSyncHandler:
     """Handles SSH/SFTP operations for push-pull sync mode.
 
     SSH keys are expected to be pre-mounted on the server filesystem at
-    SYNC_SSH_KEYS_PATH. The handler looks up keys by device_id convention
-    ({keys_path}/{device_id}.pem) or uses an explicit path from sync_config.
+    SYNC_SSH_KEYS_PATH, as {keys_path}/{device_id}.pem.
     """
 
     def __init__(self) -> None:
@@ -59,58 +79,62 @@ class SSHSyncHandler:
                 "to a writable location, to use push-pull sync."
             ) from e
 
-    def _resolve_key_path(self, device_id: str, sync_config: dict) -> str | None:
-        """Resolve the SSH key path for a device.
-
-        Checks, in order:
-        1. Explicit ssh_key_path in sync_config
-        2. Convention-based path: {SYNC_SSH_KEYS_PATH}/{device_id}.pem
-        """
-        explicit = sync_config.get("ssh_key_path")
-        if explicit and os.path.isfile(explicit):
-            return explicit
-
-        convention_path = self.keys_path / f"{device_id}.pem"
-        if convention_path.is_file():
-            return str(convention_path)
-
-        return None
+    def _resolve_key_path(self, device_id: str) -> str | None:
+        """The device's own key, {keys_path}/{device_id}.pem, if one is mounted."""
+        # Never a path from sync_config: device owners edit it, and it would
+        # let them sign in with a key mounted for someone else's device.
+        key_path = self.keys_path / f"{device_id}.pem"
+        if not device_id or key_path.parent != self.keys_path:
+            return None
+        return str(key_path) if key_path.is_file() else None
 
     async def connect(
-        self, sync_config: dict, device_id: str | None = None
+        self, sync_config: dict[str, Any], device_id: str | None = None
     ) -> asyncssh.SSHClientConnection:
         """Establish an SSH connection using device sync_config.
 
-        SSH keys should be pre-mounted on the server. The handler resolves
-        the key by checking sync_config.ssh_key_path first, then falls back
-        to the convention-based path {SYNC_SSH_KEYS_PATH}/{device_id}.pem.
+        Authenticates with the device's key, {SYNC_SSH_KEYS_PATH}/{device_id}.pem,
+        when one is mounted, and otherwise with ssh_password.
 
         sync_config should contain:
             - ssh_host: hostname or IP
             - ssh_port: port (default 22)
             - ssh_username: username
-            - ssh_key_path: explicit path to private key (optional)
-            - ssh_password: password (optional, fallback if no key found)
+            - ssh_password: password (optional, used when no key is mounted)
         """
         host = sync_config["ssh_host"]
         port = sync_config.get("ssh_port", 22)
         username = sync_config.get("ssh_username", "root")
 
-        if not AnyioPath(SYNC_SSH_KNOWN_HOSTS_PATH).is_file():
+        if not await AnyioPath(SYNC_SSH_KNOWN_HOSTS_PATH).is_file():
             raise FileNotFoundError(
                 f"SSH known_hosts file not found at {SYNC_SSH_KNOWN_HOSTS_PATH}. "
                 "Mount a known_hosts file or set SYNC_SSH_KNOWN_HOSTS_PATH."
+            )
+        # Device owners pick ssh_host, so the admin's known_hosts is also the
+        # allowlist. Refusing before any TCP connect stops them probing the network.
+        known_hosts = await asyncio.to_thread(
+            asyncssh.read_known_hosts, SYNC_SSH_KNOWN_HOSTS_PATH
+        )
+        if not _is_known_host(known_hosts, host, port):
+            raise ValueError(
+                f"SSH host {host} port {port} is not in {SYNC_SSH_KNOWN_HOSTS_PATH}. "
+                "Add its host key there (as [host]:port for a port other than 22)."
             )
 
         connect_kwargs: dict[str, Any] = {
             "host": host,
             "port": port,
             "username": username,
-            "known_hosts": SYNC_SSH_KNOWN_HOSTS_PATH,
+            "known_hosts": known_hosts,
         }
 
-        # Resolve key path (explicit or convention-based)
-        key_path = self._resolve_key_path(device_id or "", sync_config)
+        if sync_config.get("ssh_key_path"):
+            log.warning(
+                f"Ignoring ssh_key_path for device {device_id}; mount its key at "
+                f"{self.keys_path}/{device_id}.pem instead"
+            )
+        key_path = self._resolve_key_path(device_id or "")
         if key_path:
             connect_kwargs["client_keys"] = [key_path]
         elif sync_config.get("ssh_password"):
@@ -118,8 +142,8 @@ class SSHSyncHandler:
         else:
             raise ValueError(
                 f"No SSH authentication method available for {host}. "
-                f"Mount a key at {self.keys_path}/{{device_id}}.pem or "
-                "provide ssh_key_path/ssh_password in sync_config."
+                f"Mount a key at {self.keys_path}/{device_id}.pem or "
+                "provide ssh_password in sync_config."
             )
 
         log.info(f"Connecting to {username}@{host}:{port}")
@@ -128,7 +152,7 @@ class SSHSyncHandler:
     async def list_remote_saves(
         self,
         conn: asyncssh.SSHClientConnection,
-        save_directories: list[dict],
+        save_directories: list[dict[str, Any]],
     ) -> list[RemoteSaveInfo]:
         """List save files on a remote device.
 
@@ -183,7 +207,7 @@ class SSHSyncHandler:
         conn: asyncssh.SSHClientConnection,
         remote_path: str,
         local_path: str | None = None,
-    ) -> tuple[str, str]:
+    ) -> tuple[str, str | None]:
         """Download a save file from a remote device.
 
         Returns (local_temp_path, content_hash).
@@ -195,13 +219,7 @@ class SSHSyncHandler:
         async with conn.start_sftp_client() as sftp:
             await sftp.get(remote_path, local_path)
 
-        # Compute hash
-        hash_obj = hashlib.md5(usedforsecurity=False)
-        async with await open_file(local_path, "rb") as f:
-            while chunk := await f.read(8192):
-                hash_obj.update(chunk)
-
-        return local_path, hash_obj.hexdigest()
+        return local_path, await asyncio.to_thread(hash_save_file, local_path)
 
     async def upload_save(
         self,
@@ -220,16 +238,6 @@ class SSHSyncHandler:
 
             await sftp.put(local_path, remote_path)
             log.info(f"Uploaded {local_path} -> {remote_path}")
-
-    async def delete_remote_save(
-        self,
-        conn: asyncssh.SSHClientConnection,
-        remote_path: str,
-    ) -> None:
-        """Delete a save file from a remote device."""
-        async with conn.start_sftp_client() as sftp:
-            await sftp.remove(remote_path)
-            log.info(f"Deleted remote file: {remote_path}")
 
 
 @functools.cache

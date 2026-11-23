@@ -1,11 +1,12 @@
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final, NotRequired, TypedDict
+from typing import Any, Final, NotRequired, TypedDict
 
 from config import ROMM_BASE_PATH
+from utils.cache import VersionedCacheStore
 
-from ..base_handler import BaseRom
+from ..base_handler import BaseRom, provider_tag_regex
 
 LAUNCHBOX_PLATFORMS_KEY: Final[str] = "romm:launchbox_platforms"
 LAUNCHBOX_METADATA_DATABASE_ID_KEY: Final[str] = "romm:launchbox_metadata_database_id"
@@ -13,12 +14,30 @@ LAUNCHBOX_METADATA_NAME_KEY: Final[str] = "romm:launchbox_metadata_name"
 LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY: Final[str] = (
     "romm:launchbox_metadata_alternate_name"
 )
+LAUNCHBOX_METADATA_FOLDED_NAME_KEY: Final[str] = "romm:launchbox_metadata_folded_name"
 LAUNCHBOX_METADATA_IMAGE_KEY: Final[str] = "romm:launchbox_metadata_image"
 LAUNCHBOX_MAME_KEY: Final[str] = "romm:launchbox_mame"
 LAUNCHBOX_FILES_KEY: Final[str] = "romm:launchbox_files"
 # Set while the store is being filled for the first time
 LAUNCHBOX_METADATA_INITIAL_IMPORT_KEY: Final[str] = (
     "romm:launchbox_metadata_initial_import"
+)
+
+# Every hash the Metadata.zip import fills, dropped together on a schema bump.
+# Version 2 stores each record compressed.
+LAUNCHBOX_METADATA_STORE: Final[VersionedCacheStore] = VersionedCacheStore(
+    schema_key="romm:launchbox_metadata_schema",
+    version=2,
+    keys=(
+        LAUNCHBOX_PLATFORMS_KEY,
+        LAUNCHBOX_METADATA_DATABASE_ID_KEY,
+        LAUNCHBOX_METADATA_NAME_KEY,
+        LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
+        LAUNCHBOX_METADATA_FOLDED_NAME_KEY,
+        LAUNCHBOX_METADATA_IMAGE_KEY,
+        LAUNCHBOX_MAME_KEY,
+        LAUNCHBOX_FILES_KEY,
+    ),
 )
 
 LAUNCHBOX_LOCAL_DIR: Final[Path] = Path(ROMM_BASE_PATH) / "launchbox"
@@ -28,7 +47,7 @@ LAUNCHBOX_MANUALS_DIR: Final[Path] = LAUNCHBOX_LOCAL_DIR / "Manuals"
 LAUNCHBOX_VIDEOS_DIR: Final[Path] = LAUNCHBOX_LOCAL_DIR / "Videos"
 
 # Regex to detect LaunchBox ID tags in filenames like (launchbox-12345)
-LAUNCHBOX_TAG_REGEX = re.compile(r"\(launchbox-(\d+)\)", re.IGNORECASE)
+LAUNCHBOX_TAG_REGEX = provider_tag_regex("launchbox")
 DASH_COLON_REGEX = re.compile(r"\s?-\s")
 
 
@@ -36,6 +55,15 @@ class LaunchboxImage(TypedDict):
     url: str
     type: NotRequired[str]
     region: NotRequired[str]
+
+
+# What each store keeps of its dump element: the fields its reader reads, and
+# never one the cache key already carries.
+LAUNCHBOX_IMAGE_FIELDS: Final[frozenset[str]] = frozenset(
+    {"FileName", "Type", "Region"}
+)
+LAUNCHBOX_FILE_FIELDS: Final[frozenset[str]] = frozenset({"GameName"})
+LAUNCHBOX_MAME_FIELDS: Final[frozenset[str]] = frozenset({"Name"})
 
 
 class LaunchboxPlatform(TypedDict):
@@ -57,9 +85,20 @@ class LaunchboxMetadata(TypedDict):
     esrb: NotRequired[str]
     genres: NotRequired[list[str]]
     companies: NotRequired[list[str]]
+    publishers: NotRequired[list[str]]
+    developers: NotRequired[list[str]]
     images: list[LaunchboxImage]
+    box2d_url: NotRequired[str]
+    box2d_back_url: NotRequired[str]
+    box2d_side_url: NotRequired[str]
+    box3d_url: NotRequired[str]
     video_url: NotRequired[str]
-    video_path: NotRequired[str]
+    # A path is cleared to None when its download fails
+    box2d_path: NotRequired[str | None]
+    box2d_back_path: NotRequired[str | None]
+    box2d_side_path: NotRequired[str | None]
+    box3d_path: NotRequired[str | None]
+    video_path: NotRequired[str | None]
 
 
 class LaunchboxRom(BaseRom):
@@ -71,6 +110,7 @@ class LocalMediaContext(TypedDict):
     base: Path
     stems: list[str]
     preferred_regions: list[str]
+    region_shortcodes: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,7 +119,7 @@ class MediaRequest:
     fs_name: str
     title: str
     region_hint: str | None
-    remote_images: list[dict] | None
+    remote_images: list[dict[str, Any]] | None
     remote_enabled: bool
     # Provider region shortcodes (e.g. "us", "eu") ordered by preference, used
     # to pick a region-matched remote cover. Derived from the ROM filename.

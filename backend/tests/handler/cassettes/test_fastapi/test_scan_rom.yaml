@@ -104,7 +104,7 @@ interactions:
         accept-encoding:
           - gzip, deflate, br
         authorization:
-          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+          - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         client-id:
           - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         connection:

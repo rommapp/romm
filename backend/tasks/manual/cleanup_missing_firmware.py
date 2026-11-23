@@ -1,0 +1,75 @@
+from dataclasses import asdict, dataclass
+from typing import ClassVar, cast
+
+from endpoints.responses import MissingFirmwareCleanupStats
+from handler.database import db_firmware_handler
+from logger.logger import log
+from tasks.registry import CLEANUP_MISSING_FIRMWARE_SPEC
+from tasks.tasks import JobMetaStats, Task
+from utils.context import initialize_context
+
+
+@dataclass
+class CleanupMissingFirmwareStats(JobMetaStats):
+    """Statistics for missing firmware cleanup operations."""
+
+    meta_key: ClassVar[str] = "cleanup_stats"
+
+    platform_ids: list[int] | None = None
+    firmware_found: int = 0
+    firmware_deleted: int = 0
+    errors: int = 0
+
+    def to_dict(self) -> MissingFirmwareCleanupStats:
+        return cast(MissingFirmwareCleanupStats, asdict(self))
+
+
+class CleanupMissingFirmwareTask(Task):
+    def __init__(self) -> None:
+        super().__init__(CLEANUP_MISSING_FIRMWARE_SPEC)
+
+    @initialize_context()
+    async def run(
+        self, platform_ids: list[int] | None = None
+    ) -> MissingFirmwareCleanupStats:
+        """Clean up firmware that is flagged as missing from the filesystem."""
+        log.info(f"Starting {self.spec.title} task...")
+
+        stats = CleanupMissingFirmwareStats(platform_ids=platform_ids)
+
+        missing_firmware = db_firmware_handler.list_firmware(
+            platform_ids=platform_ids, missing=True
+        )
+
+        stats.update(firmware_found=len(missing_firmware))
+        log.info(
+            f"Found {len(missing_firmware)} missing firmware file(s) to clean up"
+            + (
+                f" for platform ID(s) {', '.join(map(str, platform_ids))}"
+                if platform_ids
+                else ""
+            )
+        )
+
+        # The row is stale because the file is already gone, so there is
+        # nothing to remove from disk here.
+        for firmware in missing_firmware:
+            try:
+                log.info(
+                    f"Deleting missing firmware '{firmware.file_name}' [ID: {firmware.id}] from database"
+                )
+                db_firmware_handler.delete_firmware(firmware.id)
+            except Exception as e:
+                log.error(f"Failed to delete missing firmware {firmware.id}: {e}")
+                stats.update(errors=stats.errors + 1)
+                continue
+
+            stats.update(firmware_deleted=stats.firmware_deleted + 1)
+
+        log.info(
+            f"Cleanup of missing firmware completed: {stats.firmware_deleted} deleted, {stats.errors} error(s)"
+        )
+        return stats.to_dict()
+
+
+cleanup_missing_firmware_task = CleanupMissingFirmwareTask()

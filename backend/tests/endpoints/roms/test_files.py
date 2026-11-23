@@ -4,16 +4,15 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.auth_helpers import bearer
+from tests.factories import make_rom
 
-from endpoints.roms import files as files_endpoint
-from handler.database import db_rom_handler
+from handler.database import db_permission_handler, db_rom_handler
+from handler.filesystem import fs_rom_handler
+from models.permission import PermAction, PermEntity
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
 from models.user import User
-
-
-def _auth(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
 
 
 def _add_file(rom: Rom, name: str, category: RomFileCategory | None) -> RomFile:
@@ -29,18 +28,7 @@ def _add_file(rom: Rom, name: str, category: RomFileCategory | None) -> RomFile:
 
 
 def _make_rom(admin_user: User, platform: Platform) -> Rom:
-    rom = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name="media_rom",
-            slug="media_rom_slug",
-            fs_name="media_rom",
-            fs_name_no_tags="media_rom",
-            fs_name_no_ext="media_rom",
-            fs_extension="",
-            fs_path=f"{platform.slug}/roms",
-        )
-    )
+    rom = make_rom(platform, "media_rom", fs_extension="")
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
     return rom
 
@@ -53,7 +41,7 @@ def test_image_file_served_inline(
 
     r = client.get(
         f"/api/roms/{file.id}/files/content/trailer_thumb.png",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert r.status_code == status.HTTP_200_OK
@@ -69,7 +57,7 @@ def test_video_file_served_inline(
 
     r = client.get(
         f"/api/roms/{file.id}/files/content/trailer.mp4",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert r.status_code == status.HTTP_200_OK
@@ -85,7 +73,7 @@ def test_pdf_manual_served_inline(
 
     r = client.get(
         f"/api/roms/{file.id}/files/content/manual.pdf",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert r.status_code == status.HTTP_200_OK
@@ -102,7 +90,7 @@ def test_markdown_manual_served_inline(
 
     r = client.get(
         f"/api/roms/{file.id}/files/content/manual.md",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert r.status_code == status.HTTP_200_OK
@@ -110,6 +98,24 @@ def test_markdown_manual_served_inline(
     assert r.headers["content-disposition"].startswith("inline")
     # nosniff keeps the browser from sniffing the Markdown into HTML.
     assert r.headers["x-content-type-options"] == "nosniff"
+
+
+def test_html_manual_served_under_a_sandboxing_csp(
+    client: TestClient, access_token: str, admin_user: User, platform: Platform
+):
+    # Nothing sanitizes an uploaded HTML document, so this header is all that
+    # stands between a crafted one and the session origin.
+    rom = _make_rom(admin_user, platform)
+    file = _add_file(rom, "manual.html", RomFileCategory.MANUAL)
+
+    r = client.get(
+        f"/api/roms/{file.id}/files/content/manual.html",
+        headers=bearer(access_token),
+    )
+
+    assert r.status_code == status.HTTP_200_OK
+    assert r.headers["content-disposition"].startswith("inline")
+    assert r.headers["content-security-policy"] == "sandbox; default-src 'none'"
 
 
 def test_non_manual_document_served_as_attachment(
@@ -122,7 +128,7 @@ def test_non_manual_document_served_as_attachment(
 
     r = client.get(
         f"/api/roms/{file.id}/files/content/readme.pdf",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert r.status_code == status.HTTP_200_OK
@@ -138,7 +144,7 @@ def test_rom_file_served_as_attachment(
 
     r = client.get(
         f"/api/roms/{file.id}/files/content/game.bin",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert r.status_code == status.HTTP_200_OK
@@ -156,7 +162,7 @@ def test_content_type_derived_from_db_not_path_param(
 
     r = client.get(
         f"/api/roms/{file.id}/files/content/game.bin.png",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert r.status_code == status.HTTP_200_OK
@@ -183,9 +189,9 @@ def files_fs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         else:
             raise FileNotFoundError(path)
 
-    monkeypatch.setattr(files_endpoint.fs_rom_handler, "validate_path", validate_path)
+    monkeypatch.setattr(fs_rom_handler, "validate_path", validate_path)
     monkeypatch.setattr(
-        files_endpoint.fs_rom_handler,
+        fs_rom_handler,
         "remove_file",
         AsyncMock(side_effect=remove_file),
     )
@@ -205,12 +211,35 @@ def test_delete_rom_file_success(
 
     response = client.delete(
         f"/api/roms/{rom.id}/files/{rom_file.id}",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK
     assert db_rom_handler.get_rom_file_by_id(rom_file.id) is None
     assert not (files_fs / "game.bin").exists()
+
+
+def test_delete_rom_file_shrinks_rom_size(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    platform: Platform,
+    files_fs: Path,
+):
+    rom = _make_rom(admin_user, platform)
+    (files_fs / "game.bin").write_bytes(b"\x00" * 16)
+    rom_file = _add_file(rom, "game.bin", RomFileCategory.GAME)
+    _add_file(rom, "manual.pdf", RomFileCategory.MANUAL)
+
+    response = client.delete(
+        f"/api/roms/{rom.id}/files/{rom_file.id}",
+        headers=bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    after = db_rom_handler.get_rom(rom.id)
+    assert after is not None
+    assert after.fs_size_bytes == 10
 
 
 def test_delete_rom_file_wrong_rom_returns_404(
@@ -223,24 +252,13 @@ def test_delete_rom_file_wrong_rom_returns_404(
     rom_a = _make_rom(admin_user, platform)
     # Use the game_folder_rom fixture name to avoid a duplicate fs_name constraint;
     # create a second ROM directly with a distinct slug and fs_name.
-    rom_b = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name="other_rom",
-            slug="other_rom_slug",
-            fs_name="other_rom",
-            fs_name_no_tags="other_rom",
-            fs_name_no_ext="other_rom",
-            fs_extension="",
-            fs_path=f"{platform.slug}/roms",
-        )
-    )
+    rom_b = make_rom(platform, "other_rom", fs_extension="")
     db_rom_handler.add_rom_user(rom_id=rom_b.id, user_id=admin_user.id)
     rom_file = _add_file(rom_a, "game.bin", RomFileCategory.GAME)
 
     response = client.delete(
         f"/api/roms/{rom_b.id}/files/{rom_file.id}",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -259,7 +277,7 @@ def test_delete_rom_file_unknown_file_returns_404(
 
     response = client.delete(
         f"/api/roms/{rom.id}/files/999999",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -278,7 +296,7 @@ def test_delete_rom_file_tolerates_missing_disk_file(
 
     response = client.delete(
         f"/api/roms/{rom.id}/files/{rom_file.id}",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -297,9 +315,61 @@ def test_delete_rom_file_forbidden_viewer(
 
     response = client.delete(
         f"/api/roms/{rom.id}/files/{rom_file.id}",
-        headers=_auth(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
 
     assert response.status_code == status.HTTP_403_FORBIDDEN
     # File must NOT have been deleted.
     assert db_rom_handler.get_rom_file_by_id(rom_file.id) is not None
+
+
+def test_delete_rom_file_forbidden_without_delete_grant(
+    client: TestClient,
+    editor_access_token: str,
+    editor_user: User,
+    admin_user: User,
+    platform: Platform,
+    files_fs: Path,
+):
+    """ROMS_WRITE alone must not delete library content.
+
+    The editor keeps write (so the coarse scope gate passes) but loses the
+    ROMS/DELETE grant, which is what the route now requires.
+    """
+    db_permission_handler.replace_user_overrides(
+        editor_user.id,
+        [(PermEntity.ROMS, PermAction.DELETE, False, False)],
+    )
+    rom = _make_rom(admin_user, platform)
+    (files_fs / "game.bin").write_bytes(b"\x00" * 16)
+    rom_file = _add_file(rom, "game.bin", RomFileCategory.GAME)
+
+    response = client.delete(
+        f"/api/roms/{rom.id}/files/{rom_file.id}",
+        headers=bearer(editor_access_token),
+    )
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert db_rom_handler.get_rom_file_by_id(rom_file.id) is not None
+    assert (files_fs / "game.bin").exists()
+
+
+def test_delete_rom_file_allowed_for_editor(
+    client: TestClient,
+    editor_access_token: str,
+    admin_user: User,
+    platform: Platform,
+    files_fs: Path,
+):
+    """The legacy Editor group holds ROMS/DELETE, so it must keep working."""
+    rom = _make_rom(admin_user, platform)
+    (files_fs / "game.bin").write_bytes(b"\x00" * 16)
+    rom_file = _add_file(rom, "game.bin", RomFileCategory.GAME)
+
+    response = client.delete(
+        f"/api/roms/{rom.id}/files/{rom_file.id}",
+        headers=bearer(editor_access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert db_rom_handler.get_rom_file_by_id(rom_file.id) is None

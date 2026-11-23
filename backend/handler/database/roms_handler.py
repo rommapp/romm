@@ -1,83 +1,145 @@
 import functools
 import json
 import re
-from collections.abc import Iterable, Sequence
+import secrets
+from collections import Counter
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import datetime
-from typing import Any, NamedTuple
+from itertools import batched
+from types import SimpleNamespace
+from typing import Any, Literal, NamedTuple
+from typing import cast as typing_cast
 
 from redis.exceptions import WatchError
 from sqlalchemy import (
+    ColumnExpressionArgument,
+    DateTime,
+    Enum,
     Integer,
+    Row,
+    SQLColumnExpression,
     String,
     Text,
     and_,
     case,
     cast,
     delete,
+    event,
     false,
     func,
 )
 from sqlalchemy import inspect as sa_inspect
-from sqlalchemy import (
-    literal,
-    not_,
-    or_,
-    select,
-    text,
-    true,
-    update,
-)
+from sqlalchemy import literal, not_, or_, select, true, union, update
+from sqlalchemy.dialects import mysql as sa_mysql
+from sqlalchemy.dialects import postgresql as sa_pg
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import (
-    Query,
+    ColumnProperty,
+    Mapper,
     QueryableAttribute,
     Session,
     joinedload,
     load_only,
-    noload,
+    raiseload,
     selectinload,
     undefer,
 )
-from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.orm.interfaces import ORMOption
+from sqlalchemy.sql.dml import Insert
+from sqlalchemy.sql.elements import ColumnElement, UnaryExpression
 from sqlalchemy.sql.selectable import Select
 
-from config import ROMM_DB_DRIVER
-from decorators.database import begin_session
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
+from adapters.services.sigil import SIGIL_FILE_COLUMNS
+from config.config_manager import config_manager as cm
+from decorators.database import INJECTED_SESSION, begin_session
+from exceptions.database_exceptions import RomFileOwnerChangedError
+from handler.auth.rom_visibility import UNRESTRICTED, RomVisibilityFilter
+from handler.database.rom_filters import (
+    ROM_FILTER_SPECS,
+    FilterKind,
+    RomFilterParams,
+    RomFiltersDict,
+    RomFilterSpec,
+)
+from handler.filesystem.roms_handler import rom_file_unchanged
 from handler.redis_handler import sync_cache
+from logger.logger import log
 from models.assets import Save, Screenshot, State
-from models.base import compute_file_name_parts
+from models.base import PRERELEASE_FILENAME_TAGS, compute_file_name_parts
+from models.collection import Collection, CollectionRom, SmartCollection
 from models.music import MusicFavoriteTrack, MusicPlaylistTrack
 from models.platform import Platform
 from models.rom import (
-    METADATA_SOURCE_COLUMNS,
+    ALTERNATIVE_NAME_SOURCES,
+    METADATA_SOURCE_FACET_COLUMNS,
+    ROM_IS_IDENTIFIED,
+    ROM_VISIBILITY_COLUMNS,
+    SEARCH_TITLE_COLUMNS,
+    SEARCH_TITLE_SEPARATOR,
     Rom,
+    RomDeletionTarget,
     RomFacets,
     RomFile,
     RomFileCategory,
+    RomFileDocMeta,
+    RomFileUser,
+    RomIdentityKey,
+    RomInstallTarget,
     RomMetadata,
     RomNote,
     RomUser,
+    RomUserStatus,
+    RomVisibility,
+    RomVisibilityLabel,
     SiblingRom,
     TrackMeta,
+    compute_full_path_hash,
     compute_name_sort_key,
+    compute_search_titles,
+    fold_search_title,
 )
 from utils import get_version
+from utils.age_ratings import MIN_AGE_SOURCE_COLUMNS, compute_min_age
+from utils.arcade_platforms import PLAYABLE_ARCADE_SET_PLATFORMS
 from utils.database import (
-    LIKE_ESCAPE_CHAR,
-    escape_like,
+    ROMS_SEARCH_FULLTEXT_COLUMNS,
+    SORTABLE_NULLABLE_ROM_COLUMNS,
+    epoch_ms_in_ranges,
+    exact_collation,
+    is_non_blank,
+    is_postgresql,
+    release_day_ranges,
+    rom_unset_flag_column,
+)
+from utils.facets import facet_names
+from utils.fulltext import (
+    FULLTEXT_TOKEN_REGEX,
+    fulltext_settings,
+    split_fulltext_words,
+)
+from utils.platform_slugs import UniversalPlatformSlug as UPS
+from utils.sql_dialect import (
+    Analyze,
+    DialectCase,
+    fulltext_match,
     json_array_contains_all,
     json_array_contains_any,
     json_array_contains_value,
+    nulls_last,
+    optimizer_hint_on_mysql,
 )
 
-from .base_handler import DBBaseHandler
+from .base_handler import DBBaseHandler, affected_rows, sync_engine
+from .snapshots_handler import link_channels_to_files
+
+type RomSelect = Select[Rom]
 
 EJS_SUPPORTED_PLATFORMS = [
     UPS._3DO,
     UPS.AMIGA,
     UPS.AMIGA_CD,
     UPS.AMIGA_CD32,
-    UPS.ARCADE,
+    *sorted(PLAYABLE_ARCADE_SET_PLATFORMS),
     UPS.NEOGEOAES,
     UPS.NEOGEOMVS,
     UPS.ATARI2600,
@@ -90,6 +152,7 @@ EJS_SUPPORTED_PLATFORMS = [
     UPS.COLECOVISION,
     UPS.JAGUAR,
     UPS.LYNX,
+    UPS.DOOM,
     UPS.DOS,
     UPS.NEO_GEO_POCKET,
     UPS.NEO_GEO_POCKET_COLOR,
@@ -126,28 +189,169 @@ RUFFLE_SUPPORTED_PLATFORMS = [
     UPS.BROWSER,
 ]
 
-# Used to remove native full-text SQL operators
-FULLTEXT_BOOLEAN_OPERATORS_REGEX = re.compile(r'[+\-~<>()"@*]')
+# A term reaches the hash columns only when it is hex of exactly a digest
+# length, so an ordinary name search builds no hash SQL at all. Hashes are
+# stored lowercase, which keeps the lookup an indexed equality.
+HEX_DIGEST_REGEX = re.compile(r"[0-9a-fA-F]+")
 
-# 3 is the default minimum size in InnoDB
-FULLTEXT_MIN_TOKEN_SIZE = 3
+# Primary keys offered per round trip when picking a random rom. Sixteen
+# lands a hit ~99% of the time on a library occupying a quarter of its id
+# range, which is what deletions leave behind on a long-lived instance.
+RANDOM_ID_SAMPLE_SIZE = 16
+
+# CRC32 (8), MD5 and RetroAchievements (32), SHA-1 (40).
+ROM_HASH_COLUMNS_BY_DIGEST_LENGTH: dict[int, tuple[QueryableAttribute[Any], ...]] = {
+    8: (Rom.crc_hash,),
+    32: (Rom.md5_hash, Rom.ra_hash),
+    40: (Rom.sha1_hash,),
+}
+
+# Multi-file games (multi-disc, multi-track) keep their hashes per file, which
+# is the hash a user has in hand. `chd_sha1_hash` is the uncompressed disc's
+# digest, the one datfiles publish for a CHD.
+ROM_FILE_HASH_COLUMNS_BY_DIGEST_LENGTH: dict[
+    int, tuple[QueryableAttribute[Any], ...]
+] = {
+    8: (RomFile.crc_hash,),
+    32: (RomFile.md5_hash, RomFile.ra_hash),
+    40: (RomFile.sha1_hash, RomFile.chd_sha1_hash),
+}
+
+# Every column here is indexed on `roms`, so the sort key needs no join to
+# the view.
+ROM_METADATA_ORDER_COLUMNS: dict[str, QueryableAttribute[Any]] = {
+    "first_release_date": Rom.generated_first_release_date,
+    "average_rating": Rom.generated_average_rating,
+    "player_count": Rom.generated_player_count,
+    "hltb_main_story": Rom.generated_hltb_main_story,
+}
+
+# Keyed by the column each flag stands in for. `idx_roms_<column>_sort` spans
+# the flag, the value and the `id` tiebreak, so the ascending sort reads the
+# whole ordering out of an index.
+ROM_UNSET_SORT_FLAGS: dict[str, QueryableAttribute[Any]] = {
+    column: getattr(Rom, rom_unset_flag_column(column))
+    for column in SORTABLE_NULLABLE_ROM_COLUMNS
+}
+
+
+def _nulls_last_ordering(
+    sort_key: SQLColumnExpression[Any], descending: bool
+) -> tuple[ColumnExpressionArgument[bool] | None, ColumnElement[Any]]:
+    """NULL sort keys land last on every engine.
+
+    Returns:
+        A leading unset term (or None) and the directed sort clause.
+    """
+    if not descending:
+        # A materialized flag lets the ascending sort read out of an index; a
+        # key without one (rom_user, the view, a grouped aggregate) costs a sort.
+        flag = ROM_UNSET_SORT_FLAGS.get(getattr(sort_key, "key", ""))
+        if flag is not None:
+            return flag, sort_key.asc()
+    return None, nulls_last(sort_key, descending)
+
+
+# What a gallery search term is matched against, on every engine.
+ROM_SEARCH_COLUMNS: tuple[QueryableAttribute[Any], ...] = tuple(
+    getattr(Rom, column) for column in ROMS_SEARCH_FULLTEXT_COLUMNS
+)
+
+
+def _name_like(word: str) -> ColumnElement[bool]:
+    return or_(
+        *(column.icontains(word, autoescape=True) for column in ROM_SEARCH_COLUMNS)
+    )
+
+
+def _fulltext_match(boolean_query: str) -> ColumnElement[Any]:
+    """A MariaDB/MySQL FULLTEXT match of the ROM's name, filename and aliases."""
+    return fulltext_match(
+        *(column.expression for column in ROM_SEARCH_COLUMNS),
+        boolean_query=boolean_query,
+    )
+
+
+# A shorter one-word search matches most of a library, and ranking it would
+# sort every match instead of walking the name index.
+SEARCH_RANK_MIN_LENGTH = 3
+
+
+def _search_terms(search_term: str) -> list[str]:
+    """The `|`-separated alternatives of a search, blanks dropped."""
+    return [term for term in (part.strip() for part in search_term.split("|")) if term]
+
+
+def _name_starts_with(title: str) -> ColumnElement[bool]:
+    """Whether the ROM's folded name starts with `title`, ending a word there."""
+    sep = SEARCH_TITLE_SEPARATOR
+    # The name comes first, so it is the title the column starts with.
+    starts = Rom.search_titles.startswith(f"{sep}{title}", autoescape=True)
+    # A title ending in punctuation has already ended its word.
+    if not title[-1].isalnum():
+        return starts
+    # Both engines' regex dialects read a backslash before a non-alphanumeric
+    # character as that character. The LIKE narrows the rows the regex reads.
+    escaped = "".join(char if char.isalnum() else f"\\{char}" for char in title)
+    return and_(starts, Rom.search_titles.regexp_match(f"^{sep}{escaped}[^[:alnum:]]"))
+
+
+def _search_rank(terms: Sequence[str]) -> ColumnElement[int]:
+    """2 when the name or an alias equals a term, 1 when the name starts with one, else 0."""
+    sep = SEARCH_TITLE_SEPARATOR
+    folded = [title for term in terms if (title := fold_search_title(term))]
+    exact = or_(
+        *(
+            Rom.search_titles.contains(f"{sep}{title}{sep}", autoescape=True)
+            for title in folded
+        )
+    )
+    prefix = or_(*(_name_starts_with(title) for title in folded))
+    return case((exact, 2), (prefix, 1), else_=0)
+
+
+def _search_relevance(phrases: Sequence[str]) -> ColumnElement[Any]:
+    """How well the ROM's name, filename or aliases hold the phrases, words in order."""
+    holds_a_phrase = or_(*(_name_like(phrase) for phrase in phrases))
+    return DialectCase(
+        postgresql=case((holds_a_phrase, 1), else_=0),
+        mysql=_fulltext_match(" ".join(f'"{phrase}"' for phrase in phrases)),
+    )
+
 
 # Filter dropdowns read the narrow `roms_facets` mirror instead of `roms`,
-# whose rows carry the raw metadata blobs. Column order matches the unpacking
-# in `_collect_filter_values`.
+# whose rows carry the raw metadata blobs. Keys are `RomFiltersDict` fields.
+_FILTER_JSON_COLUMNS = {
+    "genres": RomFacets.genres,
+    "franchises": RomFacets.franchises,
+    "collections": RomFacets.collections,
+    "companies": RomFacets.companies,
+    "publishers": RomFacets.publishers,
+    "developers": RomFacets.developers,
+    "game_modes": RomFacets.game_modes,
+    "age_ratings": RomFacets.age_ratings,
+    "regions": RomFacets.regions,
+    "languages": RomFacets.languages,
+    "tags": RomFacets.tags,
+}
+# Cast to text in SQL: PostgreSQL's driver would otherwise decode JSONB itself.
 _FILTER_VALUES_SELECT = select(
-    RomFacets.genres,
-    RomFacets.franchises,
-    RomFacets.collections,
-    RomFacets.companies,
-    RomFacets.game_modes,
-    RomFacets.age_ratings,
+    *(cast(column, Text) for column in _FILTER_JSON_COLUMNS.values()),
     RomFacets.player_count,
-    RomFacets.regions,
-    RomFacets.languages,
-    RomFacets.tags,
     RomFacets.platform_id,
 )
+
+
+# Filter rows stream in batches of this size; MySQL's driver still buffers them.
+_FILTER_VALUES_BATCH_SIZE = 5000
+
+# A `rom_user` INSERT binds a parameter per column per row, and PostgreSQL
+# refuses a statement with more than 65535.
+_ROM_USER_WRITE_BATCH_SIZE = 1000
+
+# Statuses only the user sets, which the RetroAchievements sync never replaces.
+_USER_OWNED_ROM_USER_STATUSES = (RomUserStatus.RETIRED, RomUserStatus.NEVER_PLAYING)
+
 
 # Cached ROM filter values (genres/franchises/etc.) so it doesn't get
 # recomputed on every call to /api/roms
@@ -166,6 +370,10 @@ ROM_FILE_SCANNED_COLUMNS = (
     "sha1_hash",
     "ra_hash",
     "chd_sha1_hash",
+    "title_id",
+    "title_version",
+    "converto_read_at",
+    *SIGIL_FILE_COLUMNS,
     "archive_members",
     "category",
 )
@@ -186,7 +394,8 @@ TRACK_META_SCANNED_COLUMNS = (
 
 @functools.cache
 def _nullable_columns(model: type) -> frozenset[str]:
-    return frozenset(c.key for c in sa_inspect(model).columns if c.nullable)
+    mapper: Mapper[Any] = sa_inspect(model)
+    return frozenset(c.key for c in mapper.columns if c.nullable)
 
 
 def _copy_scanned_columns(
@@ -229,6 +438,21 @@ def _rom_file_content_key(rom_file: RomFile) -> tuple[str, str, str] | None:
     return (rom_file.crc_hash, rom_file.md5_hash, rom_file.sha1_hash)
 
 
+def _same_content(row: RomFile, scanned: RomFile) -> bool:
+    """Whether a rescanned file still holds the bytes its row was written from."""
+    content_key = _rom_file_content_key(scanned)
+    stored_key = _rom_file_content_key(row)
+    # Fresh hashes outrank a size and mtime a copy can preserve.
+    if content_key is not None and stored_key is not None:
+        return content_key == stored_key
+    return scanned.last_modified is not None and rom_file_unchanged(
+        row,
+        size=scanned.file_size_bytes,
+        mtime=scanned.last_modified,
+        hashable=False,
+    )
+
+
 def _cache_value_to_str(value: Any) -> str | None:
     if value is None:
         return None
@@ -237,16 +461,85 @@ def _cache_value_to_str(value: Any) -> str | None:
     return str(value)
 
 
+def _cache_version(key: str) -> str:
+    return _cache_value_to_str(sync_cache.get(key)) or "0"
+
+
 def _filter_values_cache_version() -> str:
-    return _cache_value_to_str(sync_cache.get(ROM_FILTERS_CACHE_VERSION_KEY)) or "0"
+    return _cache_version(ROM_FILTERS_CACHE_VERSION_KEY)
 
 
 def _filter_values_cache_keys_key(version: str) -> str:
     return f"filter_values:keys:v{version}"
 
 
+def _user_sort_version_key(user_id: int) -> str:
+    return f"sidecar:user_ver:{user_id}"
+
+
+def _user_sibling_version_key(user_id: int) -> str:
+    return f"sidecar:user_sib_ver:{user_id}"
+
+
+def user_sort_cache_version(user_id: int) -> str:
+    """Version component for one user's RomUser-sorted sidecar cache keys."""
+    return _cache_version(_user_sort_version_key(user_id))
+
+
+def user_sibling_cache_version(user_id: int) -> str:
+    """Version component for one user's grouped sidecar cache keys, moved
+    only by main-sibling picks."""
+    return _cache_version(_user_sibling_version_key(user_id))
+
+
+def _sidecar_redis_key(prefix: str, cache_key: str, version: str) -> str:
+    """Every gallery sidecar key shares this shape, so none can omit the schema version."""
+    return f"{prefix}:{ROM_FILTERS_CACHE_SCHEMA_VERSION}:{cache_key}:v{version}"
+
+
 def _filter_values_redis_key(cache_key: str, version: str) -> str:
-    return f"filter_values:{ROM_FILTERS_CACHE_SCHEMA_VERSION}:{cache_key}:v{version}"
+    return _sidecar_redis_key("filter_values", cache_key, version)
+
+
+def _char_index_redis_key(cache_key: str, version: str) -> str:
+    return _sidecar_redis_key("char_index", cache_key, version)
+
+
+def _rom_id_index_redis_key(cache_key: str, version: str) -> str:
+    return _sidecar_redis_key("rom_id_list", cache_key, version)
+
+
+# Bounds the arguments of each RPUSH that writes a cached id list.
+ROM_ID_LIST_PUSH_CHUNK = 10_000
+
+
+def _store_versioned_id_list(redis_key: str, version: str, ids: list[int]) -> None:
+    """Like `_store_versioned_cache`, as a Redis list a page can range over.
+
+    An empty list is not stored, since Redis has no empty list to tell it from a miss.
+    """
+    if not ids:
+        return
+    version_keys_set = _filter_values_cache_keys_key(version)
+    with sync_cache.pipeline() as pipe:
+        try:
+            pipe.watch(ROM_FILTERS_CACHE_VERSION_KEY)
+            current_version = (
+                _cache_value_to_str(pipe.get(ROM_FILTERS_CACHE_VERSION_KEY)) or "0"
+            )
+            if current_version != version:
+                pipe.unwatch()
+            else:
+                pipe.multi()
+                pipe.delete(redis_key)
+                for start in range(0, len(ids), ROM_ID_LIST_PUSH_CHUNK):
+                    pipe.rpush(redis_key, *ids[start : start + ROM_ID_LIST_PUSH_CHUNK])
+                pipe.expire(redis_key, ROM_FILTERS_CACHE_TTL)
+                pipe.sadd(version_keys_set, redis_key)
+                pipe.expire(version_keys_set, ROM_FILTERS_CACHE_TTL)
+                pipe.execute()
+        except WatchError:
+            pass
 
 
 def _store_versioned_cache(redis_key: str, version: str, result: Any) -> None:
@@ -271,9 +564,9 @@ def _store_versioned_cache(redis_key: str, version: str, result: Any) -> None:
 
 def _create_metadata_id_case(
     prefix: str,
-    id_column: ColumnElement,
-    platform_id_column: ColumnElement,
-):
+    id_column: ColumnElement[Any],
+    platform_id_column: ColumnElement[Any],
+) -> ColumnElement[Any]:
     return case(
         (
             id_column.isnot(None),
@@ -288,99 +581,302 @@ def _create_metadata_id_case(
     )
 
 
-def with_details(func):
+def _region_rank() -> ColumnElement[Any]:
+    """Rank a rom by where its region sits in the configured region priority.
+
+    Reads the generated scalar rather than the `regions` JSON so the dedup
+    window stays inside idx_roms_sibling_cover. Roms whose region is not in the
+    list rank last, so a Japan-only release still wins a group of one.
+    """
+    # Imported here because handler.filesystem and handler.metadata import each
+    # other, and reaching filesystem first from this module trips the cycle.
+    from handler.filesystem.base_handler import region_ranks_for_priority
+
+    ranks = region_ranks_for_priority(cm.get_config().SCAN_REGION_PRIORITY)
+    if not ranks:
+        return literal(0)
+
+    return case(
+        ranks,
+        value=Rom.generated_primary_region,
+        else_=max(ranks.values()) + 1,
+    )
+
+
+# "(" then any tag, so "(Demo)", "(Beta 2)" and "(Prototype)" match and a title that
+# merely contains "demo" does not.
+_PRERELEASE_PATTERN = (
+    rf"\(({'|'.join(re.escape(tag) for tag in PRERELEASE_FILENAME_TAGS)})"
+)
+
+
+def _prerelease_rank() -> ColumnElement[Any]:
+    """Rank pre-release dumps after full releases within a sibling group."""
+    # The filename: `tags` keeps the dumper's casing and the covering index lacks it.
+    # One regex beats a LOWER() per ILIKE on MariaDB; PostgreSQL's ILIKEs are faster.
+    is_prerelease = DialectCase(
+        postgresql=or_(
+            *[Rom.fs_name_no_ext.ilike(f"%({tag}%") for tag in PRERELEASE_FILENAME_TAGS]
+        ),
+        mysql=Rom.fs_name_no_ext.regexp_match(_PRERELEASE_PATTERN, flags="i"),
+    )
+    return case((is_prerelease, 1), else_=0)
+
+
+# The RomUser column types whose MIN/MAX matches ORDER BY semantics on every
+# dialect; enum and boolean keys stay on the representative.
+_GROUP_SORT_AGGREGATE_TYPES = (DateTime, Integer)
+
+
+class _GallerySortKey(NamedTuple):
+    column: QueryableAttribute[Any]
+    source: Literal["rom", "rom_user", "rom_metadata"]
+    # Nullable keys get the NULLS LAST treatment; an indexed Rom column is
+    # sorted as-is.
+    nullable: bool = False
+
+
+def _mapped_sort_column(model: type, order_by: str) -> QueryableAttribute[Any] | None:
+    """The mapped column `order_by` names on `model`, or None for non-columns."""
+    attr = getattr(model, order_by, None)
+    if isinstance(attr, QueryableAttribute) and isinstance(
+        attr.property, ColumnProperty
+    ):
+        return attr
+    return None
+
+
+def _rom_user_not_hidden() -> ColumnElement[bool]:
+    """NULL-safe visibility check; a missing rom_user row counts as visible."""
+    return or_(RomUser.hidden.is_(False), RomUser.hidden.is_(None))
+
+
+def _zero_unset_folded(column: Any) -> Any:
+    """NULLIF folds the marked zero-as-unset metrics into the NULL bucket."""
+    if getattr(column, "info", {}).get("zero_is_unset"):
+        return func.nullif(column, 0)
+    return column
+
+
+def _resolve_gallery_sort_key(order_by: str, user_id: int | None) -> _GallerySortKey:
+    """Map a gallery `order_by` name to its sort column and source table."""
+    rom_column = _mapped_sort_column(Rom, order_by)
+    if user_id and rom_column is None:
+        rom_user_column = _mapped_sort_column(RomUser, order_by)
+        if rom_user_column is not None:
+            return _GallerySortKey(rom_user_column, "rom_user", nullable=True)
+    if order_by in ROM_METADATA_ORDER_COLUMNS:
+        return _GallerySortKey(
+            ROM_METADATA_ORDER_COLUMNS[order_by], "rom", nullable=True
+        )
+    if rom_column is None:
+        metadata_column = _mapped_sort_column(RomMetadata, order_by)
+        if metadata_column is not None:
+            return _GallerySortKey(metadata_column, "rom_metadata", nullable=True)
+
+    column = rom_column if rom_column is not None else Rom.name
+    # Use indexed `name_sort_key` to have fast access to names without the
+    # leading articles `sorting.articles` names. The key is derived from
+    # `name` at write time, or holds a custom override when one is set.
+    if column is Rom.name:
+        column = Rom.name_sort_key
+    return _GallerySortKey(column, "rom")
+
+
+def sorts_by_rom_user_column(order_by: str, user_id: int) -> bool:
+    """True when this sort key resolves to a per-user RomUser column."""
+    return _resolve_gallery_sort_key(order_by, user_id).source == "rom_user"
+
+
+# Default for a `query` parameter that with_details and with_simple_details fill before the body runs.
+INJECTED_ROM_QUERY = typing_cast(RomSelect, None)
+
+
+def _rom_card_loaders(
+    *,
+    files: bool = True,
+    file_meta: bool = True,
+    file_stats: bool = True,
+    siblings: bool = True,
+    notes: bool = True,
+) -> list[ORMOption]:
+    """The loads `SimpleRomSchema` reads, each optional part switched by its flag."""
+    options: list[ORMOption] = [
+        selectinload(Rom.platform),
+        selectinload(Rom.rom_users).options(
+            raiseload(RomUser.rom), raiseload(RomUser.user)
+        ),
+        selectinload(Rom.metadatum).options(raiseload(RomMetadata.rom)),
+    ]
+    if files:
+        rom_backref = joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
+        options.append(
+            selectinload(Rom.files).options(
+                rom_backref,
+                selectinload(RomFile.track_meta),
+                selectinload(RomFile.doc_meta),
+            )
+            if file_meta
+            else selectinload(Rom.files).options(rom_backref)
+        )
+    if file_stats:
+        options += [
+            undefer(Rom.multi_file),
+            undefer(Rom.top_level_file_count),
+            undefer(Rom.has_soundtrack),
+            undefer(Rom.is_easyrpg_game),
+            undefer(Rom.has_jsdos_bundle),
+        ]
+    if siblings:
+        options.append(
+            selectinload(Rom.sibling_roms).options(
+                raiseload(Rom.platform),
+                raiseload(Rom.metadatum),
+                # is_main_sibling needs each sibling's RomUser (`lazy="raise"`).
+                selectinload(Rom.rom_users).options(
+                    raiseload(RomUser.rom), raiseload(RomUser.user)
+                ),
+                load_only(
+                    *ROM_VISIBILITY_COLUMNS,
+                    Rom.name,
+                    Rom.fs_name_no_tags,
+                    Rom.fs_name_no_ext,
+                ),
+            )
+        )
+    if notes:
+        options.append(selectinload(Rom.notes))
+    return options
+
+
+def with_details[**P, R](func: Callable[P, R]) -> Callable[P, R]:
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         kwargs["query"] = select(Rom).options(
-            # Ensure platform is loaded for main ROM objects
-            selectinload(Rom.platform),
+            *_rom_card_loaders(),
             selectinload(Rom.saves).options(
-                noload(Save.rom),
-                noload(Save.user),
+                raiseload(Save.rom),
+                raiseload(Save.user),
             ),
             selectinload(Rom.states).options(
-                noload(State.rom),
-                noload(State.user),
+                raiseload(State.rom),
+                raiseload(State.user),
             ),
             selectinload(Rom.screenshots).options(
-                noload(Screenshot.rom),
-            ),
-            selectinload(Rom.rom_users).options(noload(RomUser.rom)),
-            selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
-            # Multi-file downloads, 3DS QR codes, and metadata matching
-            selectinload(Rom.files).options(
-                joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name),
-                selectinload(RomFile.track_meta),
-            ),
-            selectinload(Rom.sibling_roms).options(
-                noload(Rom.platform),
-                noload(Rom.metadatum),
-                # Per-sibling is_main_sibling resolution for the
-                # SiblingRomSchema needs each sibling's RomUser for the
-                # request user — the relationship is `lazy="raise"`, so
-                # it has to be eager-loaded here.
-                selectinload(Rom.rom_users).options(noload(RomUser.rom)),
-                load_only(
-                    Rom.id,
-                    Rom.name,
-                    Rom.platform_id,
-                    Rom.fs_name_no_tags,
-                    Rom.fs_name_no_ext,
-                ),
+                raiseload(Screenshot.rom),
             ),
             selectinload(Rom.collections),
-            selectinload(Rom.notes),
-            undefer(Rom.multi_file),
-            undefer(Rom.top_level_file_count),
-            undefer(Rom.has_soundtrack),
         )
         return func(*args, **kwargs)
 
     return wrapper
 
 
-def with_simple_details(func):
-    """Lightweight eager-load for the `SimpleRomSchema` (v2 gallery card).
-
-    Loads only the relationships `SimpleRomSchema` serializes (rom_users,
-    files, sibling_roms + their rom_users, notes) and the deferred file-count
-    columns, skipping the `saves` / `states` / `screenshots` / `collections`
-    arrays that `with_details` pulls for the detail view. Keeps per-card
-    hydration cheap on low-power hosts.
-    """
+def with_simple_details[**P, R](func: Callable[P, R]) -> Callable[P, R]:
+    """Eager-load only what the `SimpleRomSchema` (v2 gallery card) serializes."""
 
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        kwargs["query"] = select(Rom).options(
-            selectinload(Rom.platform),
-            selectinload(Rom.rom_users).options(noload(RomUser.rom)),
-            selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
-            selectinload(Rom.files).options(
-                joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name),
-                selectinload(RomFile.track_meta),
-            ),
-            selectinload(Rom.sibling_roms).options(
-                noload(Rom.platform),
-                noload(Rom.metadatum),
-                # Per-sibling is_main_sibling resolution needs each sibling's
-                # RomUser (relationship is `lazy="raise"`).
-                selectinload(Rom.rom_users).options(noload(RomUser.rom)),
-                load_only(
-                    Rom.id,
-                    Rom.name,
-                    Rom.platform_id,
-                    Rom.fs_name_no_tags,
-                    Rom.fs_name_no_ext,
-                ),
-            ),
-            selectinload(Rom.notes),
-            undefer(Rom.multi_file),
-            undefer(Rom.top_level_file_count),
-            undefer(Rom.has_soundtrack),
-        )
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        kwargs["query"] = select(Rom).options(*_rom_card_loaders())
         return func(*args, **kwargs)
 
     return wrapper
+
+
+# The fields the recommendation feed scores on. Every writer of `rom_user`
+# goes through `update_rom_user` or `set_rom_user_statuses`, so the cached
+# feed is dropped there rather than at each of the call sites that move these.
+RECOMMENDATION_SEED_FIELDS = frozenset(
+    {"rating", "status", "last_played", "now_playing", "hidden"}
+)
+
+# A write that changes a gallery sort key sets this in `session.info`; the cached
+# filter values are then dropped once, after the transaction commits.
+FILTER_VALUES_BUMP_KEY = "filter_values_bump"
+
+
+@event.listens_for(Session, "after_commit")
+def _bump_filter_values_after_commit(session: Session) -> None:
+    if not session.info.pop(FILTER_VALUES_BUMP_KEY, False):
+        return
+    # The write is already durable; a stale entry falls to the TTL.
+    try:
+        DBRomsHandler.invalidate_filter_values_cache()
+    except Exception:
+        log.exception("Failed to invalidate cached filter values")
+
+
+@event.listens_for(Session, "after_rollback")
+def _drop_filter_values_bump(session: Session) -> None:
+    # A rolled-back savepoint fires this too, and the bumps queued before it
+    # must survive; the outer rollback still drops them.
+    if session.in_nested_transaction():
+        return
+    session.info.pop(FILTER_VALUES_BUMP_KEY, None)
+
+
+# Per-user cache invalidations queued by `_queue_user_cache_bumps`, keyed by
+# user id; they run once the transaction commits.
+USER_CACHE_BUMPS_KEY = "user_cache_bumps"
+
+
+@event.listens_for(Session, "after_commit")
+def _bump_user_caches_after_commit(session: Session) -> None:
+    bumps: dict[int, set[str]] = session.info.pop(USER_CACHE_BUMPS_KEY, {})
+    # No keys-set bookkeeping: entries under an old version become
+    # unreachable and are reaped by the TTL or the next global bump.
+    for uid, uid_flags in bumps.items():
+        # The write is already durable, so a cache failure only logs; the
+        # stale entry falls to the TTL.
+        try:
+            if "sort" in uid_flags:
+                sync_cache.incr(_user_sort_version_key(uid))
+            if "sib" in uid_flags:
+                sync_cache.incr(_user_sibling_version_key(uid))
+            if "feed" in uid_flags:
+                # Imported here because the recommendation package reads
+                # this module.
+                from handler.recommendation import invalidate_cached_feed
+
+                invalidate_cached_feed(uid)
+        except Exception:
+            log.exception("Failed to bump user %s cache versions", uid)
+
+
+@event.listens_for(Session, "after_rollback")
+def _drop_user_cache_bumps(session: Session) -> None:
+    if session.in_nested_transaction():
+        return
+    session.info.pop(USER_CACHE_BUMPS_KEY, None)
+
+
+def _queue_user_cache_bumps(
+    session: Session,
+    user_id: int,
+    *,
+    sort_keys: bool = False,
+    siblings: bool = False,
+    feed: bool = False,
+) -> None:
+    """Queues per-user cache invalidations for after this transaction
+    commits, so a rollback bumps nothing and a concurrent reader cannot
+    cache pre-commit rows under the new version."""
+    bumps: dict[int, set[str]] = session.info.setdefault(USER_CACHE_BUMPS_KEY, {})
+    bumps.setdefault(user_id, set()).update(
+        flag
+        for flag, queued in (("sort", sort_keys), ("sib", siblings), ("feed", feed))
+        if queued
+    )
+
+
+def _track_text_match(search: str) -> ColumnElement[bool]:
+    return or_(
+        TrackMeta.title.icontains(search, autoescape=True),
+        TrackMeta.artist.icontains(search, autoescape=True),
+        TrackMeta.album.icontains(search, autoescape=True),
+        # Untagged tracks, chiptunes among them, are named by file.
+        RomFile.file_name.icontains(search, autoescape=True),
+    )
 
 
 class DBRomsHandler(DBBaseHandler):
@@ -389,13 +885,13 @@ class DBRomsHandler(DBBaseHandler):
     def add_rom(
         self,
         rom: Rom,
-        query: Query = None,  # type: ignore
-        session: Session = None,  # type: ignore
+        query: RomSelect = INJECTED_ROM_QUERY,
+        session: Session = INJECTED_SESSION,
     ) -> Rom:
         rom = session.merge(rom)
         session.flush()
 
-        return session.scalar(query.filter_by(id=rom.id).limit(1))
+        return session.scalars(query.filter_by(id=rom.id).limit(1)).one()
 
     @begin_session
     @with_details
@@ -403,10 +899,78 @@ class DBRomsHandler(DBBaseHandler):
         self,
         id: int,
         *,
-        query: Query = None,  # type: ignore
-        session: Session = None,  # type: ignore
+        query: RomSelect = INJECTED_ROM_QUERY,
+        session: Session = INJECTED_SESSION,
     ) -> Rom | None:
         return session.scalar(query.filter_by(id=id).limit(1))
+
+    @begin_session
+    def get_rom_visibility(
+        self,
+        id: int,
+        *,
+        session: Session = INJECTED_SESSION,
+    ) -> RomVisibility | None:
+        """The columns a visibility check needs, nothing else."""
+        row = session.execute(
+            select(*ROM_VISIBILITY_COLUMNS).where(Rom.id == id)
+        ).one_or_none()
+        return RomVisibility(**row._mapping) if row else None
+
+    @begin_session
+    def get_rom_visibility_label(
+        self,
+        id: int,
+        *,
+        session: Session = INJECTED_SESSION,
+    ) -> RomVisibilityLabel | None:
+        """`get_rom_visibility` plus the name pair the file-delete logs need."""
+        row = session.execute(
+            select(*ROM_VISIBILITY_COLUMNS, Rom.name, Rom.fs_name).where(Rom.id == id)
+        ).one_or_none()
+        return RomVisibilityLabel(**row._mapping) if row else None
+
+    @begin_session
+    def get_rom_install_target(
+        self,
+        id: int,
+        *,
+        session: Session = None,  # type: ignore[assignment]
+    ) -> RomInstallTarget | None:
+        """The columns a device install request checks, in one query."""
+        row = session.execute(
+            select(
+                *ROM_VISIBILITY_COLUMNS,
+                Platform.slug.label("platform_slug"),
+                Rom.missing_from_fs,
+            )
+            .join(Platform, Rom.platform_id == Platform.id)
+            .where(Rom.id == id)
+        ).one_or_none()
+        return RomInstallTarget(**row._mapping) if row else None
+
+    @begin_session
+    def get_rom_deletion_target(
+        self,
+        id: int,
+        *,
+        session: Session = INJECTED_SESSION,
+    ) -> RomDeletionTarget | None:
+        """The columns the bulk-delete route reads off one rom, and no relations."""
+        row = session.execute(
+            select(
+                *ROM_VISIBILITY_COLUMNS,
+                Rom.name,
+                Rom.fs_name,
+                Rom.fs_path,
+                Platform.slug.label("platform_slug"),
+                Platform.name.label("platform_name"),
+                Platform.custom_name.label("platform_custom_name"),
+            )
+            .join(Platform, Rom.platform_id == Platform.id)
+            .where(Rom.id == id)
+        ).one_or_none()
+        return RomDeletionTarget(**row._mapping) if row else None
 
     @begin_session
     @with_simple_details
@@ -414,8 +978,8 @@ class DBRomsHandler(DBBaseHandler):
         self,
         id: int,
         *,
-        query: Query = None,  # type: ignore
-        session: Session = None,  # type: ignore
+        query: RomSelect = INJECTED_ROM_QUERY,
+        session: Session = INJECTED_SESSION,
     ) -> Rom | None:
         """Get a rom by ID with only the loads `SimpleRomSchema` needs."""
         return session.scalar(query.filter_by(id=id).limit(1))
@@ -426,13 +990,41 @@ class DBRomsHandler(DBBaseHandler):
         self,
         ids: list[int],
         *,
-        query: Query = None,  # type: ignore
-        session: Session = None,  # type: ignore
+        query: RomSelect = INJECTED_ROM_QUERY,
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[Rom]:
         """Get multiple ROMs by their IDs."""
         if not ids:
             return []
         return session.scalars(query.filter(Rom.id.in_(ids))).all()
+
+    @begin_session
+    @with_simple_details
+    def get_roms_simple_by_ids(
+        self,
+        ids: Sequence[int],
+        *,
+        query: RomSelect = INJECTED_ROM_QUERY,
+        session: Session = INJECTED_SESSION,
+    ) -> Sequence[Rom]:
+        """Get multiple ROMs by ID with only the loads `SimpleRomSchema` needs."""
+        if not ids:
+            return []
+        return session.scalars(query.filter(Rom.id.in_(ids))).all()
+
+    @begin_session
+    def get_roms_by_ra_ids(
+        self,
+        ra_ids: Sequence[int],
+        *,
+        session: Session = INJECTED_SESSION,
+    ) -> Sequence[Row[int, int | None]]:
+        """Get `(id, ra_id)` for every ROM matching any of `ra_ids`."""
+        if not ra_ids:
+            return []
+        return session.execute(
+            select(Rom.id, Rom.ra_id).where(Rom.ra_id.in_(ra_ids))
+        ).all()
 
     def get_files_for_roms(
         self,
@@ -449,7 +1041,9 @@ class DBRomsHandler(DBBaseHandler):
             return {}
 
         files = session.scalars(
-            select(RomFile).where(RomFile.rom_id.in_(rom_ids))
+            select(RomFile)
+            .where(RomFile.rom_id.in_(rom_ids))
+            .options(selectinload(RomFile.track_meta))
         ).all()
 
         buckets: dict[int, list[RomFile]] = {rom_id: [] for rom_id in rom_ids}
@@ -464,8 +1058,7 @@ class DBRomsHandler(DBBaseHandler):
         user_id: int,
         *,
         session: Session,
-        hidden_platform_ids: Sequence[int] | None = None,
-        hidden_rom_ids: Sequence[int] | None = None,
+        visibility: RomVisibilityFilter = UNRESTRICTED,
     ) -> dict[int, list[tuple[Rom, bool]]]:
         """Return {rom_id: [(sibling Rom, is_main_sibling), ...]} in a single query.
 
@@ -494,20 +1087,19 @@ class DBRomsHandler(DBBaseHandler):
                     RomUser.user_id == user_id,
                 ),
             )
-            .where(SiblingRom.rom_id.in_(rom_ids))
+            .where(SiblingRom.rom_id.in_(rom_ids), *visibility.clauses())
             .options(
+                # Both default to `lazy="joined"`, and `load_only` narrows
+                # columns but not relationships.
+                raiseload(Rom.platform),
+                raiseload(Rom.metadatum),
                 load_only(
                     Rom.name,
                     Rom.fs_name_no_tags,
                     Rom.fs_name_no_ext,
-                )
+                ),
             )
         )
-        if hidden_platform_ids:
-            query = query.where(Rom.platform_id.not_in(hidden_platform_ids))
-        if hidden_rom_ids:
-            query = query.where(Rom.id.not_in(hidden_rom_ids))
-
         rows = session.execute(query).all()
 
         # Dedupe by (parent rom, sibling id) so a duplicate join row doesn't
@@ -522,28 +1114,55 @@ class DBRomsHandler(DBBaseHandler):
 
         return buckets
 
-    def filter_by_platform_id(self, query: Query, platform_id: int):
+    def get_rom_ids_with_notes(
+        self,
+        rom_ids: list[int],
+        user_id: int,
+        *,
+        session: Session,
+    ) -> set[int]:
+        """Return the subset of `rom_ids` carrying a note the caller can see."""
+        if not rom_ids:
+            return set()
+
+        return set(
+            session.scalars(
+                select(RomNote.rom_id)
+                .where(
+                    RomNote.rom_id.in_(rom_ids),
+                    or_(RomNote.is_public, RomNote.user_id == user_id),
+                )
+                .distinct()
+            ).all()
+        )
+
+    def filter_by_platform_id(self, query: RomSelect, platform_id: int) -> RomSelect:
         return query.filter(Rom.platform_id == platform_id)
 
-    def _filter_by_platform_ids(
-        self, query: Query, platform_ids: Sequence[int]
-    ) -> Query:
+    def _filter_by_platform_ids[S: Select[*tuple[Any, ...]]](
+        self, query: S, platform_ids: Sequence[int]
+    ) -> S:
         return query.filter(Rom.platform_id.in_(platform_ids))
 
-    def _filter_by_collection_id(
-        self, query: Query, session: Session, collection_id: int
-    ):
-        from . import db_collection_handler
+    def _filter_by_collection_id[S: Select[*tuple[Any, ...]]](
+        self, query: S, collection_id: int, user_id: int | None
+    ) -> S:
+        # Membership stays an indexed subquery, so no ids are fetched into Python.
+        # Another user's private collection matches nothing, like an unknown id.
+        return query.filter(
+            Rom.id.in_(
+                select(CollectionRom.rom_id)
+                .join(Collection, Collection.id == CollectionRom.collection_id)
+                .where(
+                    CollectionRom.collection_id == collection_id,
+                    or_(Collection.is_public, Collection.user_id == user_id),
+                )
+            )
+        )
 
-        collection = db_collection_handler.get_collection(collection_id)
-
-        if collection:
-            return query.filter(Rom.id.in_(collection.rom_ids))
-        return query
-
-    def _filter_by_virtual_collection_id(
-        self, query: Query, session: Session, virtual_collection_id: str
-    ):
+    def _filter_by_virtual_collection_id[S: Select[*tuple[Any, ...]]](
+        self, query: S, virtual_collection_id: str
+    ) -> S:
         from . import db_collection_handler
 
         return query.filter(
@@ -554,119 +1173,203 @@ class DBRomsHandler(DBBaseHandler):
             )
         )
 
-    def _filter_by_smart_collection_id(
-        self, query: Query, session: Session, smart_collection_id: int, user_id: int
-    ):
+    def _filter_by_smart_collection_id[S: Select[*tuple[Any, ...]]](
+        self,
+        query: S,
+        session: Session,
+        smart_collection_id: int,
+        user_id: int | None,
+    ) -> S:
         from . import db_collection_handler
 
         smart_collection = db_collection_handler.get_smart_collection(
-            smart_collection_id
+            smart_collection_id, session=session
+        )
+        if not smart_collection or not (
+            smart_collection.is_public or smart_collection.user_id == user_id
+        ):
+            return query.filter(false())
+
+        # MariaDB's semi-join plan for this IN (subquery) rescans the whole
+        # library per query; MariaDB before 12 reads the hint as a comment.
+        member_ids = self._join_rom_user(
+            optimizer_hint_on_mysql(select(Rom.id), "NO_SEMIJOIN()"), user_id
+        )
+        return query.filter(
+            Rom.id.in_(
+                db_collection_handler.build_smart_collection_query(
+                    query=member_ids,
+                    smart_collection=smart_collection,
+                    user_id=user_id,
+                    session=session,
+                )
+            )
         )
 
-        if smart_collection:
-            # Ensure the latest ROMs are loaded
-            smart_collection = smart_collection.update_properties(user_id)
-            return query.filter(Rom.id.in_(smart_collection.rom_ids))
-        return query
+    def _join_rom_user[S: Select[*tuple[Any, ...]]](
+        self, query: S, user_id: int | None
+    ) -> S:
+        if not user_id:
+            return query
 
-    def _build_fulltext_boolean_query(self, term: str) -> str | None:
-        words = FULLTEXT_BOOLEAN_OPERATORS_REGEX.sub(" ", term).split()
-        if not words or any(len(word) < FULLTEXT_MIN_TOKEN_SIZE for word in words):
-            return None
-        return " ".join(f"+{word}*" for word in words)
+        return query.outerjoin(
+            RomUser, and_(RomUser.rom_id == Rom.id, RomUser.user_id == user_id)
+        )
 
-    def _build_fulltext_relevance(self, search_term: str) -> str | None:
-        parts: list[str] = []
-        for term in search_term.split("|"):
-            words = FULLTEXT_BOOLEAN_OPERATORS_REGEX.sub(" ", term).split()
+    @begin_session
+    def get_smart_collection_matches(
+        self,
+        *,
+        smart_collection: SmartCollection,
+        rom_ids: Iterable[int],
+        user_id: int | None,
+        session: Session = INJECTED_SESSION,
+    ) -> set[int]:
+        """Which of `rom_ids` currently match the collection's criteria.
+
+        Restricting the criteria to a few ids keeps this an indexed lookup, so a
+        caller can ask whether one ROM moved without scanning the library.
+        """
+        from . import db_collection_handler
+
+        query = self._join_rom_user(select(Rom.id), user_id).filter(Rom.id.in_(rom_ids))
+        return set(
+            session.scalars(
+                db_collection_handler.build_smart_collection_query(
+                    query=query,
+                    smart_collection=smart_collection,
+                    user_id=user_id,
+                    session=session,
+                )
+            ).all()
+        )
+
+    def _build_search_phrases(self, search_term: str) -> list[str]:
+        """The multi-word terms of a search, which relevance ranks by."""
+        phrases: list[str] = []
+        for term in _search_terms(search_term):
+            words = FULLTEXT_TOKEN_REGEX.findall(term)
             if len(words) > 1:
-                parts.append('"' + " ".join(words) + '"')
-        return " ".join(parts) if parts else None
+                phrases.append(" ".join(words))
+        return phrases
 
-    def _filter_by_search_term(self, query: Query, search_term: str):
-        terms = [term.strip() for term in search_term.split("|")]
-        terms = [term for term in terms if term]
+    def _build_name_conditions(self, terms: Sequence[str]) -> list[Any]:
+        """One condition per term, matching it against the ROM's name, filename and aliases."""
+        settings = fulltext_settings(sync_engine)
+        conditions: list[Any] = []
+        for term in terms:
+            words = term.split()
+            likes = {word: _name_like(word) for word in words}
+            like = and_(*likes.values())
+            # Unreadable settings leave LIKE alone to decide.
+            indexed, unindexed = (
+                split_fulltext_words(words, settings) if settings else ([], words)
+            )
+            if not indexed:
+                conditions.append(like)
+                continue
+            # PostgreSQL's pg_trgm indexes serve the ILIKE. On MariaDB and MySQL
+            # FULLTEXT drives the query and LIKE checks the words it can't hold.
+            match = _fulltext_match(" ".join(f"+{word}*" for word in indexed))
+            conditions.append(
+                DialectCase(
+                    postgresql=like,
+                    mysql=and_(match, *(likes[word] for word in unindexed)),
+                )
+            )
+        return conditions
+
+    def _build_hash_selects(self, terms: Iterable[str]) -> list[Select[int]]:
+        """Id-yielding selects for terms shaped like a hash digest.
+
+        A ROM's own hashes and its files' are queried separately so each side
+        keeps its own index. Returns nothing when no term looks like a digest,
+        which is the case for every ordinary name search.
+        """
+        rom_predicates: list[ColumnElement[bool]] = []
+        file_predicates: list[ColumnElement[bool]] = []
+
+        for term in terms:
+            rom_columns = ROM_HASH_COLUMNS_BY_DIGEST_LENGTH.get(len(term))
+            if rom_columns is None or not HEX_DIGEST_REGEX.fullmatch(term):
+                continue
+            digest = term.lower()
+            rom_predicates.extend(column == digest for column in rom_columns)
+            file_predicates.extend(
+                column == digest
+                for column in ROM_FILE_HASH_COLUMNS_BY_DIGEST_LENGTH[len(term)]
+            )
+
+        if not rom_predicates:
+            return []
+
+        return [
+            select(Rom.id).where(or_(*rom_predicates)),
+            select(RomFile.rom_id.label("id")).where(or_(*file_predicates)),
+        ]
+
+    def _filter_by_search_term[S: Select[*tuple[Any, ...]]](
+        self, query: S, search_term: str
+    ) -> S:
+        terms = _search_terms(search_term)
         if not terms:
             return query
 
-        if ROMM_DB_DRIVER in ("mariadb", "mysql"):
-            match_clauses: list[Any] = []
-            for idx, term in enumerate(terms):
-                boolean_query = self._build_fulltext_boolean_query(term)
-                if boolean_query is None:
-                    match_clauses = []
-                    break
-                param = f"fulltext_search_{idx}"
-                match_clauses.append(
-                    text(
-                        f"MATCH(roms.name, roms.fs_name) "
-                        f"AGAINST(:{param} IN BOOLEAN MODE)"
-                    ).bindparams(**{param: boolean_query})
-                )
-            if match_clauses:
-                return query.filter(or_(*match_clauses))
+        name_conditions = self._build_name_conditions(terms)
+        hash_selects = self._build_hash_selects(terms)
+        if not hash_selects:
+            return query.filter(or_(*name_conditions))
 
-        # psql and full-text fallback
-        term_conditions = []
-        for term in terms:
-            word_conditions = [
-                or_(Rom.fs_name.ilike(f"%{word}%"), Rom.name.ilike(f"%{word}%"))
-                for word in term.split()
-            ]
-            if word_conditions:
-                term_conditions.append(and_(*word_conditions))
-        return query.filter(or_(*term_conditions))
+        # OR-ing the hash columns onto the name conditions would cost the
+        # full-text index its only chance to drive the query, scanning `roms`
+        # end to end. Resolving each side through its own index and unioning
+        # the ids searches both without giving up either index.
+        matches = union(
+            select(Rom.id).where(or_(*name_conditions)), *hash_selects
+        ).subquery()
+        return query.filter(Rom.id.in_(select(matches.c.id)))
 
-    def _filter_by_matched(self, query: Query, value: bool) -> Query:
+    def _filter_by_matched[S: Select[*tuple[Any, ...]]](
+        self, query: S, value: bool
+    ) -> S:
         """Filter based on whether the rom is matched to a metadata provider.
 
         Args:
             value: True for matched ROMs, False for unmatched ROMs
         """
-        predicate = or_(
-            Rom.igdb_id.isnot(None),
-            Rom.moby_id.isnot(None),
-            Rom.ss_id.isnot(None),
-            Rom.ra_id.isnot(None),
-            Rom.launchbox_id.isnot(None),
-            Rom.hasheous_id.isnot(None),
-            Rom.tgdb_id.isnot(None),
-            Rom.flashpoint_id.isnot(None),
-        )
-        if not value:
-            predicate = not_(predicate)
-        return query.filter(predicate)
+        return query.filter(ROM_IS_IDENTIFIED if value else not_(ROM_IS_IDENTIFIED))
 
-    def _filter_by_favorite(
-        self, query: Query, session: Session, value: bool, user_id: int | None
-    ) -> Query:
+    def _filter_by_favorite[S: Select[*tuple[Any, ...]]](
+        self, query: S, value: bool, user_id: int | None
+    ) -> S:
         """Filter based on whether the rom is in the user's favorites collection."""
         if not user_id:
             return query
 
-        from . import db_collection_handler
-
-        favorites_collection = db_collection_handler.get_favorite_collection(user_id)
-        if favorites_collection:
-            predicate = Rom.id.in_(favorites_collection.rom_ids)
-            if not value:
-                predicate = not_(predicate)
-            return query.filter(predicate)
-
-        # If no favorites collection exists, return the original query if non-favorites
-        # were requested, or an empty query if favorites were requested.
+        # An empty (or missing) favorites collection needs no special case: the
+        # subquery yields no rows, so IN matches nothing and NOT IN matches all.
+        favorites = (
+            select(CollectionRom.rom_id)
+            .join(Collection, Collection.id == CollectionRom.collection_id)
+            .where(Collection.is_favorite, Collection.user_id == user_id)
+        )
+        predicate = Rom.id.in_(favorites)
         if not value:
-            return query
-        return query.filter(false())
+            predicate = not_(predicate)
+        return query.filter(predicate)
 
-    def _filter_by_duplicate(self, query: Query, value: bool) -> Query:
+    def _filter_by_duplicate[S: Select[*tuple[Any, ...]]](
+        self, query: S, value: bool
+    ) -> S:
         """Filter based on whether the rom has duplicates."""
         predicate = Rom.sibling_roms.any()
         if not value:
             predicate = not_(predicate)
         return query.filter(predicate)
 
-    def _filter_by_playable(self, query: Query, value: bool) -> Query:
+    def _filter_by_playable[S: Select[*tuple[Any, ...]]](
+        self, query: S, value: bool
+    ) -> S:
         """Filter based on whether the rom is playable on supported platforms."""
         predicate = or_(
             Platform.slug.in_(EJS_SUPPORTED_PLATFORMS),
@@ -676,9 +1379,9 @@ class DBRomsHandler(DBBaseHandler):
             predicate = not_(predicate)
         return query.join(Platform).filter(predicate)
 
-    def _filter_by_last_played(
-        self, query: Query, value: bool, user_id: int | None = None
-    ) -> Query:
+    def _filter_by_last_played[S: Select[*tuple[Any, ...]]](
+        self, query: S, value: bool, user_id: int | None = None
+    ) -> S:
         """Filter based on whether the rom has a last played value for the user."""
         if not user_id:
             return query
@@ -690,15 +1393,17 @@ class DBRomsHandler(DBBaseHandler):
         )
         return query.filter(has_last_played)
 
-    def _filter_by_has_ra(self, query: Query, value: bool) -> Query:
+    def _filter_by_has_ra[S: Select[*tuple[Any, ...]]](
+        self, query: S, value: bool
+    ) -> S:
         predicate = Rom.ra_id.isnot(None)
         if not value:
             predicate = not_(predicate)
         return query.filter(predicate)
 
-    def _filter_by_has_saves(
-        self, query: Query, value: bool, user_id: int | None = None
-    ) -> Query:
+    def _filter_by_has_saves[S: Select[*tuple[Any, ...]]](
+        self, query: S, value: bool, user_id: int | None = None
+    ) -> S:
         """Filter based on whether the rom has saves visible to the current
         user: their own plus other users' public (community) saves."""
         if not user_id:
@@ -708,9 +1413,9 @@ class DBRomsHandler(DBBaseHandler):
             predicate = not_(predicate)
         return query.filter(predicate)
 
-    def _filter_by_has_states(
-        self, query: Query, value: bool, user_id: int | None = None
-    ) -> Query:
+    def _filter_by_has_states[S: Select[*tuple[Any, ...]]](
+        self, query: S, value: bool, user_id: int | None = None
+    ) -> S:
         """Filter based on whether the rom has save states visible to the
         current user: their own plus other users' public (community) states."""
         if not user_id:
@@ -720,119 +1425,56 @@ class DBRomsHandler(DBBaseHandler):
             predicate = not_(predicate)
         return query.filter(predicate)
 
-    def _filter_by_missing_from_fs(self, query: Query, value: bool) -> Query:
+    def _filter_by_missing_from_fs[S: Select[*tuple[Any, ...]]](
+        self, query: S, value: bool
+    ) -> S:
         # The column is NOT NULL, so equality matches the same rows as the
         # `IS [NOT] FALSE` form. MariaDB only treats the equality as indexable
         # though, and this filter backs the Missing tab's whole-library scan.
-        return query.filter(Rom.missing_from_fs == (true() if value else false()))
+        if not value:
+            return query.filter(Rom.missing_from_fs == false())
+        # Physical games are never "missing"; exclude them so a stray flag can
+        # never make one eligible for the missing-roms cleanup that hard-deletes.
+        return query.filter(
+            and_(Rom.missing_from_fs == true(), Rom.is_physical.is_(False))
+        )
 
-    def _filter_by_verified(self, query: Query, value: bool) -> Query:
+    def _filter_by_verified[S: Select[*tuple[Any, ...]]](
+        self, query: S, value: bool
+    ) -> S:
         keys_to_check = [
             "tosec_match",
             "mame_arcade_match",
             "mame_mess_match",
             "nointro_match",
             "redump_match",
+            "mame_redump_match",
             "whdload_match",
             "ra_match",
             "fbneo_match",
             "puredos_match",
         ]
 
-        if ROMM_DB_DRIVER == "postgresql":
-            conditions = " OR ".join(
-                f"(hasheous_metadata->>'{key}')::boolean" for key in keys_to_check
-            )
-            predicate = text(f"({conditions})")
-            if not value:
-                predicate = text(f"NOT ({conditions})")
-            return query.filter(predicate)
-        else:
-            predicate = or_(
-                *(Rom.hasheous_metadata[key].as_boolean() for key in keys_to_check)
-            )
-            if not value:
-                predicate = not_(predicate)
-            return query.filter(predicate)
+        # A missing key or a JSON null can extract as NULL, which would poison the
+        # OR and its negation; coalesce folds it to false on every engine.
+        predicate = or_(
+            *(
+                func.coalesce(Rom.hasheous_metadata[key].as_boolean(), false())
+                for key in keys_to_check
+            ),
+            func.coalesce(Rom.ra_metadata["hash_match"].as_boolean(), false()),
+        )
+        if not value:
+            predicate = not_(predicate)
+        return query.filter(predicate)
 
-    def _filter_by_genres(
-        self,
-        query: Query,
-        *,
-        session: Session,
-        values: Sequence[str],
-        match_all: bool = False,
-        match_none: bool = False,
-    ) -> Query:
-        op = json_array_contains_all if match_all else json_array_contains_any
-        condition = op(RomMetadata.genres, values, session=session)
-        return query.filter(~condition) if match_none else query.filter(condition)
-
-    def _filter_by_franchises(
-        self,
-        query: Query,
-        *,
-        session: Session,
-        values: Sequence[str],
-        match_all: bool = False,
-        match_none: bool = False,
-    ) -> Query:
-        op = json_array_contains_all if match_all else json_array_contains_any
-        condition = op(RomMetadata.franchises, values, session=session)
-        return query.filter(~condition) if match_none else query.filter(condition)
-
-    def _filter_by_collections(
-        self,
-        query: Query,
-        *,
-        session: Session,
-        values: Sequence[str],
-        match_all: bool = False,
-        match_none: bool = False,
-    ) -> Query:
-        op = json_array_contains_all if match_all else json_array_contains_any
-        condition = op(RomMetadata.collections, values, session=session)
-        return query.filter(~condition) if match_none else query.filter(condition)
-
-    def _filter_by_companies(
-        self,
-        query: Query,
-        *,
-        session: Session,
-        values: Sequence[str],
-        match_all: bool = False,
-        match_none: bool = False,
-    ) -> Query:
-        op = json_array_contains_all if match_all else json_array_contains_any
-        condition = op(RomMetadata.companies, values, session=session)
-        return query.filter(~condition) if match_none else query.filter(condition)
-
-    def _filter_by_age_ratings(
-        self,
-        query: Query,
-        *,
-        session: Session,
-        values: Sequence[str],
-        match_all: bool = False,
-        match_none: bool = False,
-    ) -> Query:
-        op = json_array_contains_all if match_all else json_array_contains_any
-        condition = op(RomMetadata.age_ratings, values, session=session)
-        return query.filter(~condition) if match_none else query.filter(condition)
-
-    def _filter_by_status(
-        self,
-        query: Query,
-        *,
-        session: Session,
-        values: Sequence[str],
-        match_all: bool = False,
-        match_none: bool = False,
-    ):
+    def _rom_user_visibility(self, filters: RomFilterParams) -> ColumnElement[bool]:
+        """The per-user predicate a rom must pass to show in the gallery."""
+        values = filters.statuses
         if not values:
-            return query
+            return _rom_user_not_hidden()
 
-        status_filters = []
+        status_filters: list[ColumnElement[bool]] = []
         for selected_status in values:
             if selected_status == "now_playing":
                 status_filters.append(RomUser.now_playing.is_(True))
@@ -843,98 +1485,74 @@ class DBRomsHandler(DBBaseHandler):
             else:
                 status_filters.append(RomUser.status == selected_status)
 
-        comb = and_ if match_all else or_
+        comb = and_ if filters.statuses_logic == "all" else or_
         condition = comb(*status_filters)
+        if filters.statuses_logic == "none":
+            condition = ~condition
 
-        # Apply negation if match_none, otherwise apply condition
-        query = query.filter(~condition) if match_none else query.filter(condition)
-
-        # Don't apply the hidden filter is hidden is set
+        # Selecting the hidden status is what opts hidden roms back in
         if "hidden" in values:
-            return query
+            return condition
 
-        return query.filter(or_(RomUser.hidden.is_(False), RomUser.hidden.is_(None)))
+        return and_(condition, _rom_user_not_hidden())
 
-    def _filter_by_regions(
+    def _apply_filter_spec[S: Select[*tuple[Any, ...]]](
         self,
-        query: Query,
+        query: S,
+        spec: RomFilterSpec,
         *,
-        session: Session,
         values: Sequence[str],
         match_all: bool = False,
         match_none: bool = False,
-    ) -> Query:
-        op = json_array_contains_all if match_all else json_array_contains_any
-        condition = op(Rom.regions, values, session=session)
+    ) -> S:
+        """Narrow `query` to the roms matching `values` under `spec`."""
+        column = spec.column
+        if column is None:
+            # PROVIDER_IDS is the only kind without a single column: each
+            # selected provider names its own id column on the mirror.
+            return self._filter_by_metadata_providers(
+                query,
+                values=values,
+                match_all=match_all,
+                match_none=match_none,
+            )
+
+        if spec.kind == FilterKind.SCALAR_IN:
+            # A scalar column can't hold every selected value, so "all" has no
+            # meaning here and matches "any".
+            condition = column.in_(values)
+        else:
+            op = json_array_contains_all if match_all else json_array_contains_any
+            condition = op(column, values)
+
         return query.filter(~condition) if match_none else query.filter(condition)
 
-    def _filter_by_languages(
+    def _filter_by_metadata_providers[S: Select[*tuple[Any, ...]]](
         self,
-        query: Query,
+        query: S,
         *,
-        session: Session,
         values: Sequence[str],
         match_all: bool = False,
         match_none: bool = False,
-    ) -> Query:
-        op = json_array_contains_all if match_all else json_array_contains_any
-        condition = op(Rom.languages, values, session=session)
-        return query.filter(~condition) if match_none else query.filter(condition)
-
-    def _filter_by_tags(
-        self,
-        query: Query,
-        *,
-        session: Session,
-        values: Sequence[str],
-        match_all: bool = False,
-        match_none: bool = False,
-    ) -> Query:
-        op = json_array_contains_all if match_all else json_array_contains_any
-        condition = op(Rom.tags, values, session=session)
-        return query.filter(~condition) if match_none else query.filter(condition)
-
-    def _filter_by_player_counts(
-        self,
-        query: Query,
-        *,
-        session: Session,
-        values: Sequence[str],
-        match_all: bool = False,
-        match_none: bool = False,
-    ) -> Query:
-        condition = RomMetadata.player_count.in_(values)
-        if match_none:
-            return query.filter(not_(condition))
-        return query.filter(condition)
-
-    def _filter_by_metadata_providers(
-        self,
-        query: Query,
-        *,
-        session: Session,
-        values: Sequence[str],
-        match_all: bool = False,
-        match_none: bool = False,
-    ) -> Query:
+    ) -> S:
         """Filter on which metadata providers a ROM matched, keyed off each
-        provider's id column on Rom.
+        provider's id column on the facets mirror.
 
         - "any":  matched at least one of the selected providers.
         - "all":  matched every selected provider.
         - "none": matched none of the selected providers.
         """
         columns = [
-            METADATA_SOURCE_COLUMNS[value]
+            METADATA_SOURCE_FACET_COLUMNS[value]
             for value in values
-            if value in METADATA_SOURCE_COLUMNS
+            if value in METADATA_SOURCE_FACET_COLUMNS
         ]
         # Unknown slugs (stale bookmark / hand-edited URL) leave nothing to
         # filter on; treat that as a no-op rather than an empty result set.
         if not columns:
             return query
 
-        predicates = [column.isnot(None) for column in columns]
+        predicates = [is_non_blank(column) for column in columns]
         if match_none:
             return query.filter(not_(or_(*predicates)))
         if match_all:
@@ -942,160 +1560,168 @@ class DBRomsHandler(DBBaseHandler):
         return query.filter(or_(*predicates))
 
     @begin_session
-    def filter_roms(
+    def filter_roms[S: Select[*tuple[Any, ...]]](
         self,
-        query: Query,
-        platform_ids: Sequence[int] | None = None,
-        collection_id: int | None = None,
-        virtual_collection_id: str | None = None,
-        smart_collection_id: int | None = None,
-        search_term: str | None = None,
-        matched: bool | None = None,
-        favorite: bool | None = None,
-        duplicate: bool | None = None,
-        last_played: bool | None = None,
-        playable: bool | None = None,
-        has_ra: bool | None = None,
-        has_saves: bool | None = None,
-        has_states: bool | None = None,
-        missing: bool | None = None,
-        verified: bool | None = None,
-        has_soundtrack: bool | None = None,
-        group_by_meta_id: bool = False,
-        genres: Sequence[str] | None = None,
-        franchises: Sequence[str] | None = None,
-        collections: Sequence[str] | None = None,
-        companies: Sequence[str] | None = None,
-        age_ratings: Sequence[str] | None = None,
-        statuses: Sequence[str] | None = None,
-        regions: Sequence[str] | None = None,
-        languages: Sequence[str] | None = None,
-        player_counts: Sequence[str] | None = None,
-        metadata_providers: Sequence[str] | None = None,
-        tags: Sequence[str] | None = None,
-        # Logic operators for multi-value filters
-        genres_logic: str = "any",
-        franchises_logic: str = "any",
-        collections_logic: str = "any",
-        companies_logic: str = "any",
-        age_ratings_logic: str = "any",
-        regions_logic: str = "any",
-        languages_logic: str = "any",
-        statuses_logic: str = "any",
-        player_counts_logic: str = "any",
-        metadata_providers_logic: str = "any",
-        tags_logic: str = "any",
+        query: S,
+        filters: RomFilterParams | None = None,
+        *,
+        # The grouped dedup aggregates the active sort key over each group;
+        # get_roms_query callers pass the key they resolved for the query.
+        sort_key: _GallerySortKey | None = None,
+        order_by: str = "",
+        order_dir: str = "asc",
         user_id: int | None = None,
+        # Whose access a `collection_id` filter is checked against, when not
+        # `user_id`: a smart collection's criteria answer for its owner.
+        collection_user_id: int | None = None,
         updated_after: datetime | None = None,
-        include_file_stats: bool = False,
+        released_days: Sequence[tuple[int, int]] | None = None,
+        released_before_year: int | None = None,
         include_files: bool = False,
-        hidden_platform_ids: Sequence[int] | None = None,
-        hidden_rom_ids: Sequence[int] | None = None,
-        session: Session = None,  # type: ignore
-    ) -> Query[Rom]:
-        from handler.scan_handler import MetadataSource
+        include_related: bool = True,
+        visibility: RomVisibilityFilter = UNRESTRICTED,
+        session: Session = INJECTED_SESSION,
+    ) -> S:
+        from handler.scan.sources import MetadataSource
 
-        query = query.options(
-            # Ensure platform is loaded for main ROM objects
-            selectinload(Rom.platform),
-            # Display properties for the current user (last_played)
-            selectinload(Rom.rom_users).options(noload(RomUser.rom)),
-            # Sort table by metadata (first_release_date)
-            selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
-            # Show sibling rom badges on cards
-            selectinload(Rom.sibling_roms).options(
-                noload(Rom.platform), noload(Rom.metadatum)
-            ),
-            # Notes indicator on cards
-            selectinload(Rom.notes),
-        )
+        filters = filters or RomFilterParams()
+        order_dir = order_dir.lower()
 
-        # Only load files (and the RomFile.rom backref needed by `is_top_level` /
-        # `file_name_for_download`) when the caller iterates them — e.g. the
-        # feed endpoints. The gallery/list and filter-value paths serialize
-        # SimpleRomSchema without files, so they skip this entirely.
-        if include_files:
+        # Callers that select bare columns (a membership subquery) pass
+        # include_related=False: loader options can't apply without an entity.
+        if include_related:
             query = query.options(
-                selectinload(Rom.files).options(
-                    joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name)
+                # Feeds read the files for download paths, never their metadata.
+                *_rom_card_loaders(
+                    files=include_files, file_meta=False, file_stats=False
                 )
             )
 
-        # Correlated subqueries and only undefer when the caller serializes the
-        # gallery-card flags. Feeds and filter-value lookups don't need them.
-        if include_file_stats:
-            query = query.options(
-                undefer(Rom.multi_file),
-                undefer(Rom.top_level_file_count),
-                undefer(Rom.has_soundtrack),
-            )
-
         # Handle platform filtering - platform filtering always uses OR logic since ROMs belong to only one platform
-        if platform_ids:
-            query = self._filter_by_platform_ids(query, platform_ids)
+        if filters.platform_ids:
+            query = self._filter_by_platform_ids(query, filters.platform_ids)
 
-        if collection_id:
-            query = self._filter_by_collection_id(query, session, collection_id)
+        if filters.collection_id:
+            query = self._filter_by_collection_id(
+                query,
+                filters.collection_id,
+                collection_user_id if collection_user_id is not None else user_id,
+            )
 
-        if virtual_collection_id:
+        if filters.virtual_collection_id:
             query = self._filter_by_virtual_collection_id(
-                query, session, virtual_collection_id
+                query, filters.virtual_collection_id
             )
 
-        if smart_collection_id and user_id:
+        if filters.smart_collection_id:
             query = self._filter_by_smart_collection_id(
-                query, session, smart_collection_id, user_id
+                query, session, filters.smart_collection_id, user_id
             )
 
-        if search_term:
-            query = self._filter_by_search_term(query, search_term)
+        if filters.search_term:
+            query = self._filter_by_search_term(query, filters.search_term)
 
-        if matched is not None:
-            query = self._filter_by_matched(query, value=matched)
+        if filters.matched is not None:
+            query = self._filter_by_matched(query, value=filters.matched)
 
-        if favorite is not None:
+        if filters.favorite is not None:
             query = self._filter_by_favorite(
-                query, session=session, value=favorite, user_id=user_id
+                query, value=filters.favorite, user_id=user_id
             )
 
-        if duplicate is not None:
-            query = self._filter_by_duplicate(query, value=duplicate)
+        if filters.duplicate is not None:
+            query = self._filter_by_duplicate(query, value=filters.duplicate)
 
-        if last_played is not None:
+        if filters.last_played is not None:
             query = self._filter_by_last_played(
-                query, value=last_played, user_id=user_id
+                query, value=filters.last_played, user_id=user_id
             )
 
-        if playable is not None:
-            query = self._filter_by_playable(query, value=playable)
+        if filters.playable is not None:
+            query = self._filter_by_playable(query, value=filters.playable)
 
-        if has_ra is not None:
-            query = self._filter_by_has_ra(query, value=has_ra)
+        if filters.has_ra is not None:
+            query = self._filter_by_has_ra(query, value=filters.has_ra)
 
-        if has_saves is not None:
-            query = self._filter_by_has_saves(query, value=has_saves, user_id=user_id)
+        if filters.has_saves is not None:
+            query = self._filter_by_has_saves(
+                query, value=filters.has_saves, user_id=user_id
+            )
 
-        if has_states is not None:
-            query = self._filter_by_has_states(query, value=has_states, user_id=user_id)
+        if filters.has_states is not None:
+            query = self._filter_by_has_states(
+                query, value=filters.has_states, user_id=user_id
+            )
 
-        if missing is not None:
-            query = self._filter_by_missing_from_fs(query, value=missing)
+        if filters.missing is not None:
+            query = self._filter_by_missing_from_fs(query, value=filters.missing)
 
-        if verified is not None:
-            query = self._filter_by_verified(query, value=verified)
+        if filters.physical is not None:
+            query = query.filter(Rom.is_physical.is_(filters.physical))
 
-        if has_soundtrack is not None:
+        if filters.verified is not None:
+            query = self._filter_by_verified(query, value=filters.verified)
+
+        if filters.has_soundtrack is not None:
             query = (
                 query.filter(Rom.has_soundtrack)
-                if has_soundtrack
+                if filters.has_soundtrack
                 else query.filter(~Rom.has_soundtrack)
             )
 
         if updated_after:
             query = query.filter(Rom.updated_at > updated_after)
 
+        if released_days:
+            query = query.filter(
+                epoch_ms_in_ranges(
+                    Rom.generated_first_release_date,
+                    release_day_ranges(released_days, before_year=released_before_year),
+                )
+            )
+
+        # A NULL length is excluded by either comparison, so a range filter
+        # only ever returns roms HowLongToBeat actually has a time for.
+        if filters.hltb_main_story_min is not None:
+            query = query.filter(
+                Rom.generated_hltb_main_story >= filters.hltb_main_story_min
+            )
+
+        if filters.hltb_main_story_max is not None:
+            query = query.filter(
+                Rom.generated_hltb_main_story <= filters.hltb_main_story_max
+            )
+
+        # One join serves every filter below. It has to land before them: the
+        # dedup subquery is derived from `query` and would inherit them without
+        # it.
+        if any(filters.selected(spec.name)[0] for spec in ROM_FILTER_SPECS):
+            query = query.outerjoin(RomFacets, RomFacets.rom_id == Rom.id)
+
+        # Applied before the `group_by_meta_id` window below, so a title whose
+        # match sits on a non-primary version still reaches the gallery.
+        for spec in ROM_FILTER_SPECS:
+            values, logic = filters.selected(spec.name)
+            if values:
+                query = self._apply_filter_spec(
+                    query,
+                    spec,
+                    values=values,
+                    match_all=(logic == "all"),
+                    match_none=(logic == "none"),
+                )
+
+        # Admin-driven visibility (opt-out): hide platforms/roms an admin has
+        # hidden from this user/group. Applied before the grouped dedup window
+        # so a permission-hidden sibling can neither represent a group nor
+        # drive its sort key.
+        query = query.filter(*visibility.clauses())
+
+        # The RomUser table is already joined if user_id is set
+        rom_user_visible = self._rom_user_visibility(filters) if user_id else true()
+
         # BEWARE YE WHO ENTERS HERE 💀
-        if group_by_meta_id:
+        if filters.group_by_meta_id:
             # Convert NULL is_main_sibling to 0 (false) so it sorts after true values
             is_main_sibling_order = (
                 func.coalesce(cast(RomUser.is_main_sibling, Integer), 0).desc()
@@ -1103,8 +1729,18 @@ class DBRomsHandler(DBBaseHandler):
                 else literal(1)
             )
 
-            # Create a subquery that identifies the primary ROM in each group
-            # Priority order: is_main_sibling (desc), then by fs_name_no_ext (asc).
+            if sort_key is None:
+                sort_key = _resolve_gallery_sort_key(order_by, user_id)
+            # A group sorts by its best sibling's key; only rom_user keys
+            # aggregate, since a roms-side key would leave the covering index.
+            aggregates_sort_key = sort_key.source == "rom_user" and isinstance(
+                sort_key.column.type, _GROUP_SORT_AGGREGATE_TYPES
+            )
+
+            # Create a subquery that identifies the primary ROM in each group.
+            # Priority order: visible to this user, then is_main_sibling (desc),
+            # then a full release over a pre-release, then the configured
+            # region priority, then fs_name_no_ext (asc) as a stable tiebreak.
             # Materialize only the columns the dedup window needs (not all of
             # Rom, whose JSON metadata blobs make the derived table huge), and
             # drop the carried-over ORDER BY the window doesn't use.
@@ -1113,6 +1749,8 @@ class DBRomsHandler(DBBaseHandler):
                 .with_only_columns(
                     Rom.id,
                     Rom.fs_name_no_ext,
+                    _prerelease_rank().label("prerelease_rank"),
+                    _region_rank().label("region_rank"),
                     Rom.platform_id,
                     Rom.igdb_id,
                     Rom.ss_id,
@@ -1122,13 +1760,99 @@ class DBRomsHandler(DBBaseHandler):
                     Rom.launchbox_id,
                     Rom.tgdb_id,
                     Rom.flashpoint_id,
+                    Rom.steam_id,
                 )
                 .subquery()
             )
-            # Only id and the row number flow downstream; the partition/order
-            # inputs are read straight from base_subquery, so keeping them out of
-            # this SELECT keeps the window's temp table narrow (carrying the wide
-            # fs_name_no_ext through it spilled the sort to disk).
+            partition_key = func.coalesce(
+                _create_metadata_id_case(
+                    MetadataSource.IGDB,
+                    base_subquery.c.igdb_id,
+                    base_subquery.c.platform_id,
+                ),
+                _create_metadata_id_case(
+                    MetadataSource.SS,
+                    base_subquery.c.ss_id,
+                    base_subquery.c.platform_id,
+                ),
+                _create_metadata_id_case(
+                    MetadataSource.MOBY,
+                    base_subquery.c.moby_id,
+                    base_subquery.c.platform_id,
+                ),
+                _create_metadata_id_case(
+                    MetadataSource.RA,
+                    base_subquery.c.ra_id,
+                    base_subquery.c.platform_id,
+                ),
+                _create_metadata_id_case(
+                    MetadataSource.HASHEOUS,
+                    base_subquery.c.hasheous_id,
+                    base_subquery.c.platform_id,
+                ),
+                _create_metadata_id_case(
+                    MetadataSource.LAUNCHBOX,
+                    base_subquery.c.launchbox_id,
+                    base_subquery.c.platform_id,
+                ),
+                _create_metadata_id_case(
+                    MetadataSource.TGDB,
+                    base_subquery.c.tgdb_id,
+                    base_subquery.c.platform_id,
+                ),
+                _create_metadata_id_case(
+                    MetadataSource.FLASHPOINT,
+                    base_subquery.c.flashpoint_id,
+                    base_subquery.c.platform_id,
+                ),
+                _create_metadata_id_case(
+                    MetadataSource.STEAM,
+                    base_subquery.c.steam_id,
+                    base_subquery.c.platform_id,
+                ),
+                _create_metadata_id_case(
+                    "romm",
+                    base_subquery.c.id,
+                    base_subquery.c.platform_id,
+                ),
+            )
+
+            # Only id, the row number and the group sort key flow downstream;
+            # wider columns here spill the window's temp-table sort to disk.
+            window_order = [
+                is_main_sibling_order,
+                base_subquery.c.prerelease_rank.asc(),
+                base_subquery.c.region_rank.asc(),
+                base_subquery.c.fs_name_no_ext.asc(),
+            ]
+            if user_id:
+                # A sibling the visibility filter below drops can't represent
+                # its group while a visible one exists.
+                window_order.insert(0, case((rom_user_visible, 0), else_=1).asc())
+            window_columns: list[ColumnElement[Any]] = [
+                func.row_number()
+                .over(partition_by=partition_key, order_by=window_order)
+                .label("row_num"),
+            ]
+            if aggregates_sort_key:
+                # MIN/MAX skip NULL siblings, and a filtered-out sibling's key
+                # is masked to NULL so it cannot drive a group it is absent from.
+                visible_sort_key = case(
+                    (rom_user_visible, _zero_unset_folded(sort_key.column))
+                )
+                group_aggregate = func.max if order_dir == "desc" else func.min
+                window_columns.append(
+                    # Sharing row_number's window spec keeps the derived table
+                    # on one sort pass; the frame still spans the partition.
+                    group_aggregate(visible_sort_key)
+                    .over(
+                        partition_by=partition_key,
+                        order_by=window_order,
+                        rows=(None, None),
+                    )
+                    .label("group_sort_value")
+                )
+
             group_subquery = (
                 select(base_subquery.c.id)
                 .select_from(base_subquery)
@@ -1138,136 +1862,98 @@ class DBRomsHandler(DBBaseHandler):
                         base_subquery.c.id == RomUser.rom_id, RomUser.user_id == user_id
                     ),
                 )
-                .add_columns(
-                    func.row_number()
-                    .over(
-                        partition_by=func.coalesce(
-                            _create_metadata_id_case(
-                                MetadataSource.IGDB,
-                                base_subquery.c.igdb_id,
-                                base_subquery.c.platform_id,
-                            ),
-                            _create_metadata_id_case(
-                                MetadataSource.SS,
-                                base_subquery.c.ss_id,
-                                base_subquery.c.platform_id,
-                            ),
-                            _create_metadata_id_case(
-                                MetadataSource.MOBY,
-                                base_subquery.c.moby_id,
-                                base_subquery.c.platform_id,
-                            ),
-                            _create_metadata_id_case(
-                                MetadataSource.RA,
-                                base_subquery.c.ra_id,
-                                base_subquery.c.platform_id,
-                            ),
-                            _create_metadata_id_case(
-                                MetadataSource.HASHEOUS,
-                                base_subquery.c.hasheous_id,
-                                base_subquery.c.platform_id,
-                            ),
-                            _create_metadata_id_case(
-                                MetadataSource.LAUNCHBOX,
-                                base_subquery.c.launchbox_id,
-                                base_subquery.c.platform_id,
-                            ),
-                            _create_metadata_id_case(
-                                MetadataSource.TGDB,
-                                base_subquery.c.tgdb_id,
-                                base_subquery.c.platform_id,
-                            ),
-                            _create_metadata_id_case(
-                                MetadataSource.FLASHPOINT,
-                                base_subquery.c.flashpoint_id,
-                                base_subquery.c.platform_id,
-                            ),
-                            _create_metadata_id_case(
-                                "romm",
-                                base_subquery.c.id,
-                                base_subquery.c.platform_id,
-                            ),
-                        ),
-                        order_by=[
-                            is_main_sibling_order,
-                            base_subquery.c.fs_name_no_ext.asc(),
-                        ],
-                    )
-                    .label("row_num"),
-                )
+                .add_columns(*window_columns)
                 .subquery()
             )
 
-            # Add a filter to the original query to only include the primary ROM from each group
-            query = query.filter(
-                Rom.id.in_(
-                    session.query(group_subquery.c.id).filter(
-                        group_subquery.c.row_num == 1
+            if aggregates_sort_key:
+                # Joining the primary rows carries the group's key out for the
+                # ORDER BY; ids are partition-unique, so the join cannot fan out.
+                dedup_subquery = (
+                    select(group_subquery.c.id, group_subquery.c.group_sort_value)
+                    .where(group_subquery.c.row_num == 1)
+                    .subquery()
+                )
+                # The null-safe match keeps this join outer; made inner, MariaDB
+                # drives from the derived table and probes wide roms rows per group.
+                query = query.outerjoin(
+                    dedup_subquery, Rom.id == dedup_subquery.c.id
+                ).filter(dedup_subquery.c.id.is_not_distinct_from(Rom.id))
+                query = query.order_by(None).order_by(
+                    *self._gallery_order_clauses(
+                        order_by=order_by,
+                        order_dir=order_dir,
+                        sort_column=dedup_subquery.c.group_sort_value,
+                        nulls_last=sort_key.nullable,
+                        search_term=filters.search_term,
                     )
                 )
-            )
-
-        # Optimize JOINs - only join tables when needed
-        needs_metadata_join = any(
-            [genres, franchises, collections, companies, age_ratings, player_counts]
-        )
-
-        if needs_metadata_join:
-            query = query.outerjoin(RomMetadata)
-
-        # Apply metadata and rom-level filters efficiently
-        filters_to_apply = [
-            (genres, genres_logic, self._filter_by_genres),
-            (franchises, franchises_logic, self._filter_by_franchises),
-            (collections, collections_logic, self._filter_by_collections),
-            (companies, companies_logic, self._filter_by_companies),
-            (age_ratings, age_ratings_logic, self._filter_by_age_ratings),
-            (regions, regions_logic, self._filter_by_regions),
-            (languages, languages_logic, self._filter_by_languages),
-            (player_counts, player_counts_logic, self._filter_by_player_counts),
-            (
-                metadata_providers,
-                metadata_providers_logic,
-                self._filter_by_metadata_providers,
-            ),
-            (tags, tags_logic, self._filter_by_tags),
-        ]
-
-        for values, logic, filter_func in filters_to_apply:
-            if values:
-                query = filter_func(
-                    query,
-                    session=session,
-                    values=values,
-                    match_all=(logic == "all"),
-                    match_none=(logic == "none"),
+            else:
+                # Add a filter to the original query to only include the primary ROM from each group
+                query = query.filter(
+                    Rom.id.in_(
+                        select(group_subquery.c.id).where(group_subquery.c.row_num == 1)
+                    )
                 )
 
-        # The RomUser table is already joined if user_id is set
-        if statuses and user_id:
-            query = self._filter_by_status(
-                query,
-                session=session,
-                values=statuses,
-                match_all=(statuses_logic == "all"),
-                match_none=(statuses_logic == "none"),
-            )
-        elif user_id:
-            query = query.filter(
-                or_(RomUser.hidden.is_(False), RomUser.hidden.is_(None))
-            )
-
-        # Admin-driven visibility (opt-out): hide platforms/roms an admin has
-        # hidden from this user/group. Orthogonal to the personal RomUser.hidden
-        # toggle above. Empty sets (e.g. admins) skip filtering entirely.
-        if hidden_platform_ids:
-            query = query.filter(Rom.platform_id.not_in(hidden_platform_ids))
-        if hidden_rom_ids:
-            query = query.filter(Rom.id.not_in(hidden_rom_ids))
+        if user_id:
+            query = query.filter(rom_user_visible)
 
         return query
 
-    @begin_session
+    def search_relevance_leads(self, order_by: str, search_term: str | None) -> bool:
+        """Whether a gallery query orders by search relevance ahead of its sort key."""
+        if order_by or not search_term:
+            return False
+        return bool(self._build_search_phrases(search_term)) or any(
+            len(term) >= SEARCH_RANK_MIN_LENGTH for term in _search_terms(search_term)
+        )
+
+    def _gallery_order_clauses(
+        self,
+        *,
+        order_by: str,
+        order_dir: str,
+        sort_column: Any,
+        nulls_last: bool,
+        search_term: str | None,
+    ) -> list[Any]:
+        relevance_leads = self.search_relevance_leads(order_by, search_term)
+        # Relevance has no direction, so its ties always run A to Z.
+        descending = order_dir == "desc" and not relevance_leads
+        if nulls_last:
+            nulls_last_clause, order_clause = _nulls_last_ordering(
+                sort_column, descending
+            )
+        else:
+            nulls_last_clause = None
+            order_clause = sort_column.desc() if descending else sort_column.asc()
+
+        # Ties are common on every sort key here and the gallery pages by
+        # offset, so without a unique final key a rom can repeat in one window
+        # and vanish from the next. The id follows the sort direction because a
+        # mixed-direction pair forces a filesort.
+        tiebreaker = Rom.id.desc() if descending else Rom.id.asc()
+
+        sort_clauses: list[Any] = [order_clause]
+        phrases = self._build_search_phrases(search_term) if search_term else []
+        relevance = [_search_relevance(phrases).desc()] if phrases else []
+        # Phrase relevance breaks an explicit sort's ties. With no sort, the rank
+        # (which reads provider metadata) and relevance lead, and name breaks ties.
+        if order_by:
+            sort_clauses.extend(relevance)
+        elif relevance_leads and search_term:
+            sort_clauses[:0] = [
+                _search_rank(_search_terms(search_term)).desc(),
+                *relevance,
+            ]
+
+        return [
+            clause
+            for clause in (nulls_last_clause, *sort_clauses, tiebreaker)
+            if clause is not None
+        ]
+
     def get_roms_query(
         self,
         *,
@@ -1275,172 +1961,159 @@ class DBRomsHandler(DBBaseHandler):
         order_dir: str = "asc",
         search_term: str | None = None,
         user_id: int | None = None,
-        session: Session = None,  # type: ignore
-    ) -> tuple[Query[Rom], Any]:
-        query = select(Rom)
+    ) -> tuple[RomSelect, _GallerySortKey]:
+        query = self._join_rom_user(select(Rom), user_id)
+        order_dir = order_dir.lower()
 
-        if user_id:
-            query = query.outerjoin(
-                RomUser, and_(RomUser.rom_id == Rom.id, RomUser.user_id == user_id)
-            )
-
-        if user_id and hasattr(RomUser, order_by) and not hasattr(Rom, order_by):
-            order_attr = getattr(RomUser, order_by)
-            query = query.filter(RomUser.user_id == user_id)
-        elif hasattr(RomMetadata, order_by) and not hasattr(Rom, order_by):
-            order_attr = getattr(RomMetadata, order_by)
+        sort_key = _resolve_gallery_sort_key(order_by, user_id)
+        if sort_key.source == "rom_metadata":
             query = query.outerjoin(RomMetadata, RomMetadata.rom_id == Rom.id)
-        elif hasattr(Rom, order_by):
-            order_attr = getattr(Rom, order_by)
-        else:
-            order_attr = Rom.name
 
-        # Use indexed `name_sort_key` to have fast access to names without
-        # articles (the, a, an) and leading digits. The key is derived from
-        # `name` at write time, or holds a custom override when one is set.
-        if order_attr is Rom.name:
-            order_attr = Rom.name_sort_key
+        order_clauses = self._gallery_order_clauses(
+            order_by=order_by,
+            order_dir=order_dir,
+            sort_column=_zero_unset_folded(sort_key.column),
+            nulls_last=sort_key.nullable,
+            search_term=search_term,
+        )
 
-        order_attr_column = order_attr
+        return query.order_by(*order_clauses), sort_key
 
-        if order_dir.lower() == "desc":
-            order_attr = order_attr.desc()
-        else:
-            order_attr = order_attr.asc()
+    def get_page_rows_query(
+        self,
+        page_ids: Sequence[int],
+        *,
+        visibility: RomVisibilityFilter,
+        include_file_stats: bool = False,
+    ) -> RomSelect:
+        """The rows of one page, loaded by id with none of the filters re-run."""
+        # The only access check on caller-supplied ids, and it also catches a
+        # cached id index that predates a rule change.
+        return (
+            select(Rom)
+            .where(Rom.id.in_(page_ids), *visibility.clauses())
+            .options(
+                *_rom_card_loaders(
+                    files=False,
+                    file_stats=include_file_stats,
+                    siblings=False,
+                    notes=False,
+                )
+            )
+        )
 
-        relevance_clause = None
-        if search_term and ROMM_DB_DRIVER in ("mariadb", "mysql"):
-            relevance = self._build_fulltext_relevance(search_term)
-            if relevance:
-                relevance_clause = text(
-                    "MATCH(roms.name, roms.fs_name) "
-                    "AGAINST(:relevance IN BOOLEAN MODE) DESC"
-                ).bindparams(relevance=relevance)
+    def _scoped_roms_query(
+        self,
+        *,
+        session: Session,
+        include_related: bool = True,
+        **kwargs: Any,
+    ) -> RomSelect:
+        """The filtered, ordered query `get_roms_scalar` and `get_rom_ids` both run."""
+        order_by = kwargs.get("order_by", "")
+        order_dir = kwargs.get("order_dir", "asc")
+        user_id = kwargs.get("user_id", None)
 
-        if order_by:  # explicit sort wins, relevance breaks ties
-            order_clauses = [order_attr]
-            if relevance_clause is not None:
-                order_clauses.append(relevance_clause)
-        else:  # no sort selected: relevance leads, name is the tiebreaker
-            order_clauses = [order_attr]
-            if relevance_clause is not None:
-                order_clauses.insert(0, relevance_clause)
+        query, sort_key = self.get_roms_query(
+            order_by=order_by,
+            order_dir=order_dir,
+            search_term=kwargs.get("search_term", None),
+            user_id=user_id,
+        )
 
-        return query.order_by(*order_clauses), order_attr_column  # type: ignore
+        return self.filter_roms(
+            query=query,
+            # Extra keys (ordering, loading flags) are not filters; ignored here.
+            filters=RomFilterParams.model_validate(kwargs),
+            sort_key=sort_key,
+            order_by=order_by,
+            order_dir=order_dir,
+            user_id=user_id,
+            released_days=kwargs.get("released_days", None),
+            released_before_year=kwargs.get("released_before_year", None),
+            # File loaders need the entity too, so they ride the same flag.
+            include_files=include_related and kwargs.get("include_files", False),
+            include_related=include_related,
+            visibility=kwargs.get("visibility", UNRESTRICTED),
+            session=session,
+        )
 
     @begin_session
     def get_roms_scalar(
         self,
         *,
-        only_fields: Sequence[QueryableAttribute] | None = None,
-        session: Session = None,  # type: ignore
-        **kwargs,
+        session: Session = INJECTED_SESSION,
+        **kwargs: Any,
     ) -> Sequence[Rom]:
-        query, _ = self.get_roms_query(
-            order_by=kwargs.get("order_by", ""),
-            order_dir=kwargs.get("order_dir", "asc"),
-            search_term=kwargs.get("search_term", None),
-            user_id=kwargs.get("user_id", None),
-        )
+        query = self._scoped_roms_query(session=session, **kwargs)
+        return session.scalars(query).all()
 
-        if only_fields:
-            query = query.options(load_only(*only_fields))
-
-        roms = self.filter_roms(
-            query=query,
-            platform_ids=kwargs.get("platform_ids", None),
-            collection_id=kwargs.get("collection_id", None),
-            virtual_collection_id=kwargs.get("virtual_collection_id", None),
-            smart_collection_id=kwargs.get("smart_collection_id", None),
-            search_term=kwargs.get("search_term", None),
-            matched=kwargs.get("matched", None),
-            favorite=kwargs.get("favorite", None),
-            duplicate=kwargs.get("duplicate", None),
-            last_played=kwargs.get("last_played", None),
-            playable=kwargs.get("playable", None),
-            has_ra=kwargs.get("has_ra", None),
-            has_saves=kwargs.get("has_saves", None),
-            has_states=kwargs.get("has_states", None),
-            has_soundtrack=kwargs.get("has_soundtrack", None),
-            missing=kwargs.get("missing", None),
-            verified=kwargs.get("verified", None),
-            genres=kwargs.get("genres", None),
-            franchises=kwargs.get("franchises", None),
-            collections=kwargs.get("collections", None),
-            companies=kwargs.get("companies", None),
-            age_ratings=kwargs.get("age_ratings", None),
-            statuses=kwargs.get("statuses", None),
-            regions=kwargs.get("regions", None),
-            languages=kwargs.get("languages", None),
-            player_counts=kwargs.get("player_counts", None),
-            metadata_providers=kwargs.get("metadata_providers", None),
-            tags=kwargs.get("tags", None),
-            # Logic operators for multi-value filters
-            genres_logic=kwargs.get("genres_logic", "any"),
-            franchises_logic=kwargs.get("franchises_logic", "any"),
-            collections_logic=kwargs.get("collections_logic", "any"),
-            companies_logic=kwargs.get("companies_logic", "any"),
-            age_ratings_logic=kwargs.get("age_ratings_logic", "any"),
-            regions_logic=kwargs.get("regions_logic", "any"),
-            languages_logic=kwargs.get("languages_logic", "any"),
-            statuses_logic=kwargs.get("statuses_logic", "any"),
-            player_counts_logic=kwargs.get("player_counts_logic", "any"),
-            metadata_providers_logic=kwargs.get("metadata_providers_logic", "any"),
-            tags_logic=kwargs.get("tags_logic", "any"),
-            user_id=kwargs.get("user_id", None),
-            group_by_meta_id=kwargs.get("group_by_meta_id", False),
-            include_files=kwargs.get("include_files", False),
-            hidden_platform_ids=kwargs.get("hidden_platform_ids", None),
-            hidden_rom_ids=kwargs.get("hidden_rom_ids", None),
+    @begin_session
+    def get_rom_ids(
+        self,
+        *,
+        session: Session = INJECTED_SESSION,
+        **kwargs: Any,
+    ) -> list[int]:
+        """Every matching rom id, in query order."""
+        query = self._scoped_roms_query(
+            session=session, include_related=False, **kwargs
         )
-        return session.scalars(roms).all()
+        return list(session.scalars(query.with_only_columns(Rom.id)).all())
 
     @begin_session
     def get_hidden_rom_ids_among(
         self,
         rom_ids: Sequence[int],
-        hidden_platform_ids: Sequence[int] | None,
-        hidden_rom_ids: Sequence[int] | None,
-        session: Session = None,  # type: ignore
+        visibility: RomVisibilityFilter,
+        session: Session = INJECTED_SESSION,
     ) -> set[int]:
-        """Of `rom_ids`, the subset hidden from the caller (own hide or platform)."""
+        """Of `rom_ids`, the subset `visibility` hides from the caller."""
         candidates = set(rom_ids)
-        hide: set[int] = candidates & set(hidden_rom_ids or [])
-        if hidden_platform_ids and candidates:
-            rows = session.scalars(
-                select(Rom.id).where(
-                    Rom.id.in_(candidates),
-                    Rom.platform_id.in_(hidden_platform_ids),
-                )
-            ).all()
-            hide.update(rows)
-        return hide
+        # A hide row outlives its ROM, so direct hides match by id with no lookup.
+        hidden = candidates & visibility.hidden_rom_ids
+        rest = candidates - hidden
+        row_hidden = visibility.row_hidden_clause()
+        if rest and row_hidden is not None:
+            hidden.update(
+                session.scalars(
+                    select(Rom.id).where(Rom.id.in_(rest), row_hidden)
+                ).all()
+            )
+        return hidden
 
     @begin_session
     def with_char_index(
         self,
-        query: Query,
+        query: RomSelect,
         order_by_attr: Any,
         *,
         cache_key: str | None = None,
         order_dir: str = "asc",
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> list[tuple[str, int]]:
+        # Letter offsets only index a lexically ordered result. `Enum` subclasses
+        # `String`, but the database orders native enums by declaration order.
+        column_type = order_by_attr.type
+        is_lexical = isinstance(column_type, (String, Text)) and not isinstance(
+            column_type, Enum
+        )
+        if not is_lexical:
+            return []
+
         redis_key: str | None = None
         version: str | None = None
         if cache_key:
             version = _filter_values_cache_version()
-            redis_key = f"char_index:{cache_key}:v{version}"
+            redis_key = _char_index_redis_key(cache_key, version)
             cached = sync_cache.get(redis_key)
             if cached is not None:
-                return json.loads(cached)
+                char_index: list[tuple[str, int]] = json.loads(cached)
+                return char_index
 
         # Drop any ordering carried over from the main query (e.g. search relevance).
         # This builds its own positional ordering below.
         query = query.order_by(None)
-
-        if not isinstance(order_by_attr.type, (String, Text)):
-            order_by_attr = Rom.name_sort_key
 
         # The alpha-strip only needs each first letter's starting offset, not a
         # positional number for every row. Counting rows per letter and
@@ -1449,9 +2122,7 @@ class DBRomsHandler(DBBaseHandler):
         descending = order_dir.lower() == "desc"
         letter = func.substring(order_by_attr, 1, 1)
         counts = (
-            query.with_only_columns(  # type: ignore
-                letter.label("letter"), func.count().label("count")
-            )
+            query.with_only_columns(letter.label("letter"), func.count().label("count"))
             .group_by(letter)
             .order_by(letter.desc() if descending else letter.asc())
         )
@@ -1472,40 +2143,57 @@ class DBRomsHandler(DBBaseHandler):
     @begin_session
     def get_rom_id_index(
         self,
-        query: Query,
+        query: RomSelect,
         *,
         cache_key: str | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> list[int]:
         """Return every matching rom id in query order.
 
         The list backs the gallery's virtual scroll, so it spans the whole
-        result set (not a page) and is recomputed on every request. Building it
-        runs the sibling-dedup window over the full library, so the unscoped
-        case is memoised under the same versioned cache as the other gallery
-        sidecars.
+        result set (not a page). Building it can run the sibling-dedup window
+        over the full set, so a keyed list is memoised under the same versioned
+        cache as the other gallery sidecars.
         """
         redis_key: str | None = None
         version: str | None = None
         if cache_key:
             version = _filter_values_cache_version()
-            redis_key = f"rom_id_index:{cache_key}:v{version}"
-            cached = sync_cache.get(redis_key)
-            if cached is not None:
-                return json.loads(cached)
+            redis_key = _rom_id_index_redis_key(cache_key, version)
+            cached = sync_cache.lrange(redis_key, 0, -1)
+            if cached:
+                return [int(rom_id) for rom_id in cached]
 
-        ids = list(session.scalars(query.with_only_columns(Rom.id)).all())  # type: ignore
+        ids = list(session.scalars(query.with_only_columns(Rom.id)).all())
 
         if redis_key is not None and version is not None:
-            _store_versioned_cache(redis_key, version, ids)
+            _store_versioned_id_list(redis_key, version, ids)
         return ids
+
+    @staticmethod
+    def get_cached_rom_id_page(
+        cache_key: str, offset: int, limit: int
+    ) -> tuple[list[int], int] | None:
+        """One window of a cached id list and the list's length, without building it.
+
+        Returns:
+            None on a miss; only `get_rom_id_index` writes the list.
+        """
+        redis_key = _rom_id_index_redis_key(cache_key, _filter_values_cache_version())
+        with sync_cache.pipeline(transaction=False) as pipe:
+            pipe.lrange(redis_key, offset, offset + limit - 1)
+            pipe.llen(redis_key)
+            window, length = pipe.execute()
+        if not length:
+            return None
+        return [int(rom_id) for rom_id in window], int(length)
 
     @begin_session
     def get_rom_count(
         self,
-        query: Query,
+        query: RomSelect,
         *,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> int:
         """Count matching roms without materialising their ids.
 
@@ -1521,25 +2209,73 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     @begin_session
+    def get_random_rom_id(
+        self,
+        query: RomSelect,
+        *,
+        session: Session = INJECTED_SESSION,
+    ) -> int | None:
+        """Pick one rom id at random, uniformly, from a filtered query.
+
+        Two mechanisms, both uniform. First a batch of random primary keys is
+        offered to the query: every id in the table is equally likely to be
+        offered, so any hit is an unbiased pick, and the whole batch costs one
+        index lookup per candidate no matter how large the library is.
+
+        A batch misses when the query matches too little of the id space (a
+        scoped gallery, an id range left full of gaps by deletions). It then
+        falls back to counting the set and taking the row at a random position
+        in it. That reads no rows, only index entries, since the statement
+        selects nothing but the id.
+        """
+        id_query = query.order_by(None).with_only_columns(Rom.id)
+
+        # Bounds come from the table rather than the filtered set: they only
+        # need to cover it, and MIN/MAX over an untouched primary key are two
+        # index seeks, where the same pair over a joined and filtered set is a
+        # scan of it.
+        lowest, highest = session.execute(
+            select(func.min(Rom.id), func.max(Rom.id))
+        ).one()
+        if lowest is None or highest is None:
+            return None
+
+        span = highest - lowest + 1
+        candidates = {
+            lowest + secrets.randbelow(span) for _ in range(RANDOM_ID_SAMPLE_SIZE)
+        }
+        hits = session.scalars(id_query.where(Rom.id.in_(candidates))).all()
+        if hits:
+            return secrets.choice(hits)
+
+        total = self.get_rom_count(query=query, session=session)
+        if total == 0:
+            return None
+        return session.scalar(id_query.limit(1).offset(secrets.randbelow(total)))
+
+    @begin_session
     def get_roms_by_fs_name(
         self,
         platform_id: int,
         fs_names: Iterable[str],
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> dict[str, Rom]:
-        """Retrieve a dictionary of roms by their filesystem names.
+        """Retrieve a dictionary of roms keyed by their full path (fs_path/fs_name).
+
+        Filters by file name for an indexed lookup, but keys the result on the
+        full path so identically-named files in different folders (custom
+        library structures) remain distinct.
 
         Eager-loads only `platform` (used downstream by the scan loop via
         `rom.platform_slug` / `rom.platform.fs_slug`). This deliberately
         avoids `with_details`, whose full relationship eager-load is
-        wasted work for the scan-skip decision on large platforms.
+        wasted work for the scan-skip decision on large platforms. Files are
+        left unloaded so a batch never holds every file row of its roms at once.
         """
         roms = (
             session.scalars(
                 select(Rom)
-                .options(
-                    selectinload(Rom.platform),
-                )
+                .options(selectinload(Rom.platform))
                 .where(
                     and_(
                         Rom.platform_id == platform_id,
@@ -1551,25 +2287,109 @@ class DBRomsHandler(DBBaseHandler):
             .all()
         )
 
-        return {rom.fs_name: rom for rom in roms}
+        return {rom.full_path: rom for rom in roms}
+
+    @begin_session
+    def get_roms_by_fs_names_no_ext(
+        self,
+        fs_names_no_ext: Iterable[str],
+        session: Session = INJECTED_SESSION,
+    ) -> list[Rom]:
+        """ROMs on any platform with one of these extensionless file names, in any case."""
+        names = list(dict.fromkeys(fs_names_no_ext))
+        roms: list[Rom] = []
+        for i in range(0, len(names), 1000):
+            batch = names[i : i + 1000]
+            # MariaDB's collation already ignores case; PostgreSQL reads the
+            # lowercased index instead.
+            matches_name = DialectCase(
+                postgresql=func.lower(Rom.fs_name_no_ext).in_(
+                    {name.lower() for name in batch}
+                ),
+                mysql=Rom.fs_name_no_ext.in_(batch),
+            )
+            roms += session.scalars(
+                select(Rom).options(selectinload(Rom.platform)).where(matches_name)
+            ).all()
+
+        # Id order keeps an ambiguous name resolving the same way on every sync.
+        return sorted(roms, key=lambda rom: rom.id)
+
+    @begin_session
+    def get_roms_by_file_name_prefixes(
+        self,
+        prefixes: Iterable[str],
+        session: Session = INJECTED_SESSION,
+    ) -> list[tuple[str, Rom]]:
+        """Each file whose name starts with one of `prefixes`, in any case, with its ROM.
+
+        Returns:
+            (file name, owning ROM) pairs, in ROM id order.
+        """
+        unique = list(dict.fromkeys(prefixes))
+        rows: list[tuple[str, Rom]] = []
+        for batch in batched(unique, 100, strict=False):
+            rows += session.execute(
+                select(RomFile.file_name, Rom)
+                .join(Rom, Rom.id == RomFile.rom_id)
+                .options(selectinload(Rom.platform))
+                .where(
+                    or_(
+                        *(
+                            RomFile.file_name.istartswith(prefix, autoescape=True)
+                            for prefix in batch
+                        )
+                    )
+                )
+            ).all()
+
+        return sorted(rows, key=lambda row: (row[1].id, row[0]))
 
     @begin_session
     def update_rom(
         self,
         id: int,
-        data: dict,
-        session: Session = None,  # type: ignore
+        data: dict[str, Any],
+        session: Session = INJECTED_SESSION,
     ) -> Rom:
+        if "name_sort_key" in data and "name_sort_key_custom" not in data:
+            # A key written without saying otherwise is the caller's own choice.
+            data = {**data, "name_sort_key_custom": data["name_sort_key"] is not None}
         if "name" in data and "name_sort_key" not in data:
-            # Re-derive the key from the new name, but only when the stored key
-            # is still the derived value (i.e. not a manual override). Mirrors
-            # the `@validates` logic, which the bulk update() bypasses.
-            existing = session.query(Rom).filter_by(id=id).one()
-            if (
-                existing.name_sort_key is None
-                or existing.name_sort_key == compute_name_sort_key(existing.name)
-            ):
+            # Re-derive the key from the new name unless it is a custom one.
+            # Mirrors the `@validates` logic, which the bulk update() bypasses.
+            if not session.get_one(Rom, id).name_sort_key_custom:
                 data = {**data, "name_sort_key": compute_name_sort_key(data["name"])}
+
+        if data.keys() & SEARCH_TITLE_COLUMNS:
+            # The bulk update() skips the mapper event that keeps this in sync.
+            stored = session.get_one(Rom, id)
+            data = {
+                **data,
+                "search_titles": compute_search_titles(
+                    data.get("name", stored.name),
+                    {
+                        column: data.get(column, getattr(stored, column))
+                        for column, _ in ALTERNATIVE_NAME_SOURCES
+                    },
+                ),
+            }
+
+        if data.keys() & MIN_AGE_SOURCE_COLUMNS:
+            # The bulk update() skips the mapper event that keeps this in sync.
+            missing = [c for c in MIN_AGE_SOURCE_COLUMNS if c not in data]
+            sources: dict[str, Any] = {
+                c: data[c] for c in MIN_AGE_SOURCE_COLUMNS if c in data
+            }
+            if missing:
+                sources |= (
+                    session.execute(
+                        select(*(getattr(Rom, c) for c in missing)).where(Rom.id == id)
+                    )
+                    .one()
+                    ._asdict()
+                )
+            data = {**data, "min_age": compute_min_age(sources)}
 
         if "fs_name" in data:
             parts = compute_file_name_parts(data["fs_name"])
@@ -1580,13 +2400,25 @@ class DBRomsHandler(DBBaseHandler):
                 "fs_extension": parts.extension,
             }
 
+        if "fs_name" in data or "fs_path" in data:
+            # The unique index reads the digest, so whichever half the caller
+            # left out has to come from the stored row.
+            stored = session.get_one(Rom, id)
+            data = {
+                **data,
+                "full_path_hash": compute_full_path_hash(
+                    data.get("fs_path", stored.fs_path),
+                    data.get("fs_name", stored.fs_name),
+                ),
+            }
+
         session.execute(
             update(Rom)
             .where(Rom.id == id)
             .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
-        return session.query(Rom).filter_by(id=id).one()
+        return session.scalars(select(Rom).filter_by(id=id)).one()
 
     @begin_session
     def convert_rom_to_folder(
@@ -1594,9 +2426,10 @@ class DBRomsHandler(DBBaseHandler):
         id: int,
         folder: str,
         file_path: str,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> None:
         parts = compute_file_name_parts(folder)
+        stored = session.scalars(select(Rom).filter_by(id=id)).one()
         session.execute(
             update(Rom)
             .where(Rom.id == id)
@@ -1605,6 +2438,7 @@ class DBRomsHandler(DBBaseHandler):
                 fs_name_no_tags=parts.no_tags,
                 fs_name_no_ext=parts.no_ext,
                 fs_extension=parts.extension,
+                full_path_hash=compute_full_path_hash(stored.fs_path, folder),
             )
         )
         session.execute(
@@ -1615,19 +2449,20 @@ class DBRomsHandler(DBBaseHandler):
     def delete_rom(
         self,
         id: int,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> None:
         session.execute(
             delete(Rom)
             .where(Rom.id == id)
             .execution_options(synchronize_session="evaluate")
         )
+        session.info[FILTER_VALUES_BUMP_KEY] = True
 
     @begin_session
     def get_missing_rom_ids(
         self,
         platform_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> set[int]:
         """Return the ids of a platform's ROMs currently flagged missing."""
         return set(
@@ -1646,7 +2481,7 @@ class DBRomsHandler(DBBaseHandler):
         self,
         platform_id: int,
         rom_ids: list[int],
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> None:
         """Bulk set missing_from_fs=False for a list of ROM IDs.
 
@@ -1673,27 +2508,85 @@ class DBRomsHandler(DBBaseHandler):
             )
 
     @begin_session
+    def get_sort_keys_after_id(
+        self,
+        after_id: int,
+        limit: int,
+        session: Session = INJECTED_SESSION,
+    ) -> list[tuple[int, str | None, str | None, bool]]:
+        """A page of `(id, name, name_sort_key, name_sort_key_custom)` after `after_id`."""
+        rows = session.execute(
+            select(Rom.id, Rom.name, Rom.name_sort_key, Rom.name_sort_key_custom)
+            .where(Rom.id > after_id)
+            .order_by(Rom.id)
+            .limit(limit)
+        ).all()
+        return [(rom_id, name, key, custom) for rom_id, name, key, custom in rows]
+
+    @begin_session
+    def replace_derived_sort_keys(
+        self,
+        replacements: Mapping[int, tuple[str | None, str]],
+        session: Session = INJECTED_SESSION,
+    ) -> int:
+        """Re-derive sort keys, each only while its name is the one it was derived from.
+
+        Args:
+            replacements: ROM id to its (name, new sort key).
+
+        Returns:
+            How many keys were replaced.
+        """
+        replaced = 0
+        # Exact, so an accent-only rename still counts as a change of name.
+        collation = exact_collation(session.get_bind())
+        stored_name = Rom.name.collate(collation) if collation else Rom.name
+        for rom_id, (name, new) in replacements.items():
+            same_name = stored_name.is_(None) if name is None else stored_name == name
+            replaced += affected_rows(
+                session.execute(
+                    update(Rom)
+                    .where(
+                        Rom.id == rom_id, same_name, Rom.name_sort_key_custom.is_(False)
+                    )
+                    .values(name_sort_key=new)
+                    .execution_options(synchronize_session=False)
+                )
+            )
+        if replaced:
+            session.info[FILTER_VALUES_BUMP_KEY] = True
+        return replaced
+
+    @begin_session
     def mark_missing_roms(
         self,
         platform_id: int,
         fs_roms_to_keep: list[str],
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[Rom]:
         """Sync `missing_from_fs` for a platform against the keep-list.
+
+        The keep-list holds rom full paths (fs_path/fs_name) so that
+        identically-named files in different folders are tracked
+        independently under a custom library structure.
 
         Reads the rows once and writes only those whose state actually
         changes, so a re-scan of an unchanged platform issues no updates.
         """
         keep_set = set(fs_roms_to_keep)
+        # Physical games have no file on disk, so they must never be flagged missing.
         rows = session.execute(
-            select(Rom.id, Rom.fs_name, Rom.missing_from_fs).where(
-                Rom.platform_id == platform_id
+            select(Rom.id, Rom.fs_path, Rom.fs_name, Rom.missing_from_fs).where(
+                and_(
+                    Rom.platform_id == platform_id,
+                    Rom.is_physical.is_(False),
+                )
             )
         ).all()
 
         flips: dict[bool, list[int]] = {True: [], False: []}
-        for rom_id, fs_name, was_missing in rows:
-            is_missing = fs_name not in keep_set
+        for rom_id, fs_path, fs_name, was_missing in rows:
+            is_missing = f"{fs_path}/{fs_name}" not in keep_set
             if is_missing != was_missing:
                 flips[is_missing].append(rom_id)
 
@@ -1708,12 +2601,15 @@ class DBRomsHandler(DBBaseHandler):
 
         return (
             session.scalars(
+                # The returned instances are detached, so `fs_path` is loaded up
+                # front for callers reading `rom.full_path`.
                 select(Rom)
-                .options(load_only(Rom.id, Rom.fs_name))
+                .options(load_only(Rom.id, Rom.fs_name, Rom.fs_path))
                 .where(
                     and_(
                         Rom.platform_id == platform_id,
                         Rom.missing_from_fs.is_(True),
+                        Rom.is_physical.is_(False),
                     )
                 )
                 .order_by(Rom.fs_name.asc())
@@ -1727,10 +2623,22 @@ class DBRomsHandler(DBBaseHandler):
         self,
         rom_id: int,
         user_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> RomUser:
-        rom_user = session.merge(RomUser(rom_id=rom_id, user_id=user_id))
-        session.flush()
+        """Insert a RomUser, or return the one a concurrent writer inserted first."""
+        rom_user = RomUser(rom_id=rom_id, user_id=user_id)
+        try:
+            with session.begin_nested():
+                session.add(rom_user)
+                session.flush()
+        except IntegrityError:
+            existing = self.get_rom_user(rom_id, user_id, session=session)
+            if existing is None:
+                raise
+            return existing
+        # A fresh row's zero defaults replace NULL sort keys, which moves
+        # this user's RomUser-sorted order.
+        _queue_user_cache_bumps(session, user_id, sort_keys=True)
         return rom_user
 
     @begin_session
@@ -1738,26 +2646,79 @@ class DBRomsHandler(DBBaseHandler):
         self,
         rom_id: int,
         user_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> RomUser | None:
         return session.scalar(
             select(RomUser).filter_by(rom_id=rom_id, user_id=user_id).limit(1)
         )
 
     @begin_session
-    def get_rom_user_by_id(
+    def set_rom_user_statuses(
         self,
-        id: int,
-        session: Session = None,  # type: ignore
-    ) -> RomUser | None:
-        return session.scalar(select(RomUser).filter_by(id=id).limit(1))
+        user_id: int,
+        statuses: Mapping[int, RomUserStatus],
+        *,
+        session: Session = INJECTED_SESSION,
+    ) -> int:
+        """Set one user's status on many ROMs, creating missing rows and sparing user-owned statuses.
+
+        Returns:
+            How many rows had their status changed.
+        """
+        rom_ids_by_status: dict[RomUserStatus, list[int]] = {}
+        for rom_id, status in statuses.items():
+            rom_ids_by_status.setdefault(status, []).append(rom_id)
+
+        postgresql = is_postgresql(session.get_bind())
+        updated = 0
+        for status, rom_ids in rom_ids_by_status.items():
+            for chunk in batched(rom_ids, _ROM_USER_WRITE_BATCH_SIZE, strict=False):
+                # Skipping duplicates in the INSERT takes no prior read, whose MariaDB
+                # snapshot would hide (and then refuse) a row another writer commits.
+                rows = [{"rom_id": rom_id, "user_id": user_id} for rom_id in chunk]
+                insert_missing: Insert
+                if postgresql:
+                    insert_missing = (
+                        sa_pg.insert(RomUser)
+                        .values(rows)
+                        .on_conflict_do_nothing(index_elements=["rom_id", "user_id"])
+                    )
+                else:
+                    insert_missing = (
+                        sa_mysql.insert(RomUser).values(rows).prefix_with("IGNORE")
+                    )
+                session.execute(insert_missing)
+
+                # The guard is in the WHERE clause, so a status the user sets
+                # while this runs is never overwritten.
+                set_status = (
+                    update(RomUser)
+                    .where(
+                        RomUser.user_id == user_id,
+                        RomUser.rom_id.in_(chunk),
+                        or_(
+                            RomUser.status.is_(None),
+                            RomUser.status.not_in(
+                                (status, *_USER_OWNED_ROM_USER_STATUSES)
+                            ),
+                        ),
+                    )
+                    .values(status=status)
+                    .execution_options(synchronize_session=False)
+                )
+                updated += affected_rows(session.execute(set_status))
+
+        # A freshly inserted row has no status, so the UPDATE counts it too.
+        if updated:
+            _queue_user_cache_bumps(session, user_id, sort_keys=True, feed=True)
+        return updated
 
     @begin_session
     def update_rom_user(
         self,
         id: int,
-        data: dict,
-        session: Session = None,  # type: ignore
+        data: dict[str, Any],
+        session: Session = INJECTED_SESSION,
     ) -> RomUser | None:
         session.execute(
             update(RomUser)
@@ -1766,9 +2727,19 @@ class DBRomsHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
 
-        rom_user = session.query(RomUser).filter_by(id=id).one_or_none()
+        rom_user = session.scalars(select(RomUser).filter_by(id=id)).one_or_none()
         if not rom_user:
             return None
+
+        # Other RomUser columns can back a sort (hidden bumps the global version,
+        # pinned_media sorts nothing); main-sibling picks move grouped sets.
+        _queue_user_cache_bumps(
+            session,
+            rom_user.user_id,
+            sort_keys=bool(data.keys() - {"hidden", "pinned_media"}),
+            siblings="is_main_sibling" in data,
+            feed=bool(RECOMMENDATION_SEED_FIELDS & data.keys()),
+        )
 
         if not data.get("is_main_sibling", False):
             return rom_user
@@ -1790,14 +2761,77 @@ class DBRomsHandler(DBBaseHandler):
 
         return rom_user
 
+    def _lock_rom_file_and_roms(
+        self, rom_file_id: int, other_rom_ids: Iterable[int], session: Session
+    ) -> set[int] | None:
+        """Lock a file's owning rom and `other_rom_ids`, then the file row.
+
+        Returns:
+            Every rom id locked, or None if the file does not exist.
+
+        Raises:
+            RomFileOwnerChangedError: a concurrent move changed the owner first.
+        """
+        # All rom locks go in one sorted batch before the file lock, the order
+        # folder conversion writes in, so no two writers can wait on each other.
+        owner = session.scalar(select(RomFile.rom_id).where(RomFile.id == rom_file_id))
+        if owner is None:
+            return None
+        locked = {owner, *other_rom_ids}
+        self._lock_rom_rows(locked, session)
+        confirmed = session.scalar(
+            select(RomFile.rom_id).where(RomFile.id == rom_file_id).with_for_update()
+        )
+        if confirmed is None:
+            return None
+        if confirmed not in locked:
+            raise RomFileOwnerChangedError(rom_file_id)
+        return locked
+
+    def _lock_rom_rows(self, rom_ids: Iterable[int], session: Session) -> None:
+        """Serialise writers of these roms' files so each size total counts the others'."""
+        # Taken before the file write, whose foreign key check would otherwise
+        # share-lock the row first; in id order so two moves cannot deadlock.
+        for rom_id in sorted(set(rom_ids)):
+            session.execute(
+                select(Rom.id).where(Rom.id == rom_id).with_for_update(key_share=True)
+            )
+
+    def _recompute_fs_size_bytes(self, rom_id: int, session: Session) -> None:
+        """Re-derive the size the gallery sorts on from the rom's file rows."""
+        # Summed inside the UPDATE, which MariaDB reads with locks rather than
+        # from the transaction snapshot; the caller holds `_lock_rom_rows`.
+        total = (
+            select(func.coalesce(func.sum(RomFile.file_size_bytes), 0))
+            .where(RomFile.rom_id == rom_id)
+            .scalar_subquery()
+        )
+        session.execute(
+            update(Rom)
+            .where(Rom.id == rom_id)
+            .values(fs_size_bytes=total)
+            .execution_options(synchronize_session="fetch")
+        )
+        session.info[FILTER_VALUES_BUMP_KEY] = True
+
     @begin_session
     def add_rom_file(
         self,
         rom_file: RomFile,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> RomFile:
+        rom_ids = (
+            self._lock_rom_file_and_roms(rom_file.id, [rom_file.rom_id], session)
+            if rom_file.id is not None
+            else None
+        )
+        if rom_ids is None:
+            rom_ids = {rom_file.rom_id}
+            self._lock_rom_rows(rom_ids, session)
         merged = session.merge(rom_file)
         session.flush()
+        for rom_id in sorted(rom_ids):
+            self._recompute_fs_size_bytes(rom_id, session)
         return merged
 
     def _apply_scanned_rom_file(
@@ -1810,7 +2844,21 @@ class DBRomsHandler(DBBaseHandler):
 
         Returns the cover path this update orphaned, if any.
         """
-        _copy_scanned_columns(scanned, row, ROM_FILE_SCANNED_COLUMNS, RomFile)
+        # Ids rom-converto or sigil didn't read this pass are reusable only when
+        # they still describe the same content.
+        same_content = _same_content(row, scanned)
+        keep_when_unset: frozenset[str] = frozenset()
+        if same_content:
+            keep_when_unset |= frozenset(SIGIL_FILE_COLUMNS)
+            if scanned.converto_read_at is None:
+                keep_when_unset |= {"title_id", "title_version", "converto_read_at"}
+        _copy_scanned_columns(
+            scanned,
+            row,
+            ROM_FILE_SCANNED_COLUMNS,
+            RomFile,
+            keep_when_unset=keep_when_unset,
+        )
 
         if row.missing_from_fs:
             row.missing_from_fs = False
@@ -1843,7 +2891,7 @@ class DBRomsHandler(DBBaseHandler):
         self,
         rom_id: int,
         scanned_files: Sequence[RomFile],
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> SyncedRomFiles:
         """Reconcile a ROM's file rows against a fresh scan, preserving row ids.
 
@@ -1874,6 +2922,9 @@ class DBRomsHandler(DBBaseHandler):
 
         for scanned in scanned_files:
             row = by_path.get((scanned.file_path, scanned.file_name))
+            if row is None and scanned.id is not None and scanned.id in unmatched:
+                # A reused row renamed in place is still that row.
+                row = unmatched[scanned.id]
             if row is not None and row.id in unmatched:
                 del unmatched[row.id]
                 pairs.append((scanned, row))
@@ -1928,17 +2979,26 @@ class DBRomsHandler(DBBaseHandler):
             )
 
         session.flush()
+        platform_id = session.scalar(select(Rom.platform_id).where(Rom.id == rom_id))
+        if platform_id is not None:
+            link_channels_to_files(session, rom_id, platform_id, saved)
         return SyncedRomFiles(files=saved, orphaned_cover_paths=orphaned_cover_paths)
 
     @begin_session
     def get_rom_file_by_id(
         self,
         id: int,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> RomFile | None:
         return session.scalar(
             select(RomFile)
-            .options(selectinload(RomFile.track_meta))
+            .options(
+                selectinload(RomFile.track_meta),
+                selectinload(RomFile.doc_meta),
+                # `is_top_level` reads `rom.full_path`, and callers validate the
+                # row as a schema after this session has closed.
+                joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name),
+            )
             .filter_by(id=id)
             .limit(1)
         )
@@ -1947,7 +3007,7 @@ class DBRomsHandler(DBBaseHandler):
     def get_rom_files_by_ids(
         self,
         ids: Sequence[int],
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[RomFile]:
         if not ids:
             return []
@@ -1956,7 +3016,7 @@ class DBRomsHandler(DBBaseHandler):
                 select(RomFile)
                 .options(
                     selectinload(RomFile.track_meta),
-                    joinedload(RomFile.rom).load_only(Rom.platform_id),
+                    joinedload(RomFile.rom).load_only(*ROM_VISIBILITY_COLUMNS),
                 )
                 .where(RomFile.id.in_(ids))
             )
@@ -1970,11 +3030,11 @@ class DBRomsHandler(DBBaseHandler):
         rom_id: int,
         file_path: str,
         file_name: str,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> RomFile | None:
         return session.scalar(
             select(RomFile)
-            .options(selectinload(RomFile.track_meta))
+            .options(selectinload(RomFile.track_meta), selectinload(RomFile.doc_meta))
             .filter_by(rom_id=rom_id, file_path=file_path, file_name=file_name)
             .limit(1)
         )
@@ -1984,15 +3044,37 @@ class DBRomsHandler(DBBaseHandler):
         self,
         rom_id: int,
         category: RomFileCategory,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[RomFile]:
         """Return the ROM's files for a single category, ordered by file_name."""
         return (
             session.scalars(
                 select(RomFile)
-                .options(selectinload(RomFile.track_meta))
+                .options(
+                    selectinload(RomFile.track_meta), selectinload(RomFile.doc_meta)
+                )
                 .filter_by(rom_id=rom_id, category=category)
                 .order_by(RomFile.file_name.asc())
+            )
+            .unique()
+            .all()
+        )
+
+    @begin_session
+    def present_rom_file_paths(
+        self,
+        rom_id: int,
+        session: Session = INJECTED_SESSION,
+    ) -> list[RomFile]:
+        """A ROM's files on disk, loading only their paths and the rom's."""
+        return list(
+            session.scalars(
+                select(RomFile)
+                .filter_by(rom_id=rom_id, missing_from_fs=False)
+                .options(
+                    load_only(RomFile.file_path, RomFile.file_name),
+                    joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name),
+                )
             )
             .unique()
             .all()
@@ -2002,14 +3084,17 @@ class DBRomsHandler(DBBaseHandler):
     def rom_files_for_rom_id(
         self,
         rom_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> list[RomFile]:
         """Fetch a ROM's files on demand, with the `RomFile.rom` backref loaded."""
         return list(
             session.scalars(
                 select(RomFile)
                 .filter_by(rom_id=rom_id)
-                .options(joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name))
+                .options(
+                    joinedload(RomFile.rom).load_only(Rom.fs_path, Rom.fs_name),
+                    selectinload(RomFile.track_meta),
+                )
             )
             .unique()
             .all()
@@ -2019,9 +3104,14 @@ class DBRomsHandler(DBBaseHandler):
     def update_rom_file(
         self,
         id: int,
-        data: dict,
-        session: Session = None,  # type: ignore
+        data: dict[str, Any],
+        session: Session = INJECTED_SESSION,
     ) -> RomFile | None:
+        rom_ids: set[int] = set()
+        if data.keys() & {"file_size_bytes", "rom_id"}:
+            new_owner = [data["rom_id"]] if "rom_id" in data else []
+            rom_ids = self._lock_rom_file_and_roms(id, new_owner, session) or set()
+
         session.execute(
             update(RomFile)
             .where(RomFile.id == id)
@@ -2029,15 +3119,17 @@ class DBRomsHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
 
-        return session.query(RomFile).filter_by(id=id).one_or_none()
+        for rom_id in sorted(rom_ids):
+            self._recompute_fs_size_bytes(rom_id, session)
+        return session.scalars(select(RomFile).filter_by(id=id)).one_or_none()
 
     @begin_session
     def upsert_track_meta(
         self,
         rom_file_id: int,
         rom_id: int,
-        values: dict,
-        session: Session = None,  # type: ignore
+        values: dict[str, Any],
+        session: Session = INJECTED_SESSION,
     ) -> TrackMeta:
         existing = session.get(TrackMeta, rom_file_id)
         if existing:
@@ -2051,48 +3143,105 @@ class DBRomsHandler(DBBaseHandler):
         session.flush()
         return track
 
+    # ------------------------------------------------------- document metadata
+
     @begin_session
-    def delete_track_meta(
+    def upsert_doc_meta(
         self,
         rom_file_id: int,
-        session: Session = None,  # type: ignore
-    ) -> None:
-        session.execute(delete(TrackMeta).where(TrackMeta.rom_file_id == rom_file_id))
+        values: dict[str, Any],
+        session: Session = INJECTED_SESSION,
+    ) -> RomFileDocMeta:
+        """Create or update the provenance sidecar for a document file."""
+        existing = session.get(RomFileDocMeta, rom_file_id)
+        if existing:
+            for key, val in values.items():
+                setattr(existing, key, val)
+            session.flush()
+            return existing
+
+        doc = RomFileDocMeta(rom_file_id=rom_file_id, **values)
+        session.add(doc)
+        session.flush()
+        return doc
+
+    # ------------------------------------------------ document reading progress
+
+    @begin_session
+    def get_rom_file_user(
+        self,
+        rom_file_id: int,
+        user_id: int,
+        session: Session = INJECTED_SESSION,
+    ) -> RomFileUser | None:
+        return session.scalar(
+            select(RomFileUser)
+            .filter_by(rom_file_id=rom_file_id, user_id=user_id)
+            .limit(1)
+        )
+
+    @begin_session
+    def upsert_rom_file_user(
+        self,
+        rom_file_id: int,
+        user_id: int,
+        values: dict[str, Any],
+        session: Session = INJECTED_SESSION,
+    ) -> RomFileUser:
+        """Create or update a user's reading progress for a document file."""
+        select_state = (
+            select(RomFileUser)
+            .filter_by(rom_file_id=rom_file_id, user_id=user_id)
+            .limit(1)
+        )
+        existing = session.scalar(select_state)
+
+        if existing is None:
+            try:
+                with session.begin_nested():
+                    state = RomFileUser(
+                        rom_file_id=rom_file_id, user_id=user_id, **values
+                    )
+                    session.add(state)
+                    session.flush()
+            except IntegrityError:
+                # A concurrent save (e.g. a second tab) won the insert; update it.
+                existing = session.scalar(select_state)
+                if existing is None:
+                    raise
+            else:
+                return state
+
+        for key, val in values.items():
+            setattr(existing, key, val)
+        session.flush()
+        return existing
 
     # ----------------------------------------------------------------- music
 
     def _music_where(
         self,
         *,
-        hidden_platform_ids: Sequence[int] | None,
-        hidden_rom_ids: Sequence[int] | None,
+        visibility: RomVisibilityFilter,
         search: str | None = None,
         artist: str | None = None,
         album: str | None = None,
         genre: str | None = None,
+        game_genre: str | None = None,
         platform_ids: Sequence[int] | None = None,
         rom_id: int | None = None,
         year: int | None = None,
+        min_year: int | None = None,
+        max_year: int | None = None,
         min_duration: float | None = None,
         max_duration: float | None = None,
         exclude_field: str | None = None,
     ) -> list[Any]:
-        clauses: list[Any] = []
-        if hidden_platform_ids:
-            clauses.append(Rom.platform_id.not_in(hidden_platform_ids))
-        if hidden_rom_ids:
-            clauses.append(Rom.id.not_in(hidden_rom_ids))
+        clauses: list[Any] = visibility.clauses()
         if rom_id is not None:
             clauses.append(Rom.id == rom_id)
         if search:
-            like = f"%{escape_like(search.lower())}%"
-            clauses.append(
-                or_(
-                    func.lower(TrackMeta.title).like(like, escape=LIKE_ESCAPE_CHAR),
-                    func.lower(TrackMeta.artist).like(like, escape=LIKE_ESCAPE_CHAR),
-                    func.lower(TrackMeta.album).like(like, escape=LIKE_ESCAPE_CHAR),
-                )
-            )
+            clauses.append(_track_text_match(search))
         if artist and exclude_field != "artist":
             clauses.append(func.lower(TrackMeta.artist) == artist.lower())
         if album and exclude_field != "album":
@@ -2101,8 +3250,14 @@ class DBRomsHandler(DBBaseHandler):
             clauses.append(func.lower(TrackMeta.genre) == genre.lower())
         if platform_ids:
             clauses.append(Rom.platform_id.in_(platform_ids))
+        if game_genre and exclude_field != "game_genre":
+            clauses.append(json_array_contains_value(RomMetadata.genres, game_genre))
         if year is not None and exclude_field != "year":
             clauses.append(TrackMeta.year == year)
+        if min_year is not None and exclude_field != "year":
+            clauses.append(TrackMeta.year >= min_year)
+        if max_year is not None and exclude_field != "year":
+            clauses.append(TrackMeta.year <= max_year)
         if min_duration is not None:
             clauses.append(TrackMeta.duration_seconds >= min_duration)
         if max_duration is not None:
@@ -2113,15 +3268,17 @@ class DBRomsHandler(DBBaseHandler):
     def get_music_tracks(
         self,
         *,
-        hidden_platform_ids: Sequence[int] | None = None,
-        hidden_rom_ids: Sequence[int] | None = None,
+        visibility: RomVisibilityFilter = UNRESTRICTED,
         search: str | None = None,
         artist: str | None = None,
         album: str | None = None,
         genre: str | None = None,
+        game_genre: str | None = None,
         platform_ids: Sequence[int] | None = None,
         rom_id: int | None = None,
         year: int | None = None,
+        min_year: int | None = None,
+        max_year: int | None = None,
         min_duration: float | None = None,
         max_duration: float | None = None,
         order_by: str = "title",
@@ -2131,20 +3288,22 @@ class DBRomsHandler(DBBaseHandler):
         is_favorite_user_id: int | None = None,
         only_favorites: bool = False,
         playlist_id: int | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> tuple[Sequence[Any], int]:
         if only_favorites and is_favorite_user_id is None:
             return [], 0
         where = self._music_where(
-            hidden_platform_ids=hidden_platform_ids,
-            hidden_rom_ids=hidden_rom_ids,
+            visibility=visibility,
             search=search,
             artist=artist,
             album=album,
             genre=genre,
+            game_genre=game_genre,
             platform_ids=platform_ids,
             rom_id=rom_id,
             year=year,
+            min_year=min_year,
+            max_year=max_year,
             min_duration=min_duration,
             max_duration=max_duration,
         )
@@ -2171,6 +3330,8 @@ class DBRomsHandler(DBBaseHandler):
                 is_favorite_col.label("is_favorite"),
                 Rom.name.label("game_name"),
                 Rom.path_cover_l.label("path_cover_l"),
+                RomMetadata.genres.label("game_genres"),
+                RomFile.created_at.label("added_at"),
                 Platform.id.label("platform_id"),
                 Platform.slug.label("platform_slug"),
                 Platform.name.label("platform_name"),
@@ -2178,6 +3339,7 @@ class DBRomsHandler(DBBaseHandler):
             .select_from(TrackMeta)
             .join(RomFile, TrackMeta.rom_file_id == RomFile.id)
             .join(Rom, TrackMeta.rom_id == Rom.id)
+            .outerjoin(RomMetadata, RomMetadata.rom_id == Rom.id)
             .join(Platform, Rom.platform_id == Platform.id)
         )
         if is_favorite_user_id is not None:
@@ -2199,9 +3361,13 @@ class DBRomsHandler(DBBaseHandler):
                 ),
             )
         base = base.where(*where)
-        total = session.scalar(select(func.count()).select_from(base.subquery())) or 0
-        order_map = {
-            "title": TrackMeta.title,
+        # Count over a single-column projection: the full select carries a JSON
+        # genres blob that would otherwise be materialized just to be counted.
+        count_subquery = base.with_only_columns(TrackMeta.rom_file_id).subquery()
+        total = session.scalar(select(func.count()).select_from(count_subquery)) or 0
+        order_map: dict[str, SQLColumnExpression[Any]] = {
+            # Untagged tracks, chiptunes among them, are shown by file name.
+            "title": func.coalesce(TrackMeta.title, RomFile.file_name),
             "artist": TrackMeta.artist,
             "album": TrackMeta.album,
             "year": TrackMeta.year,
@@ -2211,10 +3377,9 @@ class DBRomsHandler(DBBaseHandler):
         }
         if playlist_id is not None:
             order_map["position"] = MusicPlaylistTrack.position
-        col = order_map.get(order_by, TrackMeta.title)
-        direction = col.desc() if order_dir == "desc" else col.asc()
+        col = order_map.get(order_by, order_map["title"])
         rows = session.execute(
-            base.order_by(col.is_(None), direction, TrackMeta.rom_file_id)
+            base.order_by(nulls_last(col, order_dir == "desc"), TrackMeta.rom_file_id)
             .limit(limit)
             .offset(offset)
         ).all()
@@ -2225,8 +3390,7 @@ class DBRomsHandler(DBBaseHandler):
         self,
         *,
         field: str,
-        hidden_platform_ids: Sequence[int] | None = None,
-        hidden_rom_ids: Sequence[int] | None = None,
+        visibility: RomVisibilityFilter = UNRESTRICTED,
         search: str | None = None,
         artist: str | None = None,
         album: str | None = None,
@@ -2239,7 +3403,7 @@ class DBRomsHandler(DBBaseHandler):
         order_dir: str = "desc",
         limit: int = 50,
         offset: int = 0,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> tuple[Sequence[Any], int]:
         facet_columns = {
             "artists": (TrackMeta.artist, "artist"),
@@ -2249,8 +3413,7 @@ class DBRomsHandler(DBBaseHandler):
         }
         col, own = facet_columns[field]
         where = self._music_where(
-            hidden_platform_ids=hidden_platform_ids,
-            hidden_rom_ids=hidden_rom_ids,
+            visibility=visibility,
             artist=artist,
             album=album,
             genre=genre,
@@ -2265,11 +3428,7 @@ class DBRomsHandler(DBBaseHandler):
             where.append(func.length(func.trim(col)) > 0)
         if search:
             target = cast(col, String) if field == "years" else col
-            where.append(
-                func.lower(target).like(
-                    f"%{escape_like(search.lower())}%", escape=LIKE_ESCAPE_CHAR
-                )
-            )
+            where.append(target.icontains(search, autoescape=True))
         count_col = func.count().label("count")
         base = (
             select(col.label("value"), count_col)
@@ -2281,6 +3440,7 @@ class DBRomsHandler(DBBaseHandler):
             .group_by(col)
         )
         total = session.scalar(select(func.count()).select_from(base.subquery())) or 0
+        primary: UnaryExpression[Any]
         if order_by == "value":
             primary = col.asc() if order_dir != "desc" else col.desc()
         else:
@@ -2290,31 +3450,282 @@ class DBRomsHandler(DBBaseHandler):
         ).all()
         return rows, total
 
+    def _music_facet_joins[S: Select[*tuple[Any, ...]]](self, statement: S) -> S:
+        return (
+            statement.select_from(TrackMeta)
+            .join(RomFile, TrackMeta.rom_file_id == RomFile.id)
+            .join(Rom, TrackMeta.rom_id == Rom.id)
+            .outerjoin(RomMetadata, RomMetadata.rom_id == Rom.id)
+            .join(Platform, Rom.platform_id == Platform.id)
+        )
+
+    @begin_session
+    def get_music_stats(
+        self,
+        *,
+        visibility: RomVisibilityFilter = UNRESTRICTED,
+        session: Session = INJECTED_SESSION,
+    ) -> tuple[int, float]:
+        """Total track count and total duration, for the jukebox home cards.
+
+        A count and a SUM beat shipping the catalog to the client just to
+        derive two numbers from it.
+        """
+        where = self._music_where(
+            visibility=visibility,
+        )
+        row = session.execute(
+            self._music_facet_joins(
+                select(
+                    func.count().label("total"),
+                    func.coalesce(func.sum(TrackMeta.duration_seconds), 0.0).label(
+                        "duration"
+                    ),
+                )
+            ).where(*where)
+        ).one()
+        return int(row.total or 0), float(row.duration or 0.0)
+
+    @begin_session
+    def get_music_game_genre_facet(
+        self,
+        *,
+        visibility: RomVisibilityFilter = UNRESTRICTED,
+        search: str | None = None,
+        artist: str | None = None,
+        album: str | None = None,
+        genre: str | None = None,
+        platform_ids: Sequence[int] | None = None,
+        year: int | None = None,
+        min_year: int | None = None,
+        max_year: int | None = None,
+        min_duration: float | None = None,
+        max_duration: float | None = None,
+        order_by: str = "count",
+        order_dir: str = "desc",
+        limit: int = 50,
+        offset: int = 0,
+        session: Session = INJECTED_SESSION,
+    ) -> tuple[Sequence[Any], int]:
+        """Distinct *game* genres over the tracked roms, with track counts.
+
+        `RomMetadata.genres` is a JSON array, so it can't be grouped in SQL the
+        way the scalar tag facets are. Counting per rom first keeps the rows
+        proportional to games rather than tracks, then the arrays are folded in
+        Python -- the same shape `_collect_filter_values` uses for ROM filters.
+        """
+        where = self._music_where(
+            visibility=visibility,
+            artist=artist,
+            album=album,
+            genre=genre,
+            platform_ids=platform_ids,
+            year=year,
+            min_year=min_year,
+            max_year=max_year,
+            min_duration=min_duration,
+            max_duration=max_duration,
+        )
+        per_rom = self._music_facet_joins(
+            select(Rom.id.label("rom_id"), func.count().label("total"))
+        ).where(*where)
+        counts_by_rom = {
+            row.rom_id: row.total
+            for row in session.execute(per_rom.group_by(Rom.id)).all()
+        }
+        if not counts_by_rom:
+            return [], 0
+
+        totals: Counter[str] = Counter()
+        genre_rows = session.execute(
+            select(RomMetadata.rom_id, RomMetadata.genres).where(
+                RomMetadata.rom_id.in_(counts_by_rom.keys())
+            )
+        ).all()
+        needle = search.lower() if search else None
+        for rom_id, genres in genre_rows:
+            for value in genres or []:
+                name = (value or "").strip()
+                if not name:
+                    continue
+                if needle and needle not in name.lower():
+                    continue
+                totals[name] += counts_by_rom[rom_id]
+
+        items = list(totals.items())
+        if order_by == "value":
+            items.sort(key=lambda kv: kv[0].lower(), reverse=order_dir == "desc")
+        else:
+            items.sort(key=lambda kv: (-kv[1], kv[0].lower()))
+            if order_dir == "asc":
+                items.reverse()
+        rows = [
+            SimpleNamespace(value=name, count=count)
+            for name, count in items[offset : offset + limit]
+        ]
+        return rows, len(items)
+
+    @begin_session
+    def get_music_platform_facet(
+        self,
+        *,
+        visibility: RomVisibilityFilter = UNRESTRICTED,
+        search: str | None = None,
+        artist: str | None = None,
+        album: str | None = None,
+        genre: str | None = None,
+        game_genre: str | None = None,
+        year: int | None = None,
+        min_year: int | None = None,
+        max_year: int | None = None,
+        min_duration: float | None = None,
+        max_duration: float | None = None,
+        order_by: str = "value",
+        order_dir: str = "asc",
+        limit: int = 50,
+        offset: int = 0,
+        session: Session = INJECTED_SESSION,
+    ) -> tuple[Sequence[Any], int]:
+        """Platforms that have soundtrack tracks, with per-platform counts."""
+        where = self._music_where(
+            visibility=visibility,
+            artist=artist,
+            album=album,
+            genre=genre,
+            game_genre=game_genre,
+            year=year,
+            min_year=min_year,
+            max_year=max_year,
+            min_duration=min_duration,
+            max_duration=max_duration,
+        )
+        if search:
+            where.append(Platform.name.icontains(search, autoescape=True))
+        count_col = func.count().label("count")
+        base = self._music_facet_joins(
+            select(
+                Platform.id.label("id"),
+                Platform.slug.label("slug"),
+                Platform.name.label("name"),
+                count_col,
+            )
+        ).where(*where)
+        base = base.group_by(Platform.id, Platform.slug, Platform.name)
+        total = session.scalar(select(func.count()).select_from(base.subquery())) or 0
+        primary: UnaryExpression[Any]
+        if order_by == "count":
+            primary = count_col.asc() if order_dir == "asc" else count_col.desc()
+        else:
+            primary = (
+                Platform.name.desc() if order_dir == "desc" else Platform.name.asc()
+            )
+        rows = session.execute(
+            base.order_by(primary, Platform.name.asc()).limit(limit).offset(offset)
+        ).all()
+        return rows, total
+
+    @begin_session
+    def get_music_game_facet(
+        self,
+        *,
+        visibility: RomVisibilityFilter = UNRESTRICTED,
+        search: str | None = None,
+        artist: str | None = None,
+        album: str | None = None,
+        genre: str | None = None,
+        game_genre: str | None = None,
+        platform_ids: Sequence[int] | None = None,
+        year: int | None = None,
+        min_year: int | None = None,
+        max_year: int | None = None,
+        min_duration: float | None = None,
+        max_duration: float | None = None,
+        order_by: str = "value",
+        order_dir: str = "asc",
+        limit: int = 50,
+        offset: int = 0,
+        session: Session = INJECTED_SESSION,
+    ) -> tuple[Sequence[Any], int]:
+        """Games that have soundtrack tracks -- the jukebox's album list."""
+        where = self._music_where(
+            visibility=visibility,
+            artist=artist,
+            album=album,
+            genre=genre,
+            game_genre=game_genre,
+            platform_ids=platform_ids,
+            year=year,
+            min_year=min_year,
+            max_year=max_year,
+            min_duration=min_duration,
+            max_duration=max_duration,
+        )
+        if search:
+            where.append(
+                or_(
+                    Rom.name.icontains(search, autoescape=True),
+                    _track_text_match(search),
+                )
+            )
+        count_col = func.count().label("count")
+        base = self._music_facet_joins(
+            select(
+                Rom.id.label("rom_id"),
+                Rom.name.label("name"),
+                Rom.path_cover_l.label("path_cover_l"),
+                Platform.id.label("platform_id"),
+                Platform.slug.label("platform_slug"),
+                Platform.name.label("platform_name"),
+                count_col,
+            )
+        ).where(*where)
+        base = base.group_by(
+            Rom.id,
+            Rom.name,
+            Rom.path_cover_l,
+            Platform.id,
+            Platform.slug,
+            Platform.name,
+        )
+        total = session.scalar(select(func.count()).select_from(base.subquery())) or 0
+        primary: UnaryExpression[Any]
+        if order_by == "count":
+            primary = count_col.asc() if order_dir == "asc" else count_col.desc()
+        else:
+            primary = Rom.name.desc() if order_dir == "desc" else Rom.name.asc()
+        rows = session.execute(
+            base.order_by(primary, Rom.name.asc()).limit(limit).offset(offset)
+        ).all()
+        return rows, total
+
     @begin_session
     def delete_rom_file(
         self,
         id: int,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> None:
+        rom_ids = self._lock_rom_file_and_roms(id, [], session)
+        if rom_ids is None:
+            return
         session.execute(
             delete(RomFile)
             .where(RomFile.id == id)
             .execution_options(synchronize_session="evaluate")
         )
+        for rom_id in sorted(rom_ids):
+            self._recompute_fs_size_bytes(rom_id, session)
 
     # Note management methods
-    @begin_session
-    def get_rom_notes(
+    def _rom_notes_query(
         self,
         rom_id: int,
         user_id: int,
+        *,
         public_only: bool = False,
         search: str | None = "",
         tags: list[str] | None = None,
-        only_fields: Sequence[QueryableAttribute] | None = None,
-        session: Session = None,  # type: ignore
-    ) -> Sequence[RomNote]:
-        query = session.query(RomNote).filter(RomNote.rom_id == rom_id)
+    ) -> Select[RomNote]:
+        query = select(RomNote).filter(RomNote.rom_id == rom_id)
 
         if public_only:
             query = query.filter(RomNote.is_public)
@@ -2324,19 +3735,57 @@ class DBRomsHandler(DBBaseHandler):
 
         if search:
             query = query.filter(
-                or_(RomNote.title.contains(search), RomNote.content.contains(search))
+                or_(
+                    RomNote.title.contains(search, autoescape=True),
+                    RomNote.content.contains(search, autoescape=True),
+                )
             )
 
         if tags:
             for tag in tags:
-                query = query.filter(
-                    json_array_contains_value(RomNote.tags, tag, session=session)
-                )
+                query = query.filter(json_array_contains_value(RomNote.tags, tag))
 
-        if only_fields:
-            query = query.options(load_only(*only_fields))
+        return query.order_by(RomNote.updated_at.desc())
 
-        return query.order_by(RomNote.updated_at.desc()).all()
+    @begin_session
+    def get_rom_notes(
+        self,
+        rom_id: int,
+        user_id: int,
+        public_only: bool = False,
+        search: str | None = "",
+        tags: list[str] | None = None,
+        session: Session = INJECTED_SESSION,
+    ) -> Sequence[RomNote]:
+        return session.scalars(
+            self._rom_notes_query(
+                rom_id=rom_id,
+                user_id=user_id,
+                public_only=public_only,
+                search=search,
+                tags=tags,
+            )
+        ).all()
+
+    @begin_session
+    def get_rom_note_ids(
+        self,
+        rom_id: int,
+        user_id: int,
+        public_only: bool = False,
+        search: str | None = "",
+        tags: list[str] | None = None,
+        session: Session = INJECTED_SESSION,
+    ) -> list[int]:
+        """Ids only, so no `RomNote` is built and no eager rom or user join fires."""
+        query = self._rom_notes_query(
+            rom_id=rom_id,
+            user_id=user_id,
+            public_only=public_only,
+            search=search,
+            tags=tags,
+        )
+        return list(session.scalars(query.with_only_columns(RomNote.id)).all())
 
     @begin_session
     def create_rom_note(
@@ -2347,8 +3796,8 @@ class DBRomsHandler(DBBaseHandler):
         content: str = "",
         is_public: bool = False,
         tags: list[str] | None = None,
-        session: Session = None,  # type: ignore
-    ) -> dict:
+        session: Session = INJECTED_SESSION,
+    ) -> dict[str, Any]:
         note = RomNote(
             rom_id=rom_id,
             user_id=user_id,
@@ -2379,17 +3828,17 @@ class DBRomsHandler(DBBaseHandler):
         note_id: int,
         user_id: int,
         rom_id: int,
-        session: Session = None,  # type: ignore
-        **fields,
-    ) -> dict | None:
-        note = (
-            session.query(RomNote)
+        session: Session = INJECTED_SESSION,
+        **fields: Any,
+    ) -> dict[str, Any] | None:
+        note = session.scalar(
+            select(RomNote)
             .filter(
                 RomNote.id == note_id,
                 RomNote.user_id == user_id,
                 RomNote.rom_id == rom_id,
             )
-            .first()
+            .limit(1)
         )
 
         if not note:
@@ -2420,7 +3869,7 @@ class DBRomsHandler(DBBaseHandler):
         note_id: int,
         user_id: int,
         rom_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> bool:
         result = session.execute(
             delete(RomNote).where(
@@ -2431,7 +3880,7 @@ class DBRomsHandler(DBBaseHandler):
                 )
             )
         )
-        return result.rowcount > 0
+        return affected_rows(result) > 0
 
     @begin_session
     @with_details
@@ -2446,9 +3895,13 @@ class DBRomsHandler(DBBaseHandler):
         tgdb_id: int | None = None,
         flashpoint_id: str | None = None,
         hltb_id: int | None = None,
+        demozoo_id: int | None = None,
+        pouet_id: int | None = None,
+        csdb_id: int | None = None,
+        steam_id: int | None = None,
         *,
-        query: Query = None,  # type: ignore
-        session: Session = None,  # type: ignore
+        query: RomSelect = INJECTED_ROM_QUERY,
+        session: Session = INJECTED_SESSION,
     ) -> Rom | None:
         """
         Get a ROM by any metadata ID.
@@ -2468,6 +3921,10 @@ class DBRomsHandler(DBBaseHandler):
                 (tgdb_id, Rom.tgdb_id),
                 (flashpoint_id, Rom.flashpoint_id),
                 (hltb_id, Rom.hltb_id),
+                (demozoo_id, Rom.demozoo_id),
+                (pouet_id, Rom.pouet_id),
+                (csdb_id, Rom.csdb_id),
+                (steam_id, Rom.steam_id),
             ]
             if value is not None
         ]
@@ -2487,8 +3944,8 @@ class DBRomsHandler(DBBaseHandler):
         sha1_hash: str | None = None,
         ra_hash: str | None = None,
         *,
-        query: Query = None,  # type: ignore
-        session: Session = None,  # type: ignore
+        query: RomSelect = INJECTED_ROM_QUERY,
+        session: Session = INJECTED_SESSION,
     ) -> Rom | None:
         """
         Get a ROM by calculated hash value.
@@ -2524,92 +3981,99 @@ class DBRomsHandler(DBBaseHandler):
         crc_hash: str | None = None,
         md5_hash: str | None = None,
         sha1_hash: str | None = None,
-        session: Session = None,  # type: ignore
+        title_id: str | None = None,
+        session: Session = INJECTED_SESSION,
     ) -> Rom | None:
-        """Find a ROM marked missing on a platform whose hashes match the file.
+        """Find a ROM marked missing on a platform that identifies the file.
 
         Used during scanning to reassociate a renamed or moved file with its
         existing entry (preserving collections, notes, and assets) instead of
-        creating a duplicate. Requires the CRC, MD5, and SHA1 hashes to all
-        match. Any missing hash yields no match, so non-hashable platforms and
-        pre-hash entries safely fall back to creating a new entry.
-        """
-        if not (crc_hash and md5_hash and sha1_hash):
-            return None
+        creating a duplicate. All three hashes must match; when they match no
+        entry, the binary title id decides, since moving a file into a folder
+        with extra files changes its hashes but not its title id.
 
-        matches = session.scalars(
-            select(Rom)
-            .where(
-                and_(
-                    Rom.platform_id == platform_id,
-                    Rom.missing_from_fs.is_(True),
+        Returns:
+            The single matching ROM, or None when there is no unambiguous one.
+        """
+        identities: list[tuple[ColumnElement[bool], ...]] = []
+        if crc_hash and md5_hash and sha1_hash:
+            identities.append(
+                (
                     Rom.crc_hash == crc_hash,
                     Rom.md5_hash == md5_hash,
                     Rom.sha1_hash == sha1_hash,
                 )
             )
-            .limit(2)
-        ).all()
+        if title_id:
+            identities.append((Rom.title_id == title_id,))
 
-        # Return None when more than one match to avoid ambiguity.
-        return matches[0] if len(matches) == 1 else None
+        for identity in identities:
+            matches = session.scalars(
+                select(Rom)
+                .where(
+                    and_(
+                        Rom.platform_id == platform_id,
+                        Rom.missing_from_fs.is_(True),
+                        *identity,
+                    )
+                )
+                .limit(2)
+            ).all()
+            if matches:
+                # More than one match is ambiguous, and a weaker identity must
+                # not break the tie.
+                return matches[0] if len(matches) == 1 else None
+
+        return None
 
     def _collect_filter_values(
         self,
         session: Session,
-        statement: Select,
-    ) -> dict:
-        genres = set()
-        franchises = set()
-        collections = set()
-        companies = set()
-        game_modes = set()
-        age_ratings = set()
-        player_counts = set()
-        regions = set()
-        languages = set()
-        tags = set()
-        platforms = set()
+        statement: Select[*tuple[Any, ...]],
+    ) -> RomFiltersDict:
+        # Each distinct JSON text is parsed once, however many ROMs share it.
+        texts: list[set[str | None]] = [set() for _ in _FILTER_JSON_COLUMNS]
+        player_counts: set[str] = set()
+        platforms: set[int] = set()
+        result = session.execute(
+            statement, execution_options={"yield_per": _FILTER_VALUES_BATCH_SIZE}
+        )
+        for batch in result.partitions():
+            *json_columns, player_count_column, platform_column = zip(
+                *batch, strict=True
+            )
+            for column, column_texts in zip(json_columns, texts, strict=True):
+                column_texts.update(column)
+            player_counts.update(pc for pc in player_count_column if pc)
+            platforms.update(platform_column)
 
-        for row in session.execute(statement):
-            g, f, cl, co, gm, ar, pc, rg, lg, tg, pid = row
-            if g:
-                genres.update(g)
-            if f:
-                franchises.update(f)
-            if cl:
-                collections.update(cl)
-            if co:
-                companies.update(co)
-            if gm:
-                game_modes.update(gm)
-            if ar:
-                age_ratings.update(ar)
-            if pc:
-                player_counts.add(pc)
-            if rg:
-                regions.update(rg)
-            if lg:
-                languages.update(lg)
-            if tg:
-                tags.update(tg)
-            platforms.add(pid)
-
-        return {
-            "genres": sorted(genres),
-            "franchises": sorted(franchises),
-            "collections": sorted(collections),
-            "companies": sorted(companies),
-            "game_modes": sorted(game_modes),
-            "age_ratings": sorted(age_ratings),
+        filters: dict[str, list[Any]] = {
             "player_counts": sorted(player_counts),
-            "regions": sorted(regions),
-            "languages": sorted(languages),
-            "tags": sorted(tags),
             "platforms": sorted(platforms),
         }
+        for name, column_texts in zip(_FILTER_JSON_COLUMNS, texts, strict=True):
+            items: set[str] = set()
+            for text in column_texts:
+                if text:
+                    items.update(facet_names(json.loads(text)))
+            filters[name] = sorted(items)
+        return typing_cast(RomFiltersDict, filters)
 
-    def invalidate_filter_values_cache(self) -> None:
+    @begin_session
+    def refresh_identity_key_statistics(
+        self,
+        *,
+        session: Session = INJECTED_SESSION,
+    ) -> None:
+        """Resample `rom_identity_keys` so the sibling join keeps its indexed plan.
+
+        Migration 0127's sample lands on an empty table on a fresh install, and
+        InnoDB's auto-recalc refreshes the stored row count without replanning.
+        """
+        session.execute(Analyze(RomIdentityKey.__tablename__))
+
+    @staticmethod
+    def invalidate_filter_values_cache() -> None:
         old_version = str(int(sync_cache.incr(ROM_FILTERS_CACHE_VERSION_KEY)) - 1)
         old_keys_set = _filter_values_cache_keys_key(old_version)
         old_cache_keys = [
@@ -2617,18 +4081,16 @@ class DBRomsHandler(DBBaseHandler):
             for raw_key in sync_cache.smembers(old_keys_set)
             if (key := _cache_value_to_str(raw_key)) is not None
         ]
-        if old_cache_keys:
-            sync_cache.delete(*old_cache_keys)
-        sync_cache.delete(old_keys_set)
+        sync_cache.delete(*old_cache_keys, old_keys_set)
 
     @begin_session
     def with_filter_values(
         self,
-        query: Query,
+        query: RomSelect,
         *,
         cache_key: str | None = None,
-        session: Session = None,  # type: ignore
-    ) -> dict:
+        session: Session = INJECTED_SESSION,
+    ) -> RomFiltersDict:
         """
         Returns the list of filters given the current subset of ROMs in the query
         """
@@ -2639,9 +4101,10 @@ class DBRomsHandler(DBBaseHandler):
             redis_key = _filter_values_redis_key(cache_key, version)
             cached = sync_cache.get(redis_key)
             if cached is not None:
-                return json.loads(cached)
+                filters: RomFiltersDict = json.loads(cached)
+                return filters
 
-        ids_subq = query.order_by(None).with_only_columns(Rom.id).scalar_subquery()  # type: ignore
+        ids_subq = query.order_by(None).with_only_columns(Rom.id).scalar_subquery()
 
         statement = _FILTER_VALUES_SELECT.where(RomFacets.rom_id.in_(ids_subq))
 
@@ -2653,9 +4116,10 @@ class DBRomsHandler(DBBaseHandler):
     @begin_session
     def get_rom_filters(
         self,
-        session: Session = None,  # type: ignore
-    ) -> dict:
-        """
-        Returns all filter values across all ROM metadata
-        """
-        return self._collect_filter_values(session, _FILTER_VALUES_SELECT)
+        visibility: RomVisibilityFilter,
+        session: Session = INJECTED_SESSION,
+    ) -> RomFiltersDict:
+        """Every filter value across the ROMs `visibility` lets the caller see."""
+        return self._collect_filter_values(
+            session, _FILTER_VALUES_SELECT.where(*visibility.facets_clauses())
+        )

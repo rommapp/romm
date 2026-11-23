@@ -1,0 +1,168 @@
+#!/usr/bin/env bash
+# Installs the pinned toolchain and project dependencies, skipping satisfied steps.
+# --db also installs and starts MariaDB with the pytest database (Debian/Ubuntu).
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+LOCAL_BIN="${HOME}/.local/bin"
+mkdir -p "${LOCAL_BIN}"
+export PATH="${LOCAL_BIN}:${PATH}:/usr/sbin:/sbin"
+
+with_db=false
+for arg in "$@"; do
+	case "${arg}" in
+	--db) with_db=true ;;
+	*)
+		echo "usage: scripts/dev-setup.sh [--db]" >&2
+		exit 2
+		;;
+	esac
+done
+
+log() { printf '==> %s\n' "$*"; }
+
+# The Trunk launcher verifies the CLI against the sha256 pins in .trunk/trunk.yaml.
+TRUNK_LAUNCHER_VERSION=1.3.5
+TRUNK_LAUNCHER_SHA256=700f8bbedfd226595999ea2202b9a7af75ba8398dd711f5f159f5bbba6cbf322
+
+DOWNLOAD_DIR="$(mktemp -d)"
+trap 'rm -rf "${DOWNLOAD_DIR}"' EXIT
+
+sha256_of() {
+	if command -v sha256sum >/dev/null; then sha256sum "$1"; else shasum -a 256 "$1"; fi |
+		cut -d' ' -f1
+}
+
+fetch_verified() {
+	local url="$1" want="$2" dest="$3" have
+	if [[ -z ${want} ]]; then
+		echo "No published checksum for ${url}" >&2
+		exit 1
+	fi
+	curl -fsSL "${url}" -o "${dest}"
+	have="$(sha256_of "${dest}")"
+	if [[ ${have} != "${want}" ]]; then
+		echo "Checksum mismatch for ${url}: expected '${want}', got '${have}'" >&2
+		exit 1
+	fi
+}
+
+as_root() {
+	if [[ ${EUID} -eq 0 ]]; then "$@"; else sudo "$@"; fi
+}
+
+apt_install() {
+	local missing=() pkg
+	for pkg in "$@"; do
+		dpkg-query -W -f='${Status}' "${pkg}" 2>/dev/null | grep -q "ok installed" ||
+			missing+=("${pkg}")
+	done
+	[[ ${#missing[@]} -eq 0 ]] && return 0
+	if ! command -v apt-get >/dev/null; then
+		log "Skipping ${missing[*]}: install them with your package manager"
+		return 0
+	fi
+	log "Installing ${missing[*]}"
+	as_root apt-get update -qq >/dev/null
+	as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "${missing[@]}" >/dev/null
+}
+
+setup_uv() {
+	local want have platform target url sum
+	want="$(sed -n 's/^ARG UV_VERSION=//p' "${ROOT}/docker/Dockerfile")"
+	have="$(uv --version 2>/dev/null || true)"
+	have="${have#uv }"
+	have="${have%% *}"
+	if [[ ${have} == "${want}" ]]; then return 0; fi
+	platform="$(uname -sm)"
+	case "${platform}" in
+	"Linux x86_64") target=x86_64-unknown-linux-gnu ;;
+	"Linux aarch64") target=aarch64-unknown-linux-gnu ;;
+	"Darwin x86_64") target=x86_64-apple-darwin ;;
+	"Darwin arm64") target=aarch64-apple-darwin ;;
+	*)
+		echo "No uv build for ${platform}; install uv ${want} by hand" >&2
+		exit 1
+		;;
+	esac
+	url="https://github.com/astral-sh/uv/releases/download/${want}/uv-${target}.tar.gz"
+	log "Installing uv ${want} (found ${have:-none})"
+	sum="$(curl -fsSL "${url}.sha256")"
+	fetch_verified "${url}" "${sum%% *}" "${DOWNLOAD_DIR}/uv.tar.gz"
+	tar -xzf "${DOWNLOAD_DIR}/uv.tar.gz" -C "${DOWNLOAD_DIR}" --strip-components=1
+	install -m 755 "${DOWNLOAD_DIR}/uv" "${DOWNLOAD_DIR}/uvx" "${LOCAL_BIN}/"
+	hash -r
+}
+
+setup_backend() {
+	# Build headers for the mariadb and psycopg[c] drivers.
+	apt_install libmariadb-dev libpq-dev
+	log "Syncing backend dependencies"
+	(cd "${ROOT}" && uv python install --quiet && uv sync --frozen --all-extras --dev --quiet)
+}
+
+setup_node() {
+	local want have full os arch dest file sum
+	want="$(tr -d '[:space:]' <"${ROOT}/frontend/.nvmrc")"
+	have="$(node --version 2>/dev/null || true)"
+	if [[ ${have} == "v${want}."* ]]; then return 0; fi
+	full="$(curl -fsSL https://nodejs.org/dist/index.json | grep -o "\"v${want}\.[0-9]*\"" | head -1 | tr -d '"')"
+	os="$(uname -s | tr '[:upper:]' '[:lower:]')"
+	arch="$(uname -m)"
+	case "${arch}" in
+	x86_64) arch=x64 ;;
+	aarch64) arch=arm64 ;;
+	*) ;;
+	esac
+	dest="${HOME}/.local/share/node/${full}"
+	log "Installing Node ${full} (found ${have:-none})"
+	mkdir -p "${dest}"
+	file="node-${full}-${os}-${arch}.tar.xz"
+	sum="$(curl -fsSL "https://nodejs.org/dist/${full}/SHASUMS256.txt" | awk -v f="${file}" '$2 == f { print $1 }')"
+	fetch_verified "https://nodejs.org/dist/${full}/${file}" "${sum}" "${DOWNLOAD_DIR}/${file}"
+	tar -xJf "${DOWNLOAD_DIR}/${file}" -C "${dest}" --strip-components=1
+	ln -sf "${dest}/bin/node" "${dest}/bin/npm" "${dest}/bin/npx" "${LOCAL_BIN}/"
+	hash -r
+}
+
+setup_frontend() {
+	local stamp="${ROOT}/frontend/node_modules/.dev-setup-stamp" node_version lock_sum
+	node_version="$(node --version)"
+	lock_sum="$(cksum <"${ROOT}/frontend/package-lock.json")"
+	if [[ -f ${stamp} && "$(<"${stamp}")" == "${node_version} ${lock_sum}" ]]; then return 0; fi
+	log "Installing frontend dependencies"
+	(cd "${ROOT}/frontend" && npm ci --no-audit --no-fund --no-update-notifier --loglevel=error)
+	echo "${node_version} ${lock_sum}" >"${stamp}"
+}
+
+setup_trunk() {
+	command -v trunk >/dev/null && return 0
+	log "Installing Trunk and its linters"
+	fetch_verified "https://trunk.io/releases/launcher/${TRUNK_LAUNCHER_VERSION}/trunk" \
+		"${TRUNK_LAUNCHER_SHA256}" "${DOWNLOAD_DIR}/trunk"
+	install -m 755 "${DOWNLOAD_DIR}/trunk" "${LOCAL_BIN}/trunk"
+	hash -r
+	(cd "${ROOT}" && trunk install --ci >/dev/null 2>&1) ||
+		log "Trunk could not download its linters (network policy?); trunk check will retry on first use"
+}
+
+setup_db() {
+	apt_install mariadb-server
+	if ! mariadb-admin ping --silent >/dev/null 2>&1; then
+		log "Starting MariaDB"
+		as_root service mariadb start >/dev/null
+	fi
+	as_root mariadb <"${ROOT}/backend/romm_test/setup.sql"
+}
+
+setup_uv
+setup_backend
+setup_node
+setup_frontend
+setup_trunk
+if [[ ${with_db} == true ]]; then setup_db; fi
+
+uv_version="$(uv --version)"
+python_version="$(cd "${ROOT}" && uv run --quiet python --version)"
+node_version="$(node --version)"
+log "Toolchain ready: ${uv_version%% (*}, ${python_version}, Node ${node_version}"

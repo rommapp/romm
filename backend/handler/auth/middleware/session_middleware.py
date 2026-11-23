@@ -1,5 +1,6 @@
 import time
 from collections import namedtuple
+from typing import Any
 
 from joserfc import jwt
 from joserfc.errors import BadSignatureError
@@ -60,7 +61,7 @@ class SessionMiddleware:
         if https_only:  # Secure flag can be used with HTTPS only
             self.security_flags += "; secure"
 
-    def _validate_jwt_payload(self, jwt_payload: jwt.Token):
+    def _validate_jwt_payload(self, jwt_payload: jwt.Token) -> dict[str, Any]:
         if not isinstance(jwt_payload.claims, dict):
             return {}
 

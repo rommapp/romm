@@ -1,0 +1,197 @@
+name: Scan Docker Image
+
+on:
+  workflow_call:
+    inputs:
+      images:
+        description: "JSON array of image references to scan"
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      # trunk-ignore(checkov/CKV_GHA_7)
+      image:
+        description: "Image reference to scan"
+        required: true
+        default: ghcr.io/rommapp/romm:latest
+  schedule:
+    # Most vulnerabilities affecting a published image are disclosed after it
+    # was built, so latest is rescanned weekly, not only on release.
+    - cron: "0 7 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      images: ${{ steps.resolve.outputs.images }}
+    steps:
+      - name: Resolve images to scan
+        id: resolve
+        env:
+          CALLER_IMAGES: ${{ inputs.images }}
+          DISPATCH_IMAGE: ${{ inputs.image }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          if [[ -n "$CALLER_IMAGES" ]]; then
+            images=$(jq -c . <<<"$CALLER_IMAGES")
+          elif [[ -n "$DISPATCH_IMAGE" ]]; then
+            images=$(jq -cn --arg image "$DISPATCH_IMAGE" '[$image]')
+          else
+            images=$(jq -cn --arg owner "$OWNER" '["ghcr.io/\($owner)/romm:latest", "ghcr.io/\($owner)/romm:latest-slim"]')
+          fi
+          echo "images=$images" >>"$GITHUB_OUTPUT"
+
+  scan:
+    needs: resolve
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJSON(needs.resolve.outputs.images) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: read
+      security-events: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Scan image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ matrix.image }}
+          # The ScreenScraper build args are baked into the image config on
+          # purpose, so the secret scanner would only ever report those.
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          # Without this, trivy-action drops `severity` for SARIF output.
+          limit-severities-for-sarif: true
+          ignore-unfixed: true
+          format: sarif
+          output: trivy.sarif
+          # Exit cleanly so the report is always kept; the critical pass below is the gate.
+          exit-code: "0"
+
+      - name: Write summary
+        id: summary
+        env:
+          IMAGE: ${{ matrix.image }}
+        run: |
+          {
+            echo "### ${IMAGE}"
+            echo
+            if [[ "$(jq '[.runs[].results[]] | length' trivy.sarif)" -eq 0 ]]; then
+              echo "No fixable high or critical vulnerabilities."
+            else
+              echo "| Severity | ID | Package | Installed | Fixed |"
+              echo "| --- | --- | --- | --- | --- |"
+              jq -r '.runs[].results[] as $result
+                | ($result.message.text | split("\n") | map(split(": ") | {(.[0]): (.[1:] | join(": "))}) | add) as $fields
+                | "| \($fields.Severity) | \($result.ruleId) | \($fields.Package) | \($fields["Installed Version"]) | \($fields["Fixed Version"]) |"' trivy.sarif
+            fi
+          } >>"$GITHUB_STEP_SUMMARY"
+          echo "artifact=trivy-${IMAGE//[:\/]/-}" >>"$GITHUB_OUTPUT"
+
+      # Code scanning rejects a tag ref, so this is the only copy a release run keeps.
+      - name: Upload report artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ steps.summary.outputs.artifact }}
+          path: trivy.sarif
+          if-no-files-found: error
+          retention-days: 90
+          # A re-run of a job that failed at the gate reuses this run's artifact names.
+          overwrite: true
+
+      - name: Upload results to code scanning
+        if: github.ref_type == 'branch'
+        uses: github/codeql-action/upload-sarif@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
+        with:
+          sarif_file: trivy.sarif
+          # Keyed by image ref, so a dispatched scan of an older tag can't
+          # replace the analysis of latest.
+          category: trivy-image-${{ matrix.image }}
+
+      # Runs after the image is published, so this flags the run rather than blocking the release.
+      - name: Fail on fixable critical vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ matrix.image }}
+          scanners: vuln
+          severity: CRITICAL
+          ignore-unfixed: true
+          format: table
+          exit-code: "1"
+
+  malware:
+    needs: resolve
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJSON(needs.resolve.outputs.images) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
+    env:
+      # clamav/clamav:stable, which only ships amd64.
+      CLAMAV_IMAGE: clamav/clamav@sha256:ebec5bc138401b36ae987caa1a3fa3c3b2a21ed3d51f0bfa5852825e663e67b0
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # The containers are created but never started, so the arm64 image
+      # exports on an amd64 runner without emulation.
+      - name: Export image filesystems
+        env:
+          IMAGE: ${{ matrix.image }}
+        run: |
+          for platform in linux/amd64 linux/arm64; do
+            docker pull --quiet --platform "$platform" "$IMAGE"
+            container=$(docker create --platform "$platform" "$IMAGE")
+            mkdir -p "rootfs/${platform#linux/}"
+            docker export "$container" | sudo tar -x -C "rootfs/${platform#linux/}"
+            docker rm "$container"
+            docker rmi "$IMAGE"
+          done
+
+      # freshclam is rate limited from shared runner IPs, so a failed update falls back to
+      # the image's bundled signatures; the summary shows which version was used.
+      - name: Scan for malware
+        env:
+          IMAGE: ${{ matrix.image }}
+        run: |
+          echo "### ${IMAGE}" >>"$GITHUB_STEP_SUMMARY"
+          docker run --rm --entrypoint sh -v "$PWD/rootfs:/scan:ro" -v "$GITHUB_STEP_SUMMARY:/summary" "$CLAMAV_IMAGE" -c '
+            freshclam --stdout || echo "::warning::freshclam failed, scanning with bundled signatures"
+            echo "Signatures: $(clamscan --version)" >>/summary
+            clamscan --recursive --infected /scan
+          '
+
+  # When the nightly build calls this, its own report-failure job covers it.
+  report-failure:
+    needs: [resolve, scan, malware]
+    if: failure() && github.event_name == 'schedule' && !inputs.images
+    permissions:
+      contents: read
+      issues: write
+    uses: ./.github/workflows/report-scheduled-failure.yml

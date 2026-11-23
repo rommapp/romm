@@ -3,12 +3,13 @@ from __future__ import annotations
 import mimetypes
 import os
 import re
-from typing import Any, TypedDict
+from typing import Any, TypedDict, cast
 
 import mutagen
 from mutagen.flac import FLAC, Picture
 from mutagen.id3 import APIC, ID3
 from mutagen.mp4 import MP4
+from mutagen.ogg import OggFileType
 from mutagen.oggopus import OggOpus
 from mutagen.oggvorbis import OggVorbis
 
@@ -19,7 +20,13 @@ ALLOWED_AUDIO_EXTENSIONS = frozenset(
     {".mp3", ".ogg", ".oga", ".opus", ".m4a", ".aac", ".wav", ".flac"}
 )
 
-# Skip parsing anything larger than this — mutagen mmaps the file and can
+# Single-song console sound formats the browser plays through game-music-emu.
+# mutagen can't read them, so they carry no tags.
+CHIPTUNE_EXTENSIONS = frozenset({".gym", ".spc", ".vgm", ".vgz"})
+
+SOUNDTRACK_EXTENSIONS = ALLOWED_AUDIO_EXTENSIONS | CHIPTUNE_EXTENSIONS
+
+# Skip parsing anything larger than this; mutagen mmaps the file and can
 # consume substantial memory on pathological inputs (e.g. a mislabeled 4GB WAV).
 MAX_AUDIO_PARSE_BYTES = 512 * 1024 * 1024  # 512 MiB
 
@@ -93,6 +100,11 @@ def is_allowed_audio_file(file_name: str) -> bool:
     return ext.lower() in ALLOWED_AUDIO_EXTENSIONS
 
 
+def is_chiptune_file(file_name: str) -> bool:
+    _, ext = os.path.splitext(file_name)
+    return ext.lower() in CHIPTUNE_EXTENSIONS
+
+
 # MIME types for audio formats that the stdlib mimetypes module guesses
 # inconsistently (or not at all) across platforms.
 AUDIO_MIME_OVERRIDES = {
@@ -101,6 +113,8 @@ AUDIO_MIME_OVERRIDES = {
     ".m4a": "audio/mp4",
     ".oga": "audio/ogg",
     ".ogg": "audio/ogg",
+    # mimetypes maps .spc to a chemistry format.
+    **dict.fromkeys(CHIPTUNE_EXTENSIONS, "application/octet-stream"),
 }
 
 
@@ -151,7 +165,7 @@ def _allowed_mime_types(data: bytes) -> str:
 
 # NOTE: the per-format tag and embedded-cover handling below (ID3 / MP4 /
 # Vorbis comments / FLAC pictures) was largely AI-generated against mutagen's
-# API — verify against real files when adding or changing a format.
+# API; verify against real files when adding or changing a format.
 def _extract_common_tags(audio: mutagen.FileType) -> dict[str, str | None]:
     """Extract common tags across formats from a single non-easy mutagen handle."""
     tags = getattr(audio, "tags", None)
@@ -224,7 +238,7 @@ def _open_mutagen(full_path: str) -> mutagen.FileType | None:
         return None
 
     try:
-        return mutagen.File(full_path)
+        return cast(mutagen.FileType | None, mutagen.File(full_path))
     except Exception as exc:
         log.warning(f"[audio_tags] parse failed for {full_path}: {exc}")
         return None
@@ -256,7 +270,7 @@ def extract_audio_meta(full_path: str) -> AudioTags | None:
 
     common = _extract_common_tags(audio)
     for key in ("title", "artist", "album", "year", "genre", "track", "disc"):
-        meta[key] = common.get(key)  # type: ignore[literal-required]
+        meta[key] = common.get(key)
 
     info = getattr(audio, "info", None)
     duration = getattr(info, "length", None) if info is not None else None
@@ -270,7 +284,9 @@ def extract_audio_meta(full_path: str) -> AudioTags | None:
 def _extract_picture_from_id3(tags: ID3) -> tuple[bytes, str] | None:
     for frame in tags.values():
         if isinstance(frame, APIC):
-            return frame.data, _allowed_mime_types(frame.data)
+            # mutagen builds frame attributes from `_framespec` at runtime.
+            data: bytes = frame.data  # type: ignore[attr-defined]
+            return data, _allowed_mime_types(data)
     return None
 
 
@@ -281,7 +297,7 @@ def _extract_picture_from_flac(audio: FLAC) -> tuple[bytes, str] | None:
     return None
 
 
-def _extract_picture_from_ogg(audio: OggVorbis | OggOpus) -> tuple[bytes, str] | None:
+def _extract_picture_from_ogg(audio: OggFileType) -> tuple[bytes, str] | None:
     import base64
 
     pics = audio.get("metadata_block_picture") or []

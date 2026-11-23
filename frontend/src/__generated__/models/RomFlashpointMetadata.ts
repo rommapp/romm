@@ -5,6 +5,8 @@
 export type RomFlashpointMetadata = {
     franchises?: Array<string>;
     companies?: Array<string>;
+    publishers?: Array<string>;
+    developers?: Array<string>;
     source?: (string | null);
     genres?: Array<string>;
     first_release_date?: string;

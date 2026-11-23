@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import type { UserSchema } from "@/__generated__";
 import i18n from "@/locales";
+import userApi from "@/services/api/user";
 
 export type User = UserSchema;
 
@@ -46,6 +47,12 @@ export default defineStore("users", {
   actions: {
     set(users: User[]) {
       this.allUsers = users;
+    },
+    /** Fetches the users unless some are already here. */
+    async ensureLoaded() {
+      if (this.allUsers.length > 0) return;
+      const { data } = await userApi.fetchUsers();
+      this.allUsers = data;
     },
     add(user: User) {
       this.allUsers = this.allUsers.concat(user);

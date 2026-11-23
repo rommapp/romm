@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/suzuki-shunsuke/pinact/refs/heads/main/json-schema/pinact.json
+version: 3
+rules:
+  # aquasecurity's IP allow list rejects API calls from GitHub-hosted runners,
+  # so skip verifying the tag comment once the action is pinned to a SHA.
+  - ignore: true
+    conditions:
+      - expr: ActionRepoOwner == "aquasecurity" && ActionVersion matches "^[0-9a-f]{40}$"

@@ -1,9 +1,11 @@
 from typing import NotRequired, TypedDict
 
 from config import TGDB_API_ENABLED
+from utils.arcade_platforms import arcade_fallbacks
+from utils.platform_slugs import UniversalPlatformSlug as UPS
+from utils.platform_slugs import fill_duplicate_slugs
 
 from .base_handler import MetadataHandler
-from .base_handler import UniversalPlatformSlug as UPS
 
 
 class TGDBPlatform(TypedDict):
@@ -12,10 +14,6 @@ class TGDBPlatform(TypedDict):
     name: NotRequired[str]
     family_name: NotRequired[str | None]
     url_logo: NotRequired[str | None]
-
-
-class TGDBGameRom(TypedDict):
-    tgdb_id: int
 
 
 class TGDBHandler(MetadataHandler):
@@ -2269,3 +2267,6 @@ TGDB_PLATFORM_LIST: dict[UPS, SlugToTGDBId] = {
         "url_logo": None,
     },
 }
+TGDB_PLATFORM_LIST |= arcade_fallbacks(TGDB_PLATFORM_LIST)
+
+fill_duplicate_slugs(TGDB_PLATFORM_LIST)

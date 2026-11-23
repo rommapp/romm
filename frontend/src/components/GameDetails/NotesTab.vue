@@ -1,0 +1,784 @@
+<script setup lang="ts">
+// NotesTab: per-ROM notes with a left index (own + community sections;
+// a grouped note picker on phones) and a right pane that swaps between
+// MdPreview (read) and MdEditor (edit-in-place). Visibility is set in the
+// editor, edits save inline, and the active note is URL-persistent via
+// `?note=<id>` so links deep-link straight to a specific note.
+import { storeToRefs } from "pinia";
+import { computed, nextTick, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
+import { useRoute, useRouter } from "vue-router";
+import type { UserNoteSchema } from "@/__generated__";
+import SubtabNav, {
+  type SubtabNavItem,
+} from "@/components/GameDetails/SubtabNav.vue";
+import PublicBadge from "@/components/shared/PublicBadge.vue";
+import VisibilitySwitch from "@/components/shared/VisibilitySwitch.vue";
+import {
+  AsyncMdEditor as MdEditor,
+  AsyncMdPreview as MdPreview,
+} from "@/components/shared/asyncMarkdown";
+import { useBreakpoint } from "@/composables/useBreakpoint";
+import { useConfirm } from "@/composables/useConfirm";
+import { useRomSync } from "@/composables/useRomSync";
+import { useSnackbar } from "@/composables/useSnackbar";
+import { useThemeMode } from "@/composables/useThemeMode";
+import {
+  REmptyState,
+  RAvatar,
+  RBtn,
+  RTextField,
+  RTooltip,
+  RDivider,
+} from "@/lib";
+import romApi from "@/services/api/rom";
+import storeAuth from "@/stores/auth";
+import type { DetailedRom } from "@/stores/roms";
+import { focusFromInput } from "@/utils/autofocus";
+import { syncQueryParam } from "@/utils/routeQuery";
+import { userAvatarUrl } from "@/utils/userAvatar";
+
+defineOptions({ inheritAttrs: false });
+
+const props = defineProps<{ rom: DetailedRom }>();
+
+const { t } = useI18n();
+const snackbar = useSnackbar();
+const confirm = useConfirm();
+const authStore = storeAuth();
+const { refetchRom } = useRomSync();
+const route = useRoute();
+const router = useRouter();
+const { isLight: isLightTheme } = useThemeMode();
+const { user } = storeToRefs(authStore);
+const { smAndDown } = useBreakpoint();
+
+const mdTheme = computed<"light" | "dark">(() =>
+  isLightTheme.value ? "light" : "dark",
+);
+
+const allNotes = computed<UserNoteSchema[]>(
+  () => props.rom.all_user_notes ?? [],
+);
+
+function isOwn(note: UserNoteSchema): boolean {
+  return user.value?.id != null && note.user_id === user.value.id;
+}
+
+const myNotes = computed<UserNoteSchema[]>(() =>
+  allNotes.value
+    .filter(isOwn)
+    .slice()
+    .sort((a, b) => a.title.localeCompare(b.title)),
+);
+
+const communityNotes = computed<UserNoteSchema[]>(() =>
+  allNotes.value
+    .filter((n) => !isOwn(n) && n.is_public)
+    .slice()
+    .sort((a, b) => a.title.localeCompare(b.title)),
+);
+
+function noteAvatar(note: UserNoteSchema): string {
+  return userAvatarUrl({
+    userId: note.user_id,
+    avatarPath: note.user_avatar_path,
+    updatedAt: note.user_updated_at,
+  });
+}
+
+// Picker entries for phones, own notes first, matching the desktop index.
+type NoteNavItem = SubtabNavItem & { note: UserNoteSchema };
+const noteNavItems = computed<NoteNavItem[]>(() => [
+  ...myNotes.value.map((note) => ({
+    id: String(note.id),
+    label: note.title,
+    group: t("rom.my-notes"),
+    note,
+  })),
+  ...communityNotes.value.map((note) => ({
+    id: String(note.id),
+    label: note.title,
+    group: t("rom.notes-community"),
+    note,
+  })),
+]);
+
+const hasAnyNotes = computed(
+  () => myNotes.value.length > 0 || communityNotes.value.length > 0,
+);
+
+const canCreate = computed(() => Boolean(user.value?.id));
+
+// ── Selection (URL-synced via ?note=<id>) ────────────────────────
+const selectedNoteId = ref<number | null>(null);
+
+function readNoteFromQuery(): number | null {
+  const v = route.query.note;
+  if (typeof v !== "string") return null;
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  return allNotes.value.some((x) => x.id === n) ? n : null;
+}
+
+function defaultSelection(): number | null {
+  return myNotes.value[0]?.id ?? communityNotes.value[0]?.id ?? null;
+}
+
+selectedNoteId.value = readNoteFromQuery() ?? defaultSelection();
+
+watch(selectedNoteId, (id) =>
+  syncQueryParam(router, "note", id === null ? undefined : String(id)),
+);
+
+// React to URL changes (back/forward, external nav).
+watch(
+  () => route.query.note,
+  () => {
+    const fromQuery = readNoteFromQuery();
+    if (fromQuery !== selectedNoteId.value) {
+      selectedNoteId.value = fromQuery ?? defaultSelection();
+    }
+  },
+);
+
+const selectedNote = computed<UserNoteSchema | null>(() => {
+  if (selectedNoteId.value === null) return null;
+  return allNotes.value.find((n) => n.id === selectedNoteId.value) ?? null;
+});
+
+const isSelectedOwn = computed(() =>
+  selectedNote.value ? isOwn(selectedNote.value) : false,
+);
+
+// ── Edit form ────────────────────────────────────────────────────
+interface EditForm {
+  id: number | null; // null when creating a new note
+  title: string;
+  content: string;
+  isPublic: boolean;
+}
+
+const editForm = ref<EditForm | null>(null);
+const saving = ref(false);
+// RTextField forwards $attrs to the underlying VTextField; we focus the
+// inner <input> by reaching through .$el. Triggered when the form opens
+// (user just clicked "Add" / "Edit"), so it's never a surprise focus.
+const titleFieldRef = ref<{ $el?: HTMLElement } | null>(null);
+
+watch(editForm, async (form) => {
+  if (!form) return;
+  await nextTick();
+  focusFromInput(
+    titleFieldRef.value?.$el?.querySelector<HTMLInputElement>("input"),
+  );
+});
+
+const titleErrors = computed<string[]>(() => {
+  const form = editForm.value;
+  if (!form) return [];
+  const trimmed = form.title.trim();
+  if (!trimmed) return [];
+  // Title must be unique across all visible notes (own + community),
+  // matching v1's MultiNoteManager behaviour.
+  const conflict = allNotes.value.some(
+    (n) => n.title === trimmed && n.id !== form.id,
+  );
+  return conflict ? [t("rom.notes-title-exists")] : [];
+});
+
+const canSave = computed(() => {
+  const form = editForm.value;
+  if (!form) return false;
+  if (!form.title.trim()) return false;
+  return titleErrors.value.length === 0;
+});
+
+async function refreshRom() {
+  await refetchRom(props.rom.id);
+}
+
+function startAdd() {
+  editForm.value = { id: null, title: "", content: "", isPublic: false };
+}
+
+function startEdit() {
+  if (!selectedNote.value || !isSelectedOwn.value) return;
+  editForm.value = {
+    id: selectedNote.value.id,
+    title: selectedNote.value.title,
+    content: selectedNote.value.content,
+    isPublic: selectedNote.value.is_public,
+  };
+}
+
+function cancelEdit() {
+  editForm.value = null;
+}
+
+async function saveEdit() {
+  const form = editForm.value;
+  if (!form || !canSave.value) return;
+  saving.value = true;
+  try {
+    const payload = {
+      title: form.title.trim(),
+      content: form.content,
+      is_public: form.isPublic,
+    };
+    if (form.id !== null) {
+      await romApi.updateRomNote({
+        romId: props.rom.id,
+        noteId: form.id,
+        noteData: payload,
+      });
+    } else {
+      const { data } = await romApi.createRomNote({
+        romId: props.rom.id,
+        noteData: payload,
+      });
+      selectedNoteId.value = data.id;
+    }
+    await refreshRom();
+    editForm.value = null;
+    snackbar.success(t("rom.notes-saved"), { icon: "mdi-check-circle" });
+  } catch (err) {
+    console.error("Note save failed:", err);
+    snackbar.error(t("rom.notes-cant-save"), { icon: "mdi-close-circle" });
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function removeNote(note: UserNoteSchema) {
+  if (!isOwn(note)) return;
+  const ok = await confirm({
+    title: t("rom.notes-delete-title"),
+    body: t("rom.notes-delete-body", { title: note.title }),
+    confirmText: t("common.delete"),
+    tone: "danger",
+  });
+  if (!ok) return;
+  try {
+    await romApi.deleteRomNote({ romId: props.rom.id, noteId: note.id });
+    if (selectedNoteId.value === note.id) {
+      selectedNoteId.value = null;
+    }
+    await refreshRom();
+    if (selectedNoteId.value === null) {
+      selectedNoteId.value = defaultSelection();
+    }
+    snackbar.success(t("rom.notes-deleted"), { icon: "mdi-check-circle" });
+  } catch (err) {
+    console.error("Note delete failed:", err);
+    snackbar.error(t("rom.notes-cant-delete"), { icon: "mdi-close-circle" });
+  }
+}
+
+function selectNote(id: number) {
+  // Switching notes silently drops an unsaved draft: the user picked a
+  // different note, so the intent is clear.
+  if (editForm.value) editForm.value = null;
+  selectedNoteId.value = id;
+}
+
+function fmtDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString();
+  } catch {
+    return iso;
+  }
+}
+</script>
+
+<template>
+  <div class="r-notes">
+    <REmptyState
+      v-if="!hasAnyNotes && !editForm"
+      icon="mdi-note-text-outline"
+      :title="t('rom.notes-empty-title')"
+      :hint="t('rom.notes-empty-hint')"
+    >
+      <template v-if="canCreate" #actions>
+        <RBtn
+          variant="flat"
+          color="primary"
+          prepend-icon="mdi-plus"
+          @click="startAdd"
+        >
+          {{ t("rom.notes-add-first") }}
+        </RBtn>
+      </template>
+    </REmptyState>
+
+    <div v-else class="r-notes__body">
+      <SubtabNav
+        v-if="smAndDown && !editForm"
+        :model-value="selectedNoteId === null ? '' : String(selectedNoteId)"
+        :items="noteNavItems"
+        variant="menu"
+        @update:model-value="(id) => selectNote(Number(id))"
+      >
+        <template #item-append="{ item }">
+          <span v-if="!isOwn(item.note)" class="r-notes__nav-author">
+            <RAvatar :image="noteAvatar(item.note)" size="18" />
+            <span>{{ item.note.username }}</span>
+          </span>
+          <PublicBadge v-else-if="item.note.is_public" inline />
+        </template>
+        <template #actions>
+          <RBtn
+            :disabled="!canCreate"
+            variant="outlined"
+            size="small"
+            density="comfortable"
+            prepend-icon="mdi-plus"
+            @click="startAdd"
+          >
+            {{ t("rom.notes-add") }}
+          </RBtn>
+        </template>
+      </SubtabNav>
+
+      <aside v-if="!smAndDown" class="r-notes__index">
+        <template v-if="myNotes.length > 0">
+          <div class="r-notes__group-label">{{ t("rom.my-notes") }}</div>
+          <ul class="r-notes__group">
+            <li v-for="n in myNotes" :key="n.id">
+              <button
+                type="button"
+                class="r-notes__nav-item"
+                :class="{
+                  'r-notes__nav-item--active':
+                    !editForm && selectedNoteId === n.id,
+                }"
+                @click="selectNote(n.id)"
+              >
+                <span class="r-notes__nav-title">{{ n.title }}</span>
+                <PublicBadge v-if="n.is_public" inline />
+              </button>
+            </li>
+          </ul>
+        </template>
+        <RBtn
+          :disabled="!canCreate || !!editForm"
+          variant="outlined"
+          prepend-icon="mdi-plus"
+          block
+          class="r-notes__add-btn"
+          @click="startAdd"
+        >
+          {{ t("rom.notes-add") }}
+        </RBtn>
+
+        <template v-if="communityNotes.length > 0">
+          <RDivider />
+          <div class="r-notes__group-label">
+            {{ t("rom.notes-community") }}
+          </div>
+          <ul class="r-notes__group">
+            <li v-for="n in communityNotes" :key="n.id">
+              <button
+                type="button"
+                class="r-notes__nav-item r-notes__nav-item--rich"
+                :class="{
+                  'r-notes__nav-item--active':
+                    !editForm && selectedNoteId === n.id,
+                }"
+                @click="selectNote(n.id)"
+              >
+                <span class="r-notes__nav-title">{{ n.title }}</span>
+                <span class="r-notes__nav-author">
+                  <RAvatar :image="noteAvatar(n)" size="18" />
+                  <span>{{ n.username }}</span>
+                </span>
+              </button>
+            </li>
+          </ul>
+        </template>
+      </aside>
+
+      <section class="r-notes__pane">
+        <template v-if="editForm">
+          <header class="r-notes__pane-head r-notes__pane-head--edit">
+            <RTextField
+              ref="titleFieldRef"
+              v-model="editForm.title"
+              :error-messages="titleErrors"
+              :placeholder="t('rom.notes-title-placeholder')"
+              hide-details="auto"
+              density="compact"
+              class="r-notes__title-field"
+              :disabled="saving"
+            />
+            <div class="r-notes__edit-controls">
+              <VisibilitySwitch
+                v-model="editForm.isPublic"
+                :disabled="saving"
+              />
+              <div class="r-notes__actions">
+                <RBtn
+                  variant="outlined"
+                  size="small"
+                  :disabled="saving"
+                  @click="cancelEdit"
+                >
+                  {{ t("common.cancel") }}
+                </RBtn>
+                <RBtn
+                  variant="flat"
+                  color="primary"
+                  size="small"
+                  prepend-icon="mdi-check"
+                  :loading="saving"
+                  :disabled="!canSave"
+                  @click="saveEdit"
+                >
+                  {{ t("common.save") }}
+                </RBtn>
+              </div>
+            </div>
+          </header>
+          <MdEditor
+            v-model="editForm.content"
+            no-prettier
+            no-upload-img
+            :theme="mdTheme"
+            language="en-US"
+            :preview="false"
+            :toolbars-exclude="['save', 'github']"
+            class="r-notes__editor"
+          />
+        </template>
+
+        <template v-else-if="selectedNote">
+          <header class="r-notes__pane-head">
+            <div class="r-notes__pane-title-block">
+              <h3 class="r-notes__pane-title">
+                {{ selectedNote.title }}
+                <PublicBadge
+                  v-if="isSelectedOwn && selectedNote.is_public"
+                  class="r-notes__title-badge"
+                  inline
+                />
+              </h3>
+              <div v-if="!isSelectedOwn" class="r-notes__author">
+                <RAvatar :image="noteAvatar(selectedNote)" size="20" />
+                <span>{{ selectedNote.username }}</span>
+              </div>
+            </div>
+            <div v-if="isSelectedOwn" class="r-notes__actions">
+              <RTooltip :text="t('rom.notes-edit')">
+                <template #activator="{ props: activator }">
+                  <RBtn
+                    v-bind="activator"
+                    variant="text"
+                    size="small"
+                    icon="mdi-pencil-outline"
+                    color="var(--r-color-overlay-fg)"
+                    @click="startEdit"
+                  />
+                </template>
+              </RTooltip>
+              <RTooltip :text="t('rom.notes-delete')">
+                <template #activator="{ props: activator }">
+                  <RBtn
+                    v-bind="activator"
+                    variant="text"
+                    size="small"
+                    color="romm-red"
+                    icon="mdi-delete-outline"
+                    @click="removeNote(selectedNote)"
+                  />
+                </template>
+              </RTooltip>
+            </div>
+          </header>
+          <MdPreview
+            :model-value="selectedNote.content"
+            :theme="mdTheme"
+            language="en-US"
+            preview-theme="vuepress"
+            code-theme="github"
+            class="r-notes__preview"
+          />
+          <footer class="r-notes__pane-foot">
+            {{
+              t("rom.notes-updated-at", {
+                date: fmtDate(selectedNote.updated_at),
+              })
+            }}
+          </footer>
+        </template>
+
+        <REmptyState
+          v-else
+          size="small"
+          icon="mdi-note-search-outline"
+          :title="t('rom.notes-pick-title')"
+          :hint="t('rom.notes-pick-hint')"
+        />
+      </section>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.r-notes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--r-space-3);
+  min-height: 0;
+}
+
+.r-notes__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--r-space-3);
+}
+.r-notes__heading {
+  font-size: var(--r-font-size-xl);
+  font-weight: var(--r-font-weight-semibold);
+  color: var(--r-color-fg);
+  margin: 0;
+}
+
+/* Two-column body. Index left, content right. */
+.r-notes__body {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: var(--r-space-5);
+  align-items: start;
+  min-height: 0;
+}
+
+/* ── Index pane ── */
+.r-notes__index {
+  display: flex;
+  flex-direction: column;
+  gap: var(--r-space-3);
+  position: sticky;
+  top: 0;
+}
+.r-notes__add-btn {
+  margin-bottom: var(--r-space-1);
+}
+.r-notes__group-label {
+  font-size: var(--r-font-size-xs);
+  font-weight: var(--r-font-weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--r-color-fg-muted);
+}
+.r-notes__group {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.r-notes__nav-item {
+  width: 100%;
+  appearance: none;
+  /* Subtle resting surface so each entry reads as a clickable card,
+     not as plain text. Hover and active escalate from here. */
+  background: var(--r-color-bg-elevated);
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  padding: 8px 12px;
+  border-radius: var(--r-radius-md);
+  color: var(--r-color-fg-muted);
+  font-family: inherit;
+  font-size: var(--r-font-size-md);
+  font-weight: var(--r-font-weight-medium);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--r-space-2);
+  transition:
+    background var(--r-motion-fast) var(--r-motion-ease-out),
+    color var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-notes__nav-item:not(.r-notes__nav-item--active):hover {
+  background: var(--r-color-surface-hover);
+  color: var(--r-color-fg);
+}
+.r-notes__nav-item--active {
+  background: color-mix(in srgb, var(--r-color-brand-primary) 18%, transparent);
+  color: var(--r-color-brand-primary);
+}
+.r-notes__nav-item--rich {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--r-space-2);
+  padding: 10px 12px;
+}
+.r-notes__nav-title {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.r-notes__nav-author {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--r-font-size-sm);
+  font-weight: var(--r-font-weight-regular);
+  color: var(--r-color-fg-faint);
+}
+
+/* ── Right pane ── */
+.r-notes__pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--r-space-4);
+  background: var(--r-color-bg-elevated);
+  border: 1px solid var(--r-color-border);
+  border-radius: var(--r-radius-card);
+  padding: var(--r-space-5);
+  min-width: 0;
+}
+.r-notes__pane-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--r-space-3);
+  min-width: 0;
+}
+.r-notes__pane-title-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--r-space-2);
+  min-width: 0;
+  flex: 1;
+}
+.r-notes__pane-title {
+  margin: 0;
+  font-size: var(--r-font-size-xl);
+  font-weight: var(--r-font-weight-semibold);
+  color: var(--r-color-fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.r-notes__title-badge {
+  margin-inline-start: var(--r-space-2);
+  vertical-align: middle;
+}
+.r-notes__title-field {
+  flex: 1;
+  min-width: 0;
+}
+.r-notes__author {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--r-font-size-sm);
+  color: var(--r-color-fg-muted);
+}
+.r-notes__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.r-notes__edit-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--r-space-5);
+  flex-shrink: 0;
+}
+
+.r-notes__pane-foot {
+  font-size: var(--r-font-size-sm);
+  color: var(--r-color-fg-muted);
+  /* No border / extra padding: the markdown surface above already
+     provides the visual separation via its glass background. */
+}
+
+/* ── md-editor surface tweaks ──
+   md-editor ships a white card by default. Both editor and preview share the same
+   surface so the two modes feel like the same panel. */
+.r-notes__preview,
+.r-notes__editor {
+  position: relative;
+  background: color-mix(in srgb, black 28%, transparent);
+  border-radius: var(--r-radius-lg);
+  padding: 4px 18px;
+}
+
+.r-notes__editor :deep(.md-editor) {
+  --md-bk-color: transparent;
+  --md-color: var(--r-color-fg);
+  background: transparent;
+  color: var(--r-color-fg);
+  border: none;
+  min-height: 320px;
+  line-height: 1.5;
+}
+.r-notes__editor :deep(.md-editor-toolbar-wrapper),
+.r-notes__editor :deep(.md-editor-content) {
+  background: transparent;
+  border: none;
+}
+.r-notes__editor :deep(.md-editor-input-wrapper),
+.r-notes__editor :deep(textarea.md-editor-input) {
+  background: transparent !important;
+  color: var(--r-color-fg) !important;
+}
+.r-notes__preview :deep(.md-editor),
+.r-notes__preview :deep(.md-editor-preview-wrapper) {
+  background: transparent;
+  color: var(--r-color-fg);
+  padding: 0;
+}
+.r-notes__preview :deep(.md-editor-preview),
+.r-notes__editor :deep(.md-editor-preview) {
+  background: transparent !important;
+  color: var(--r-color-fg);
+  font-family: inherit;
+  word-break: break-word;
+  line-height: 1.55;
+  padding: 0;
+}
+.r-notes__preview :deep(.md-editor-preview blockquote),
+.r-notes__editor :deep(.md-editor-preview blockquote) {
+  border-left-color: var(--r-color-border-strong);
+}
+.r-notes__preview :deep(.md-editor-preview code),
+.r-notes__editor :deep(.md-editor-preview code),
+.r-notes__preview :deep(.md-editor-preview pre),
+.r-notes__editor :deep(.md-editor-preview pre) {
+  background: color-mix(in srgb, black 30%, transparent) !important;
+  color: var(--r-color-fg) !important;
+}
+
+/* Empty preview state: when md-preview gets no content it still renders
+   an empty wrapper. Add a quiet hint line so the right pane isn't blank. */
+.r-notes__preview :deep(.md-editor-preview):empty::before {
+  content: "(empty)";
+  color: var(--r-color-fg-faint);
+  font-style: italic;
+}
+
+html[data-bp~="sm-and-down"] .r-notes__body {
+  grid-template-columns: 1fr;
+}
+/* Phones give the title its own row; visibility and the buttons share the
+   next one, at its two ends. */
+html[data-bp~="sm-and-down"] .r-notes__pane-head--edit {
+  flex-wrap: wrap;
+}
+html[data-bp~="sm-and-down"] .r-notes__pane-head--edit .r-notes__title-field {
+  flex-basis: 100%;
+}
+html[data-bp~="sm-and-down"] .r-notes__edit-controls {
+  flex: 1;
+  justify-content: space-between;
+}
+</style>

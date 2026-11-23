@@ -1,0 +1,419 @@
+<script setup lang="ts">
+// Combined Manual + Screenshots + Artwork + Soundtrack tab for GameDetails.
+// This shell owns the subtab navigation (mirrored to `?subtab=`) and the
+// soundtrack panel; each other subtab is its own self-contained component
+// (ManualSubtab, ScreenshotsSubtab, ArtworkSubtab).
+//
+// Soundtrack behaviour:
+//   * Subtab always rendered; the empty state drives the upload CTA
+//   * The panel doubles as a drag-and-drop target (same affordance as the
+//     Upload / Patcher views): drop files anywhere over it to upload
+//   * Upload goes through `useRomFileUpload`, into the soundtrack/ folder
+import { computed, defineAsyncComponent, ref, useId, watch } from "vue";
+import { useI18n } from "vue-i18n";
+import SubtabNav, {
+  type SubtabNavItem,
+} from "@/components/GameDetails/SubtabNav.vue";
+import { useBreakpoint } from "@/composables/useBreakpoint";
+import { useCan } from "@/composables/useCan";
+import {
+  ROM_UPLOAD_FOLDERS,
+  useRomFileUpload,
+} from "@/composables/useRomFileUpload";
+import { useRomSoundtrack } from "@/composables/useRomSoundtrack";
+import { useRomSync } from "@/composables/useRomSync";
+import { useSoundtrackActions } from "@/composables/useSoundtrackActions";
+import { useSubtabQuery } from "@/composables/useSubtabQuery";
+import { RBtn, RDropzone, REmptyState } from "@/lib";
+import type { DetailedRom } from "@/stores/roms";
+import { SOUNDTRACK_ACCEPT } from "@/utils/soundtrackTracks";
+import { tabId, tabPanelId } from "@/utils/tabIds";
+
+const ManualSubtab = defineAsyncComponent(
+  () => import("@/components/GameDetails/ManualSubtab.vue"),
+);
+const WalkthroughSubtab = defineAsyncComponent(
+  () => import("@/components/GameDetails/WalkthroughSubtab.vue"),
+);
+const SoundtrackPanel = defineAsyncComponent(
+  () => import("@/components/Soundtrack/Panel.vue"),
+);
+const ScreenshotsSubtab = defineAsyncComponent(
+  () => import("@/components/GameDetails/ScreenshotsSubtab.vue"),
+);
+const ArtworkSubtab = defineAsyncComponent(
+  () => import("@/components/GameDetails/ArtworkSubtab.vue"),
+);
+
+const props = defineProps<{ rom: DetailedRom }>();
+const soundtrackActions = useSoundtrackActions();
+const { uploadFiles } = useRomFileUpload();
+const {
+  tracks: soundtrackTracks,
+  loading: soundtrackLoading,
+  fallbackArtUrl: soundtrackArtUrl,
+} = useRomSoundtrack(() => props.rom);
+const { refetchRom } = useRomSync();
+const { t } = useI18n();
+const { smAndDown } = useBreakpoint();
+
+// Soundtrack upload / delete both gate on the ROM write grant, so read-only
+// users get the player without any upload or delete affordance.
+const canEdit = useCan("rom.edit");
+
+// ---------- Subtab state ----------
+// Mirrored to `?subtab=` so the SoundtrackMiniPlayer can detect when the full
+// player is visible here and hide itself to avoid duplication.
+const validSubtabs = [
+  "manual",
+  "walkthrough",
+  "screenshots",
+  "artwork",
+  "soundtrack",
+] as const;
+type Subtab = (typeof validSubtabs)[number];
+
+const subTab = useSubtabQuery<Subtab>(
+  "media",
+  (value) => validSubtabs.includes(value as Subtab),
+  "manual",
+);
+
+// The sheet variant has no tabs to label the panels, so they stay sections.
+const tabIdPrefix = useId();
+function panelAttrs(id: Subtab): Record<string, string> {
+  if (smAndDown.value) return {};
+  return {
+    id: tabPanelId(tabIdPrefix, id),
+    role: "tabpanel",
+    "aria-labelledby": tabId(tabIdPrefix, id),
+  };
+}
+
+// vue3-pdf-app drives one global pdf.js app, so only the last shown PDF subtab
+// mounts a PdfViewer.
+const pdfSubtab = ref<"manual" | "walkthrough" | null>(null);
+watch(
+  subTab,
+  (value) => {
+    if (value === "manual" || value === "walkthrough") pdfSubtab.value = value;
+  },
+  { immediate: true },
+);
+
+// ---------- Subtab nav ----------
+const subtabDefs = computed<SubtabNavItem<Subtab>[]>(() => [
+  {
+    id: "manual",
+    label: t("rom.manual"),
+    icon: "mdi-book-open-page-variant-outline",
+  },
+  {
+    id: "walkthrough",
+    label: t("rom.walkthrough"),
+    icon: "mdi-map-legend",
+  },
+  {
+    id: "screenshots",
+    label: t("rom.screenshots"),
+    icon: "mdi-image-multiple-outline",
+  },
+  {
+    id: "artwork",
+    label: t("rom.artwork"),
+    icon: "mdi-palette-outline",
+  },
+  {
+    id: "soundtrack",
+    label: t("rom.soundtrack"),
+    icon: "mdi-music-note-outline",
+  },
+]);
+
+// ---------- Upload / refresh plumbing ----------
+// The soundtrack panel uses an RDropzone (CTA when empty, overlay over the
+// player when filled). The section header's "upload" button opens the filled
+// dropzone's picker via this ref.
+const soundtrackDz = ref<InstanceType<typeof RDropzone> | null>(null);
+const canUploadSoundtrack = computed(
+  () => props.rom.has_soundtrack && canEdit.value,
+);
+
+// On phones a subtab's single Upload joins the picker row; Screenshots has one
+// per section, so it keeps them in place.
+const manualPanel = ref<InstanceType<typeof ManualSubtab> | null>(null);
+const walkthroughPanel = ref<InstanceType<typeof WalkthroughSubtab> | null>(
+  null,
+);
+
+const pickerRowUpload = computed<(() => void) | null>(() => {
+  switch (subTab.value) {
+    case "manual":
+      return manualPanel.value?.canUpload ? manualPanel.value.openUpload : null;
+    case "walkthrough":
+      return walkthroughPanel.value?.canUpload
+        ? walkthroughPanel.value.openUpload
+        : null;
+    case "soundtrack":
+      return canUploadSoundtrack.value
+        ? () => soundtrackDz.value?.open()
+        : null;
+    default:
+      return null;
+  }
+});
+
+async function refreshRom() {
+  await refetchRom(props.rom.id);
+}
+
+// ---------- File handlers (shared by file input + drag-and-drop) ----------
+async function handleSoundtrackFiles(files: File[]) {
+  await uploadFiles(props.rom, ROM_UPLOAD_FOLDERS.soundtrack, files);
+}
+
+async function deleteSoundtrack(fileId: number) {
+  const track = (props.rom.files ?? []).find((f) => f.id === fileId);
+  if (
+    await soundtrackActions.deleteTrack(props.rom.id, fileId, track?.file_name)
+  ) {
+    await refreshRom();
+  }
+}
+</script>
+
+<template>
+  <div class="r-media">
+    <SubtabNav
+      v-if="smAndDown"
+      v-model="subTab"
+      :items="subtabDefs"
+      variant="menu"
+    >
+      <template #actions>
+        <RBtn
+          v-if="pickerRowUpload"
+          variant="outlined"
+          size="small"
+          density="comfortable"
+          prepend-icon="mdi-cloud-upload-outline"
+          @click="pickerRowUpload()"
+        >
+          {{ t("common.upload") }}
+        </RBtn>
+      </template>
+    </SubtabNav>
+    <aside v-else class="r-media__sidebar">
+      <SubtabNav
+        v-model="subTab"
+        :items="subtabDefs"
+        :id-prefix="tabIdPrefix"
+      />
+    </aside>
+
+    <div class="r-media__content">
+      <!-- All subtab sections stay mounted (v-show, not v-if). The manual,
+           soundtrack and screenshots panels are heavy defineAsyncComponent
+           loads; un/remounting them on every subtab switch causes a visible
+           main-thread freeze (the PDF parser is the worst offender). With
+           v-show the cost is paid once on Media tab entry and switching is a
+           CSS toggle (bar the PDF viewer, see `pdfSubtab`). -->
+      <!-- Manual subtab: its own component (PDF / Markdown viewer with an
+           entry selector; scrolls independently). -->
+      <section
+        v-show="subTab === 'manual'"
+        class="r-media__panel"
+        v-bind="panelAttrs('manual')"
+      >
+        <ManualSubtab
+          ref="manualPanel"
+          :rom="rom"
+          :hide-upload="smAndDown"
+          :pdf-active="pdfSubtab === 'manual'"
+        />
+      </section>
+
+      <!-- Walkthrough subtab: uploaded or GameFAQs-fetched documents, with
+           per-user reading progress. -->
+      <section
+        v-show="subTab === 'walkthrough'"
+        class="r-media__panel"
+        v-bind="panelAttrs('walkthrough')"
+      >
+        <WalkthroughSubtab
+          ref="walkthroughPanel"
+          :rom="rom"
+          :hide-upload="smAndDown"
+          :pdf-active="pdfSubtab === 'walkthrough'"
+        />
+      </section>
+
+      <!-- Screenshots subtab: its own component (ROM / Mine / Community
+           sections, per-user public/private). -->
+      <section
+        v-show="subTab === 'screenshots'"
+        class="r-media__panel"
+        v-bind="panelAttrs('screenshots')"
+      >
+        <ScreenshotsSubtab :rom="rom" />
+      </section>
+
+      <!-- Artwork subtab: read-only gallery of scraped art assets
+           (bezel / logo / marquee / box art / fan art / videos). -->
+      <section
+        v-show="subTab === 'artwork'"
+        class="r-media__panel"
+        v-bind="panelAttrs('artwork')"
+      >
+        <ArtworkSubtab :rom="rom" />
+      </section>
+
+      <!-- Soundtrack subtab -->
+      <section
+        v-show="subTab === 'soundtrack'"
+        class="r-media__panel"
+        v-bind="panelAttrs('soundtrack')"
+      >
+        <header
+          v-if="canUploadSoundtrack && !smAndDown"
+          class="r-media__section-head"
+        >
+          <div class="r-media__section-actions">
+            <RBtn
+              variant="outlined"
+              size="small"
+              prepend-icon="mdi-cloud-upload-outline"
+              @click="soundtrackDz?.open()"
+            >
+              {{ t("common.upload") }}
+            </RBtn>
+          </div>
+        </header>
+
+        <REmptyState
+          v-if="!rom.has_soundtrack && !canEdit"
+          :title="t('rom.soundtrack-empty')"
+        />
+
+        <RDropzone
+          v-else-if="!rom.has_soundtrack"
+          :title="t('rom.soundtrack-empty')"
+          :hint="t('common.dropzone-hint')"
+          :active-title="t('common.dropzone-drag-over')"
+          :input-label="t('rom.upload-soundtrack')"
+          :accept="SOUNDTRACK_ACCEPT"
+          multiple
+          @files="handleSoundtrackFiles"
+        />
+
+        <RDropzone
+          v-else
+          ref="soundtrackDz"
+          overlay
+          :disabled="!canEdit"
+          class="r-media__fill"
+          :release-label="t('common.dropzone-drag-over')"
+          :input-label="t('rom.upload-soundtrack')"
+          :accept="SOUNDTRACK_ACCEPT"
+          multiple
+          @files="handleSoundtrackFiles"
+        >
+          <SoundtrackPanel
+            :tracks="soundtrackTracks"
+            :playlist-key="rom.id"
+            :loading="soundtrackLoading"
+            :fallback-art-url="soundtrackArtUrl"
+            :deletable="canEdit"
+            class="r-media__soundtrack"
+            @delete-track="deleteSoundtrack"
+          />
+        </RDropzone>
+      </section>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.r-media {
+  display: flex;
+  align-items: stretch;
+  gap: 24px;
+  /* Fills the parent tab panel exactly so the PDF viewer (inside the
+     manual section) can size to 100% without forcing the outer panel
+     to scroll; the PDF has its own internal scroll. */
+  height: 100%;
+  min-height: 0;
+}
+
+.r-media__sidebar {
+  width: 220px;
+  flex-shrink: 0;
+}
+
+.r-media__content {
+  flex: 1;
+  min-width: 0;
+  /* Flex column so the active subtab section (the only visible one
+     via v-show) can use `flex: 1` to fill the row's height. */
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Panels: each subtab section fills the content height so its
+   children (manual / soundtrack / screenshots) can stretch to 100%
+   without forcing an outer scrollbar. */
+.r-media__panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--r-space-3);
+  flex: 1;
+  min-height: 0;
+}
+
+/* The sidebar's subtab label already names the section, so the header skips
+   the title and pushes the action cluster to the right. */
+.r-media__section-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.r-media__section-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* Overlay-mode RDropzone wrapping the soundtrack player must fill the
+   panel height so the inner player can stretch to 100%. */
+.r-media__fill {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Mobile has no fixed-height chain to fill (GameDetails scrolls as one
+   document there), so a zero flex-basis would collapse the player. */
+html[data-bp~="sm-and-down"] .r-media__fill {
+  flex: none;
+  height: auto;
+}
+
+html[data-bp~="sm-and-down"] .r-media {
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Soundtrack: the player has its own internal styling; wrap in an
+   elevated container so it blends with v2 tokens. */
+.r-media__soundtrack {
+  border: 1px solid var(--r-color-border);
+  border-radius: var(--r-radius-md);
+  background: var(--r-color-bg-elevated);
+}
+</style>

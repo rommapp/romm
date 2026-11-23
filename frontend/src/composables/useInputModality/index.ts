@@ -1,0 +1,136 @@
+// useInputModality
+//
+// Tracks the user's last-used input device and exposes it as a reactive ref.
+// Writes `data-input` on <html> so CSS can adapt focus rings, hit targets,
+// and hint visibility per modality. A single shared instance is enough:
+// install() from the root layout mounts listeners once.
+import { readonly, ref } from "vue";
+
+export type InputModality = "mouse" | "touch" | "key" | "pad";
+
+const modality = ref<InputModality>("mouse");
+// A tap is followed by compatibility mouse events, which would flip the
+// modality straight back to mouse and resize every touch-sized control.
+const MOUSE_AFTER_TOUCH_MS = 700;
+let lastTouchAt = 0;
+let installed = false;
+let teardown: (() => void) | null = null;
+let pinned: InputModality | null = null;
+
+const NAVIGATION_KEYS = new Set([
+  "Tab",
+  "Enter",
+  " ",
+  "Escape",
+  "Home",
+  "End",
+  "PageUp",
+  "PageDown",
+]);
+
+// Modifier-only presses and typing don't count: only keys that move focus or
+// act on it switch the modality to keyboard.
+export function isNavigationKey(key: string): boolean {
+  return key.startsWith("Arrow") || NAVIGATION_KEYS.has(key);
+}
+
+function applyAttribute(next: InputModality) {
+  if (typeof document === "undefined") return;
+  document.documentElement.dataset.input = next;
+}
+
+function setModality(next: InputModality) {
+  if (pinned || modality.value === next) return;
+  modality.value = next;
+  applyAttribute(next);
+}
+
+// Holds the modality at one value regardless of input (Storybook's Input
+// toolbar); null resumes tracking.
+function pin(next: InputModality | null) {
+  pinned = next;
+  if (!next) return;
+  modality.value = next;
+  applyAttribute(next);
+}
+
+export function useInputModality() {
+  function install() {
+    if (installed) return;
+    installed = true;
+
+    applyAttribute(modality.value);
+
+    // Mouse handlers: split because, once the user is on a gamepad,
+    // we want the mouse to "disappear": tiny accidental nudges of a
+    // couch-side mouse shouldn't paint hover states on top of the
+    // focused tile. Only a deliberate click (mousedown) flips the
+    // modality back to mouse; mousemove / wheel are ignored while
+    // in pad mode.
+    const fromTouch = () =>
+      performance.now() - lastTouchAt < MOUSE_AFTER_TOUCH_MS;
+    const onMouseMove = () => {
+      if (modality.value === "pad" || fromTouch()) return;
+      setModality("mouse");
+    };
+    const onMouseDown = () => {
+      if (fromTouch()) return;
+      setModality("mouse");
+    };
+    const onWheel = () => {
+      if (modality.value === "pad" || fromTouch()) return;
+      setModality("mouse");
+    };
+    const onTouch = () => {
+      lastTouchAt = performance.now();
+      setModality("touch");
+    };
+    const onKey = (e: KeyboardEvent) => {
+      // useGamepad's synthetic arrows are pad input, not keyboard.
+      if (!e.isTrusted) return;
+      if (isNavigationKey(e.key)) setModality("key");
+    };
+    // Covers the auth layout, which doesn't install useGamepad: a pad that
+    // connects there still switches the modality.
+    const onGamepad = () => setModality("pad");
+
+    // App-lifetime singleton listeners: installed from whichever top-level
+    // layout mounts first (AppLayout or AuthLayout) and intentionally never
+    // removed, so the modality keeps tracking across a layout swap. Tearing
+    // them down on the first installer's unmount would drop `data-input`
+    // during the auth ↔ app transition.
+    window.addEventListener("mousemove", onMouseMove, { passive: true });
+    window.addEventListener("mousedown", onMouseDown, { passive: true });
+    window.addEventListener("wheel", onWheel, { passive: true });
+    window.addEventListener("touchstart", onTouch, { passive: true });
+    // Capture, so navigation handlers further down already see "key".
+    window.addEventListener("keydown", onKey, { capture: true });
+    window.addEventListener("gamepadconnected", onGamepad);
+
+    // Retained only so HMR can drop the listeners on a hot update instead of
+    // stacking a second set. In production this is never invoked: the
+    // listeners are app-lifetime by design (see the note above).
+    teardown = () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("wheel", onWheel);
+      window.removeEventListener("touchstart", onTouch);
+      window.removeEventListener("keydown", onKey, { capture: true });
+      window.removeEventListener("gamepadconnected", onGamepad);
+      installed = false;
+      teardown = null;
+    };
+  }
+
+  return {
+    modality: readonly(modality),
+    install,
+    setModality,
+    pin,
+  };
+}
+
+// Dev-only: remove the global listeners on hot update. No-op in production.
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => teardown?.());
+}

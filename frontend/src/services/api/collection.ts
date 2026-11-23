@@ -15,7 +15,7 @@ type VirtualCollection = VirtualCollectionSchema;
 type SmartCollection = SmartCollectionSchema;
 
 export type UpdatedCollection = Collection & {
-  artwork?: File;
+  artwork?: File | undefined;
   url_cover?: string | null;
 };
 
@@ -179,6 +179,30 @@ async function deleteSmartCollection(id: number) {
   return api.delete(`/collections/smart/${id}`);
 }
 
+async function setCollectionVisibility({
+  id,
+  isPublic,
+}: {
+  id: number;
+  isPublic: boolean;
+}) {
+  return api.put<Collection>(`/collections/${id}/visibility`, {
+    is_public: isPublic,
+  });
+}
+
+async function setSmartCollectionVisibility({
+  id,
+  isPublic,
+}: {
+  id: number;
+  isPublic: boolean;
+}) {
+  return api.put<SmartCollection>(`/collections/smart/${id}/visibility`, {
+    is_public: isPublic,
+  });
+}
+
 export default {
   createCollection,
   createSmartCollection,
@@ -194,4 +218,6 @@ export default {
   getSmartCollection,
   updateSmartCollection,
   deleteSmartCollection,
+  setCollectionVisibility,
+  setSmartCollectionVisibility,
 };

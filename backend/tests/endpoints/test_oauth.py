@@ -1,7 +1,11 @@
+import asyncio
+
+import pytest
 from fastapi import status
 from fastapi.exceptions import HTTPException
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
+from handler.auth.base_handler import auth_handler
 from handler.auth.constants import EDIT_SCOPES
 
 
@@ -19,6 +23,14 @@ def test_refreshing_oauth_token_basic(client, refresh_token):
     assert body["access_token"]
     assert body["token_type"] == "bearer"
     assert body["expires"] == OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
+
+
+def test_the_schema_token_url_is_the_token_route(client):
+    """Clients such as Swagger UI's Authorize button request tokens from this URL."""
+    schemes = client.app.openapi()["components"]["securitySchemes"]
+    password_flow = schemes["OAuth2PasswordBearer"]["flows"]["password"]
+
+    assert password_flow["tokenUrl"] == client.app.url_path_for("token")
 
 
 def test_refreshing_oauth_token_without_refresh_token(client):
@@ -103,6 +115,35 @@ def test_auth_via_upass(client, admin_user):
     assert body["refresh_token"]
     assert body["token_type"] == "bearer"
     assert body["expires"] == OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
+
+
+def test_auth_via_upass_checks_password_off_event_loop(
+    client, admin_user, monkeypatch: pytest.MonkeyPatch
+):
+    on_loop: list[bool] = []
+    verify_password = auth_handler.verify_password
+
+    def recording_verify_password(plain: str, hashed: str | None) -> bool:
+        try:
+            asyncio.get_running_loop()
+            on_loop.append(True)
+        except RuntimeError:
+            on_loop.append(False)
+        return verify_password(plain, hashed)
+
+    monkeypatch.setattr(auth_handler, "verify_password", recording_verify_password)
+
+    response = client.post(
+        "/api/token",
+        data={
+            "grant_type": "password",
+            "username": "test_admin",
+            "password": "test_admin_password",
+        },
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert on_loop == [False]
 
 
 def test_auth_via_upass_with_invalid_credentials(client, admin_user):

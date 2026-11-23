@@ -9,9 +9,21 @@ import { buildFormInput } from "@/utils/formData";
 
 export const stateApi = api;
 
+/** States are named after the ROM and the local time the core was serialized. */
+export function sessionStateName(
+  rom: { fs_name_no_ext: string },
+  capturedAt: Date,
+): string {
+  const pad = (value: number, length = 2) =>
+    String(value).padStart(length, "0");
+  const date = `${capturedAt.getFullYear()}-${pad(capturedAt.getMonth() + 1)}-${pad(capturedAt.getDate())}`;
+  const time = `${pad(capturedAt.getHours())}-${pad(capturedAt.getMinutes())}-${pad(capturedAt.getSeconds())}-${pad(capturedAt.getMilliseconds(), 3)}`;
+  return `${rom.fs_name_no_ext.trim()} [${date} ${time}]`;
+}
+
 type StateUploadInput = Omit<AddStateInput, "stateFile" | "screenshotFile"> & {
   stateFile: File;
-  screenshotFile?: File;
+  screenshotFile?: File | undefined;
 };
 
 type UpdateStateUploadInput = Omit<
@@ -19,17 +31,19 @@ type UpdateStateUploadInput = Omit<
   "stateFile" | "screenshotFile"
 > & {
   stateFile: File;
-  screenshotFile?: File;
+  screenshotFile?: File | undefined;
 };
 
 async function uploadStates({
   rom,
   statesToUpload,
   emulator,
+  deviceId,
 }: {
-  rom: DetailedRomSchema;
+  rom: Pick<DetailedRomSchema, "id">;
   statesToUpload: StateUploadInput[];
-  emulator?: string;
+  emulator?: string | undefined;
+  deviceId?: string | undefined;
 }) {
   const promises = statesToUpload.map(({ stateFile, screenshotFile }) => {
     const formData = buildFormInput<StateUploadInput>([
@@ -43,7 +57,7 @@ async function uploadStates({
           headers: {
             "Content-Type": "multipart/form-data",
           },
-          params: { rom_id: rom.id, emulator },
+          params: { rom_id: rom.id, emulator, device_id: deviceId },
         })
         .then(({ data }) => {
           resolve(data);
@@ -90,9 +104,40 @@ async function setStateVisibility({
   });
 }
 
+async function setStateFavorite({
+  id,
+  isFavorite,
+}: {
+  id: number;
+  isFavorite: boolean;
+}) {
+  return api.put<StateSchema>(`/states/${id}/favorite`, {
+    is_favorite: isFavorite,
+  });
+}
+
+async function setStateLabels({
+  id,
+  labels,
+}: {
+  id: number;
+  labels: string[];
+}) {
+  return api.put<StateSchema>(`/states/${id}/labels`, { labels });
+}
+
+async function renameState({ id, fileName }: { id: number; fileName: string }) {
+  return api.put<StateSchema>(`/states/${id}/file-name`, {
+    file_name: fileName,
+  });
+}
+
 export default {
   uploadStates,
   updateState,
   deleteStates,
   setStateVisibility,
+  setStateFavorite,
+  setStateLabels,
+  renameState,
 };

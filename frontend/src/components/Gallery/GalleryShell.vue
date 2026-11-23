@@ -1,0 +1,1498 @@
+<script setup lang="ts">
+// GalleryShell: shared layout for Platform / Search / Collection.
+//
+// Three structural sections, top to bottom, in the page's flow; the document
+// scrolls, as on every other page:
+//   1. HEADER: view-supplied via `#header` slot. Whatever the view
+//                wants there: an InfoPanel with platform / collection
+//                metadata, a plain PageHeader for Search, etc.
+//   2. TOOLBAR: search input + group/layout/dock controls. Sticky right
+//                below the top bar; once pinned it shares one glass surface
+//                with the top bar, so cards blur behind both.
+//   3. GRID / TABLE: the row-virtualised content (cards in grid mode,
+//                div-based rows in list mode, same AlphaStrip wiring; the
+//                list column header is sticky below the toolbar).
+//
+// Cross-view behaviour owned by the shell: the virtualizer, sticky
+// glass toolbar + sticky list column header, AlphaStrip,
+// grid per-row dwell-debounced prefetch, scroll restoration,
+// search-input debounce, URL filter sync. Each view supplies its
+// header and its own resource-load flow. List rows own their per-row
+// fetch lifecycle internally (mount = entered overscan window).
+import {
+  useDebounceFn,
+  useEventListener,
+  useElementSize,
+  useIntersectionObserver,
+} from "@vueuse/core";
+import { storeToRefs } from "pinia";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  ref,
+  watch,
+  watchEffect,
+} from "vue";
+import { useI18n } from "vue-i18n";
+import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute } from "vue-router";
+import AlphaJumpMenu from "@/components/Gallery/AlphaJumpMenu.vue";
+import AlphaStrip from "@/components/Gallery/AlphaStrip.vue";
+import BackToTopButton from "@/components/Gallery/BackToTopButton.vue";
+import FilterDrawer from "@/components/Gallery/FilterDrawer.vue";
+import GalleryToolbar from "@/components/Gallery/GalleryToolbar.vue";
+import GameListHeader from "@/components/Gallery/GameListHeader.vue";
+import GameListRow from "@/components/Gallery/GameListRow.vue";
+import GameListSkeletonRow from "@/components/Gallery/GameListSkeletonRow.vue";
+import SelectionBar from "@/components/Gallery/SelectionBar.vue";
+import {
+  getListColumns,
+  getListMinWidth,
+  getSortOptions,
+  isListSortKey,
+  LIST_HEADER_HEIGHT_PX,
+  LIST_ROW_PAD_X_PX,
+  type ListSortKey,
+} from "@/components/Gallery/listColumns";
+import { GameCard, GameCardSkeleton } from "@/components/GameCard";
+import PageHeadBand from "@/components/shared/PageHeadBand.vue";
+import { useBreakpoint } from "@/composables/useBreakpoint";
+import { coverRatio, isBoxartStyle } from "@/composables/useCoverArt";
+import { useCssLength } from "@/composables/useCssLength";
+import { useDebouncedSearch } from "@/composables/useDebouncedSearch";
+import { useDebugMode } from "@/composables/useDebugMode";
+import { useGalleryCoverRatios } from "@/composables/useGalleryCoverRatios";
+import { useGalleryFilterUrl } from "@/composables/useGalleryFilterUrl";
+import { useGalleryMode } from "@/composables/useGalleryMode";
+import { useGalleryOrderUrl } from "@/composables/useGalleryOrderUrl";
+import { useGallerySelectAll } from "@/composables/useGallerySelectAll";
+import { useGallerySelectionInput } from "@/composables/useGallerySelectionInput";
+import { useGalleryViewModeUrl } from "@/composables/useGalleryViewModeUrl";
+import {
+  useGalleryVirtualItems,
+  type GalleryItem,
+} from "@/composables/useGalleryVirtualItems";
+import { useGridNav } from "@/composables/useGridNav";
+import { useListExpansion } from "@/composables/useListExpansion";
+import { usePinnedToolbar } from "@/composables/usePinnedToolbar";
+import { useResponsiveColumns } from "@/composables/useResponsiveColumns";
+import {
+  RESULT_ID_ATTR,
+  useResultsTransition,
+} from "@/composables/useResultsTransition";
+import { useUISettings } from "@/composables/useUISettings";
+import { useVirtualScrollDebug } from "@/composables/useVirtualScrollDebug";
+import { useWebpSupport } from "@/composables/useWebpSupport";
+import { REmptyState, RLetterHeading, RVirtualScroller } from "@/lib";
+import storeGalleryFilter from "@/stores/galleryFilter";
+import storeGalleryRoms, {
+  DEFAULT_ORDER_BY,
+  type GalleryOrderKey,
+  orderSupportsLetters,
+} from "@/stores/galleryRoms";
+import storeGallerySelection from "@/stores/gallerySelection";
+import storeScrollRestoration from "@/stores/scrollRestoration";
+import { isEditable } from "@/utils/editable";
+
+interface Props {
+  /** Whether the header slot has content to render. False suppresses
+   * the header (the prepend band collapses; toolbar pins immediately). */
+  hasHeader: boolean;
+  /** Toolbar's search-input placeholder. */
+  searchPlaceholder: string;
+  /** Focus the toolbar's search field on mount. */
+  autofocusSearch?: boolean;
+  /** Empty-state message shown when the gallery resolves with zero items. */
+  emptyMessage: string;
+  /** Empty-state icon, shared with not-found mode. */
+  emptyIcon?: string;
+  /** "Not found" mode: replaces all body items with a single empty row. */
+  notFound?: boolean;
+  /** Override the empty-state message in not-found mode. */
+  notFoundMessage?: string | undefined;
+  /** Whether GameCards should display the platform badge corner (Search /
+   * Collection: yes; Platform: no, since the cards already share a platform). */
+  showPlatformBadge?: boolean;
+  /** Skeleton row count painted while the very first window is loading. */
+  skeletonRowCount?: number;
+  /** Surface the platforms multi-select inside the filter drawer.
+   *  False for single-platform views (Platform.vue) where the platform
+   *  context is fixed; true for cross-platform views (Collection, Search). */
+  showPlatformsInFilter?: boolean;
+  /** Include the `platform` column in list mode. False on Platform.vue
+   * (every row shares the same platform); true on cross-platform views
+   * (Search, Collection, Missing games) where the column carries info. */
+  showPlatformColumn?: boolean;
+  /** Sort applied while the URL names none. `null` orders by search
+   * relevance (Search). */
+  defaultOrderBy?: GalleryOrderKey | null;
+  /** Game count of the unfiltered gallery, shown against the result count
+   *  while a search or filter narrows it. Unset hides the count. */
+  scopeTotal?: number | undefined;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  autofocusSearch: false,
+  emptyIcon: "mdi-gamepad-variant-outline",
+  notFound: false,
+  notFoundMessage: undefined,
+  showPlatformBadge: true,
+  skeletonRowCount: 4,
+  showPlatformsInFilter: true,
+  showPlatformColumn: true,
+  defaultOrderBy: DEFAULT_ORDER_BY,
+  scopeTotal: undefined,
+});
+
+defineSlots<{
+  /** View-specific header (InfoPanel / PageHeader / etc). Rendered in
+   * the scroller's `#prepend` slot, so it scrolls naturally with the rest
+   * of the content. Must NOT carry a divider of its own; the shell sets it
+   * in a PageHeadBand, which paints the divider. */
+  header(): unknown;
+}>();
+
+useGalleryFilterUrl();
+useGalleryOrderUrl(props.defaultOrderBy);
+useGalleryViewModeUrl();
+
+const { t } = useI18n();
+const route = useRoute();
+const galleryRoms = storeGalleryRoms();
+const galleryFilterStore = storeGalleryFilter();
+const gallerySelection = storeGallerySelection();
+const selectionInput = useGallerySelectionInput();
+const scrollRestoration = storeScrollRestoration();
+const {
+  searchTerm,
+  filterMatched,
+  filterFavorites,
+  filterDuplicates,
+  filterPlayables,
+  filterMissing,
+  filterPhysical,
+  filterVerified,
+  filterRA,
+  filterSaves,
+  filterStates,
+  filterSoundtrack,
+  selectedPlatforms,
+  selectedGenres,
+  selectedFranchises,
+  selectedCollections,
+  selectedCompanies,
+  selectedPublishers,
+  selectedDevelopers,
+  selectedAgeRatings,
+  selectedRegions,
+  selectedLanguages,
+  selectedPlayerCounts,
+  selectedMetadataProviders,
+  selectedTags,
+  selectedStatuses,
+  genresLogic,
+  franchisesLogic,
+  collectionsLogic,
+  companiesLogic,
+  publishersLogic,
+  developersLogic,
+  ageRatingsLogic,
+  regionsLogic,
+  languagesLogic,
+  playerCountsLogic,
+  metadataProvidersLogic,
+  tagsLogic,
+  statusesLogic,
+  selectedLengthMinHours,
+  selectedLengthMaxHours,
+} = storeToRefs(galleryFilterStore);
+
+// Drawer open state, bound to FilterDrawer via v-model.
+const filterDrawerOpen = ref(false);
+
+// Active filter count: drives the toolbar badge. Counts each
+// boolean/tri-state filter that's set, plus each multi-select group
+// with at least one selection. Mirrors `FilterDrawer`'s own count so
+// the badge agrees with the drawer header.
+const filterActiveCount = computed(() => {
+  let n = 0;
+  if (filterMatched.value !== null) n += 1;
+  if (filterFavorites.value !== null) n += 1;
+  if (filterDuplicates.value !== null) n += 1;
+  if (filterPlayables.value !== null) n += 1;
+  if (filterMissing.value !== null) n += 1;
+  if (filterPhysical.value !== null) n += 1;
+  if (filterVerified.value !== null) n += 1;
+  if (filterRA.value !== null) n += 1;
+  if (filterSaves.value !== null) n += 1;
+  if (filterStates.value !== null) n += 1;
+  if (filterSoundtrack.value !== null) n += 1;
+  if (selectedPlatforms.value.length > 0) n += 1;
+  for (const arr of [
+    selectedGenres,
+    selectedFranchises,
+    selectedCollections,
+    selectedCompanies,
+    selectedPublishers,
+    selectedDevelopers,
+    selectedAgeRatings,
+    selectedRegions,
+    selectedLanguages,
+    selectedPlayerCounts,
+    selectedMetadataProviders,
+    selectedTags,
+    selectedStatuses,
+  ]) {
+    if (arr.value.length > 0) n += 1;
+  }
+  if (
+    selectedLengthMinHours.value !== null ||
+    selectedLengthMaxHours.value !== null
+  ) {
+    n += 1;
+  }
+  return n;
+});
+
+// The initial URL hydration in `useGalleryFilterUrl` runs before this watch
+// is set up, so it does not echo here.
+watch(
+  [
+    searchTerm,
+    filterMatched,
+    filterFavorites,
+    filterDuplicates,
+    filterPlayables,
+    filterMissing,
+    filterPhysical,
+    filterVerified,
+    filterRA,
+    filterSaves,
+    filterStates,
+    filterSoundtrack,
+    selectedPlatforms,
+    selectedGenres,
+    selectedFranchises,
+    selectedCollections,
+    selectedCompanies,
+    selectedPublishers,
+    selectedDevelopers,
+    selectedAgeRatings,
+    selectedRegions,
+    selectedLanguages,
+    selectedPlayerCounts,
+    selectedMetadataProviders,
+    selectedTags,
+    selectedStatuses,
+    genresLogic,
+    franchisesLogic,
+    collectionsLogic,
+    companiesLogic,
+    publishersLogic,
+    developersLogic,
+    ageRatingsLogic,
+    regionsLogic,
+    languagesLogic,
+    playerCountsLogic,
+    metadataProvidersLogic,
+    tagsLogic,
+    statusesLogic,
+    selectedLengthMinHours,
+    selectedLengthMaxHours,
+  ],
+  () => {
+    void galleryRoms.refreshResults(commitRefresh);
+  },
+  { deep: true },
+);
+
+const { supportsWebp } = useWebpSupport();
+
+const { total, charIndex, initialFetching, refreshing, orderBy, orderDir } =
+  storeToRefs(galleryRoms);
+
+// A narrowed gallery shows how many of its games match inside the search field.
+const searchSuffix = computed(() =>
+  props.scopeTotal !== undefined &&
+  (filterActiveCount.value > 0 || searchTerm.value) &&
+  galleryRoms.metadataLoaded
+    ? t("gallery.results-of-total", {
+        count: total.value,
+        total: props.scopeTotal,
+      })
+    : undefined,
+);
+
+const { groupBy, layout, toolbarPosition } = useGalleryMode();
+
+// Rows pack into the scroller's content box, already inside its gutters, strip
+// column and scrollbar. Card width tracks the breakpoint:
+//   card   = matches the `--r-card-art-w` the shell sets per breakpoint
+//            (108 on xs, 158 otherwise) so the JS row-chunking and the
+//            CSS grid `minmax(--r-card-art-w, 1fr)` stay in lock-step.
+const { xs, smAndDown } = useBreakpoint();
+const sectionEl = ref<HTMLElement | null>(null);
+const { width: sectionWidth } = useElementSize(sectionEl);
+const navHeight = useCssLength("var(--r-nav-h)");
+const scrollerRef = ref<InstanceType<typeof RVirtualScroller> | null>(null);
+const scrollerEl = computed(() => scrollerRef.value?.containerEl ?? null);
+// A jump to "M" means nothing unless the gallery is in letter order.
+const lettersSupported = computed(() => {
+  const key = galleryRoms.effectiveOrderBy;
+  return key !== null && orderSupportsLetters(key);
+});
+const stripVisible = computed(() => !smAndDown.value && lettersSupported.value);
+const jumpMenuVisible = computed(
+  () => smAndDown.value && lettersSupported.value,
+);
+// Card-art width reference (matches GameCard's `--r-card-art-w`); sets the
+// fixed card HEIGHT (a 2/3 cover at this width). Real width follows the ratio.
+const CARD_GAP_PX = 12;
+const cardWidth = () => (xs.value ? 130 : 158);
+const cardHeight = () => Math.round(cardWidth() / (2 / 3));
+const { columns, usableWidth } = useResponsiveColumns(scrollerEl, {
+  cardWidth,
+  gap: CARD_GAP_PX,
+});
+
+// Fallback cover ratio (boxart style); the per-card `--r-cover-ratio` seed
+// before GameCover measures the real image, plus the bootstrap skeletons.
+// The flow-packer takes it too (`fallbackRatio`): a card with no artwork
+// paints its placeholder at this ratio and never reports a measured one, so
+// packing it as box art would under-reserve its width and overflow the row.
+const { boxartStyle } = useUISettings();
+const coverAspectRatio = computed(() =>
+  coverRatio(
+    isBoxartStyle(boxartStyle.value) ? boxartStyle.value : "cover_path",
+  ),
+);
+
+// Measured natural cover ratios feeding the flow-packer; GameCard reports
+// each cover's ratio on load (`onCardRatio`), the packer reads `ratioAt`,
+// and `ratioVersion` bumps (debounced) to trigger a single re-pack.
+const { ratioVersion, ratioAt, onCardRatio } = useGalleryCoverRatios();
+
+// The list row's natural min-width (all fixed tracks + the title floor). Fed
+// to the virtual scroller as `minContentWidth` in list mode so a viewport
+// narrower than the columns scrolls the list HORIZONTALLY instead of clipping
+// them. Also drives the sticky column header's width so it scrolls in step.
+// Less the rows' leading padding, which sits in the gutter they bleed into.
+const listMinWidth = computed(
+  () => getListMinWidth(props.showPlatformColumn) - LIST_ROW_PAD_X_PX,
+);
+
+// Compact list rows (phones / tablets) open one detail panel at a time; the
+// virtualiser reads the same position to give that row its taller slot.
+const listExpansion = useListExpansion();
+// A new result puts another game at the open panel's position.
+watch(
+  [layout, smAndDown, () => galleryRoms.resultEpoch],
+  listExpansion.collapse,
+);
+
+// 2D arrow / gamepad nav for both layouts of the gallery. Two passes:
+//   * Grid mode: rows are `.r-shell__row` (the per-virtualizer-item
+//     wrapper around the row's GameCards). ArrowLeft/Right within a row,
+//     ArrowUp/Down jumps to the same column in the next row.
+//   * List mode: each `.game-list-row` is both row and cell. ArrowLeft/
+//     Right is no-op (single cell per row); ArrowUp/Down moves between
+//     rows.
+// Both call sites resolve `current()` against the same focused element
+// and only the matching one actually moves focus, so they don't fight.
+// Virtualised rows past the overscan window simply aren't in the DOM, so
+// nav clamps at the boundary; scrolling past mounts more rows.
+function revealEdge(edge: "first" | "last") {
+  scrollToItem(edge === "first" ? 0 : virtualItems.value.length - 1, false);
+}
+useGridNav(sectionEl, {
+  rowSelector: ".r-shell__row",
+  roving: true,
+  revealEdge,
+});
+useGridNav(sectionEl, {
+  rowSelector: ".game-list-row",
+  getCells: (row) => [row],
+  roving: true,
+  revealEdge,
+});
+
+// A known result, empty included, stays on screen through a refresh.
+const loadingInitial = computed(
+  () =>
+    (initialFetching.value || refreshing.value) &&
+    total.value === 0 &&
+    !galleryRoms.metadataLoaded,
+);
+
+const notFoundRef = computed(() => props.notFound);
+// An empty result under a search or filters says why, not that the view is empty.
+const emptyMessageRef = computed(() => {
+  // Names the search the displayed result answers, not one still loading.
+  const shownTerm = galleryRoms.resultParams
+    ? galleryRoms.resultParams.searchTerm
+    : searchTerm.value;
+  if (shownTerm) {
+    return t("rom.no-games-match-query", { query: shownTerm });
+  }
+  if (filterActiveCount.value > 0) return t("rom.no-games-match-filters");
+  return props.emptyMessage;
+});
+const notFoundMessageRef = computed(
+  () => props.notFoundMessage ?? props.emptyMessage,
+);
+
+const { virtualItems, letterToIndex, availableLetters, getItemHeight } =
+  useGalleryVirtualItems({
+    layout,
+    groupBy,
+    total,
+    charIndex,
+    columns,
+    loadingInitial,
+    emptyMessage: emptyMessageRef,
+    notFound: notFoundRef,
+    notFoundMessage: notFoundMessageRef,
+    skeletonRowCount: props.skeletonRowCount,
+    cardHeight,
+    rowWidth: usableWidth,
+    gap: CARD_GAP_PX,
+    ratioAt,
+    ratioVersion,
+    listSettledDetail: listExpansion.settledPanelHeight,
+    fallbackRatio: coverAspectRatio,
+  });
+
+// Where the open row sits in the packed list. Recomputed when a row opens or
+// the list re-packs, never on the animation's frames.
+const expandedIndex = computed(() => {
+  const position = listExpansion.expandedPosition.value;
+  if (position == null) return -1;
+  return virtualItems.value.findIndex(
+    (item) => item.kind === "list-row" && item.position === position,
+  );
+});
+const listOffsetShift = computed(() =>
+  expandedIndex.value < 0
+    ? undefined
+    : { fromIndex: expandedIndex.value, px: listExpansion.shiftPx.value },
+);
+
+// ── Toolbar ─────────────────────────────────────────────────────────
+const scrollTopNow = computed(() => scrollerRef.value?.scrollTop ?? 0);
+const { toolbarHeight, pinDistance, pinned, bindToolbar, bindSentinel } =
+  usePinnedToolbar();
+// The floating dock leaves no toolbar to pin, so a sentinel above the column
+// header marks when that header reaches the top bar.
+const listHeaderSentinel = ref<HTMLElement | null>(null);
+const listHeaderAtTop = ref(false);
+useIntersectionObserver(
+  listHeaderSentinel,
+  ([entry]) => {
+    listHeaderAtTop.value =
+      !!entry?.rootBounds &&
+      !entry.isIntersecting &&
+      entry.boundingClientRect.top < entry.rootBounds.top;
+  },
+  { rootMargin: () => `-${navHeight.value}px 0px 0px 0px` },
+);
+const listHeaderPinned = computed(() =>
+  toolbarPosition.value === "floating" ? listHeaderAtTop.value : pinned.value,
+);
+// The AlphaStrip follows the toolbar down until it pins: a scroll-driven
+// animation, else a style write on the strip alone.
+const supportsScrollTimeline =
+  typeof CSS !== "undefined" && CSS.supports("animation-timeline: scroll()");
+const stripRef = ref<InstanceType<typeof AlphaStrip> | null>(null);
+if (!supportsScrollTimeline) {
+  const stripShift = computed(() =>
+    Math.max(0, pinDistance.value - scrollTopNow.value),
+  );
+  watchEffect(() => {
+    (stripRef.value?.$el as HTMLElement | undefined)?.style.setProperty(
+      "--r-shell-strip-shift",
+      `${stripShift.value}px`,
+    );
+  });
+}
+
+// ── Viewport range / AlphaStrip / dwell prefetch ────────────────────
+const viewportRange = ref<{ first: number; last: number }>({
+  first: 0,
+  last: -1,
+});
+function onViewportRangeChange(range: { first: number; last: number }) {
+  viewportRange.value = range;
+  void scheduleFetchSync(range);
+}
+
+// A budget in cards, not rows: every mounted card is restyled each frame, so a
+// row count would cost far more on wide screens than on phones.
+const GRID_OVERSCAN_CARDS = 12;
+const GRID_OVERSCAN_MIN_ROWS = 2;
+const GRID_OVERSCAN_MAX_ROWS = 20;
+const LIST_OVERSCAN_ROWS = 12;
+
+const virtualOverscan = computed(() => {
+  if (layout.value === "list") return LIST_OVERSCAN_ROWS;
+
+  const cardsPerRow = Math.max(1, columns.value);
+  const rows = Math.round(GRID_OVERSCAN_CARDS / cardsPerRow);
+  if (rows < GRID_OVERSCAN_MIN_ROWS) return GRID_OVERSCAN_MIN_ROWS;
+  if (rows > GRID_OVERSCAN_MAX_ROWS) return GRID_OVERSCAN_MAX_ROWS;
+  return rows;
+});
+
+// ── Debug overlay bridge ────────────────────────────────────────────
+// Publish the virtual scroller's window stats so the global DebugOverlay
+// can show whether windowing is actually trimming the DOM as you scroll.
+// Gated on `debugMode`: when off the effect early-returns before reading
+// any scroll state, so it never re-runs on scroll (zero runtime cost).
+const { enabled: debugMode } = useDebugMode();
+const virtualDebug = useVirtualScrollDebug();
+
+watchEffect(() => {
+  if (!debugMode.value) {
+    virtualDebug.clear();
+    return;
+  }
+  const items = virtualItems.value;
+  const total = items.length;
+  const vr = viewportRange.value;
+  const empty = total === 0 || vr.last < vr.first;
+  const overscan = virtualOverscan.value;
+  const first = empty ? 0 : Math.max(0, vr.first - overscan);
+  const last = empty ? -1 : Math.min(total - 1, vr.last + overscan);
+  // Count the cards actually mounted in the rendered window; grid rows fan
+  // out into many cards, so this is the real DOM weight (not just row count).
+  let renderedCards = 0;
+  for (let i = first; i <= last; i++) {
+    const it = items[i];
+    if (!it) continue;
+    if (it.kind === "row") renderedCards += it.endPosition - it.startPosition;
+    else if (it.kind === "skeleton-row") renderedCards += it.cards;
+    else renderedCards += 1;
+  }
+  virtualDebug.publish({
+    label: layout.value === "list" ? "gallery·list" : "gallery·grid",
+    total,
+    renderedRows: empty ? 0 : last - first + 1,
+    renderedCards,
+    viewportFirst: vr.first,
+    viewportLast: vr.last,
+    overscan,
+    scrollTop: scrollerRef.value?.scrollTop ?? 0,
+  });
+});
+
+const visibleLettersSet = computed<Set<string>>(() => {
+  const set = new Set<string>();
+  const r = viewportRange.value;
+  if (r.last < r.first) return set;
+  const items = virtualItems.value;
+  for (let i = r.first; i <= r.last; i++) {
+    const it = items[i];
+    if (!it) continue;
+    if (it.kind === "letter-header") set.add(it.letter);
+    else if (it.kind === "row") for (const l of it.letters) set.add(l);
+    else if (it.kind === "list-row") set.add(it.letter);
+  }
+  return set;
+});
+
+const currentLetter = computed<string>(() => {
+  const r = viewportRange.value;
+  if (r.last < r.first) return "";
+  const items = virtualItems.value;
+  for (let i = r.first; i <= r.last; i++) {
+    const it = items[i];
+    if (!it) continue;
+    if (it.kind === "letter-header") return it.letter;
+    if (it.kind === "row" && it.letters.length > 0) return it.letters[0]!;
+    if (it.kind === "list-row") return it.letter;
+  }
+  return "";
+});
+
+// Viewport-driven windowed fetch. The shell collects which positions are
+// currently visible (from the rows in `viewportRange`, for both grid and
+// list layouts) and hands them to the store's `syncVisibleWindows`, which
+// aligns each to its shared 72-item window, dedupes, starts the windows
+// covering the viewport, and cancels any that scrolled out of view.
+// Batching visible cards into a handful of paginated `getRoms` requests
+// (instead of one request per card) is what keeps a fast scroll, or two
+// users scrolling at once, from flooding the single-worker backend.
+//
+// A small debounce on viewport changes prevents fire-and-cancel storms
+// during smooth scrolling; only when the viewport settles for
+// `FETCH_DEBOUNCE_MS` do we sync. Both layouts share this one path, so the
+// list is debounced too (list rows no longer self-fetch on mount).
+const FETCH_DEBOUNCE_MS = 80;
+
+function collectVisiblePositions(range: {
+  first: number;
+  last: number;
+}): Set<number> {
+  const out = new Set<number>();
+  if (range.last < range.first) return out;
+  const items = virtualItems.value;
+  for (let i = range.first; i <= range.last; i++) {
+    const it = items[i];
+    if (!it) continue;
+    // Grid rows fan out into a contiguous run of card positions; list rows
+    // carry a single position each.
+    if (it.kind === "row") {
+      for (let p = it.startPosition; p < it.endPosition; p++) out.add(p);
+    } else if (it.kind === "list-row") {
+      out.add(it.position);
+    }
+  }
+  return out;
+}
+
+function syncFetches(range: { first: number; last: number }) {
+  galleryRoms.syncVisibleWindows(collectVisiblePositions(range));
+}
+
+const scheduleFetchSync = useDebounceFn(syncFetches, FETCH_DEBOUNCE_MS);
+
+// When the virtualItems list itself changes (gallery context switch,
+// search invalidate), drop the pending debounced sync. The store's
+// `invalidateWindows` / `resetGallery` already aborts every in-flight
+// request, so we just clear local state.
+watch(virtualItems, async (_items, _prev, onCleanup) => {
+  scheduleFetchSync.cancel();
+  // Re-sync against the current viewport so visible rows in the new
+  // context start fetching immediately (no debounce: items just
+  // changed, the user is staring at skeletons).
+  let superseded = false;
+  onCleanup(() => (superseded = true));
+  // Lets a scroll reset in the same swap report its range first.
+  await nextTick();
+  // A rerun owns the sync, and an unmount already aborted the fetches.
+  if (superseded) return;
+  syncFetches(viewportRange.value);
+});
+
+// A jump holds its letter under the toolbar until the user scrolls again, so
+// a slow landing window still ends up anchored. The cap covers the viewer who
+// walks away mid-jump.
+const LETTER_JUMP_MAX_MS = 15000;
+const jumpLetter = ref<string | null>(null);
+let jumpDeadline = 0;
+
+function anchorLetter(letter: string, smooth: boolean) {
+  const idx = letterToIndex.value.get(letter);
+  if (idx == null) return;
+  scrollToItem(idx, smooth);
+}
+
+// Rows land below the top bar, in either dock.
+function stickyOffset(): number {
+  return (
+    navHeight.value +
+    toolbarHeight.value +
+    (layout.value === "list" ? LIST_HEADER_HEIGHT_PX : 0)
+  );
+}
+
+function scrollToItem(idx: number, smooth: boolean) {
+  scrollerRef.value?.scrollToIndex(idx, {
+    smooth,
+    stickyOffset: stickyOffset(),
+  });
+}
+
+// Content scrolls under the phone bottom nav, which only renders below md.
+const bottomChromeHeight = useCssLength(
+  "calc(var(--r-bottom-nav-h) + var(--r-safe-b))",
+);
+
+const resultsTransition = useResultsTransition({
+  container: () => scrollerRef.value?.containerEl ?? null,
+  visibleTop: stickyOffset,
+  visibleBottom: () =>
+    window.innerHeight - (smAndDown.value ? bottomChromeHeight.value : 0),
+  rows: () => layout.value === "list",
+});
+
+function commitRefresh(apply: () => boolean): Promise<void> {
+  return resultsTransition.run(() => {
+    if (!apply()) return false;
+    endLetterJump();
+    // A new result reads from its first row, not the old scroll depth.
+    scrollerRef.value?.scrollTo(0);
+    return true;
+  });
+}
+
+function scrollToLetter(letter: string) {
+  jumpLetter.value = letter;
+  jumpDeadline = Date.now() + LETTER_JUMP_MAX_MS;
+  anchorLetter(letter, true);
+  // The viewport-driven fetch sync handles the destination; once the
+  // smooth scroll settles, `update:viewportRange` fires and the windows at
+  // the landing zone start loading via `syncFetches` (both layouts). No
+  // manual prefetch needed.
+}
+
+/** Gives the scroll back to the user, whatever a jump was still correcting. */
+function endLetterJump() {
+  jumpLetter.value = null;
+}
+
+/** The letter still worth correcting towards, or null once the cap is up. */
+function pendingJumpLetter(): string | null {
+  const letter = jumpLetter.value;
+  if (!letter) return null;
+  if (Date.now() > jumpDeadline) {
+    endLetterJump();
+    return null;
+  }
+  return letter;
+}
+
+// The smooth scroll animates towards the target the jump computed; anything
+// that moved meanwhile (a re-pack, the header rendering) leaves it short, so
+// settle onto the letter once the animation stops.
+function reanchorToJump() {
+  const letter = pendingJumpLetter();
+  if (letter) anchorLetter(letter, false);
+}
+useEventListener(document, "scrollend", reanchorToJump);
+
+// Three things move a letter out from under the toolbar after a jump: the
+// landing window arriving, the covers re-packing the rows, and the view header
+// rendering late. Re-anchor on each. Watching the packed items rather than
+// `letterToIndex` keeps that map lazy, built only when a jump needs it.
+watch(
+  [
+    virtualItems,
+    () => scrollerRef.value?.innerOffsetTop ?? 0,
+    () => galleryRoms.loadedWindows.size,
+  ],
+  reanchorToJump,
+);
+
+// ── Search filter (debounced) ───────────────────────────────────────
+const { input: searchInput, setSearch } = useDebouncedSearch(searchTerm);
+
+// ── Sort ──────────────────────────────────────────────────────────
+// Both affordances (list column headers, grid direction toggle) only
+// write the store; `useGalleryOrderUrl` mirrors it to the URL and the
+// watch below owns the refetch.
+const listSortKey = computed<ListSortKey | null>(() => {
+  const key = galleryRoms.effectiveOrderBy;
+  return isListSortKey(key) ? key : null;
+});
+
+function onListSort(payload: { key: ListSortKey; dir: "asc" | "desc" }) {
+  galleryRoms.setOrderBy(payload.key);
+  galleryRoms.setOrderDir(payload.dir);
+}
+
+// Search's relevance has no sort key; the other views have no unsorted order.
+const unsortedLabel = computed(() =>
+  props.defaultOrderBy === null ? t("gallery.sort-relevance") : undefined,
+);
+
+// The toolbar's sort axes, matching the list column headers.
+const sortOptions = computed(() => getSortOptions(props.showPlatformColumn));
+
+// Watching the store rather than refetching inside the handlers also
+// covers the URL-driven writes (back/forward, a pasted link). The
+// initial URL hydration runs before this watch is set up, so it does
+// not echo here.
+watch([orderBy, orderDir], () => {
+  void galleryRoms.refreshResults(commitRefresh);
+});
+
+// ── Scroll restoration ─────────────────────────────────────────────
+async function applyRestoredScroll() {
+  const saved = scrollRestoration.restore(route.fullPath);
+  if (saved == null) return;
+  await nextTick();
+  scrollerRef.value?.scrollTo(saved);
+}
+
+function saveCurrentScroll(routeFullPath: string) {
+  const scroller = scrollerRef.value;
+  if (scroller) scrollRestoration.save(routeFullPath, scroller.scrollTop);
+}
+
+onBeforeRouteUpdate((to, from) => {
+  saveCurrentScroll(from.fullPath);
+  // Search, filters, sort and view mode live in the query, so they
+  // navigate without leaving the gallery and keep the selection. Only a
+  // path change is a real context switch, where it would read as stale.
+  if (to.path === from.path) return;
+  gallerySelection.clear();
+});
+onBeforeRouteLeave((_to, from) => {
+  saveCurrentScroll(from.fullPath);
+  gallerySelection.clear();
+});
+
+// Whole-result select-all, shared with the SelectionBar button and
+// the list header checkbox.
+const { selectAll, selectingAll } = useGallerySelectAll();
+
+// Esc clears the selection, Ctrl/Cmd+A selects the whole result; both
+// skip editable elements so the search field's native Cmd+A survives.
+function onShellKey(e: KeyboardEvent) {
+  if (isEditable(e.target)) return;
+  // `selectingAll` keeps Esc working while a whole-result fetch is
+  // still in flight with nothing selected yet (clear() abandons it).
+  if (e.key === "Escape" && (gallerySelection.enabled || selectingAll.value)) {
+    e.preventDefault();
+    gallerySelection.clear();
+    return;
+  }
+  if ((e.ctrlKey || e.metaKey) && (e.key === "a" || e.key === "A")) {
+    e.preventDefault();
+    // A held chord repeats keydown at the OS rate; one trigger is enough.
+    if (!e.repeat) void selectAll();
+  }
+}
+
+useEventListener(window, "keydown", onShellKey);
+
+onBeforeUnmount(() => {
+  // A press still in flight would otherwise fire its timer into whatever
+  // replaces this gallery.
+  selectionInput.cancel();
+  // Selection is gallery-scoped: leaving the shell drops it so a
+  // navigation back to a non-gallery view (Home, Settings) doesn't
+  // keep stale picks alive.
+  gallerySelection.clear();
+  scheduleFetchSync.cancel();
+  // When leaving the gallery entirely, stop any in-flight window fetches so
+  // navigating away mid-scroll doesn't keep the network / backend busy.
+  // Keeps the hydrated cache so returning to the same gallery is instant.
+  galleryRoms.abortInFlight();
+  // Drop the debug stats so the overlay doesn't show stale gallery numbers
+  // on the next (non-gallery) route.
+  virtualDebug.clear();
+});
+
+// ── Slot helpers ────────────────────────────────────────────────────
+// Read the map directly: the store action's wrapper is a cost per call, and
+// each card calls this several times per render.
+function getRomAt(p: number) {
+  return galleryRoms.byPosition.get(p) ?? null;
+}
+
+function rowPositions(row: {
+  startPosition: number;
+  endPosition: number;
+}): number[] {
+  const out: number[] = [];
+  for (let p = row.startPosition; p < row.endPosition; p++) out.push(p);
+  return out;
+}
+
+type RowItem = Extract<GalleryItem, { kind: "row" }>;
+type LetterHeaderItem = Extract<GalleryItem, { kind: "letter-header" }>;
+type EmptyItem = Extract<GalleryItem, { kind: "empty" }>;
+type ListRowItem = Extract<GalleryItem, { kind: "list-row" }>;
+type SkeletonRowItem = Extract<GalleryItem, { kind: "skeleton-row" }>;
+const asRow = (i: GalleryItem) => i as RowItem;
+const asLetterHeader = (i: GalleryItem) => i as LetterHeaderItem;
+const asEmpty = (i: GalleryItem) => i as EmptyItem;
+const asListRow = (i: GalleryItem) => i as ListRowItem;
+const asSkeletonRow = (i: GalleryItem) => i as SkeletonRowItem;
+const itemKind = (i: GalleryItem) => i.kind;
+const listRowRomId = (i: GalleryItem) =>
+  i.kind === "list-row" ? getRomAt(i.position)?.id : undefined;
+
+// The desktop list header is the grid's first row; the compact one is a
+// toolbar above the grid.
+const listHeaderInGrid = computed(
+  () => layout.value === "list" && !smAndDown.value,
+);
+
+// The rows form one ARIA grid, which leaves out the page header and toolbar.
+const gridAttrs = computed(() => {
+  const items = virtualItems.value;
+  if (items.length === 0 && !listHeaderInGrid.value) return undefined;
+  const loaded = items.some((i) => i.kind === "row" || i.kind === "list-row");
+  return {
+    role: "grid",
+    "aria-label": t("common.games"),
+    "aria-multiselectable": true,
+    "aria-busy":
+      refreshing.value || (!loaded && !items.some((i) => i.kind === "empty")),
+    "data-stale": refreshing.value || undefined,
+    "aria-rowcount": items.length + (listHeaderInGrid.value ? 1 : 0),
+    "aria-colcount": listHeaderInGrid.value
+      ? getListColumns(props.showPlatformColumn).length
+      : undefined,
+  };
+});
+
+function rowIndex(index: number): number {
+  return index + 1 + (listHeaderInGrid.value ? 1 : 0);
+}
+
+// A list row is its own `role="row"`; skeletons stay out of the grid.
+function itemAttrs(item: GalleryItem, index: number) {
+  switch (item.kind) {
+    case "letter-header":
+    case "row":
+    case "empty":
+      return { role: "row", "aria-rowindex": rowIndex(index) };
+    case "skeleton-row":
+    case "skeleton-list-row":
+      return { "aria-hidden": true };
+    default:
+      return {};
+  }
+}
+
+function isRomSelected(position: number): boolean {
+  const rom = getRomAt(position);
+  return !!rom && gallerySelection.isSelected(rom.id);
+}
+
+// Stable identity for the virtualiser. Each GalleryItem carries a content-
+// derived `key` (`row-${start}`, `lh-${letter}`, `lr-${p}`, …); feeding it to
+// RVirtualScroller as `get-item-key` lets Vue MATCH rows across a re-pack and
+// MOVE the unchanged ones instead of patching by array index. Index-keying
+// (the default) reassigns every slot's content when a re-pack inserts/removes
+// a row above the viewport, remounting every visible card (image re-decode +
+// reveal). With identity keys, a moved row keeps its DOM and its inner cards
+// (keyed by `:key="p"`) patch in place. `unknown` matches the prop signature.
+const galleryItemKey = (item: unknown): string => (item as GalleryItem).key;
+
+// View-facing surface. Methods only; internal state stays internal.
+defineExpose({
+  /** Re-apply the previously-saved scroll position for the current route
+   * (typically called by the view at the end of its load flow). */
+  applyRestoredScroll,
+  /** Force-save the current scrollTop to a specific routeFullPath.
+   * The shell already saves on `onBeforeRouteUpdate` / `onBeforeRouteLeave`
+   * automatically; this is for one-off checkpoints. */
+  saveCurrentScroll,
+});
+</script>
+
+<template>
+  <section
+    ref="sectionEl"
+    class="r-shell"
+    :class="{
+      'r-shell--list': layout === 'list',
+      'r-shell--floating': toolbarPosition === 'floating',
+      'r-shell--no-strip': !stripVisible,
+    }"
+    :style="{
+      '--r-shell-toolbar-h': `${toolbarHeight}px`,
+      '--r-shell-pin-distance': `${pinDistance}px`,
+      '--r-cover-ratio': coverAspectRatio,
+      '--r-list-min-w': `${listMinWidth}px`,
+      '--r-shell-w': `${sectionWidth}px`,
+    }"
+  >
+    <RVirtualScroller
+      ref="scrollerRef"
+      page-scroll
+      :items="virtualItems"
+      :get-item-height="getItemHeight"
+      :get-item-key="galleryItemKey"
+      :offset-shift="listOffsetShift"
+      :overscan="virtualOverscan"
+      :min-content-width="
+        layout === 'list' && !smAndDown ? listMinWidth : undefined
+      "
+      class="r-shell__scroller"
+      :body-attrs="gridAttrs"
+      :tabindex="-1"
+      @wheel.passive="endLetterJump"
+      @pointerdown.passive="endLetterJump"
+      @keydown="endLetterJump"
+      @update:viewport-range="onViewportRangeChange"
+    >
+      <!-- HEADER (Section 1) + TOOLBAR (Section 2). The header scrolls
+           away under the top bar, and the toolbar pins right below it as a
+           glass strip. -->
+      <template #prepend>
+        <PageHeadBand
+          v-if="hasHeader"
+          class="r-shell__header"
+          :followed-by="toolbarPosition === 'header' ? 'toolbar' : 'content'"
+        >
+          <slot name="header" />
+        </PageHeadBand>
+
+        <template v-if="toolbarPosition === 'header'">
+          <div :ref="bindSentinel" aria-hidden="true" />
+          <div
+            :ref="bindToolbar"
+            class="r-shell__toolbar r-pinned-toolbar"
+            :class="{ 'r-pinned-toolbar--pinned': pinned }"
+          >
+            <GalleryToolbar
+              :group-by="groupBy"
+              :layout="layout"
+              :position="toolbarPosition"
+              :sort-dir="orderDir"
+              :sort-key="listSortKey"
+              :sort-key-items="sortOptions"
+              :unsorted-label="unsortedLabel"
+              :unsorted="galleryRoms.effectiveOrderBy === null"
+              show-search
+              :search="searchInput"
+              :search-placeholder="searchPlaceholder"
+              :search-suffix="searchSuffix"
+              :autofocus-search="autofocusSearch"
+              show-filter
+              :filter-active-count="filterActiveCount"
+              @update:group-by="groupBy = $event"
+              @update:layout="layout = $event"
+              @update:sort-dir="galleryRoms.setOrderDir"
+              @update:sort-key="galleryRoms.setOrderBy"
+              @update:search="setSearch"
+              @click:filter="filterDrawerOpen = true"
+            >
+              <template #actions>
+                <AlphaJumpMenu
+                  v-if="jumpMenuVisible"
+                  :available="availableLetters"
+                  :current="currentLetter"
+                  :direction="orderDir"
+                  @pick="scrollToLetter"
+                />
+              </template>
+            </GalleryToolbar>
+          </div>
+        </template>
+
+        <!-- LIST COLUMN HEADER: sticky below the toolbar in list mode.
+             Shares `LIST_GRID_TEMPLATE` with every GameListRow underneath
+             so columns align. Header click cycles asc/desc into the
+             store's orderBy/orderDir. -->
+        <template v-if="layout === 'list' && !listHeaderInGrid">
+          <div
+            v-if="toolbarPosition === 'floating'"
+            ref="listHeaderSentinel"
+            aria-hidden="true"
+          />
+          <GameListHeader
+            class="r-shell__list-header"
+            :class="{ 'r-pinned-list-header': listHeaderPinned }"
+            :sort-key="listSortKey"
+            :sort-dir="orderDir"
+            :show-platform-column="showPlatformColumn"
+            :unsorted-label="unsortedLabel"
+            :unsorted="galleryRoms.effectiveOrderBy === null"
+            @sort="onListSort"
+            @unsort="galleryRoms.setOrderBy(null)"
+          />
+        </template>
+      </template>
+
+      <template v-if="listHeaderInGrid" #head>
+        <div
+          v-if="toolbarPosition === 'floating'"
+          ref="listHeaderSentinel"
+          aria-hidden="true"
+        />
+        <GameListHeader
+          class="r-shell__list-header"
+          :class="{ 'r-pinned-list-header': listHeaderPinned }"
+          :sort-key="listSortKey"
+          :sort-dir="orderDir"
+          :show-platform-column="showPlatformColumn"
+          aria-rowindex="1"
+          :unsorted-label="unsortedLabel"
+          :unsorted="galleryRoms.effectiveOrderBy === null"
+          @sort="onListSort"
+          @unsort="galleryRoms.setOrderBy(null)"
+        />
+      </template>
+
+      <!-- GRID / TABLE (Section 3): letter-headers + rows of cards in
+           grid/grouped mode, or a single RTable in list mode. Skeleton
+           rows render while the first window is in flight. The empty
+           / not-found state replaces everything below the toolbar
+           with a single message. -->
+      <template #default="{ item, index }">
+        <div
+          class="r-shell__item"
+          v-bind="itemAttrs(item as GalleryItem, index)"
+          :[RESULT_ID_ATTR]="listRowRomId(item as GalleryItem)"
+        >
+          <RLetterHeading
+            v-if="itemKind(item as GalleryItem) === 'letter-header'"
+            role="rowheader"
+            :label="asLetterHeader(item as GalleryItem).letter"
+          />
+
+          <div
+            v-else-if="itemKind(item as GalleryItem) === 'row'"
+            class="r-shell__row"
+          >
+            <div
+              v-for="(p, slotIdx) in rowPositions(asRow(item as GalleryItem))"
+              :key="`${p}-${getRomAt(p)?.id ?? 'sk'}`"
+              role="gridcell"
+              class="r-shell__cell"
+              :aria-selected="getRomAt(p) ? isRomSelected(p) : undefined"
+            >
+              <GameCard
+                v-if="getRomAt(p)"
+                :[RESULT_ID_ATTR]="getRomAt(p)!.id"
+                class="r-card-fade"
+                :style="{ '--card-fade-i': slotIdx }"
+                :rom="getRomAt(p)!"
+                :webp="supportsWebp"
+                :show-platform-badge="showPlatformBadge"
+                selectable
+                :position="p"
+                @ratio="onCardRatio"
+              />
+              <GameCardSkeleton v-else />
+            </div>
+          </div>
+
+          <GameListRow
+            v-else-if="itemKind(item as GalleryItem) === 'list-row'"
+            :aria-rowindex="rowIndex(index)"
+            :position="asListRow(item as GalleryItem).position"
+            :webp="supportsWebp"
+            :show-platform-column="showPlatformColumn"
+            expandable
+            :expanded="
+              listExpansion.isExpanded(asListRow(item as GalleryItem).position)
+            "
+            :detail-height="
+              listExpansion.panelHeight(asListRow(item as GalleryItem).position)
+            "
+            @ratio="onCardRatio"
+            @toggle-expand="
+              listExpansion.toggle(asListRow(item as GalleryItem).position)
+            "
+          />
+
+          <GameListSkeletonRow
+            v-else-if="itemKind(item as GalleryItem) === 'skeleton-list-row'"
+            :show-platform-column="showPlatformColumn"
+          />
+
+          <div
+            v-else-if="itemKind(item as GalleryItem) === 'empty'"
+            role="gridcell"
+            class="r-shell__empty"
+          >
+            <REmptyState
+              :icon="emptyIcon"
+              :title="asEmpty(item as GalleryItem).message"
+            />
+          </div>
+
+          <div
+            v-else-if="itemKind(item as GalleryItem) === 'skeleton-row'"
+            class="r-shell__row"
+          >
+            <GameCardSkeleton
+              v-for="n in asSkeletonRow(item as GalleryItem).cards"
+              :key="`sk-${n}`"
+            />
+          </div>
+        </div>
+      </template>
+    </RVirtualScroller>
+
+    <!-- ALPHASTRIP: A-Z jump column on the right edge of the section.
+         Phones and tablets jump from the toolbar instead (AlphaJumpMenu). -->
+    <AlphaStrip
+      v-if="stripVisible"
+      ref="stripRef"
+      class="r-shell__strip"
+      :available="availableLetters"
+      :current="currentLetter"
+      :visible="visibleLettersSet"
+      :direction="orderDir"
+      @pick="scrollToLetter"
+    />
+
+    <BackToTopButton
+      v-if="!(smAndDown && gallerySelection.enabled)"
+      class="r-shell__back-to-top"
+      :root="sectionEl"
+      :scroll-top="scrollTopNow"
+      @scroll-to-top="endLetterJump"
+    />
+
+    <!-- FLOATING-DOCK TOOLBAR: the alternative dock; sits permanently
+         in the top-right and never scrolls. Mutually exclusive with
+         the in-scroller header dock above. -->
+    <GalleryToolbar
+      v-if="toolbarPosition === 'floating'"
+      class="r-shell__floating"
+      :group-by="groupBy"
+      :layout="layout"
+      :position="toolbarPosition"
+      :sort-dir="orderDir"
+      :sort-key="listSortKey"
+      :sort-key-items="sortOptions"
+      :unsorted-label="unsortedLabel"
+      :unsorted="galleryRoms.effectiveOrderBy === null"
+      show-filter
+      :filter-active-count="filterActiveCount"
+      @update:group-by="groupBy = $event"
+      @update:layout="layout = $event"
+      @update:sort-dir="galleryRoms.setOrderDir"
+      @update:sort-key="galleryRoms.setOrderBy"
+      @click:filter="filterDrawerOpen = true"
+    >
+      <template #actions>
+        <AlphaJumpMenu
+          v-if="jumpMenuVisible"
+          :available="availableLetters"
+          :current="currentLetter"
+          :direction="orderDir"
+          @pick="scrollToLetter"
+        />
+      </template>
+    </GalleryToolbar>
+
+    <!-- FILTER DRAWER: owned by the shell so every gallery view gets
+         it for free. Forwards `showPlatformsInFilter` from the view so
+         single-platform pages can hide the platform multi-select. -->
+    <FilterDrawer
+      v-model="filterDrawerOpen"
+      :show-platforms-filter="showPlatformsInFilter"
+    />
+
+    <!-- SELECTION BAR: floating bottom panel surfaced whenever the
+         user has selected at least one ROM. Owns the bulk actions
+         (favorite, collections, download, refresh, delete). Stays
+         outside the scroller so it never scrolls away. -->
+    <SelectionBar />
+  </section>
+</template>
+
+<style scoped>
+.r-shell {
+  /* AlphaStrip footprint = letter column (`--r-alpha-strip-w`, a global
+     token) + gap to the viewport edge. */
+  --r-alpha-strip-gap: var(--r-space-3);
+  /* The strip's footprint, added to the scroller's right gutter. */
+  --r-shell-strip: calc(var(--r-alpha-strip-w) + var(--r-alpha-strip-gap));
+  /* Where the viewport-fixed overlays sit: clear of the inset. */
+  --r-shell-edge-r: var(--r-safe-r);
+  --r-shell-pad-r: var(--r-gutter-r);
+  /* Out of the app shell's safe-area padding to the screen edges, so the pinned
+     glass spans them; the scroller pads back in. */
+  margin-inline: calc(-1 * var(--r-safe-l)) calc(-1 * var(--r-safe-r));
+  position: relative;
+}
+/* No strip to leave room for: phones and tablets jump from the toolbar, and
+   a sort the letters can't address has no jump at all. */
+.r-shell--no-strip {
+  --r-shell-strip: 0px;
+}
+
+/* Compact list mode: the rows and their column header run to the screen
+   edges, out of the scroller's gutter. Each keeps that gutter as its own
+   padding, so only the separators and the row fill reach the edge. The shell
+   publishes how far to bleed and the rows apply it themselves, so no row's
+   class name is load-bearing in here. */
+html[data-bp~="sm-and-down"] .r-shell {
+  --r-list-bleed: var(--r-row-pad);
+}
+html[data-bp~="sm-and-down"] .r-shell__list-header {
+  margin-inline: calc(-1 * var(--r-list-bleed, 0px));
+}
+/* Desktop list mode: the column rows and their header run out to the left
+   screen edge the same way. The right gutter stays, under the AlphaStrip. */
+html[data-bp~="md-and-up"] .r-shell {
+  --r-list-bleed-start: var(--r-row-pad);
+}
+html[data-bp~="md-and-up"] .r-shell__list-header {
+  margin-inline-start: calc(-1 * var(--r-list-bleed-start));
+  padding-inline-start: max(var(--r-space-3), var(--r-list-bleed-start));
+  /* Match the rows' natural width so the column header scrolls horizontally
+     in step with them when the list is wider than the viewport. */
+  min-width: calc(var(--r-list-min-w) + var(--r-list-bleed-start));
+}
+
+/* The horizontal pads live here so all in-flow content (header, toolbar,
+   rows) shares one column. */
+.r-shell__scroller {
+  padding: 0 calc(var(--r-shell-pad-r) + var(--r-shell-strip)) 60px
+    var(--r-gutter-l);
+}
+
+.r-shell__item {
+  width: 100%;
+}
+
+/* Flow-packed wrapping row: same-height, natural-width cards. The packer
+   sized it to fit, so `nowrap` is safe; gaps match the packer (12) and the
+   chrome math (18). `flex-start` pins every card to the same top. */
+.r-shell__row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 12px;
+  padding-bottom: 18px;
+}
+/* Never shrink: float rounding can push a "just fits" row a hair over, and
+   shrinking a fixed-height card would crop its cover. Take ragged overflow
+   instead (also keeps skeletons, default shrink:1, at their packed width). */
+/* A cell has no box of its own, so the card inside is the flex item. */
+.r-shell__cell {
+  display: contents;
+}
+.r-shell__cell > * {
+  flex-shrink: 0;
+}
+
+/* Stale results fade only when a refetch outlasts the delay, so a quick
+   one never flickers. */
+.r-shell__scroller :deep(.r-virtual-scroller__body) {
+  transition: opacity var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-shell__scroller :deep(.r-virtual-scroller__body[data-stale]) {
+  opacity: 0.6;
+  transition-delay: 150ms;
+}
+
+/* Card reveal animation (.r-card-fade) lives in global.css, shared
+   with the Home dashboard rows. */
+
+.r-shell__empty {
+  padding: var(--r-space-6) 0;
+}
+
+/* Only the rows share their width with the strip column; the header band
+   and the toolbar run to the right edge over it. */
+.r-shell__header,
+.r-shell__toolbar {
+  margin-right: calc(-1 * var(--r-shell-strip));
+}
+
+/* When the list scrolls horizontally (columns wider than the viewport), the
+   page chrome (header band and in-flow toolbar) belongs to the
+   page, not the table, so pin them at the left gutter. They stay in place
+   while only the column header and rows scroll sideways. `left` engages only
+   while the page has horizontal overflow, i.e. in list mode. */
+.r-shell--list .r-shell__header,
+.r-shell--list .r-shell__toolbar {
+  position: sticky;
+  left: var(--r-gutter-l);
+  /* The list widens the scroller past the viewport; these keep its width. */
+  box-sizing: border-box;
+  width: calc(var(--r-shell-w) - var(--r-gutter-l) - var(--r-shell-pad-r));
+}
+
+/* List column header: sticky just below the pinned toolbar, and under it
+   (z-index 3 vs 4) so it never intercepts the toolbar's pointer events. */
+.r-shell__list-header {
+  position: sticky;
+  top: calc(var(--r-nav-h) + var(--r-shell-toolbar-h));
+  z-index: 3;
+}
+/* Its pinned glass also runs under the strip column, out to the right edge. */
+.r-shell__list-header::before {
+  right: calc(-1 * (var(--r-shell-pad-r) + var(--r-shell-strip)));
+}
+
+/* The strip overlays the right gutter from the pinned toolbar's bottom edge,
+   shifted down with the toolbar until it pins. */
+.r-shell .r-shell__strip {
+  position: fixed;
+  top: calc(var(--r-nav-h) + var(--r-shell-toolbar-h));
+  right: var(--r-shell-edge-r);
+  bottom: 0;
+  z-index: 5;
+  justify-content: flex-start;
+  transform: translateY(var(--r-shell-strip-shift, 0px));
+}
+/* The column header's glass spans the strip column, so the letters start below it. */
+.r-shell--list .r-shell__strip {
+  top: calc(var(--r-nav-h) + var(--r-shell-toolbar-h) + var(--r-list-header-h));
+}
+/* The floating dock sits over the strip's top; centre the letters clear of it. */
+.r-shell--floating .r-shell__strip {
+  justify-content: safe center;
+}
+/* Shifted down, the strip's end runs below the viewport by the same amount;
+   this spacer keeps its last letters scrollable into view. */
+.r-shell .r-shell__strip::after {
+  content: "";
+  flex: none;
+  height: var(--r-shell-strip-shift, 0px);
+}
+@supports (animation-timeline: scroll()) {
+  .r-shell .r-shell__strip,
+  .r-shell .r-shell__strip::after {
+    animation: r-shell-strip-follow linear both;
+    animation-timeline: scroll(root block);
+    animation-range: 0px var(--r-shell-pin-distance, 0px);
+  }
+  .r-shell .r-shell__strip::after {
+    animation-name: r-shell-strip-spacer;
+  }
+}
+@keyframes r-shell-strip-follow {
+  from {
+    transform: translateY(var(--r-shell-pin-distance, 0px));
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes r-shell-strip-spacer {
+  from {
+    height: var(--r-shell-pin-distance, 0px);
+  }
+  to {
+    height: 0;
+  }
+}
+
+/* Bottom right, just inside the strip column. */
+.r-shell__back-to-top {
+  position: fixed;
+  right: calc(var(--r-shell-strip) + var(--r-shell-edge-r) + var(--r-space-2));
+  bottom: var(--r-space-6);
+  z-index: 6;
+}
+/* No strip: line up with the cards' right edge instead. */
+.r-shell--no-strip .r-shell__back-to-top {
+  right: var(--r-shell-pad-r);
+}
+html[data-bp~="sm-and-down"] .r-shell__back-to-top {
+  bottom: calc(var(--r-bottom-nav-h) + var(--r-safe-b) + var(--r-space-4));
+}
+
+/* The floating dock stays put under the top bar while the page scrolls. */
+.r-shell .r-shell__floating {
+  position: fixed;
+  top: calc(var(--r-nav-h) + 14px);
+  margin-right: var(--r-shell-edge-r);
+}
+
+/* Smaller cards on phones. Matches GameCard's own xs `--r-card-art-w` so
+   skeletons and the packer's card-height reference track the real cards. */
+html[data-bp~="xs"] .r-shell {
+  --r-card-art-w: 130px;
+}
+
+/* Cards and rows scrolled into view by keyboard or pad nav land clear of the
+   fixed bars. */
+.r-shell :deep([data-focus-key]) {
+  scroll-margin-top: calc(var(--r-nav-h) + var(--r-shell-toolbar-h));
+  scroll-margin-bottom: calc(var(--r-bottom-nav-h) + var(--r-safe-b));
+}
+.r-shell--list :deep([data-focus-key]) {
+  scroll-margin-top: calc(
+    var(--r-nav-h) + var(--r-shell-toolbar-h) + var(--r-list-header-h)
+  );
+}
+html[data-bp~="xs"] .r-shell__row {
+  gap: 12px;
+}
+</style>

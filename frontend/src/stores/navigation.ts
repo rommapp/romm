@@ -1,8 +1,8 @@
-import { useLocalStorage } from "@vueuse/core";
 import { defineStore } from "pinia";
-import { ROUTES } from "@/plugins/router";
+import { useUserLocalStorage } from "@/composables/useUserLocalStorage";
+import { ROUTES } from "@/plugins/routeNames";
 
-const mainBarCollapsed = useLocalStorage("ui.mainBarCollapsed", false);
+const mainBarCollapsed = useUserLocalStorage("ui.mainBarCollapsed", false);
 
 const defaultNavigationState = {
   activePlatformsDrawer: false,
@@ -39,15 +39,15 @@ export default defineStore("navigation", {
     },
     goHome() {
       this.reset();
-      this.$router.push({ name: ROUTES.HOME });
+      void this.$router.push({ name: ROUTES.HOME });
     },
     goScan() {
       this.reset();
-      this.$router.push({ name: ROUTES.SCAN });
+      void this.$router.push({ name: ROUTES.SCAN });
     },
     goSearch() {
       this.reset();
-      this.$router.push({ name: ROUTES.SEARCH });
+      void this.$router.push({ name: ROUTES.SEARCH });
     },
     reset() {
       Object.assign(this, { ...defaultNavigationState });

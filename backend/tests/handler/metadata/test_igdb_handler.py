@@ -1,11 +1,30 @@
 """Tests for the IGDB metadata handler."""
 
 import json
+from collections.abc import AsyncIterator
+from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx2
 import pytest
+import pytest_asyncio
+from fastapi import HTTPException
 
-from adapters.services.igdb_types import GameType
+import config
+from adapters.services.igdb import (
+    IGDB_PLATFORM_FAMILIES,
+    IGDB_PLATFORM_LIST,
+    IGDB_SIBLING_PLATFORMS,
+    IGDBService,
+)
+from adapters.services.igdb_types import (
+    AlternativeName,
+    ExpandableField,
+    Game,
+    GameLocalization,
+    GameType,
+)
+from handler.metadata import igdb_handler
 from handler.metadata.base_handler import PS1_SERIAL_INDEX_KEY
 from handler.metadata.igdb_handler import (
     FAMICOM_IGDB_ID,
@@ -14,13 +33,87 @@ from handler.metadata.igdb_handler import (
     SNES_IGDB_ID,
     SUPER_FAMICOM_IGDB_ID,
     IGDBHandler,
+    IGDBMetadata,
+    IGDBMetadataMultiplayerMode,
+    IGDBMetadataPlatform,
+    TwitchAuth,
     _build_platforms_where,
     _platform_igdb_ids_with_twin,
+    build_igdb_rom,
+    derive_player_count,
+    extract_localized_data,
+    extract_metadata_from_igdb_rom,
     get_igdb_preferred_locale,
 )
-from handler.redis_handler import async_cache
+from handler.redis_handler import as_text, async_cache
+from utils.arcade_platforms import ARCADE_PLATFORMS
+from utils.context import ctx_httpx_client
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 GENESIS_IGDB_ID = 29
+
+
+@pytest.mark.parametrize("slug, version", [("n64", False), ("zx-spectrum", True)])
+async def test_platform_launch_year_targets_platform_or_revision(slug, version):
+    handler = IGDBHandler()
+    with (
+        patch.object(handler, "is_enabled", return_value=True),
+        patch.object(
+            handler.igdb_service,
+            "platform_discovery",
+            new_callable=AsyncMock,
+            return_value={"first_release_year": 1996},
+        ) as lookup,
+    ):
+        assert await handler.get_platform_discovery(slug) == {
+            "first_release_year": 1996
+        }
+    assert lookup.await_args is not None
+    assert lookup.await_args.kwargs == {"version": version}
+
+
+async def test_platform_launch_year_disabled_does_not_contact_igdb():
+    handler = IGDBHandler()
+    with (
+        patch.object(handler, "is_enabled", return_value=False),
+        patch.object(
+            handler.igdb_service, "platform_discovery", new_callable=AsyncMock
+        ) as lookup,
+    ):
+        assert await handler.get_platform_discovery("n64") == {}
+    lookup.assert_not_awaited()
+
+
+async def test_platform_launch_year_failure_does_not_abort_scan():
+    handler = IGDBHandler()
+    with (
+        patch.object(handler, "is_enabled", return_value=True),
+        patch.object(
+            handler.igdb_service,
+            "platform_discovery",
+            new_callable=AsyncMock,
+            side_effect=HTTPException(status_code=503),
+        ),
+    ):
+        assert await handler.get_platform_discovery("n64") == {}
+
+
+async def test_platform_discovery_preserves_logo_transparency():
+    handler = IGDBHandler()
+    with (
+        patch.object(handler, "is_enabled", return_value=True),
+        patch.object(
+            handler.igdb_service,
+            "platform_discovery",
+            new_callable=AsyncMock,
+            return_value={
+                "url_logo": "//images.igdb.com/igdb/image/upload/t_thumb/example.jpg"
+            },
+        ),
+    ):
+        assert await handler.get_platform_discovery("n64") == {
+            "url_logo": "https://images.igdb.com/igdb/image/upload/t_720p/example.png"
+        }
 
 
 def _make_game(
@@ -28,12 +121,20 @@ def _make_game(
     name: str,
     alternative_names: list[str] | None = None,
     game_localizations: list[str] | None = None,
-) -> dict:
-    """Build a minimal IGDB Game dict for testing.
+) -> Game:
+    """Build a minimal IGDB Game for testing.
 
     ``alternative_names`` and ``game_localizations`` accept plain title strings
     and are wrapped into the ``{"name": ...}`` shape IGDB returns.
     """
+    alt_names: list[ExpandableField[AlternativeName]] = [
+        AlternativeName(id=i, name=n)
+        for i, n in enumerate(alternative_names or [], start=1)
+    ]
+    localizations: list[ExpandableField[GameLocalization]] = [
+        GameLocalization(id=i, name=n)
+        for i, n in enumerate(game_localizations or [], start=1)
+    ]
     return {
         "id": game_id,
         "name": name,
@@ -41,14 +142,11 @@ def _make_game(
         "summary": "",
         "total_rating": 0.0,
         "aggregated_rating": 0.0,
-        "first_release_date": None,
         "artworks": [],
-        "cover": None,
         "screenshots": [],
         "platforms": [{"id": GENESIS_IGDB_ID, "name": "Sega Mega Drive/Genesis"}],
-        "alternative_names": [{"name": n} for n in (alternative_names or [])],
+        "alternative_names": alt_names,
         "genres": [],
-        "franchise": None,
         "franchises": [],
         "collections": [],
         "game_modes": [],
@@ -63,8 +161,66 @@ def _make_game(
         "videos": [],
         "age_ratings": [],
         "multiplayer_modes": [],
-        "game_localizations": [{"name": n} for n in (game_localizations or [])],
+        "game_localizations": localizations,
     }
+
+
+class TestGetPlatformAliases:
+    @pytest.fixture
+    def named_atari_st(self) -> Any:
+        entry = {
+            **IGDB_PLATFORM_LIST[UPS.ATARI_ST],
+            "abbreviation": "ST",
+            "alternative_name": "Atari ST/STE",
+        }
+        with patch.dict(IGDB_PLATFORM_LIST, {UPS.ATARI_ST: entry}):
+            yield
+
+    @pytest.mark.usefixtures("named_atari_st")
+    def test_platform_carries_abbreviation_and_alternative_name(self) -> None:
+        assert IGDBHandler().get_platform_aliases(UPS.ATARI_ST) == (
+            "ST",
+            ["Atari ST/STE"],
+        )
+
+    @pytest.mark.usefixtures("named_atari_st")
+    def test_platform_version_shares_main_platform_aliases(self) -> None:
+        assert IGDBHandler().get_platform_aliases("520-st") == ("ST", ["Atari ST/STE"])
+
+    def test_comma_separated_alternative_name_splits(self) -> None:
+        entry = {
+            **IGDB_PLATFORM_LIST[UPS.PSX],
+            "abbreviation": "PS1",
+            "alternative_name": "PSX, PSOne,  PS ,",
+        }
+        with patch.dict(IGDB_PLATFORM_LIST, {UPS.PSX: entry}):
+            assert IGDBHandler().get_platform_aliases(UPS.PSX) == (
+                "PS1",
+                ["PSX", "PSOne", "PS"],
+            )
+
+    def test_platform_without_aliases(self) -> None:
+        entry = IGDB_PLATFORM_LIST[UPS.ATARI_ST].copy()
+        entry.pop("abbreviation", None)
+        entry.pop("alternative_name", None)
+        with patch.dict(IGDB_PLATFORM_LIST, {UPS.ATARI_ST: entry}):
+            assert IGDBHandler().get_platform_aliases(UPS.ATARI_ST) == ("", [])
+
+
+class TestGetPlatformDuplicateSlugs:
+    def test_both_slugs_resolve_to_the_igdb_platform(self) -> None:
+        handler = IGDBHandler()
+        assert handler.get_platform(UPS.PIPPIN)["igdb_id"] == (
+            handler.get_platform(UPS.APPLE_PIPPIN)["igdb_id"]
+        )
+        assert handler.get_platform(UPS.INTERTON_VC_4000)["igdb_id"] == (
+            handler.get_platform(UPS.VC_4000)["igdb_id"]
+        )
+
+    def test_both_slugs_keep_romms_family(self) -> None:
+        handler = IGDBHandler()
+        for slug in (UPS.VC_4000, UPS.INTERTON_VC_4000):
+            assert handler.get_platform(slug)["family_slug"] == "interton"
 
 
 class TestGetIGDBPreferredLocale:
@@ -150,15 +306,15 @@ class TestSearchRomGameTypeFilter:
             search_term=None, fields=None, where=None, limit=None
         ):
             if where and "game_type" not in where and not where.startswith("("):
-                # Primary search pass — return no results so we fall through to
+                # Primary search pass: return no results so we fall through to
                 # the expanded search
                 return []
             if where and where.startswith("("):
-                # Expanded game details lookup — return both candidates
+                # Expanded game details lookup: return both candidates
                 return [ecco_dolphin, ecco_tides]
             return []
 
-        # Expanded search returns two results — wrong game FIRST, correct game second
+        # Expanded search returns two results: wrong game FIRST, correct game second
         expanded_results = [
             {"game": {"id": 1799}, "name": "Ecco the Dolphin"},
             {"game": {"id": 5379}, "name": "Ecco: The Tides of Time"},
@@ -879,3 +1035,629 @@ class TestSearchRomPrefixSupersetVariant:
         assert result is not None
         assert result["id"] == 42
         search_mock.assert_not_awaited()
+
+
+def _extract_metadata(**overrides: Any) -> IGDBMetadata:
+    """Run the extractor over a minimal game with the given fields overridden."""
+    game = _make_game(1, "Test Game")
+    game.update(cast("Game", overrides))
+    return extract_metadata_from_igdb_rom(IGDBHandler(), game, GENESIS_IGDB_ID)
+
+
+class TestFranchiseDeduplication:
+    """IGDB sends the main franchise both on its own and inside `franchises`.
+
+    Measured on a 14,952-game library: 1,080 of 8,788 games carrying a
+    franchise carried it twice (12.3%), reaching the details page as
+    "Happy Feet, Happy Feet".
+    """
+
+    def test_the_main_franchise_is_not_repeated_inside_the_list(self):
+        metadata = _extract_metadata(
+            franchise={"name": "Happy Feet"},
+            franchises=[{"name": "Happy Feet"}, {"name": "Mumble"}],
+        )
+
+        assert metadata["franchises"] == ["Happy Feet", "Mumble"]
+
+    def test_the_main_franchise_stays_first(self):
+        """`gamelist` exports `franchises[0]` as <family>, so order matters."""
+        metadata = _extract_metadata(
+            franchise={"name": "Metroid"},
+            franchises=[{"name": "Metroid"}, {"name": "Super Metroid"}],
+        )
+
+        assert metadata["franchises"][0] == "Metroid"
+
+    def test_distinct_franchises_are_both_kept(self):
+        metadata = _extract_metadata(
+            franchise={"name": "Madden"},
+            franchises=[{"name": "NFL"}],
+        )
+
+        assert metadata["franchises"] == ["Madden", "NFL"]
+
+
+class TestCompanyRoleDeduplication:
+    """`involved_companies` carries one entry per involvement, not per company.
+
+    A studio credited as both developer and publisher therefore appears twice
+    in its role list. Measured on a 14,952-game library: 235 developer lists
+    and 131 publisher lists repeated a name.
+    """
+
+    def test_a_studio_credited_twice_in_one_role_is_listed_once(self):
+        involved = [
+            {"company": {"name": "Cavia"}, "developer": True, "publisher": False},
+            {"company": {"name": "Cavia"}, "developer": True, "publisher": False},
+        ]
+
+        assert _extract_metadata(involved_companies=involved)["developers"] == ["Cavia"]
+
+    def test_a_studio_that_both_made_and_shipped_a_game_holds_both_roles(self):
+        """The two lists legitimately overlap; neither may repeat internally."""
+        involved = [
+            {"company": {"name": "Nintendo"}, "developer": True, "publisher": True},
+        ]
+
+        metadata = _extract_metadata(involved_companies=involved)
+
+        assert metadata["developers"] == ["Nintendo"]
+        assert metadata["publishers"] == ["Nintendo"]
+
+    def test_distinct_developers_keep_their_order(self):
+        involved = [
+            {"company": {"name": "Crystal Dynamics"}, "developer": True},
+            {"company": {"name": "Nixxes Software"}, "developer": True},
+        ]
+
+        assert _extract_metadata(involved_companies=involved)["developers"] == [
+            "Crystal Dynamics",
+            "Nixxes Software",
+        ]
+
+
+TOKEN_KEY = "romm:twitch_token"
+
+
+class FakeTwitch:
+    """Answers Twitch's client-credentials endpoint through a real httpx2 client."""
+
+    def __init__(self) -> None:
+        self.requests: list[httpx2.Request] = []
+        self.status = 200
+        self.body: dict[str, Any] | bytes = {
+            "access_token": "fresh-token",
+            "expires_in": 5_000_000,
+        }
+        self.error: Exception | None = None
+
+    def __call__(self, request: httpx2.Request) -> httpx2.Response:
+        self.requests.append(request)
+        if self.error:
+            raise self.error
+        if isinstance(self.body, bytes):
+            return httpx2.Response(self.status, content=self.body)
+        return httpx2.Response(self.status, json=self.body)
+
+
+@pytest_asyncio.fixture
+async def twitch(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[FakeTwitch]:
+    monkeypatch.setattr(igdb_handler, "IS_PYTEST_RUN", False)
+    fake = FakeTwitch()
+    client = httpx2.AsyncClient(transport=httpx2.MockTransport(fake))
+    token = ctx_httpx_client.set(client)
+    await async_cache.delete(TOKEN_KEY)
+    try:
+        yield fake
+    finally:
+        await async_cache.delete(TOKEN_KEY)
+        ctx_httpx_client.reset(token)
+        await client.aclose()
+
+
+class TestTwitchAuth:
+    async def test_fetches_and_caches_a_token(self, twitch: FakeTwitch):
+        token = await TwitchAuth()._update_twitch_token()
+
+        assert token == "fresh-token"
+        [request] = twitch.requests
+        assert request.url.params["grant_type"] == "client_credentials"
+        assert request.url.params["client_id"] == config.IGDB_CLIENT_ID
+        cached = await async_cache.get(TOKEN_KEY)
+        assert cached is not None and as_text(cached) == "fresh-token"
+        ttl = await async_cache.ttl(TOKEN_KEY)
+        assert 5_000_000 - 20 < ttl <= 5_000_000 - 10
+
+    async def test_rejected_credentials_give_no_token(self, twitch: FakeTwitch):
+        twitch.status = 400
+        twitch.body = {"message": "invalid client"}
+
+        assert await TwitchAuth()._update_twitch_token() == ""
+        assert await async_cache.get(TOKEN_KEY) is None
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            {"expires_in": 100},
+            {"access_token": "t", "expires_in": 0},
+            {"access_token": "t", "expires_in": None},
+            {"access_token": "t", "expires_in": "100"},
+            {"access_token": "t", "expires_in": True},
+            {"access_token": 7, "expires_in": 100},
+        ],
+        ids=[
+            "no_token",
+            "no_lifetime",
+            "null_lifetime",
+            "text_lifetime",
+            "boolean_lifetime",
+            "number_token",
+        ],
+    )
+    async def test_an_incomplete_answer_gives_no_token(
+        self, twitch: FakeTwitch, body: dict[str, Any]
+    ):
+        twitch.body = body
+
+        assert await TwitchAuth()._update_twitch_token() == ""
+        assert await async_cache.get(TOKEN_KEY) is None
+
+    @pytest.mark.parametrize(
+        "error",
+        [httpx2.ConnectError("refused"), httpx2.ReadTimeout("slow")],
+        ids=["unreachable", "timed_out"],
+    )
+    async def test_a_failed_request_gives_no_token(
+        self, twitch: FakeTwitch, error: Exception
+    ):
+        twitch.error = error
+
+        assert await TwitchAuth()._update_twitch_token() == ""
+
+    @pytest.mark.parametrize(
+        "body",
+        [b"<html>maintenance</html>", b"null", b"[]"],
+        ids=["not_json", "null", "list"],
+    )
+    async def test_a_reply_that_is_not_a_json_object_gives_no_token(
+        self, twitch: FakeTwitch, body: bytes
+    ):
+        twitch.body = body
+
+        assert await TwitchAuth()._update_twitch_token() == ""
+
+    async def test_a_short_lived_token_is_used_but_not_cached(self, twitch: FakeTwitch):
+        twitch.body = {"access_token": "brief", "expires_in": 5}
+
+        assert await TwitchAuth()._update_twitch_token() == "brief"
+        assert await async_cache.get(TOKEN_KEY) is None
+
+    async def test_the_cached_token_is_reused(self, twitch: FakeTwitch):
+        await async_cache.set(TOKEN_KEY, "cached-token", ex=60)
+
+        assert as_text(await TwitchAuth().get_oauth_token()) == "cached-token"
+        assert twitch.requests == []
+
+    async def test_a_missing_token_is_fetched(self, twitch: FakeTwitch):
+        assert await TwitchAuth().get_oauth_token() == "fresh-token"
+        assert len(twitch.requests) == 1
+
+    async def test_disabled_sends_nothing(
+        self, twitch: FakeTwitch, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.setattr(igdb_handler, "IGDB_CLIENT_ID", "")
+
+        assert await TwitchAuth().get_oauth_token() == ""
+        assert await TwitchAuth()._update_twitch_token() == ""
+        assert twitch.requests == []
+
+
+class FakeIGDBService(IGDBService):
+    """Stands in for IGDBService, recording each query and playing back replies."""
+
+    def __init__(self) -> None:
+        super().__init__(twitch_auth=TwitchAuth())
+        self.games: list[list[Game]] = []
+        self.search_results: list[list[dict[str, Any]]] = []
+        self.calls: list[tuple[str, dict[str, Any]]] = []
+        self.error: Exception | None = None
+
+    async def list_games(self, **query: Any) -> list[Game]:
+        self.calls.append(("games", query))
+        if self.error:
+            raise self.error
+        return self.games.pop(0) if self.games else []
+
+    async def search(self, **query: Any) -> list[dict[str, Any]]:
+        self.calls.append(("search", query))
+        return self.search_results.pop(0) if self.search_results else []
+
+
+@pytest.fixture
+def service(monkeypatch: pytest.MonkeyPatch) -> FakeIGDBService:
+    monkeypatch.setattr(IGDBHandler, "is_enabled", classmethod(lambda cls: True))
+    return FakeIGDBService()
+
+
+@pytest.fixture
+def handler(service: FakeIGDBService) -> IGDBHandler:
+    handler = IGDBHandler()
+    handler.igdb_service = service
+    return handler
+
+
+def _rom() -> MagicMock:
+    return MagicMock(regions=[])
+
+
+class TestHeartbeat:
+    async def test_a_game_back_is_healthy(
+        self, handler: IGDBHandler, service: FakeIGDBService
+    ):
+        service.games = [[_make_game(1, "Pong")]]
+
+        assert await handler.heartbeat()
+        assert service.calls == [("games", {"fields": ["id"], "limit": 1})]
+
+    async def test_no_games_is_down(self, handler: IGDBHandler):
+        assert not await handler.heartbeat()
+
+    async def test_an_error_is_down(
+        self, handler: IGDBHandler, service: FakeIGDBService
+    ):
+        service.error = RuntimeError("boom")
+
+        assert not await handler.heartbeat()
+
+    async def test_disabled_sends_nothing(
+        self,
+        handler: IGDBHandler,
+        service: FakeIGDBService,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        monkeypatch.setattr(IGDBHandler, "is_enabled", classmethod(lambda cls: False))
+
+        assert not await handler.heartbeat()
+        assert service.calls == []
+
+
+class TestGetPlatform:
+    def test_a_known_platform(self, handler: IGDBHandler):
+        platform = handler.get_platform("snes")
+
+        assert (platform["igdb_id"], platform.get("name")) == (
+            SNES_IGDB_ID,
+            "Super Nintendo Entertainment System",
+        )
+
+    def test_a_platform_version_maps_to_its_platform(self, handler: IGDBHandler):
+        platform = handler.get_platform("10")
+
+        assert platform["igdb_id"] == handler.get_platform("android")["igdb_id"]
+        assert platform.get("name") == "10"
+        assert platform.get("url_logo") == handler.get_platform("android").get(
+            "url_logo"
+        )
+
+    def test_an_unlisted_platform_takes_its_siblings_family_and_category(
+        self, handler: IGDBHandler
+    ):
+        assert handler.get_platform("win9x") == {
+            "igdb_id": None,
+            "slug": "win9x",
+            "category": "Operating System",
+            "family_name": "Microsoft",
+            "family_slug": "microsoft",
+        }
+
+    def test_an_unlisted_platform_family_overrides_its_siblings(
+        self, handler: IGDBHandler
+    ):
+        assert handler.get_platform("taito-x-55") == {
+            "igdb_id": None,
+            "slug": "taito-x-55",
+            "category": "Arcade",
+            "family_name": "Taito",
+            "family_slug": "taito",
+        }
+
+    @pytest.mark.parametrize(
+        ("slug", "name"),
+        [("naomi", "NAOMI"), ("naomi2", "NAOMI 2"), ("stv", "Sega Titan Video")],
+    )
+    def test_an_arcade_board_maps_to_its_platform_version(
+        self, handler: IGDBHandler, slug: str, name: str
+    ):
+        platform = handler.get_platform(slug)
+
+        assert (platform["igdb_id"], platform["slug"], platform.get("name")) == (
+            IGDB_PLATFORM_LIST[UPS.ARCADE]["id"],
+            slug,
+            name,
+        )
+        assert platform.get("family_name") == "Sega"
+
+    def test_an_arcade_platform_without_a_version_gets_arcade_and_no_name(
+        self, handler: IGDBHandler
+    ):
+        platform = handler.get_platform("model2")
+
+        assert platform["igdb_id"] == IGDB_PLATFORM_LIST[UPS.ARCADE]["id"]
+        assert platform.get("igdb_slug") == "arcade"
+        assert platform.get("family_name") == "Sega"
+        assert "name" not in platform
+
+    @pytest.mark.parametrize("slug", sorted(ARCADE_PLATFORMS))
+    def test_every_arcade_platform_is_looked_up_under_arcade(
+        self, handler: IGDBHandler, slug: UPS
+    ):
+        assert (
+            handler.get_platform(slug)["igdb_id"]
+            == IGDB_PLATFORM_LIST[UPS.ARCADE]["id"]
+        )
+
+    def test_an_unlisted_platform_with_only_a_family(self, handler: IGDBHandler):
+        assert handler.get_platform("ti-994a") == {
+            "igdb_id": None,
+            "slug": "ti-994a",
+            "family_name": "Texas Instruments",
+            "family_slug": "texas-instruments",
+        }
+
+    def test_siblings_are_only_for_unlisted_platforms(self):
+        assert not IGDB_SIBLING_PLATFORMS.keys() & IGDB_PLATFORM_LIST.keys()
+
+    @pytest.mark.parametrize(
+        "slug",
+        sorted(
+            (IGDB_SIBLING_PLATFORMS.keys() | IGDB_PLATFORM_FAMILIES.keys())
+            - ARCADE_PLATFORMS
+        ),
+    )
+    def test_every_platform_with_a_family_entry_gets_a_family(
+        self, handler: IGDBHandler, slug: UPS
+    ):
+        platform = handler.get_platform(slug)
+
+        assert platform["slug"] == slug
+        assert (platform["igdb_id"] is None) == (slug not in IGDB_PLATFORM_LIST)
+        assert platform.get("family_name")
+        assert platform.get("family_slug")
+
+    def test_an_unknown_platform(self, handler: IGDBHandler):
+        assert handler.get_platform("not-a-platform") == {
+            "igdb_id": None,
+            "slug": "not-a-platform",
+        }
+
+
+def _mode(
+    *,
+    onlinecoop: bool = False,
+    offlinemax: int = 0,
+    onlinemax: int = 0,
+    onlinecoopmax: int = 0,
+    platform_igdb_id: int = 0,
+) -> IGDBMetadataMultiplayerMode:
+    return IGDBMetadataMultiplayerMode(
+        campaigncoop=False,
+        dropin=False,
+        lancoop=False,
+        offlinecoop=False,
+        offlinecoopmax=0,
+        offlinemax=offlinemax,
+        onlinecoop=onlinecoop,
+        onlinecoopmax=onlinecoopmax,
+        onlinemax=onlinemax,
+        splitscreen=False,
+        splitscreenonline=False,
+        platform=IGDBMetadataPlatform(igdb_id=platform_igdb_id, name=""),
+    )
+
+
+class TestDerivePlayerCount:
+    def test_no_multiplayer_modes_is_one_player(self):
+        assert derive_player_count([]) == "1"
+
+    def test_any_coop_mode_is_at_least_two_players(self):
+        assert derive_player_count([_mode(onlinecoop=True)]) == "1-2"
+
+    def test_the_highest_player_count_wins(self):
+        modes = [_mode(offlinemax=4, onlinemax=2), _mode(onlinecoopmax=8)]
+
+        assert derive_player_count(modes) == "1-8"
+
+    def test_only_modes_for_the_platform_count(self):
+        modes = [
+            _mode(platform_igdb_id=19, offlinemax=4),
+            _mode(platform_igdb_id=4, offlinemax=2),
+        ]
+
+        assert derive_player_count(modes, platform_igdb_id=4) == "1-2"
+
+    def test_no_mode_for_the_platform_is_one_player(self):
+        modes = [_mode(platform_igdb_id=19, offlinemax=4)]
+
+        assert derive_player_count(modes, platform_igdb_id=4) == "1"
+
+
+def _localized_game() -> Game:
+    game = _make_game(1, "Pocket Monsters")
+    game["cover"] = {"id": 1, "url": "//images.igdb.com/default.jpg"}
+    game["game_localizations"] = [
+        {"id": 1, "name": "Eu Monsters", "region": {"id": 1, "identifier": "EU"}},
+        {
+            "id": 2,
+            "name": "ポケットモンスター",
+            "region": {"id": 2, "identifier": "ja-JP"},
+            "cover": {"id": 2, "url": "//images.igdb.com/ja.jpg"},
+        },
+        {"id": 3, "name": "No Region"},
+    ]
+    return game
+
+
+class TestExtractLocalizedData:
+    def test_no_locale_keeps_the_default(self):
+        assert extract_localized_data(_localized_game(), None) == (
+            "Pocket Monsters",
+            "//images.igdb.com/default.jpg",
+        )
+
+    def test_a_matching_locale_uses_its_name_and_cover(self):
+        assert extract_localized_data(_localized_game(), "ja-JP") == (
+            "ポケットモンスター",
+            "//images.igdb.com/ja.jpg",
+        )
+
+    def test_a_locale_without_its_own_cover_keeps_the_default_cover(self):
+        assert extract_localized_data(_localized_game(), "EU") == (
+            "Eu Monsters",
+            "//images.igdb.com/default.jpg",
+        )
+
+    def test_an_unknown_locale_keeps_the_default(self):
+        assert extract_localized_data(_localized_game(), "ko-KR") == (
+            "Pocket Monsters",
+            "//images.igdb.com/default.jpg",
+        )
+
+
+class TestGetRom:
+    async def test_matches_by_name(
+        self, handler: IGDBHandler, service: FakeIGDBService
+    ):
+        service.games = [[_make_game(7, "Super Metroid")]]
+
+        rom = await handler.get_rom(_rom(), "Super Metroid (USA).sfc", SNES_IGDB_ID)
+
+        assert (rom["igdb_id"], rom.get("name")) == (7, "Super Metroid")
+        kind, query = service.calls[0]
+        assert kind == "games"
+        assert query["search_term"] == "super metroid"
+        assert "game_type" in query["where"]
+
+    async def test_an_igdb_tag_in_the_file_name_is_looked_up_by_id(
+        self, handler: IGDBHandler, service: FakeIGDBService
+    ):
+        service.games = [[_make_game(1103, "Super Metroid")]]
+
+        rom = await handler.get_rom(_rom(), "Metroid 3 (igdb-1103).sfc", SNES_IGDB_ID)
+
+        assert rom["igdb_id"] == 1103
+        assert [(kind, query.get("where")) for kind, query in service.calls] == [
+            ("games", "id=1103")
+        ]
+
+    async def test_an_unknown_igdb_tag_falls_back_to_the_name(
+        self, handler: IGDBHandler, service: FakeIGDBService
+    ):
+        service.games = [[], [_make_game(7, "Super Metroid")]]
+
+        rom = await handler.get_rom(
+            _rom(), "Super Metroid (igdb-999999).sfc", SNES_IGDB_ID
+        )
+
+        assert rom["igdb_id"] == 7
+        assert service.calls[0][1]["where"] == "id=999999"
+
+    async def test_nothing_found_is_no_match(self, handler: IGDBHandler):
+        rom = await handler.get_rom(_rom(), "Nothing Like It.sfc", SNES_IGDB_ID)
+
+        assert rom == {"igdb_id": None}
+
+    async def test_no_platform_sends_nothing(
+        self, handler: IGDBHandler, service: FakeIGDBService
+    ):
+        assert await handler.get_rom(_rom(), "Super Metroid.sfc", 0) == {
+            "igdb_id": None
+        }
+        assert service.calls == []
+
+
+class TestGetMatchedRomById:
+    async def test_a_known_id(self, handler: IGDBHandler, service: FakeIGDBService):
+        service.games = [[_make_game(7, "Super Metroid")]]
+
+        rom = await handler.get_matched_rom_by_id(_rom(), 7)
+
+        assert rom is not None and rom["igdb_id"] == 7
+
+    async def test_an_unknown_id_is_none(self, handler: IGDBHandler):
+        assert await handler.get_matched_rom_by_id(_rom(), 7) is None
+
+
+class TestGetMatchedRomsByName:
+    async def test_merges_name_and_alternative_name_results_once_each(
+        self, handler: IGDBHandler, service: FakeIGDBService
+    ):
+        metroid = _make_game(7, "Super Metroid")
+        metroid_2 = _make_game(8, "Metroid II")
+        service.games = [[metroid], [metroid, metroid_2]]
+        service.search_results = [
+            [{"id": 90, "game": {"id": 7}}, {"id": 91, "game": {"id": 8}}]
+        ]
+
+        roms = await handler.get_matched_roms_by_name(_rom(), "metroid", SNES_IGDB_ID)
+
+        assert [rom["igdb_id"] for rom in roms] == [7, 8]
+        assert service.calls[2][1]["where"] == "id=7 | id=8"
+
+    async def test_no_alternative_names_skips_the_second_lookup(
+        self, handler: IGDBHandler, service: FakeIGDBService
+    ):
+        service.games = [[_make_game(7, "Super Metroid")]]
+
+        roms = await handler.get_matched_roms_by_name(_rom(), "metroid", SNES_IGDB_ID)
+
+        assert [rom["igdb_id"] for rom in roms] == [7]
+        assert [kind for kind, _ in service.calls] == ["games", "search"]
+
+    async def test_no_platform_sends_nothing(
+        self, handler: IGDBHandler, service: FakeIGDBService
+    ):
+        assert await handler.get_matched_roms_by_name(_rom(), "metroid", None) == []
+        assert service.calls == []
+
+
+class TestAlternativeNames:
+    """Every title IGDB knows lands in `alternative_names`, the canonical name too."""
+
+    def test_localization_titles_join_the_alternative_names(self):
+        game = _make_game(
+            1,
+            "Bleach: The 3rd Phantom",
+            alternative_names=["Burīchi Za Sādo Fantomu"],
+            game_localizations=[
+                "ブリーチ ザ・サード・ファントム",
+                "Burīchi Za Sādo Fantomu",
+            ],
+        )
+
+        rom = build_igdb_rom(IGDBHandler(), game, None, GENESIS_IGDB_ID)
+
+        assert rom["name"] == "Bleach: The 3rd Phantom"
+        assert rom["igdb_metadata"]["alternative_names"] == [
+            "Bleach: The 3rd Phantom",
+            "Burīchi Za Sādo Fantomu",
+            "ブリーチ ザ・サード・ファントム",
+        ]
+
+    def test_a_localized_display_name_keeps_every_title(self):
+        game = _make_game(1, "Bleach: The 3rd Phantom")
+        game["game_localizations"] = [
+            GameLocalization(
+                id=1,
+                name="ブリーチ ザ・サード・ファントム",
+                region={"id": 1, "identifier": "ja-JP"},
+            )
+        ]
+
+        rom = build_igdb_rom(IGDBHandler(), game, "ja-JP", GENESIS_IGDB_ID)
+
+        assert rom["name"] == "ブリーチ ザ・サード・ファントム"
+        assert rom["igdb_metadata"]["alternative_names"] == [
+            "Bleach: The 3rd Phantom",
+            "ブリーチ ザ・サード・ファントム",
+        ]

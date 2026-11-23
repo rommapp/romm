@@ -1,0 +1,105 @@
+import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { expect, userEvent, within } from "storybook/test";
+import { ref } from "vue";
+import RSwitch from "./RSwitch.vue";
+
+const meta: Meta<typeof RSwitch> = {
+  title: "Forms/RSwitch",
+  component: RSwitch,
+  argTypes: {
+    size: { control: "inline-radio", options: ["default", "small"] },
+  },
+  render: (args) => ({
+    components: { RSwitch },
+    setup: () => {
+      const value = ref(false);
+      return { args, value };
+    },
+    template: `
+      <div style="padding: 32px;">
+        <RSwitch v-model="value" v-bind="args" />
+      </div>
+    `,
+  }),
+};
+
+export default meta;
+
+type Story = StoryObj<typeof RSwitch>;
+
+export const Default: Story = {
+  args: { ariaLabel: "Toggle setting" },
+};
+
+export const Light: Story = {
+  ...Default,
+  globals: { theme: "light" },
+};
+
+export const WithLabel: Story = {
+  args: { label: "Notifications" },
+};
+
+export const LabelSlot: Story = {
+  render: () => ({
+    components: { RSwitch },
+    setup: () => ({ value: ref(false) }),
+    template: `
+      <div style="padding: 32px;">
+        <RSwitch v-model="value" aria-label="Notifications">
+          <template #label><strong>Notifications</strong> (email)</template>
+        </RSwitch>
+      </div>
+    `,
+  }),
+};
+
+export const Checked: Story = {
+  render: (args) => ({
+    components: { RSwitch },
+    setup: () => {
+      const value = ref(true);
+      return { args, value };
+    },
+    template: `
+      <div style="padding: 32px;">
+        <RSwitch v-model="value" v-bind="args" />
+      </div>
+    `,
+  }),
+  args: { label: "Notifications" },
+};
+
+export const Small: Story = {
+  args: { label: "Compact toggle", size: "small" },
+};
+
+export const Disabled: Story = {
+  args: { label: "Disabled", disabled: true },
+};
+
+/** Keyboard: Tab focuses the switch, Space/Enter toggle it. */
+export const KeyboardToggle: Story = {
+  name: "Keyboard toggle (play)",
+  args: { label: "Notifications" },
+  play: async ({ canvasElement, step }) => {
+    const canvas = within(canvasElement);
+    const sw = canvas.getByRole("switch");
+
+    await step("Tab moves focus onto the switch", async () => {
+      await userEvent.tab();
+      await expect(sw).toHaveFocus();
+      await expect(sw).toHaveAttribute("aria-checked", "false");
+    });
+
+    await step("Space toggles it on", async () => {
+      await userEvent.keyboard(" ");
+      await expect(sw).toHaveAttribute("aria-checked", "true");
+    });
+
+    await step("Enter toggles it back off", async () => {
+      await userEvent.keyboard("{Enter}");
+      await expect(sw).toHaveAttribute("aria-checked", "false");
+    });
+  },
+};

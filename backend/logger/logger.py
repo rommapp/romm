@@ -22,9 +22,6 @@ if not IS_PYTEST_RUN:
     stream_handler.setLevel(LOGLEVEL)
     log.addHandler(stream_handler)
 
-# Hush passlib warnings
-logging.getLogger("passlib").setLevel(logging.ERROR)
-
 
 def unify_logger(logger: str) -> None:
     """

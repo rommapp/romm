@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="288.99" height="67">
+  <g fill="none" fill-rule="evenodd">
+    <rect width="286.99" height="65" x="1" y="1" fill="#0f172a" stroke="#0f172a" stroke-width="2" rx="8" />
+    <svg x="15" y="13.5" width="40" height="40" viewBox="0 0 48 48">
+      <path d="M40 16A8 8 0 0 0 32 8H16A8 8 0 0 0 8 16V32A8 8 0 0 0 16 40H32A8 8 0 0 0 40 32" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" />
+      <rect x="18" y="17.5" width="13" height="13" rx="4" fill="#c9e216" />
+    </svg>
+    <text fill="#fff" font-family="Arial" font-size="21" font-weight="bold">
+      <tspan x="70" y="51">Deploy on CoreHost</tspan>
+    </text>
+    <text fill="#c9e216" font-family="Arial" font-size="12" font-weight="bold">
+      <tspan x="70" y="26">MANAGED INSTANCE</tspan>
+    </text>
+  </g>
+</svg>

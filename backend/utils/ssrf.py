@@ -8,7 +8,7 @@ Two layers, both wired onto every httpx client built by `utils.context`:
      reserved hostnames, and internal TLDs before any socket opens.
 
   2. `SSRFProtectedAsyncBackend` / `SSRFProtectedSyncBackend` — custom
-     httpcore network backends that resolve the hostname inside
+     httpcore2 network backends that resolve the hostname inside
      `connect_tcp`, reject any address in a private/loopback/link-local/
      reserved/multicast/unspecified range, then connect to that *same*
      validated address. This is what defeats DNS rebinding: the address
@@ -17,7 +17,7 @@ Two layers, both wired onto every httpx client built by `utils.context`:
      work in the backend also avoids blocking the event loop, since the
      async variant uses `loop.getaddrinfo`.
 
-httpcore calls `start_tls(server_hostname=<URL host>)` after
+httpcore2 calls `start_tls(server_hostname=<URL host>)` after
 `connect_tcp` returns, so TLS SNI and certificate verification still
 use the original hostname even though we connect by IP.
 """
@@ -30,19 +30,19 @@ import socket
 import typing
 from urllib.parse import urlparse
 
-import httpcore
+import httpcore2
 import pydash
-from httpcore._backends.auto import AutoBackend
-from httpcore._backends.base import (
+from httpcore2._backends.auto import AutoBackend
+from httpcore2._backends.base import (
     SOCKET_OPTION,
     AsyncNetworkBackend,
     AsyncNetworkStream,
     NetworkBackend,
     NetworkStream,
 )
-from httpcore._backends.sync import SyncBackend
+from httpcore2._backends.sync import SyncBackend
 
-from config import PLAYMATCH_API_URL
+from config import HASHEOUS_API_URL, PLAYMATCH_API_URL
 from logger.logger import log
 from utils.validation import ValidationError
 
@@ -98,7 +98,7 @@ def parse_ip_literal(
     return ipaddress.IPv4Address(packed)
 
 
-def _parse_origin(origin: str) -> tuple[str, int] | None:
+def parse_origin(origin: str) -> tuple[str, int] | None:
     """Return the (lowercased host, port) of an http(s) origin, else None."""
     parts = urlparse(origin)
     if parts.scheme not in ("http", "https") or not parts.hostname:
@@ -118,7 +118,7 @@ def _parse_origin(origin: str) -> tuple[str, int] | None:
 # Origins the admin explicitly configured are trusted to reach private addresses.
 # Matched by exact host and port so the exception stays as narrow as possible.
 INTERNAL_ORIGIN_ALLOWLIST: frozenset[tuple[str, int]] = frozenset(
-    pydash.compact([_parse_origin(PLAYMATCH_API_URL)])
+    pydash.compact([parse_origin(PLAYMATCH_API_URL), parse_origin(HASHEOUS_API_URL)])
 )
 
 
@@ -141,25 +141,25 @@ def _pick_safe_address(addr_infos: typing.Iterable[typing.Any], host: str) -> st
     for *_, sockaddr in addr_infos:
         try:
             ip = ipaddress.ip_address(sockaddr[0])
-        except (ValueError, IndexError):
+        except ValueError, IndexError:
             continue
         if is_forbidden_ip(ip):
             msg = (
                 f"SSRF prevention: hostname {host!r} resolves to forbidden " f"IP {ip}"
             )
             log.error(msg)
-            raise httpcore.ConnectError(msg)
+            raise httpcore2.ConnectError(msg)
         if chosen is None:
             chosen = sockaddr[0]
     if chosen is None:
-        raise httpcore.ConnectError(f"No usable addresses for {host!r}")
+        raise httpcore2.ConnectError(f"No usable addresses for {host!r}")
     return chosen
 
 
 def _check_literal(host: str) -> bool:
     """Return True if `host` is a literal IP that has been validated as safe.
 
-    Raises httpcore.ConnectError if it is a literal IP in a forbidden range.
+    Raises httpcore2.ConnectError if it is a literal IP in a forbidden range.
     Returns False if `host` is a hostname (caller must resolve and validate).
     """
     literal = parse_ip_literal(host)
@@ -168,7 +168,7 @@ def _check_literal(host: str) -> bool:
     if is_forbidden_ip(literal):
         msg = f"SSRF prevention: connection to forbidden IP {literal}"
         log.error(msg)
-        raise httpcore.ConnectError(msg)
+        raise httpcore2.ConnectError(msg)
     return True
 
 
@@ -214,15 +214,16 @@ class SSRFProtectedAsyncBackend(AsyncNetworkBackend):
             )
 
         loop = asyncio.get_running_loop()
+        # An empty or over-long label fails IDNA encoding with a UnicodeError.
         try:
             async with asyncio.timeout(timeout):
                 addr_infos = await loop.getaddrinfo(host, port, type=socket.SOCK_STREAM)
-        except socket.gaierror as exc:
-            raise httpcore.ConnectError(
+        except (socket.gaierror, UnicodeError) as exc:
+            raise httpcore2.ConnectError(
                 f"DNS resolution failed for {host!r}: {exc}"
             ) from exc
         except TimeoutError as exc:
-            raise httpcore.ConnectTimeout(
+            raise httpcore2.ConnectTimeout(
                 f"DNS resolution timed out for {host!r}"
             ) from exc
 
@@ -275,8 +276,8 @@ class SSRFProtectedSyncBackend(NetworkBackend):
 
         try:
             addr_infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
-        except socket.gaierror as exc:
-            raise httpcore.ConnectError(
+        except (socket.gaierror, UnicodeError) as exc:
+            raise httpcore2.ConnectError(
                 f"DNS resolution failed for {host!r}: {exc}"
             ) from exc
 
@@ -294,7 +295,10 @@ class SSRFProtectedSyncBackend(NetworkBackend):
         return self._inner.connect_unix_socket(path, timeout, socket_options)
 
 
-def install_async_ssrf_protection(client: typing.Any) -> None:
+def install_async_ssrf_protection(
+    client: typing.Any,
+    allowlist: frozenset[tuple[str, int]] = INTERNAL_ORIGIN_ALLOWLIST,
+) -> None:
     """Wrap the client's default transport so SSRF validation runs at connect time.
 
     httpx does not expose `network_backend` through its public transport
@@ -302,7 +306,9 @@ def install_async_ssrf_protection(client: typing.Any) -> None:
     """
     pool = client._transport._pool
     if not isinstance(pool._network_backend, SSRFProtectedAsyncBackend):
-        pool._network_backend = SSRFProtectedAsyncBackend(inner=pool._network_backend)
+        pool._network_backend = SSRFProtectedAsyncBackend(
+            inner=pool._network_backend, allowlist=allowlist
+        )
 
 
 def install_sync_ssrf_protection(client: typing.Any) -> None:

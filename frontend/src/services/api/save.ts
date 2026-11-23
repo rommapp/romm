@@ -4,14 +4,51 @@ import type {
   DetailedRomSchema,
   SaveSchema,
 } from "@/__generated__";
-import api from "@/services/api";
+import api, { keepaliveFormHeaders } from "@/services/api";
 import { buildFormInput } from "@/utils/formData";
 
 export const saveApi = api;
 
+// The slot sync clients (Argosy, Tender) file automatic progress under. A
+// null slot is an archival manual upload that is never paired with devices.
+export const AUTOSAVE_SLOT = "autosave";
+// Mirrors the backend's SAVE_SLOT_MAX_LENGTH so the field stops at the limit.
+export const SAVE_SLOT_MAX_LENGTH = 255;
+// A keepalive request outlives its document, which is why the browser caps
+// its body at 64 KB; the rest is left for the multipart framing.
+export const UNLOAD_SAVE_MAX_BYTES = 60 * 1024;
+
+/** Session saves are named after the ROM; a version updated in place keeps its name. */
+export function sessionSaveFile(
+  rom: { fs_name_no_ext: string },
+  save: SaveSchema | null,
+  bytes: ArrayBuffer,
+): File {
+  return new File(
+    [bytes],
+    save ? save.file_name : `${rom.fs_name_no_ext.trim()}.srm`,
+    { type: "application/octet-stream" },
+  );
+}
+
+/** A save's picture: an update keeps its name, a new one takes the save's stem. */
+export function sessionScreenshotFile(
+  rom: { fs_name_no_ext: string },
+  save: SaveSchema | null,
+  bytes: ArrayBuffer,
+): File {
+  return new File(
+    [bytes],
+    save
+      ? (save.screenshot?.file_name ?? `${save.file_name_no_ext}.png`)
+      : `${rom.fs_name_no_ext.trim()}.png`,
+    { type: "application/octet-stream" },
+  );
+}
+
 type SaveUploadInput = Omit<AddSaveInput, "saveFile" | "screenshotFile"> & {
   saveFile: File;
-  screenshotFile?: File;
+  screenshotFile?: File | undefined;
 };
 
 type UpdateSaveUploadInput = Omit<
@@ -19,33 +56,64 @@ type UpdateSaveUploadInput = Omit<
   "saveFile" | "screenshotFile"
 > & {
   saveFile: File;
-  screenshotFile?: File;
+  screenshotFile?: File | undefined;
 };
 
-async function uploadSaves({
+interface SaveVersionParams {
+  rom: Pick<DetailedRomSchema, "id">;
+  emulator?: string | undefined;
+  deviceId?: string | undefined;
+  slot?: string | undefined;
+  autocleanup?: boolean | undefined;
+  /** Skip the stale-device conflict check and the content-hash dedupe. */
+  overwrite?: boolean | undefined;
+  /** The device's own hash of the file, kept as its sync baseline. */
+  contentHash?: string | undefined;
+  /** The sync session the upload carries out. */
+  sessionId?: number | undefined;
+}
+
+function saveVersionQuery({
   rom,
-  savesToUpload,
   emulator,
   deviceId,
-}: {
-  rom: DetailedRomSchema;
-  savesToUpload: SaveUploadInput[];
-  emulator?: string;
-  deviceId?: string;
-}) {
-  const promises = savesToUpload.map(({ saveFile, screenshotFile }) => {
-    const formData = buildFormInput<SaveUploadInput>([
-      ["saveFile", saveFile],
-      ["screenshotFile", screenshotFile],
-    ]);
+  slot,
+  autocleanup,
+  overwrite,
+  contentHash,
+  sessionId,
+}: SaveVersionParams) {
+  return {
+    rom_id: rom.id,
+    emulator,
+    device_id: deviceId,
+    slot,
+    autocleanup,
+    overwrite,
+    content_hash: contentHash,
+    session_id: sessionId,
+  };
+}
 
+function saveFormData(saveFile: File, screenshotFile?: File): FormData {
+  return buildFormInput<SaveUploadInput>([
+    ["saveFile", saveFile],
+    ["screenshotFile", screenshotFile],
+  ]);
+}
+
+async function uploadSaves({
+  savesToUpload,
+  ...version
+}: SaveVersionParams & { savesToUpload: SaveUploadInput[] }) {
+  const promises = savesToUpload.map(({ saveFile, screenshotFile }) => {
     return new Promise<SaveSchema>((resolve, reject) => {
       api
-        .post<SaveSchema>("/saves", formData, {
+        .post<SaveSchema>("/saves", saveFormData(saveFile, screenshotFile), {
           headers: {
             "Content-Type": "multipart/form-data",
           },
-          params: { rom_id: rom.id, emulator, device_id: deviceId },
+          params: saveVersionQuery(version),
         })
         .then(({ data }) => {
           resolve(data);
@@ -62,11 +130,14 @@ async function updateSave({
   saveFile,
   screenshotFile,
   deviceId,
+  contentHash,
 }: {
   save: SaveSchema;
   saveFile: UpdateSaveUploadInput["saveFile"];
   screenshotFile?: UpdateSaveUploadInput["screenshotFile"];
-  deviceId?: string;
+  deviceId?: string | undefined;
+  /** The device's own hash of the file, kept as its sync baseline. */
+  contentHash?: string | undefined;
 }) {
   const formData = buildFormInput<UpdateSaveUploadInput>([
     ["saveFile", saveFile],
@@ -74,8 +145,45 @@ async function updateSave({
   ]);
 
   return api.put<SaveSchema>(`/saves/${save.id}`, formData, {
-    params: { device_id: deviceId },
+    params: { device_id: deviceId, content_hash: contentHash },
   });
+}
+
+/**
+ * Sends a save while the page unloads, updating `save` in place or opening a
+ * version in `slot`. Nothing outlives the document to await it.
+ *
+ * Returns:
+ *   False when the save is too big for a keepalive body.
+ */
+function sendSaveOnUnload({
+  save,
+  saveFile,
+  ...version
+}: SaveVersionParams & { save: SaveSchema | null; saveFile: File }): boolean {
+  if (saveFile.size > UNLOAD_SAVE_MAX_BYTES) return false;
+  const request = save
+    ? {
+        url: `/saves/${save.id}`,
+        method: "PUT",
+        params: {
+          device_id: version.deviceId,
+          content_hash: version.contentHash,
+        },
+      }
+    : {
+        url: "/saves",
+        method: "POST",
+        params: saveVersionQuery({ overwrite: true, ...version }),
+      };
+  void fetch(api.getUri(request), {
+    method: request.method,
+    body: saveFormData(saveFile),
+    keepalive: true,
+    credentials: "same-origin",
+    headers: keepaliveFormHeaders(),
+  }).catch(() => undefined);
+  return true;
 }
 
 async function deleteSaves({ saves }: { saves: SaveSchema[] }) {
@@ -94,9 +202,35 @@ async function setSaveVisibility({
   });
 }
 
+async function setSaveFavorite({
+  id,
+  isFavorite,
+}: {
+  id: number;
+  isFavorite: boolean;
+}) {
+  return api.put<SaveSchema>(`/saves/${id}/favorite`, {
+    is_favorite: isFavorite,
+  });
+}
+
+async function setSaveLabels({ id, labels }: { id: number; labels: string[] }) {
+  return api.put<SaveSchema>(`/saves/${id}/labels`, { labels });
+}
+
+async function renameSave({ id, fileName }: { id: number; fileName: string }) {
+  return api.put<SaveSchema>(`/saves/${id}/file-name`, {
+    file_name: fileName,
+  });
+}
+
 export default {
   uploadSaves,
   updateSave,
+  sendSaveOnUnload,
   deleteSaves,
   setSaveVisibility,
+  setSaveFavorite,
+  setSaveLabels,
+  renameSave,
 };

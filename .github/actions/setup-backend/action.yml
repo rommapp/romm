@@ -1,0 +1,68 @@
+name: Set up the backend
+description: Install the MariaDB connector, uv, the pinned Python and the locked backend dependencies.
+
+inputs:
+  sync-args:
+    description: Extra arguments for `uv sync --locked`, such as `--extra test`
+    required: false
+    default: ""
+  apt-packages:
+    description: Extra apt packages to install alongside the MariaDB connector
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    # Cached .debs install without touching an Ubuntu mirror, which can stall a job until its time limit.
+    - name: Restore apt packages
+      id: apt-debs
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/apt-debs
+        key: apt-debs-ubuntu24-${{ runner.arch }}-libmariadb-${{ inputs.apt-packages }}
+
+    # The mariadb package ships only an sdist on Linux, so uv builds it against these.
+    - name: Install the MariaDB connector
+      shell: bash
+      env:
+        APT_PACKAGES: ${{ inputs.apt-packages }}
+        DEB_DIR: ${{ runner.temp }}/apt-debs
+        DEBS_CACHED: ${{ steps.apt-debs.outputs.cache-hit }}
+      run: |
+        read -ra extra <<<"$APT_PACKAGES"
+        if [[ "$DEBS_CACHED" != true ]]; then
+          apt_opts=(-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
+          sudo apt-get "${apt_opts[@]}" update
+          mkdir -p "$DEB_DIR/partial"
+          sudo apt-get "${apt_opts[@]}" install -y --download-only -o Dir::Cache::archives="$DEB_DIR" \
+            libmariadb3 libmariadb-dev "${extra[@]}"
+        fi
+        mkdir -p "$DEB_DIR/partial"
+        # With package lists present, apt prefers the mirror's copy of a local .deb unless it finds it in its archives dir.
+        sudo apt-get install -y --no-download -o Dir::Cache::archives="$DEB_DIR" "$DEB_DIR"/*.deb
+        # apt leaves a root-only lock file the cache save can't read.
+        sudo rm -rf "$DEB_DIR/lock" "$DEB_DIR/partial"
+
+    # Only master writes it, so a PR can't evict or seed it.
+    - name: Save apt packages
+      if: steps.apt-debs.outputs.cache-hit != 'true' && github.ref == 'refs/heads/master'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/apt-debs
+        key: ${{ steps.apt-debs.outputs.cache-primary-key }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+
+    - name: Install Python
+      shell: bash
+      run: uv python install
+
+    - name: Install backend dependencies
+      shell: bash
+      env:
+        SYNC_ARGS: ${{ inputs.sync-args }}
+      run: |
+        read -ra args <<<"$SYNC_ARGS"
+        uv sync --locked "${args[@]}"

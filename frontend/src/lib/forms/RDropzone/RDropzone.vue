@@ -1,0 +1,288 @@
+<script setup lang="ts">
+// RDropzone: file drag-and-drop target with the shared v2 upload vocabulary
+// (dashed brand border, cloud icon, click-to-browse). Two modes:
+//
+//   * CTA (default): renders an empty-state call-to-action, icon, title,
+//     hint, and click/keyboard to browse. The whole surface is the drop
+//     target and brightens while dragging over it.
+//     `compact` lays it out as a single row for tight panels.
+//   * Overlay (`overlay` prop): renders the default slot (the consumer's
+//     filled content: a file list, a grid, a card) and floats a "release to
+//     upload" overlay over it while dragging. Use the exposed `open()` to wire
+//     an explicit add/replace button.
+//
+// Emits `files` on drop or pick. Primitive: no stores/i18n, all copy comes
+// from props so consumers pass translated strings.
+import { useDropZone } from "@vueuse/core";
+import { ref } from "vue";
+import RIcon from "../../primitives/RIcon/RIcon.vue";
+
+// Attrs land on the root (see `v-bind="$attrs"` below) rather than on the
+// hidden file input, so a consumer's `class` sizes the drop target.
+defineOptions({ inheritAttrs: false });
+
+interface Props {
+  /** Allow selecting / dropping more than one file. */
+  multiple?: boolean;
+  /** `accept` attribute for the underlying file input (e.g. "image/*"). */
+  accept?: string | undefined;
+  /** MIME types passed to the drop filter; omit to accept anything. */
+  dataTypes?: string[] | undefined;
+  disabled?: boolean;
+  /** Overlay mode: render the default slot + a drag-over overlay. */
+  overlay?: boolean;
+  /** CTA mode only: one row with a small icon beside the title and hint. */
+  compact?: boolean;
+  /** Grow to fill a flex parent (either mode); the CTA stretches with it.
+   *  Works where `height: 100%` can't, e.g. a parent sized by min-height. */
+  fill?: boolean;
+  // CTA copy / icons (ignored in overlay mode except `activeIcon`).
+  title?: string | undefined;
+  hint?: string | undefined;
+  icon?: string;
+  activeIcon?: string;
+  /** Title swapped in while dragging over the CTA (falls back to `title`). */
+  activeTitle?: string | undefined;
+  /** Overlay caption shown while dragging over filled content. */
+  releaseLabel?: string | undefined;
+  /** Accessible label for the underlying (visually hidden) file input. */
+  inputLabel?: string | undefined;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  multiple: false,
+  accept: undefined,
+  dataTypes: undefined,
+  title: undefined,
+  hint: undefined,
+  icon: "mdi-cloud-upload-outline",
+  activeIcon: "mdi-cloud-upload",
+  activeTitle: undefined,
+  releaseLabel: undefined,
+  inputLabel: undefined,
+});
+
+const emit = defineEmits<{ files: [files: File[]] }>();
+
+defineSlots<{
+  /** Overlay-mode content (the filled list / grid / card). */
+  default?: () => unknown;
+  /** Extra controls rendered inside the CTA, below the hint. */
+  actions?: () => unknown;
+}>();
+
+const rootRef = ref<HTMLElement | null>(null);
+const inputRef = ref<HTMLInputElement | null>(null);
+
+const { isOverDropZone } = useDropZone(rootRef, {
+  onDrop(files) {
+    if (props.disabled || !files || files.length === 0) return;
+    emit("files", props.multiple ? files : files.slice(0, 1));
+  },
+  ...(props.dataTypes ? { dataTypes: props.dataTypes } : {}),
+  multiple: props.multiple,
+  preventDefaultForUnhandled: true,
+});
+
+function open() {
+  if (props.disabled) return;
+  inputRef.value?.click();
+}
+
+function onPick(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const files = input.files ? Array.from(input.files) : [];
+  input.value = "";
+  if (props.disabled || files.length === 0) return;
+  emit("files", props.multiple ? files : files.slice(0, 1));
+}
+
+defineExpose({ open, isOver: isOverDropZone });
+</script>
+
+<template>
+  <div
+    ref="rootRef"
+    v-bind="$attrs"
+    class="r-dropzone"
+    :class="{
+      'r-dropzone--active': isOverDropZone && !disabled,
+      'r-dropzone--disabled': disabled,
+      'r-dropzone--compact': compact,
+      'r-dropzone--fill': fill,
+    }"
+  >
+    <input
+      ref="inputRef"
+      type="file"
+      class="r-dropzone__input"
+      :aria-label="inputLabel"
+      :accept="accept"
+      :multiple="multiple"
+      :disabled="disabled"
+      @change="onPick"
+    />
+
+    <!-- Overlay mode: consumer content + drag-over overlay -->
+    <template v-if="overlay">
+      <slot />
+      <div
+        v-show="isOverDropZone && !disabled"
+        class="r-dropzone__overlay"
+        aria-hidden="true"
+      >
+        <RIcon :icon="activeIcon" size="36" color="primary" />
+        <span v-if="releaseLabel" class="r-dropzone__overlay-label">{{
+          releaseLabel
+        }}</span>
+      </div>
+    </template>
+
+    <!-- CTA mode: clickable empty-state dropzone. A `role="button"` div (not
+         a <button>) so the optional `actions` slot can host real buttons
+         without nesting interactive elements. -->
+    <!-- eslint-disable-next-line vuejs-accessibility/interactive-supports-focus -- focusable when enabled (tabindex 0); intentionally pulled from the tab order while disabled -->
+    <div
+      v-else
+      class="r-dropzone__cta"
+      role="button"
+      :tabindex="disabled ? -1 : 0"
+      :aria-disabled="disabled"
+      @click="open"
+      @keydown.enter.prevent="open"
+      @keydown.space.prevent="open"
+    >
+      <RIcon
+        :icon="isOverDropZone ? activeIcon : icon"
+        :size="compact ? 24 : 44"
+        color="primary"
+        :class="{ 'r-dropzone__cta-icon--pulse': isOverDropZone && !disabled }"
+      />
+      <span v-if="activeTitle || title" class="r-dropzone__cta-title">
+        {{ isOverDropZone && activeTitle ? activeTitle : title }}
+      </span>
+      <span v-if="hint" class="r-dropzone__cta-hint">{{ hint }}</span>
+      <slot name="actions" />
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.r-dropzone {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  border-radius: var(--r-radius-md);
+}
+.r-dropzone--fill {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+/* Disabled dims / blocks only the CTA: in overlay mode the slotted content
+   stays fully interactive (drops are no-ops, the overlay never shows). */
+.r-dropzone--disabled .r-dropzone__cta {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.r-dropzone__input {
+  display: none;
+}
+
+/* ── CTA mode ─────────────────────────────────────────────────── */
+.r-dropzone__cta {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 16px;
+  text-align: center;
+  cursor: pointer;
+  appearance: none;
+  font: inherit;
+  color: var(--r-color-fg);
+  border: 2px dashed
+    color-mix(in srgb, var(--r-color-brand-primary) 30%, transparent);
+  border-radius: var(--r-radius-lg);
+  background: var(--r-color-bg-elevated);
+  transition:
+    border-color var(--r-motion-fast) var(--r-motion-ease-out),
+    background var(--r-motion-fast) var(--r-motion-ease-out);
+}
+.r-dropzone--fill .r-dropzone__cta {
+  flex: 1 1 auto;
+}
+.r-dropzone__cta:hover {
+  border-color: color-mix(
+    in srgb,
+    var(--r-color-brand-primary) 55%,
+    transparent
+  );
+}
+.r-dropzone--active .r-dropzone__cta {
+  border-color: var(--r-color-brand-primary);
+  background: color-mix(in srgb, var(--r-color-brand-primary) 8%, transparent);
+}
+.r-dropzone__cta-title {
+  font-size: 15px;
+  font-weight: var(--r-font-weight-semibold);
+}
+.r-dropzone__cta-hint {
+  font-size: 12px;
+  color: var(--r-color-fg-muted);
+  max-width: 360px;
+  line-height: 1.5;
+}
+.r-dropzone--compact .r-dropzone__cta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  justify-items: start;
+  column-gap: 12px;
+  row-gap: 2px;
+  padding: 12px 16px;
+  text-align: left;
+}
+.r-dropzone--compact .r-dropzone__cta > .r-icon {
+  grid-row: span 2;
+}
+.r-dropzone--compact .r-dropzone__cta-title {
+  font-size: 13px;
+}
+.r-dropzone__cta-icon--pulse {
+  animation: r-dropzone-pulse 1.4s ease-in-out infinite;
+}
+@keyframes r-dropzone-pulse {
+  50% {
+    transform: scale(1.12);
+    filter: drop-shadow(
+      0 0 12px color-mix(in srgb, var(--r-color-brand-primary) 60%, transparent)
+    );
+  }
+}
+
+/* ── Overlay mode ─────────────────────────────────────────────── */
+.r-dropzone__overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 2px dashed var(--r-color-brand-primary);
+  border-radius: var(--r-radius-md);
+  background: color-mix(in srgb, var(--r-color-bg) 78%, transparent);
+  backdrop-filter: blur(2px);
+  pointer-events: none;
+}
+.r-dropzone__overlay-label {
+  font-size: 13px;
+  font-weight: var(--r-font-weight-semibold);
+  color: var(--r-color-fg);
+}
+</style>

@@ -1,23 +1,18 @@
+from typing import cast
+
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.auth_helpers import bearer
+from tests.factories import make_platform, make_rom
 
 from config import FRONTEND_RESOURCES_PATH
 from endpoints.responses.music import MusicTrackSchema
-from handler.database import db_platform_handler, db_rom_handler
+from handler.auth.rom_visibility import RomVisibilityFilter
+from handler.database import db_rom_handler
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory, TrackMeta
 from models.user import User
-
-
-def _auth(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
-
-
-def _make_platform(slug: str) -> Platform:
-    return db_platform_handler.add_platform(
-        Platform(name=slug, slug=slug, fs_slug=slug)
-    )
 
 
 def _make_track(
@@ -34,19 +29,7 @@ def _make_track(
     cover_path: str | None = None,
     path_cover_l: str | None = None,
 ) -> Rom:
-    rom = db_rom_handler.add_rom(
-        Rom(
-            platform_id=platform.id,
-            name=name,
-            slug=f"{name}-slug",
-            fs_name=f"{name}.zip",
-            fs_name_no_tags=name,
-            fs_name_no_ext=name,
-            fs_extension="zip",
-            fs_path=f"{platform.slug}/roms",
-            path_cover_l=path_cover_l,
-        )
-    )
+    rom = make_rom(platform, name, path_cover_l=path_cover_l)
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_id)
     db_rom_handler.add_rom_file(
         RomFile(
@@ -71,10 +54,26 @@ def _make_track(
     return rom
 
 
+def _make_untagged_track(admin_id: int, platform: Platform, file_name: str) -> None:
+    """A soundtrack file with an empty track row, as the scanner gives a chiptune."""
+    rom = make_rom(platform, "Plok")
+    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_id)
+    db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name=file_name,
+            file_path=f"{rom.fs_path}/Plok/soundtrack",
+            file_size_bytes=66048,
+            category=RomFileCategory.SOUNDTRACK,
+            track_meta=TrackMeta(rom_id=rom.id),
+        )
+    )
+
+
 @pytest.fixture
 def music_library(admin_user: User):
-    pa = _make_platform("genesis")
-    pb = _make_platform("nes")
+    pa = make_platform("genesis")
+    pb = make_platform("nes")
     sonic = _make_track(
         admin_user.id,
         pa,
@@ -111,18 +110,7 @@ def music_library(admin_user: User):
         duration=90.0,
     )
     # A rom with no soundtrack, to exercise the has_soundtrack filter.
-    no_st = db_rom_handler.add_rom(
-        Rom(
-            platform_id=pb.id,
-            name="Tetris",
-            slug="tetris-slug",
-            fs_name="Tetris.gb",
-            fs_name_no_tags="Tetris",
-            fs_name_no_ext="Tetris",
-            fs_extension="gb",
-            fs_path=f"{pb.slug}/roms",
-        )
-    )
+    no_st = make_rom(pb, "Tetris", fs_extension="gb")
     db_rom_handler.add_rom_user(rom_id=no_st.id, user_id=admin_user.id)
     return {"platform_a": pa, "platform_b": pb, "sonic": sonic, "no_soundtrack": no_st}
 
@@ -131,7 +119,7 @@ def music_library(admin_user: User):
 
 
 def test_tracks_lists_all(client: TestClient, access_token: str, music_library):
-    r = client.get("/api/music/tracks", headers=_auth(access_token))
+    r = client.get("/api/music/tracks", headers=bearer(access_token))
     assert r.status_code == status.HTTP_200_OK
     body = r.json()
     assert body["total"] == 3
@@ -146,7 +134,7 @@ def test_tracks_lists_all(client: TestClient, access_token: str, music_library):
 def test_tracks_cover_falls_back_to_game(
     client: TestClient, access_token: str, music_library
 ):
-    r = client.get("/api/music/tracks?artist=koshiro", headers=_auth(access_token))
+    r = client.get("/api/music/tracks?artist=koshiro", headers=bearer(access_token))
     item = r.json()["items"][0]
     assert item["cover_url"].endswith("/cover/big.png")
 
@@ -163,35 +151,65 @@ def test_cover_url_for_priority():
 def test_tracks_artist_exact_case_insensitive(
     client: TestClient, access_token: str, music_library
 ):
-    r = client.get("/api/music/tracks?artist=nakamura", headers=_auth(access_token))
+    r = client.get("/api/music/tracks?artist=nakamura", headers=bearer(access_token))
     items = r.json()["items"]
     assert len(items) == 1 and items[0]["artist"] == "Nakamura"
 
 
 def test_tracks_search_substring(client: TestClient, access_token: str, music_library):
-    r = client.get("/api/music/tracks?search=hill", headers=_auth(access_token))
+    r = client.get("/api/music/tracks?search=hill", headers=bearer(access_token))
     assert [i["title"] for i in r.json()["items"]] == ["Green Hill"]
+
+
+def test_tracks_search_matches_an_untagged_file_by_name(
+    client: TestClient, access_token: str, music_library, admin_user: User
+):
+    _make_untagged_track(admin_user.id, music_library["platform_a"], "05 Beach.spc")
+
+    r = client.get("/api/music/tracks?search=beach", headers=bearer(access_token))
+
+    [item] = r.json()["items"]
+    assert item["title"] is None
+    assert item["file_name"] == "05 Beach.spc"
+    assert item["stream_url"].endswith("/files/content/05%20Beach.spc")
+
+
+def test_tracks_sort_an_untagged_file_by_its_name(
+    client: TestClient, access_token: str, music_library, admin_user: User
+):
+    _make_untagged_track(admin_user.id, music_library["platform_a"], "Ice.spc")
+
+    r = client.get(
+        "/api/music/tracks?order_by=title&order_dir=asc", headers=bearer(access_token)
+    )
+
+    assert [i["file_name"] for i in r.json()["items"]] == [
+        "Green Hill.mp3",
+        "Ice.spc",
+        "Jingle.mp3",
+        "Overworld.mp3",
+    ]
 
 
 def test_tracks_search_escapes_like_wildcards(
     client: TestClient, access_token: str, music_library
 ):
-    wild = client.get("/api/music/tracks?search=hi_l", headers=_auth(access_token))
+    wild = client.get("/api/music/tracks?search=hi_l", headers=bearer(access_token))
     assert wild.json()["total"] == 0
-    literal = client.get("/api/music/tracks?search=hill", headers=_auth(access_token))
+    literal = client.get("/api/music/tracks?search=hill", headers=bearer(access_token))
     assert [i["title"] for i in literal.json()["items"]] == ["Green Hill"]
 
 
 def test_tracks_year_and_duration(client: TestClient, access_token: str, music_library):
     assert (
-        client.get("/api/music/tracks?year=1992", headers=_auth(access_token)).json()[
+        client.get("/api/music/tracks?year=1992", headers=bearer(access_token)).json()[
             "total"
         ]
         == 1
     )
     # min_duration excludes the 20s jingle
     body = client.get(
-        "/api/music/tracks?min_duration=60", headers=_auth(access_token)
+        "/api/music/tracks?min_duration=60", headers=bearer(access_token)
     ).json()
     assert body["total"] == 2
     assert all(i["duration_seconds"] >= 60 for i in body["items"])
@@ -200,7 +218,7 @@ def test_tracks_year_and_duration(client: TestClient, access_token: str, music_l
 def test_tracks_rom_id_filter(client: TestClient, access_token: str, music_library):
     rid = music_library["sonic"].id
     body = client.get(
-        f"/api/music/tracks?rom_id={rid}", headers=_auth(access_token)
+        f"/api/music/tracks?rom_id={rid}", headers=bearer(access_token)
     ).json()
     assert body["total"] == 1 and body["items"][0]["rom_id"] == rid
 
@@ -208,7 +226,7 @@ def test_tracks_rom_id_filter(client: TestClient, access_token: str, music_libra
 def test_tracks_platform_filter(client: TestClient, access_token: str, music_library):
     pid = music_library["platform_b"].id
     body = client.get(
-        f"/api/music/tracks?platform_ids={pid}", headers=_auth(access_token)
+        f"/api/music/tracks?platform_ids={pid}", headers=bearer(access_token)
     ).json()
     assert body["total"] == 1 and body["items"][0]["title"] == "Overworld"
 
@@ -218,10 +236,64 @@ def test_tracks_order_and_paginate(
 ):
     body = client.get(
         "/api/music/tracks?order_by=duration&order_dir=asc&limit=2",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     ).json()
     assert body["total"] == 3 and len(body["items"]) == 2
     assert body["items"][0]["duration_seconds"] == 20.0
+
+
+@pytest.mark.parametrize(
+    ("limit", "expected"),
+    [
+        (1_000, status.HTTP_200_OK),
+        (1_001, status.HTTP_422_UNPROCESSABLE_CONTENT),
+    ],
+)
+def test_tracks_page_size_ceiling(
+    client: TestClient, access_token: str, limit: int, expected: int
+):
+    response = client.get(
+        f"/api/music/tracks?limit={limit}", headers=bearer(access_token)
+    )
+    assert response.status_code == expected
+
+
+@pytest.mark.parametrize("order_dir", ["asc", "desc"])
+def test_tracks_sort_null_keys_last(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    music_library,
+    order_dir: str,
+):
+    """An untagged track (NULL duration) trails both sort directions."""
+    pa = music_library["platform_a"]
+    rom = make_rom(pa, "Untagged")
+    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
+    db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="untitled.mp3",
+            file_path=f"{rom.fs_path}/Untagged/soundtrack",
+            file_size_bytes=2048,
+            category=RomFileCategory.SOUNDTRACK,
+            track_meta=TrackMeta(
+                rom_id=rom.id, title="Untagged", has_embedded_cover=False
+            ),
+        )
+    )
+
+    body = client.get(
+        f"/api/music/tracks?order_by=duration&order_dir={order_dir}",
+        headers=bearer(access_token),
+    ).json()
+
+    durations = [i["duration_seconds"] for i in body["items"][:-1]]
+    assert durations == (
+        [20.0, 90.0, 120.0] if order_dir == "asc" else [120.0, 90.0, 20.0]
+    )
+    assert body["items"][-1]["title"] == "Untagged"
+    assert body["items"][-1]["duration_seconds"] is None
 
 
 # ---------- facets ----------
@@ -230,7 +302,7 @@ def test_tracks_order_and_paginate(
 def test_facet_artists_distinct_and_counts(
     client: TestClient, access_token: str, music_library
 ):
-    body = client.get("/api/music/artists", headers=_auth(access_token)).json()
+    body = client.get("/api/music/artists", headers=bearer(access_token)).json()
     assert body["total"] == 3
     assert {i["value"] for i in body["items"]} == {"Nakamura", "Koshiro", "Kondo"}
     assert all(i["count"] == 1 for i in body["items"])
@@ -238,7 +310,7 @@ def test_facet_artists_distinct_and_counts(
 
 def test_facet_artists_typeahead(client: TestClient, access_token: str, music_library):
     body = client.get(
-        "/api/music/artists?search=ko", headers=_auth(access_token)
+        "/api/music/artists?search=ko", headers=bearer(access_token)
     ).json()
     assert {i["value"] for i in body["items"]} == {"Koshiro", "Kondo"}
 
@@ -246,20 +318,70 @@ def test_facet_artists_typeahead(client: TestClient, access_token: str, music_li
 def test_facet_artists_contextual(client: TestClient, access_token: str, music_library):
     pid = music_library["platform_b"].id
     body = client.get(
-        f"/api/music/artists?platform_ids={pid}", headers=_auth(access_token)
+        f"/api/music/artists?platform_ids={pid}", headers=bearer(access_token)
     ).json()
     assert [i["value"] for i in body["items"]] == ["Kondo"]
 
 
 def test_facet_years_are_ints(client: TestClient, access_token: str, music_library):
-    body = client.get("/api/music/years", headers=_auth(access_token)).json()
+    body = client.get("/api/music/years", headers=bearer(access_token)).json()
     assert {i["value"] for i in body["items"]} == {1991, 1992, 1985}
     assert all(isinstance(i["value"], int) for i in body["items"])
 
 
 def test_facet_years_typeahead(client: TestClient, access_token: str, music_library):
-    body = client.get("/api/music/years?search=199", headers=_auth(access_token)).json()
+    body = client.get(
+        "/api/music/years?search=199", headers=bearer(access_token)
+    ).json()
     assert {i["value"] for i in body["items"]} == {1991, 1992}
+
+
+@pytest.mark.parametrize(
+    ("path", "key", "wildcard", "literal", "expected"),
+    [
+        ("/api/music/artists", "value", "k_shiro", "oshi", {"Koshiro"}),
+        ("/api/music/years", "value", "19_1", "991", {1991}),
+        ("/api/music/platforms", "name", "g_nesis", "enes", {"Genesis"}),
+        ("/api/music/games", "name", "s_nic", "oni", {"Sonic"}),
+    ],
+)
+def test_facet_search_matches_wildcards_literally(
+    client: TestClient,
+    access_token: str,
+    music_library: dict[str, Platform | Rom],
+    path: str,
+    key: str,
+    wildcard: str,
+    literal: str,
+    expected: set[str | int],
+):
+    wild = client.get(path, params={"search": wildcard}, headers=bearer(access_token))
+    assert wild.json()["total"] == 0
+    found = client.get(path, params={"search": literal}, headers=bearer(access_token))
+    assert {i[key] for i in found.json()["items"]} == expected
+
+
+@pytest.mark.parametrize(
+    "path", ["/api/roms", "/api/music/tracks", "/api/music/artists"]
+)
+@pytest.mark.parametrize("query", ["limit=0", "limit=10001", "offset=-1"])
+def test_page_params_out_of_bounds_422(
+    client: TestClient, access_token: str, path: str, query: str
+):
+    response = client.get(f"{path}?{query}", headers=bearer(access_token))
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+
+def test_facet_page_applies_limit_and_offset(
+    client: TestClient, access_token: str, music_library
+):
+    url = "/api/music/artists?order_by=value&order_dir=asc"
+    everything = client.get(url, headers=bearer(access_token)).json()
+    page = client.get(f"{url}&limit=1&offset=1", headers=bearer(access_token)).json()
+
+    assert (page["limit"], page["offset"]) == (1, 1)
+    assert page["total"] == everything["total"]
+    assert page["items"] == everything["items"][1:2]
 
 
 # ---------- visibility (handler level) ----------
@@ -267,7 +389,9 @@ def test_facet_years_typeahead(client: TestClient, access_token: str, music_libr
 
 def test_tracks_excludes_hidden_platform(music_library):
     pb = music_library["platform_b"].id
-    rows, total = db_rom_handler.get_music_tracks(hidden_platform_ids=[pb])
+    rows, total = db_rom_handler.get_music_tracks(
+        visibility=RomVisibilityFilter(hidden_platform_ids=frozenset({pb}))
+    )
     assert total == 2
     assert all(r.platform_id != pb for r in rows)
 
@@ -275,7 +399,8 @@ def test_tracks_excludes_hidden_platform(music_library):
 def test_facet_excludes_hidden_platform(music_library):
     pb = music_library["platform_b"].id
     rows, total = db_rom_handler.get_music_facet(
-        field="artists", hidden_platform_ids=[pb]
+        field="artists",
+        visibility=RomVisibilityFilter(hidden_platform_ids=frozenset({pb})),
     )
     assert total == 2
     assert "Kondo" not in {r.value for r in rows}
@@ -285,8 +410,10 @@ def test_facet_excludes_hidden_platform(music_library):
 
 
 def _track_id(client: TestClient, token: str, title: str) -> int:
-    body = client.get("/api/music/tracks", headers=_auth(token)).json()
-    return next(i["rom_file_id"] for i in body["items"] if i["title"] == title)
+    body = client.get("/api/music/tracks", headers=bearer(token)).json()
+    return cast(
+        int, next(i["rom_file_id"] for i in body["items"] if i["title"] == title)
+    )
 
 
 def test_favorites_add_list_remove(
@@ -297,7 +424,7 @@ def test_favorites_add_list_remove(
     r = client.post(
         "/api/music/favorites",
         json={"rom_file_ids": [rf_id]},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
     assert r.status_code == status.HTTP_200_OK and r.json()["added"] == 1
 
@@ -305,17 +432,17 @@ def test_favorites_add_list_remove(
     r = client.post(
         "/api/music/favorites",
         json={"rom_file_ids": [rf_id]},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
     assert r.json()["added"] == 0
 
-    favs = client.get("/api/music/favorites", headers=_auth(access_token)).json()
+    favs = client.get("/api/music/favorites", headers=bearer(access_token)).json()
     assert favs["total"] == 1
     assert favs["items"][0]["title"] == "Green Hill"
     assert favs["items"][0]["is_favorite"] is True
 
     # flag shows up on the flat track list too
-    tracks = client.get("/api/music/tracks", headers=_auth(access_token)).json()
+    tracks = client.get("/api/music/tracks", headers=bearer(access_token)).json()
     flags = {i["title"]: i["is_favorite"] for i in tracks["items"]}
     assert flags == {"Green Hill": True, "Jingle": False, "Overworld": False}
 
@@ -323,11 +450,11 @@ def test_favorites_add_list_remove(
         "DELETE",
         "/api/music/favorites",
         json={"rom_file_ids": [rf_id]},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
     assert r.status_code == status.HTTP_200_OK and r.json()["removed"] == 1
     assert (
-        client.get("/api/music/favorites", headers=_auth(access_token)).json()["total"]
+        client.get("/api/music/favorites", headers=bearer(access_token)).json()["total"]
         == 0
     )
 
@@ -342,12 +469,12 @@ def test_favorites_are_per_user(
     client.post(
         "/api/music/favorites",
         json={"rom_file_ids": [rf_id]},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
-    other = client.get("/api/music/favorites", headers=_auth(editor_access_token))
+    other = client.get("/api/music/favorites", headers=bearer(editor_access_token))
     assert other.json()["total"] == 0
-    tracks = client.get("/api/music/tracks", headers=_auth(editor_access_token)).json()
+    tracks = client.get("/api/music/tracks", headers=bearer(editor_access_token)).json()
     assert all(i["is_favorite"] is False for i in tracks["items"])
 
 
@@ -359,7 +486,7 @@ def test_favorites_survive_a_rescan(
     client.post(
         "/api/music/favorites",
         json={"rom_file_ids": [rf_id]},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     rom = music_library["sonic"]
@@ -379,7 +506,7 @@ def test_favorites_survive_a_rescan(
     )
     assert [f.id for f in synced.files] == [f.id for f in existing]
 
-    favs = client.get("/api/music/favorites", headers=_auth(access_token)).json()
+    favs = client.get("/api/music/favorites", headers=bearer(access_token)).json()
     assert favs["total"] == 1
     assert favs["items"][0]["rom_file_id"] == rf_id
 
@@ -399,7 +526,7 @@ def test_favorites_reject_non_track_and_unknown_ids(
     r = client.post(
         "/api/music/favorites",
         json={"rom_file_ids": [non_track.id]},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
     assert r.status_code == status.HTTP_400_BAD_REQUEST
     assert "not music tracks" in r.json()["detail"]
@@ -407,7 +534,7 @@ def test_favorites_reject_non_track_and_unknown_ids(
     r = client.post(
         "/api/music/favorites",
         json={"rom_file_ids": [999_999]},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
     assert r.status_code == status.HTTP_400_BAD_REQUEST
     assert "not found" in r.json()["detail"]
@@ -420,12 +547,160 @@ def test_roms_has_soundtrack_filter(
     client: TestClient, access_token: str, music_library
 ):
     with_st = client.get(
-        "/api/roms?has_soundtrack=true", headers=_auth(access_token)
+        "/api/roms?has_soundtrack=true", headers=bearer(access_token)
     ).json()
     names = {i["name"] for i in with_st["items"]}
     assert "Sonic" in names and "Tetris" not in names
 
     without = client.get(
-        "/api/roms?has_soundtrack=false", headers=_auth(access_token)
+        "/api/roms?has_soundtrack=false", headers=bearer(access_token)
     ).json()
     assert "Tetris" in {i["name"] for i in without["items"]}
+
+
+# ---------- game genres / platforms / games facets ----------
+
+
+def _set_game_genres(rom_id: int, genres: list[str]) -> None:
+    # `roms_metadata` is a view over generated columns on `roms`, so game
+    # genres are seeded through the manual metadata that feeds them.
+    db_rom_handler.update_rom(rom_id, {"manual_metadata": {"genres": genres}})
+
+
+@pytest.fixture
+def music_library_with_game_genres(music_library):
+    _set_game_genres(music_library["sonic"].id, ["Platform", "Action"])
+    return music_library
+
+
+def test_game_genres_facet_counts_tracks_per_genre(
+    client: TestClient, access_token: str, music_library_with_game_genres
+):
+    r = client.get("/api/music/game-genres", headers=bearer(access_token))
+    assert r.status_code == status.HTTP_200_OK
+    by_value = {i["value"]: i["count"] for i in r.json()["items"]}
+    assert by_value == {"Platform": 1, "Action": 1}
+
+
+def test_game_genres_facet_typeahead(
+    client: TestClient, access_token: str, music_library_with_game_genres
+):
+    r = client.get(
+        "/api/music/game-genres",
+        params={"search": "plat"},
+        headers=bearer(access_token),
+    )
+    assert [i["value"] for i in r.json()["items"]] == ["Platform"]
+
+
+def test_tracks_filter_by_game_genre(
+    client: TestClient, access_token: str, music_library_with_game_genres
+):
+    r = client.get(
+        "/api/music/tracks",
+        params={"game_genre": "Platform"},
+        headers=bearer(access_token),
+    )
+    body = r.json()
+    assert body["total"] == 1
+    assert body["items"][0]["title"] == "Green Hill"
+
+
+def test_tracks_filter_by_year_range(
+    client: TestClient, access_token: str, music_library
+):
+    r = client.get(
+        "/api/music/tracks",
+        params={"min_year": 1990, "max_year": 1999},
+        headers=bearer(access_token),
+    )
+    body = r.json()
+    assert body["total"] == 2
+    assert {i["year"] for i in body["items"]} == {1991, 1992}
+
+
+def test_platforms_facet_lists_only_platforms_with_tracks(
+    client: TestClient, access_token: str, music_library
+):
+    r = client.get("/api/music/platforms", headers=bearer(access_token))
+    assert r.status_code == status.HTTP_200_OK
+    items = r.json()["items"]
+    by_slug = {i["slug"]: i["count"] for i in items}
+    assert by_slug == {"genesis": 2, "nes": 1}
+    assert all(i["id"] and i["name"] for i in items)
+
+
+def test_games_facet_is_the_album_list(
+    client: TestClient, access_token: str, music_library
+):
+    r = client.get("/api/music/games", headers=bearer(access_token))
+    assert r.status_code == status.HTTP_200_OK
+    items = r.json()["items"]
+    assert [i["name"] for i in items] == ["Mario", "Sonic", "Streets"]
+    streets = next(i for i in items if i["name"] == "Streets")
+    assert streets["count"] == 1
+    assert streets["platform_slug"] == "genesis"
+    assert streets["cover_url"] == f"{FRONTEND_RESOURCES_PATH}/roms/2/2/cover/big.png"
+    mario = next(i for i in items if i["name"] == "Mario")
+    assert mario["cover_url"] is None
+
+
+def test_games_facet_search_matches_game_and_track_fields(
+    client: TestClient, access_token: str, music_library
+):
+    by_game = client.get(
+        "/api/music/games", params={"search": "sonic"}, headers=bearer(access_token)
+    ).json()
+    assert [i["name"] for i in by_game["items"]] == ["Sonic"]
+
+    by_artist = client.get(
+        "/api/music/games", params={"search": "koshiro"}, headers=bearer(access_token)
+    ).json()
+    assert [i["name"] for i in by_artist["items"]] == ["Streets"]
+
+
+def test_games_facet_search_matches_an_untagged_file_by_name(
+    client: TestClient, access_token: str, music_library, admin_user: User
+):
+    _make_untagged_track(admin_user.id, music_library["platform_a"], "05 Beach.spc")
+
+    r = client.get(
+        "/api/music/games", params={"search": "beach"}, headers=bearer(access_token)
+    )
+
+    assert [i["name"] for i in r.json()["items"]] == ["Plok"]
+
+
+def test_games_facet_excludes_hidden_platform(music_library):
+    pa = music_library["platform_a"].id
+    rows, total = db_rom_handler.get_music_game_facet(
+        visibility=RomVisibilityFilter(hidden_platform_ids=frozenset({pa}))
+    )
+    assert total == 1
+    assert [r.name for r in rows] == ["Mario"]
+
+
+def test_platform_facet_excludes_hidden_platform(music_library):
+    pa = music_library["platform_a"].id
+    rows, total = db_rom_handler.get_music_platform_facet(
+        visibility=RomVisibilityFilter(hidden_platform_ids=frozenset({pa}))
+    )
+    assert total == 1
+    assert [r.slug for r in rows] == ["nes"]
+
+
+def test_stats_reports_totals(client: TestClient, access_token: str, music_library):
+    r = client.get("/api/music/stats", headers=bearer(access_token))
+    assert r.status_code == status.HTTP_200_OK
+    body = r.json()
+    assert body["total_tracks"] == 3
+    assert body["total_duration_seconds"] == pytest.approx(230.0)
+
+
+def test_stats_excludes_hidden_platform(music_library):
+    pa = music_library["platform_a"].id
+    total, duration = db_rom_handler.get_music_stats(
+        visibility=RomVisibilityFilter(hidden_platform_ids=frozenset({pa}))
+    )
+    assert total == 1
+    assert duration == pytest.approx(90.0)

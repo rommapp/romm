@@ -5,7 +5,7 @@
 import type { RomUserStatus } from './RomUserStatus';
 export type RomUserData = {
     /**
-     * Whether this rom is the main sibling.
+     * Whether this rom is the main version of its game.
      */
     is_main_sibling?: (boolean | null);
     /**
@@ -36,5 +36,9 @@ export type RomUserData = {
      * User play status for this rom.
      */
     status?: (RomUserStatus | null);
+    /**
+     * The media keys to show on the overview, in order. Null restores the default selection.
+     */
+    pinned_media?: (Array<string> | null);
 };
 

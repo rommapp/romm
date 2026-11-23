@@ -1,5 +1,6 @@
 import json
 from html.parser import HTMLParser
+from typing import cast
 from urllib.parse import quote, unquote
 
 import aiohttp
@@ -16,6 +17,14 @@ from utils.context import ctx_aiohttp_session
 LIBRETRO_THUMBNAIL_ROOT = "https://thumbnails.libretro.com"
 LIBRETRO_LISTING_CACHE_KEY = "romm:libretro:listing"
 LIBRETRO_LISTING_CACHE_TTL = 60 * 60 * 24  # 24 hours
+# Not every system has every art type, so misses are cached too, on a shorter
+# TTL in case the directory is added upstream later.
+LIBRETRO_MISSING_LISTING_CACHE_TTL = 60 * 60  # 1 hour
+# Statuses that mean the directory isn't there, as opposed to a request that
+# could succeed on a retry (429, 408, 403, 5xx).
+LIBRETRO_MISSING_LISTING_STATUSES = frozenset({404, 410})
+LIBRETRO_LISTING_TIMEOUT = 60  # seconds
+LIBRETRO_HEAD_TIMEOUT = 10  # seconds
 
 
 class _AnchorHrefParser(HTMLParser):
@@ -77,7 +86,7 @@ class LibretroThumbnailsService:
         cached = await async_cache.get(cache_key)
         if cached:
             try:
-                return json.loads(cached)
+                return cast(list[str], json.loads(cached))
             except json.JSONDecodeError:
                 log.warning("Invalid cached libretro listing for %s", cache_key)
 
@@ -89,7 +98,7 @@ class LibretroThumbnailsService:
             res = await aiohttp_session.get(
                 url,
                 headers={"user-agent": f"RomM/{get_version()}"},
-                timeout=ClientTimeout(total=60),
+                timeout=ClientTimeout(total=LIBRETRO_LISTING_TIMEOUT),
             )
             res.raise_for_status()
             body = await res.text()
@@ -99,8 +108,15 @@ class LibretroThumbnailsService:
                 exc.status,
                 url,
             )
+            # An absent directory won't reappear between ROMs of the same
+            # platform, so remember it. Anything retryable stays uncached.
+            if exc.status in LIBRETRO_MISSING_LISTING_STATUSES:
+                await self._cache_listing(
+                    cache_key, [], ttl=LIBRETRO_MISSING_LISTING_CACHE_TTL
+                )
             return []
-        except aiohttp.client_exceptions.ClientError as exc:
+        # A `total` timeout raises a bare TimeoutError, not a ClientError.
+        except (aiohttp.client_exceptions.ClientError, TimeoutError) as exc:
             log.warning("Libretro listing request failed for URL %s: %s", url, exc)
             return []
 
@@ -108,14 +124,16 @@ class LibretroThumbnailsService:
         parser.feed(body)
         filenames = parser.filenames
 
-        try:
-            await async_cache.set(
-                cache_key, json.dumps(filenames), ex=LIBRETRO_LISTING_CACHE_TTL
-            )
-        except Exception as exc:  # pragma: no cover - cache is best-effort
-            log.warning("Failed to cache libretro listing %s: %s", cache_key, exc)
+        await self._cache_listing(cache_key, filenames, ttl=LIBRETRO_LISTING_CACHE_TTL)
 
         return filenames
+
+    @staticmethod
+    async def _cache_listing(cache_key: str, filenames: list[str], *, ttl: int) -> None:
+        try:
+            await async_cache.set(cache_key, json.dumps(filenames), ex=ttl)
+        except Exception as exc:  # pragma: no cover - cache is best-effort
+            log.warning("Failed to cache libretro listing %s: %s", cache_key, exc)
 
     async def head(self) -> bool:
         """Lightweight connectivity check against the thumbnail server root."""
@@ -124,9 +142,9 @@ class LibretroThumbnailsService:
             res = await aiohttp_session.head(
                 str(self.url),
                 headers={"user-agent": f"RomM/{get_version()}"},
-                timeout=ClientTimeout(total=10),
+                timeout=ClientTimeout(total=LIBRETRO_HEAD_TIMEOUT),
                 allow_redirects=True,
             )
             return res.status < 500
-        except aiohttp.client_exceptions.ClientError:
+        except (aiohttp.client_exceptions.ClientError, TimeoutError):
             return False

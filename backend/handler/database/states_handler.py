@@ -1,13 +1,17 @@
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
+from typing import Any
 
-from sqlalchemy import and_, delete, desc, or_, select, update
-from sqlalchemy.orm import QueryableAttribute, Session, load_only
+from sqlalchemy import Select, delete, desc, or_, select, update
+from sqlalchemy.orm import Session
 
-from decorators.database import begin_session
+from decorators.database import INJECTED_SESSION, begin_session
+from handler.auth.rom_visibility import RomVisibilityFilter
 from models.assets import State
-from models.rom import Rom
+from models.base import with_file_name_parts
+from models.rom import RomFacets
 
 from .base_handler import DBBaseHandler
+from .snapshots_handler import refresh_backup_digests, release_backup
 
 
 class DBStatesHandler(DBBaseHandler):
@@ -15,18 +19,9 @@ class DBStatesHandler(DBBaseHandler):
     def add_state(
         self,
         state: State,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> State:
         return session.merge(state)
-
-    @begin_session
-    def get_state(
-        self,
-        user_id: int,
-        id: int,
-        session: Session = None,  # type: ignore
-    ) -> State | None:
-        return session.scalar(select(State).filter_by(user_id=user_id, id=id).limit(1))
 
     @begin_session
     def get_state_by_filename(
@@ -34,7 +29,7 @@ class DBStatesHandler(DBBaseHandler):
         user_id: int,
         rom_id: int,
         file_name: str,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> State | None:
         return session.scalar(
             select(State)
@@ -42,35 +37,74 @@ class DBStatesHandler(DBBaseHandler):
             .limit(1)
         )
 
+    def _states_query(
+        self,
+        user_id: int,
+        rom_ids: Collection[int] | None = None,
+        platform_id: int | None = None,
+        *,
+        visibility: RomVisibilityFilter,
+    ) -> Select[State]:
+        # A state whose ROM was deleted waits to be reattached; no legacy flow reads it.
+        query = (
+            select(State).filter_by(user_id=user_id).where(State.rom_id.is_not(None))
+        )
+
+        # An empty collection is an explicit empty scope, not an absent filter.
+        if rom_ids is not None:
+            query = query.filter(State.rom_id.in_(rom_ids))
+
+        if platform_id:
+            query = query.join(RomFacets, RomFacets.rom_id == State.rom_id).where(
+                RomFacets.platform_id == platform_id, *visibility.facets_clauses()
+            )
+        else:
+            query = visibility.restrict(query, State.rom_id)
+
+        return query
+
     @begin_session
     def get_states(
         self,
         user_id: int,
-        rom_id: int | None = None,
+        rom_ids: Collection[int] | None = None,
         platform_id: int | None = None,
-        only_fields: Sequence[QueryableAttribute] | None = None,
-        session: Session = None,  # type: ignore
+        *,
+        visibility: RomVisibilityFilter,
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[State]:
-        query = select(State).filter_by(user_id=user_id)
-
-        if rom_id:
-            query = query.filter_by(rom_id=rom_id)
-
-        if platform_id:
-            query = query.join(Rom, State.rom_id == Rom.id).filter(
-                Rom.platform_id == platform_id
-            )
-
-        if only_fields:
-            query = query.options(load_only(*only_fields))
-
+        query = self._states_query(
+            user_id=user_id,
+            rom_ids=rom_ids,
+            platform_id=platform_id,
+            visibility=visibility,
+        )
         return session.scalars(query).all()
+
+    @begin_session
+    def get_state_ids(
+        self,
+        user_id: int,
+        rom_ids: Collection[int] | None = None,
+        platform_id: int | None = None,
+        *,
+        visibility: RomVisibilityFilter,
+        session: Session = INJECTED_SESSION,
+    ) -> list[int]:
+        """Ids only, so no `State` is built and no eager rom or user join fires."""
+        query = self._states_query(
+            user_id=user_id,
+            rom_ids=rom_ids,
+            platform_id=platform_id,
+            visibility=visibility,
+        )
+        return list(session.scalars(query.with_only_columns(State.id)).all())
 
     @begin_session
     def get_state_by_id(
         self,
         id: int,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> State | None:
         """Fetch a state by id without scoping to an owner. Used for the
         visibility toggle and community downloads, where the caller may not own
@@ -83,7 +117,7 @@ class DBStatesHandler(DBBaseHandler):
         rom_id: int,
         user_id: int,
         public_only: bool = False,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[State]:
         """States for a ROM visible to the requesting user: own (public +
         private) plus other users' public ones. Mirrors
@@ -102,58 +136,54 @@ class DBStatesHandler(DBBaseHandler):
     def update_state(
         self,
         id: int,
-        data: dict,
-        session: Session = None,  # type: ignore
+        data: dict[str, Any],
+        touch: bool = True,
+        session: Session = INJECTED_SESSION,
     ) -> State:
+        """Write `data` onto a state.
+
+        Args:
+            touch: False keeps `updated_at`, since annotating is not a write
+                to the bytes and device sync reads it to detect staleness.
+        """
+        data = with_file_name_parts(data)
+        values = data if touch else {**data, "updated_at": State.updated_at}
         session.execute(
             update(State)
             .where(State.id == id)
-            .values(**data)
+            .values(**values)
             .execution_options(synchronize_session="evaluate")
         )
-        return session.query(State).filter_by(id=id).one()
+        if "content_hash" in data:
+            refresh_backup_digests(session, state_id=id)
+        return session.scalars(select(State).filter_by(id=id)).one()
+
+    @begin_session
+    def backfill_content_hash(
+        self,
+        id: int,
+        content_hash: str,
+        session: Session = INJECTED_SESSION,
+    ) -> None:
+        """Record a legacy state's hash, unless a rewrite stored one meanwhile."""
+        # Keeps updated_at, as the bytes are unchanged.
+        session.execute(
+            update(State)
+            .where(State.id == id, State.content_hash.is_(None))
+            .values(content_hash=content_hash, updated_at=State.updated_at)
+            .execution_options(synchronize_session=False)
+        )
 
     @begin_session
     def delete_state(
         self,
         id: int,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> None:
+        """Delete a state, releasing it from archival snapshots."""
+        release_backup(session, state_id=id)
         session.execute(
             delete(State)
             .where(State.id == id)
             .execution_options(synchronize_session="evaluate")
         )
-
-    @begin_session
-    def mark_missing_states(
-        self,
-        rom_id: int,
-        user_id: int,
-        states_to_keep: list[str],
-        session: Session = None,  # type: ignore
-    ) -> Sequence[State]:
-        missing_states = session.scalars(
-            select(State).filter(
-                and_(
-                    State.rom_id == rom_id,
-                    State.user_id == user_id,
-                    State.file_name.not_in(states_to_keep),
-                )
-            )
-        ).all()
-
-        session.execute(
-            update(State)
-            .where(
-                and_(
-                    State.rom_id == rom_id,
-                    State.user_id == user_id,
-                    State.file_name.not_in(states_to_keep),
-                )
-            )
-            .values(**{"missing_from_fs": True})
-            .execution_options(synchronize_session="evaluate")
-        )
-
-        return missing_states

@@ -7,6 +7,8 @@ columns, the rating average, the gamelist date wrapper, and the quoted-string
 date that the old view silently truncated to ``0``.
 """
 
+import pytest
+
 from handler.database import db_rom_handler
 from models.rom import Rom
 
@@ -44,6 +46,77 @@ class TestGeneratedMetadata:
         # Quoted-string epoch seconds -> ms. The old view truncated this to 0.
         assert meta.first_release_date == 1569369600000
 
+    def test_publishers_developers_derivation(self, rom: Rom):
+        db_rom_handler.update_rom(
+            rom.id,
+            {
+                "ss_metadata": {
+                    "companies": ["Atari", "Artech Studios"],
+                    "publishers": ["Atari"],
+                    "developers": ["Artech Studios"],
+                },
+            },
+        )
+
+        meta = _reload(rom).metadatum
+        # Raw view order preserved here (the response schema sorts on serialize).
+        assert meta.companies == ["Atari", "Artech Studios"]
+        assert meta.publishers == ["Atari"]
+        assert meta.developers == ["Artech Studios"]
+
+    def test_publishers_developers_default_empty(self, rom: Rom):
+        # companies present but no split fields -> new fields stay empty.
+        db_rom_handler.update_rom(
+            rom.id,
+            {"ss_metadata": {"companies": ["Nintendo"]}},
+        )
+
+        meta = _reload(rom).metadatum
+        assert meta.companies == ["Nintendo"]
+        assert meta.publishers == []
+        assert meta.developers == []
+
+    def test_steam_derivations(self, rom: Rom):
+        db_rom_handler.update_rom(
+            rom.id,
+            {
+                "steam_metadata": {
+                    "genres": ["Action", "Indie"],
+                    "companies": ["Team Cherry"],
+                    "developers": ["Team Cherry"],
+                    "publishers": ["Team Cherry"],
+                    "game_modes": ["Single player"],
+                    "total_rating": "87",
+                    "first_release_date": 1487894400,
+                },
+            },
+        )
+
+        meta = _reload(rom).metadatum
+        assert meta.genres == ["Action", "Indie"]
+        assert meta.companies == ["Team Cherry"]
+        assert meta.developers == ["Team Cherry"]
+        assert meta.publishers == ["Team Cherry"]
+        assert meta.game_modes == ["Single player"]
+        assert meta.average_rating == 87.0
+        # Steam stores epoch seconds; the column exposes milliseconds.
+        assert meta.first_release_date == 1487894400000
+
+    def test_steam_yields_to_every_other_provider(self, rom: Rom):
+        db_rom_handler.update_rom(
+            rom.id,
+            {
+                "gamelist_metadata": {"genres": ["Platform"]},
+                "igdb_metadata": {"total_rating": "80"},
+                "steam_metadata": {"genres": ["Action"], "total_rating": "60"},
+            },
+        )
+
+        meta = _reload(rom).metadatum
+        assert meta.genres == ["Platform"]
+        # Ratings are averaged rather than ranked, so Steam's still counts.
+        assert meta.average_rating == 70.0
+
     def test_rating_average_across_providers(self, rom: Rom):
         db_rom_handler.update_rom(
             rom.id,
@@ -66,6 +139,37 @@ class TestGeneratedMetadata:
 
         meta = _reload(rom).metadatum
         assert meta.first_release_date == 1577836800000  # 2020-01-01T00:00:00Z
+
+    def test_gamelist_leap_day_is_accepted(self, rom: Rom):
+        db_rom_handler.update_rom(
+            rom.id,
+            {"gamelist_metadata": {"first_release_date": "20240229T000000"}},
+        )
+
+        meta = _reload(rom).metadatum
+        assert meta.first_release_date == 1709164800000  # 2024-02-29T00:00:00Z
+
+    @pytest.mark.parametrize(
+        "release_date",
+        [
+            "00000000T000000",  # what ES/ES-DE/Skyscraper write for "unknown"
+            "19700000T000000",
+            "20201301T000000",
+            "20200230T000000",
+        ],
+    )
+    def test_calendar_invalid_gamelist_date_yields_null(
+        self, rom: Rom, release_date: str
+    ):
+        # These pass the 8+6 digit regex but are not real dates. The write must
+        # succeed rather than raise out of the generated-column expression.
+        db_rom_handler.update_rom(
+            rom.id,
+            {"gamelist_metadata": {"first_release_date": release_date}},
+        )
+
+        meta = _reload(rom).metadatum
+        assert meta.first_release_date is None
 
     def test_empty_metadata_yields_defaults(self, rom: Rom):
         meta = _reload(rom).metadatum

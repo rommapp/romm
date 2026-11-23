@@ -5,12 +5,25 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 from main import app
+from rq.exceptions import DuplicateJobError
+from tests.audit_events import recorded_events
+from tests.factories import make_device_token, make_rom
 
 from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
-from handler.auth import oauth_handler
-from handler.database import db_device_handler, db_play_session_handler, db_rom_handler
+from handler.auth.base_handler import oauth_handler
+from handler.database import (
+    db_audit_event_handler,
+    db_device_handler,
+    db_play_session_handler,
+    db_rom_handler,
+)
+from handler.database.audit_events_handler import AuditEventFilters
+from handler.database.base_handler import sync_session
+from handler.redis_handler import low_prio_queue
 from models.device import Device
+from models.permission import HiddenEntity, PermEntity
 from models.platform import Platform
+from models.play_session import PlaySession
 from models.rom import Rom, RomUserStatus
 from models.user import User
 from utils.datetime import to_utc
@@ -93,6 +106,44 @@ class TestPlaySessionIngest:
         assert data["results"][0]["status"] == "created"
         assert data["results"][0]["id"] is not None
 
+    @pytest.mark.parametrize("ra_id", [1234, None], ids=["ra_matched", "unmatched"])
+    def test_playing_an_ra_game_queues_a_progress_sync(
+        self, client, access_token: str, admin_user: User, rom: Rom, mocker, ra_id
+    ):
+        db_rom_handler.update_rom(rom.id, {"ra_id": ra_id})
+        enqueue = mocker.patch.object(low_prio_queue, "enqueue")
+
+        response = client.post(
+            "/api/play-sessions",
+            json=_ingest(sessions=[_session(rom_id=rom.id)]),
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        if ra_id is None:
+            enqueue.assert_not_called()
+        else:
+            enqueue.assert_called_once()
+            assert enqueue.call_args.kwargs["kwargs"] == {
+                "user_id": admin_user.id,
+                "refresh_all": False,
+            }
+            assert enqueue.call_args.kwargs["unique"] is True
+
+    def test_a_queued_progress_sync_is_not_queued_twice(
+        self, client, access_token: str, rom: Rom, mocker
+    ):
+        db_rom_handler.update_rom(rom.id, {"ra_id": 1234})
+        mocker.patch.object(low_prio_queue, "enqueue", side_effect=DuplicateJobError)
+
+        response = client.post(
+            "/api/play-sessions",
+            json=_ingest(sessions=[_session(rom_id=rom.id)]),
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+
     def test_batch_sessions(self, client, access_token: str, device: Device, rom: Rom):
         payload = _ingest(
             device_id=device.id,
@@ -127,7 +178,7 @@ class TestPlaySessionIngest:
             json=payload,
             headers={"Authorization": f"Bearer {access_token}"},
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     def test_validation_negative_duration(self, client, access_token: str):
         now = datetime.now(timezone.utc)
@@ -145,7 +196,7 @@ class TestPlaySessionIngest:
             json=payload,
             headers={"Authorization": f"Bearer {access_token}"},
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     def test_future_end_time_rejected(self, client, access_token: str):
         now = datetime.now(timezone.utc)
@@ -211,6 +262,59 @@ class TestPlaySessionIngest:
 
         assert response.status_code == status.HTTP_201_CREATED
         assert response.json()["created_count"] == 1
+
+
+class TestPlaySessionAudit:
+    def test_each_new_session_of_a_known_rom_is_a_play(
+        self, client, access_token: str, device: Device, rom: Rom
+    ):
+        played = _session(rom_id=rom.id, duration_minutes=45)
+        payload = _ingest(
+            device_id=device.id,
+            sessions=[played, _session(rom_id=None, start_offset_hours=-2)],
+        )
+
+        for _ in range(2):
+            client.post(
+                "/api/play-sessions",
+                json=payload,
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+
+        rows, total, _ = db_audit_event_handler.get_events(
+            AuditEventFilters(), limit=10, offset=0
+        )
+        assert total == 1
+        [(event, device_name)] = rows
+        assert event.action == "rom.play"
+        assert event.target_id == str(rom.id)
+        assert event.device_id == device.id
+        assert device_name == "Test Device"
+        assert event.data["duration_ms"] == 45 * 60 * 1000
+        started = datetime.fromisoformat(played["start_time"])
+        # The column keeps whole seconds.
+        assert abs(to_utc(event.occurred_at) - started) < timedelta(seconds=1)
+
+    def test_a_rom_hidden_from_the_player_is_not_theirs_to_log(
+        self, client, editor_user: User, editor_access_token: str, rom: Rom
+    ):
+        with sync_session.begin() as session:
+            session.add(
+                HiddenEntity(
+                    entity=PermEntity.ROMS, entity_id=rom.id, user_id=editor_user.id
+                )
+            )
+
+        response = client.post(
+            "/api/play-sessions",
+            json=_ingest(sessions=[_session(rom_id=rom.id)]),
+            headers={"Authorization": f"Bearer {editor_access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        [played] = db_play_session_handler.get_sessions(user_id=editor_user.id)
+        assert played.rom_id is None
+        assert recorded_events() == []
 
 
 class TestPlaySessionDedup:
@@ -476,6 +580,8 @@ class TestPlaySessionRomUserUpdates:
         )
 
         rom_user = db_rom_handler.get_rom_user(rom_id=rom.id, user_id=admin_user.id)
+        assert rom_user is not None
+        assert rom_user.last_played is not None
         expected_latest = later + timedelta(minutes=30)
         last_played_utc = to_utc(rom_user.last_played)
         assert abs((last_played_utc - expected_latest).total_seconds()) < 2
@@ -504,6 +610,7 @@ class TestPlaySessionRomUserUpdates:
         )
 
         rom_user = db_rom_handler.get_rom_user(rom_id=rom.id, user_id=admin_user.id)
+        assert rom_user is not None
         assert rom_user.status == RomUserStatus.INCOMPLETE
 
     def test_finished_status_rewound_to_incomplete(
@@ -518,6 +625,7 @@ class TestPlaySessionRomUserUpdates:
         )
 
         rom_user = db_rom_handler.get_rom_user(rom_id=rom.id, user_id=admin_user.id)
+        assert rom_user is not None
         assert rom_user.status == RomUserStatus.INCOMPLETE
 
     @pytest.mark.parametrize(
@@ -540,6 +648,7 @@ class TestPlaySessionRomUserUpdates:
         )
 
         rom_user = db_rom_handler.get_rom_user(rom_id=rom.id, user_id=admin_user.id)
+        assert rom_user is not None
         # now_playing is orthogonal, so it still flips on...
         assert rom_user.now_playing is True
         # ...but the deliberate enum status is left untouched.
@@ -555,6 +664,7 @@ class TestPlaySessionRomUserUpdates:
             headers={"Authorization": f"Bearer {access_token}"},
         )
         rom_user = db_rom_handler.get_rom_user(rom_id=rom.id, user_id=admin_user.id)
+        assert rom_user is not None
         db_rom_handler.update_rom_user(
             rom_user.id, {"now_playing": False, "status": RomUserStatus.FINISHED}
         )
@@ -567,24 +677,14 @@ class TestPlaySessionRomUserUpdates:
         )
 
         rom_user = db_rom_handler.get_rom_user(rom_id=rom.id, user_id=admin_user.id)
+        assert rom_user is not None
         assert rom_user.now_playing is False
         assert rom_user.status == RomUserStatus.FINISHED
 
     def test_rom_user_created_if_not_exists(
         self, client, access_token: str, admin_user: User, platform: Platform
     ):
-        new_rom = db_rom_handler.add_rom(
-            Rom(
-                platform_id=platform.id,
-                name="new_rom",
-                slug="new_rom_slug",
-                fs_name="new_rom.zip",
-                fs_name_no_tags="new_rom",
-                fs_name_no_ext="new_rom",
-                fs_extension="zip",
-                fs_path=f"{platform.slug}/roms",
-            )
-        )
+        new_rom = make_rom(platform, "new_rom")
 
         assert (
             db_rom_handler.get_rom_user(rom_id=new_rom.id, user_id=admin_user.id)
@@ -603,21 +703,83 @@ class TestPlaySessionRomUserUpdates:
 
 
 class TestPlaySessionQuery:
+    @pytest.mark.parametrize(
+        "scopes, target, expected",
+        [
+            ("roms.user.read devices.read", None, [0, 1, 2]),
+            ("roms.user.read devices.read", "other", [1]),
+            ("roms.user.read", "own", [0]),
+            ("roms.user.read", None, None),
+            ("roms.user.read", "other", None),
+        ],
+    )
+    def test_device_token_reads(
+        self,
+        client,
+        admin_user,
+        editor_user,
+        device,
+        rom,
+        scopes: str,
+        target: str | None,
+        expected: list[int] | None,
+    ):
+        other_device = db_device_handler.add_device(
+            Device(id=str(uuid.uuid4()), user_id=admin_user.id, name="Other device")
+        )
+        owners = [
+            (admin_user.id, device.id),
+            (admin_user.id, other_device.id),
+            (admin_user.id, None),
+            (editor_user.id, None),
+        ]
+        now = datetime.now(timezone.utc).replace(microsecond=0)
+        sessions = db_play_session_handler.add_sessions(
+            [
+                PlaySession(
+                    user_id=user_id,
+                    device_id=device_id,
+                    rom_id=rom.id,
+                    start_time=now - timedelta(hours=hours),
+                    end_time=now - timedelta(hours=hours) + timedelta(minutes=30),
+                    duration_ms=30 * 60 * 1000,
+                )
+                for hours, (user_id, device_id) in enumerate(owners, start=1)
+            ]
+        )
+        _, raw = make_device_token(admin_user, device.id, scopes=scopes)
+        params = {
+            "own": {"device_id": device.id},
+            "other": {"device_id": other_device.id},
+        }
+
+        response = client.get(
+            "/api/play-sessions",
+            params=params.get(target or "", {}),
+            headers={"Authorization": f"Bearer {raw}"},
+        )
+
+        if expected is None:
+            assert response.status_code == status.HTTP_403_FORBIDDEN
+            return
+        assert response.status_code == status.HTTP_200_OK
+        assert [s["id"] for s in response.json()] == [sessions[i].id for i in expected]
+
+    @pytest.mark.parametrize("params", [{"limit": 0}, {"limit": -1}, {"offset": -1}])
+    def test_rejects_invalid_paging(
+        self, client, access_token: str, params: dict[str, int]
+    ):
+        response = client.get(
+            "/api/play-sessions",
+            params=params,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
     def test_filter_by_rom_id(
         self, client, access_token: str, rom: Rom, platform: Platform
     ):
-        other_rom = db_rom_handler.add_rom(
-            Rom(
-                platform_id=platform.id,
-                name="other_rom",
-                slug="other_rom_slug",
-                fs_name="other_rom.zip",
-                fs_name_no_tags="other_rom",
-                fs_name_no_ext="other_rom",
-                fs_extension="zip",
-                fs_path=f"{platform.slug}/roms",
-            )
-        )
+        other_rom = make_rom(platform, "other_rom")
 
         client.post(
             "/api/play-sessions",
@@ -761,3 +923,31 @@ class TestPlaySessionDelete:
             headers={"Authorization": f"Bearer {access_token}"},
         )
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_a_session_on_a_hidden_rom_answers_like_a_missing_one(
+        self, client, editor_user: User, editor_access_token: str, rom: Rom
+    ):
+        # Arrange
+        resp = client.post(
+            "/api/play-sessions",
+            json=_ingest(sessions=[_session(rom_id=rom.id)]),
+            headers={"Authorization": f"Bearer {editor_access_token}"},
+        )
+        session_id = resp.json()["results"][0]["id"]
+        with sync_session.begin() as session:
+            session.add(
+                HiddenEntity(
+                    entity=PermEntity.ROMS, entity_id=rom.id, user_id=editor_user.id
+                )
+            )
+
+        # Act
+        response = client.delete(
+            f"/api/play-sessions/{session_id}",
+            headers={"Authorization": f"Bearer {editor_access_token}"},
+        )
+
+        # Assert
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        [kept] = db_play_session_handler.get_sessions(user_id=editor_user.id)
+        assert kept.id == session_id

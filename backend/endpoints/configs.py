@@ -1,21 +1,38 @@
-from fastapi import HTTPException, Request, status
-from pydantic import BaseModel, field_validator
+from typing import Annotated, Any, Final
 
+from fastapi import HTTPException
+from fastapi import Path as PathVar
+from fastapi import Request, status
+from pydantic import Field, StringConstraints, field_validator
+
+from adapters.services.rom_converto import (
+    LIBRARY_TARGETS_BY_PLATFORM,
+    normalize_platform_formats,
+)
 from config.config_manager import (
-    DEFAULT_EXCLUDED_DIRS,
+    CONVERTO_INT_MINIMUMS,
     DEFAULT_EXCLUDED_EXTENSIONS,
     DEFAULT_EXCLUDED_FILES,
+    DEFAULT_EXCLUDED_MULTI_FILE_DIRS,
+    DEFAULT_EXCLUDED_PLATFORM_DIRS,
     VALID_GAMELIST_IMAGE_TYPES,
     VALID_GAMELIST_THUMBNAIL_TYPES,
     VALID_SCAN_PRIORITY_SOURCES,
+    ConvertoConfig,
+    ExclusionType,
     MetadataMediaType,
 )
 from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
+from endpoints.responses.base import BaseModel
 from endpoints.responses.config import ConfigResponse
 from exceptions.config_exceptions import ConfigNotWritableException
+from handler.audit_handler import AuditTarget, record
 from handler.auth.constants import Scope
+from handler.database import db_rom_handler
+from handler.filesystem import fs_platform_handler
 from logger.logger import log
+from models.audit_event import AuditAction, AuditTargetType
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -23,15 +40,43 @@ router = APIRouter(
     tags=["config"],
 )
 
+CONFIG_NOT_WRITABLE_RESPONSE: Final[dict[int | str, dict[str, Any]]] = {
+    status.HTTP_500_INTERNAL_SERVER_ERROR: {
+        "description": "The config file is not writable."
+    }
+}
+AMBIGUOUS_FOLDER_RESPONSE: Final[dict[int | str, dict[str, Any]]] = {
+    status.HTTP_409_CONFLICT: {
+        "description": (
+            "Several folders in the library have this name with different"
+            " letter case."
+        )
+    }
+}
+
+
+# config.yml refuses to load an empty mapping value, so one must never be written.
+NonEmptySlug = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+
 
 class PlatformBindingPayload(BaseModel):
-    fs_slug: str
-    slug: str
+    fs_slug: NonEmptySlug
+    slug: NonEmptySlug
 
 
 class ExclusionPayload(BaseModel):
     exclusion_value: str
+    # Left a string rather than the enum to keep the generated frontend type one.
     exclusion_type: str
+
+    @field_validator("exclusion_type")
+    @classmethod
+    def validate_exclusion_type(cls, value: str) -> str:
+        if value not in ExclusionType:
+            raise ValueError(
+                f"Unknown exclusion type, expected one of {[t.value for t in ExclusionType]}"
+            )
+        return value
 
 
 class ScanSettingsPayload(BaseModel):
@@ -101,13 +146,22 @@ class ScanSettingsPayload(BaseModel):
         return value
 
 
+class ConvertoSettingsPayload(BaseModel):
+    """Runtime-editable converto.* settings; `cache_ttl_hours` and `scan_metadata` stay in config.yml."""
+
+    download_conversion_enabled: bool
+    cache_max_size_gb: int = Field(ge=CONVERTO_INT_MINIMUMS["cache_max_size_gb"])
+    platform_formats: dict[str, str]
+
+    @field_validator("platform_formats")
+    @classmethod
+    def validate_platform_formats(cls, value: dict[str, str]) -> dict[str, str]:
+        return normalize_platform_formats(value)
+
+
 @router.get("")
 def get_config(request: Request) -> ConfigResponse:
-    """Get config endpoint
-
-    Returns:
-        ConfigResponse: RomM's configuration
-    """
+    """Get RomM's configuration. Anonymous callers get no config parse error and no netplay ICE servers, which can hold a file path or credentials."""
 
     cfg = cm.get_config()
     return ConfigResponse(
@@ -123,22 +177,26 @@ def get_config(request: Request) -> ConfigResponse:
         EXCLUDED_MULTI_FILES=cfg.EXCLUDED_MULTI_FILES,
         EXCLUDED_MULTI_PARTS_EXT=cfg.EXCLUDED_MULTI_PARTS_EXT,
         EXCLUDED_MULTI_PARTS_FILES=cfg.EXCLUDED_MULTI_PARTS_FILES,
-        DEFAULT_EXCLUDED_DIRS=list(DEFAULT_EXCLUDED_DIRS),
+        DEFAULT_EXCLUDED_PLATFORM_DIRS=list(DEFAULT_EXCLUDED_PLATFORM_DIRS),
+        DEFAULT_EXCLUDED_MULTI_FILE_DIRS=list(DEFAULT_EXCLUDED_MULTI_FILE_DIRS),
         DEFAULT_EXCLUDED_FILES=list(DEFAULT_EXCLUDED_FILES),
         DEFAULT_EXCLUDED_EXTENSIONS=list(DEFAULT_EXCLUDED_EXTENSIONS),
         PLATFORMS_BINDING=cfg.PLATFORMS_BINDING,
         PLATFORMS_VERSIONS=cfg.PLATFORMS_VERSIONS,
         SKIP_HASH_CALCULATION=cfg.SKIP_HASH_CALCULATION,
         EJS_DEBUG=cfg.EJS_DEBUG,
+        EJS_CACHE_ENABLED=cfg.EJS_CACHE_ENABLED,
         EJS_CACHE_LIMIT=cfg.EJS_CACHE_LIMIT,
         EJS_DISABLE_AUTO_UNLOAD=cfg.EJS_DISABLE_AUTO_UNLOAD,
         EJS_DISABLE_BATCH_BOOTUP=cfg.EJS_DISABLE_BATCH_BOOTUP,
+        EJS_ENABLE_AUTO_SAVE_SYNC=cfg.EJS_ENABLE_AUTO_SAVE_SYNC,
         EJS_NETPLAY_ENABLED=cfg.EJS_NETPLAY_ENABLED,
         # Contains credentials, so only send when authenticated
         EJS_NETPLAY_ICE_SERVERS=(
             cfg.EJS_NETPLAY_ICE_SERVERS if request.user.is_authenticated else []
         ),
         EJS_CONTROLS=cfg.EJS_CONTROLS,
+        EJS_DEFAULT_CORES=cfg.EJS_DEFAULT_CORES,
         EJS_SETTINGS=cfg.EJS_SETTINGS,
         SCAN_METADATA_PRIORITY=cfg.SCAN_METADATA_PRIORITY,
         SCAN_ARTWORK_PRIORITY=cfg.SCAN_ARTWORK_PRIORITY,
@@ -150,10 +208,42 @@ def get_config(request: Request) -> ConfigResponse:
         GAMELIST_MEDIA_THUMBNAIL=cfg.GAMELIST_MEDIA_THUMBNAIL,
         GAMELIST_MEDIA_IMAGE=cfg.GAMELIST_MEDIA_IMAGE,
         PEGASUS_AUTO_EXPORT_ON_SCAN=cfg.PEGASUS_AUTO_EXPORT_ON_SCAN,
+        CONVERTO=cfg.CONVERTO,
+        CONVERTO_LIBRARY_TARGETS={
+            slug: sorted(targets)
+            for slug, targets in LIBRARY_TARGETS_BY_PLATFORM.items()
+        },
     )
 
 
-@protected_route(router.post, "/system/platforms", [Scope.PLATFORMS_WRITE])
+async def _reject_ambiguous_folder(fs_slug: str) -> None:
+    """Refuse a mapping that several folders on disk would share."""
+    ambiguous = await fs_platform_handler.find_ambiguous_folders(fs_slug)
+    if ambiguous:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Folders {', '.join(ambiguous)} differ only by case and share a "
+                "single mapping. Rename one to map them to different platforms."
+            ),
+        )
+
+
+def _record_config(request: Request, setting: str, op: str, **values: str) -> None:
+    record(
+        AuditAction.CONFIG_UPDATE,
+        request,
+        AuditTarget(AuditTargetType.CONFIG, setting, None),
+        {"setting": setting, "op": op, **values},
+    )
+
+
+@protected_route(
+    router.post,
+    "/system/platforms",
+    [Scope.PLATFORMS_WRITE],
+    responses={**AMBIGUOUS_FOLDER_RESPONSE, **CONFIG_NOT_WRITABLE_RESPONSE},
+)
 async def add_platform_binding(
     request: Request, payload: PlatformBindingPayload
 ) -> None:
@@ -161,6 +251,7 @@ async def add_platform_binding(
 
     fs_slug = payload.fs_slug
     slug = payload.slug
+    await _reject_ambiguous_folder(fs_slug)
 
     try:
         cm.add_platform_binding(fs_slug, slug)
@@ -169,10 +260,21 @@ async def add_platform_binding(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
         ) from exc
+    _record_config(request, "platform_binding", "add", fs_slug=fs_slug, slug=slug)
 
 
-@protected_route(router.delete, "/system/platforms/{fs_slug}", [Scope.PLATFORMS_WRITE])
-async def delete_platform_binding(request: Request, fs_slug: str) -> None:
+@protected_route(
+    router.delete,
+    "/system/platforms/{fs_slug}",
+    [Scope.PLATFORMS_WRITE],
+    responses=CONFIG_NOT_WRITABLE_RESPONSE,
+)
+async def delete_platform_binding(
+    request: Request,
+    fs_slug: Annotated[
+        str, PathVar(description="The name of the platform's folder in the library.")
+    ],
+) -> None:
     """Delete platform binding from the configuration"""
 
     try:
@@ -182,9 +284,15 @@ async def delete_platform_binding(request: Request, fs_slug: str) -> None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
         ) from exc
+    _record_config(request, "platform_binding", "remove", fs_slug=fs_slug)
 
 
-@protected_route(router.post, "/system/versions", [Scope.PLATFORMS_WRITE])
+@protected_route(
+    router.post,
+    "/system/versions",
+    [Scope.PLATFORMS_WRITE],
+    responses={**AMBIGUOUS_FOLDER_RESPONSE, **CONFIG_NOT_WRITABLE_RESPONSE},
+)
 async def add_platform_version(
     request: Request, payload: PlatformBindingPayload
 ) -> None:
@@ -192,6 +300,7 @@ async def add_platform_version(
 
     fs_slug = payload.fs_slug
     slug = payload.slug
+    await _reject_ambiguous_folder(fs_slug)
 
     try:
         cm.add_platform_version(fs_slug, slug)
@@ -200,10 +309,21 @@ async def add_platform_version(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
         ) from exc
+    _record_config(request, "platform_version", "add", fs_slug=fs_slug, slug=slug)
 
 
-@protected_route(router.delete, "/system/versions/{fs_slug}", [Scope.PLATFORMS_WRITE])
-async def delete_platform_version(request: Request, fs_slug: str) -> None:
+@protected_route(
+    router.delete,
+    "/system/versions/{fs_slug}",
+    [Scope.PLATFORMS_WRITE],
+    responses=CONFIG_NOT_WRITABLE_RESPONSE,
+)
+async def delete_platform_version(
+    request: Request,
+    fs_slug: Annotated[
+        str, PathVar(description="The name of the platform's folder in the library.")
+    ],
+) -> None:
     """Delete platform version from the configuration"""
 
     try:
@@ -213,14 +333,20 @@ async def delete_platform_version(request: Request, fs_slug: str) -> None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
         ) from exc
+    _record_config(request, "platform_version", "remove", fs_slug=fs_slug)
 
 
-@protected_route(router.post, "/exclude", [Scope.PLATFORMS_WRITE])
+@protected_route(
+    router.post,
+    "/exclude",
+    [Scope.PLATFORMS_WRITE],
+    responses=CONFIG_NOT_WRITABLE_RESPONSE,
+)
 async def add_exclusion(request: Request, payload: ExclusionPayload) -> None:
     """Add platform exclusion to the configuration"""
 
     exclusion_value = payload.exclusion_value
-    exclusion_type = payload.exclusion_type
+    exclusion_type = ExclusionType(payload.exclusion_type)
     try:
         cm.add_exclusion(exclusion_type, exclusion_value)
     except ConfigNotWritableException as exc:
@@ -228,15 +354,21 @@ async def add_exclusion(request: Request, payload: ExclusionPayload) -> None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
         ) from exc
+    _record_config(
+        request, "exclusion", "add", type=exclusion_type, value=exclusion_value
+    )
 
 
 @protected_route(
     router.delete,
     "/exclude/{exclusion_type}/{exclusion_value}",
     [Scope.PLATFORMS_WRITE],
+    responses=CONFIG_NOT_WRITABLE_RESPONSE,
 )
 async def delete_exclusion(
-    request: Request, exclusion_type: str, exclusion_value: str
+    request: Request,
+    exclusion_type: ExclusionType,
+    exclusion_value: str,
 ) -> None:
     """Delete platform binding from the configuration"""
 
@@ -247,11 +379,23 @@ async def delete_exclusion(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
         ) from exc
+    _record_config(
+        request, "exclusion", "remove", type=exclusion_type, value=exclusion_value
+    )
 
 
-@protected_route(router.put, "/scan", [Scope.PLATFORMS_WRITE])
+@protected_route(
+    router.put,
+    "/scan",
+    [Scope.PLATFORMS_WRITE],
+    responses=CONFIG_NOT_WRITABLE_RESPONSE,
+)
 async def update_scan_settings(request: Request, payload: ScanSettingsPayload) -> None:
     """Replace the scan.* section of the configuration"""
+
+    region_priority_changed = (
+        cm.get_config().SCAN_REGION_PRIORITY != payload.region_priority
+    )
 
     try:
         cm.update_scan_settings(
@@ -275,3 +419,37 @@ async def update_scan_settings(request: Request, payload: ScanSettingsPayload) -
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
         ) from exc
+    _record_config(request, "scan_settings", "update")
+
+    # Region priority picks the primary rom of each sibling group, so every
+    # cached gallery sidecar is stale the moment the order changes.
+    if region_priority_changed:
+        db_rom_handler.invalidate_filter_values_cache()
+
+
+@protected_route(
+    router.put,
+    "/converto_settings",
+    [Scope.PLATFORMS_WRITE],
+    responses=CONFIG_NOT_WRITABLE_RESPONSE,
+)
+async def update_converto_settings(
+    request: Request, payload: ConvertoSettingsPayload
+) -> None:
+    """Update the runtime-editable converto.* settings"""
+
+    current = cm.get_config().CONVERTO
+    try:
+        cm.update_converto_settings(
+            ConvertoConfig(
+                **payload.model_dump(),
+                cache_ttl_hours=current.cache_ttl_hours,
+                scan_metadata=current.scan_metadata,
+            )
+        )
+    except ConfigNotWritableException as exc:
+        log.critical(exc.message)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
+        ) from exc
+    _record_config(request, "converto_settings", "update")

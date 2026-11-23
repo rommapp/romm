@@ -4,10 +4,12 @@ from datetime import datetime, timezone
 from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.orm import Session
 
-from decorators.database import begin_session
+from decorators.database import INJECTED_SESSION, begin_session
+from handler.auth.rom_visibility import UNRESTRICTED, RomVisibilityFilter
 from models.play_session import PlaySession
+from models.rom import Rom
 
-from .base_handler import DBBaseHandler
+from .base_handler import DBBaseHandler, affected_rows
 
 
 class DBPlaySessionsHandler(DBBaseHandler):
@@ -15,7 +17,7 @@ class DBPlaySessionsHandler(DBBaseHandler):
     def add_sessions(
         self,
         play_sessions: list[PlaySession],
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> list[PlaySession]:
         session.add_all(play_sessions)
         session.flush()
@@ -27,7 +29,7 @@ class DBPlaySessionsHandler(DBBaseHandler):
         user_id: int,
         device_id: str | None,
         rom_start_pairs: list[tuple[int | None, datetime]],
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> set[tuple[int | None, datetime]]:
         """Return which (rom_id, start_time) pairs already exist for this user+device."""
         if not rom_start_pairs:
@@ -75,14 +77,21 @@ class DBPlaySessionsHandler(DBBaseHandler):
         end_before: datetime | None = None,
         limit: int | None = 50,
         offset: int = 0,
-        session: Session = None,  # type: ignore
+        visibility: RomVisibilityFilter = UNRESTRICTED,
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[PlaySession]:
         stmt = select(PlaySession).filter_by(user_id=user_id)
 
+        if not visibility.is_unrestricted:
+            # Before the slice, so hidden sessions can't shorten a page.
+            stmt = stmt.outerjoin(Rom, PlaySession.rom_id == Rom.id).where(
+                or_(PlaySession.rom_id.is_(None), and_(*visibility.clauses()))
+            )
+
         if rom_id is not None:
-            stmt = stmt.filter_by(rom_id=rom_id)
+            stmt = stmt.where(PlaySession.rom_id == rom_id)
         if device_id is not None:
-            stmt = stmt.filter_by(device_id=device_id)
+            stmt = stmt.where(PlaySession.device_id == device_id)
         if start_after is not None:
             stmt = stmt.where(PlaySession.start_time >= start_after)
         if end_before is not None:
@@ -99,7 +108,7 @@ class DBPlaySessionsHandler(DBBaseHandler):
         self,
         user_id: int,
         rom_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> int:
         result = session.scalar(
             select(func.sum(PlaySession.duration_ms)).where(
@@ -114,11 +123,16 @@ class DBPlaySessionsHandler(DBBaseHandler):
         self,
         session_id: int,
         user_id: int,
-        session: Session = None,  # type: ignore
+        visibility: RomVisibilityFilter,
+        session: Session = INJECTED_SESSION,
     ) -> bool:
-        result = session.execute(
-            delete(PlaySession)
-            .where(PlaySession.id == session_id, PlaySession.user_id == user_id)
-            .execution_options(synchronize_session="evaluate")
+        stmt = delete(PlaySession).where(
+            PlaySession.id == session_id, PlaySession.user_id == user_id
         )
-        return result.rowcount > 0
+        if not visibility.is_unrestricted:
+            visible_roms = select(Rom.id).where(and_(*visibility.clauses()))
+            stmt = stmt.where(
+                or_(PlaySession.rom_id.is_(None), PlaySession.rom_id.in_(visible_roms))
+            )
+        result = session.execute(stmt.execution_options(synchronize_session=False))
+        return affected_rows(result) > 0

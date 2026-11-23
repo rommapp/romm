@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import enum
-from typing import Literal, NewType, TypedDict, TypeGuard
+from typing import Any, Literal, NewType, TypedDict, TypeGuard
 
 # https://api-docs.igdb.com/#expander
 type ExpandableField[T] = T | int
@@ -18,7 +18,7 @@ def mark_list_expanded[T](value: list[ExpandableField[T]]) -> TypeGuard[list[T]]
 
 
 # TODO: Add missing structures until all are implemented.
-UnimplementedEntity = NewType("UnimplementedEntity", dict)
+UnimplementedEntity = NewType("UnimplementedEntity", dict[str, Any])
 AgeRatingContentDescription = UnimplementedEntity
 Artwork = UnimplementedEntity
 CollectionRelation = UnimplementedEntity
@@ -28,7 +28,6 @@ GameMode = UnimplementedEntity
 InvolvedCompany = UnimplementedEntity
 Keyword = UnimplementedEntity
 LanguageSupport = UnimplementedEntity
-PlatformVersionReleaseDate = UnimplementedEntity
 PlatformWebsite = UnimplementedEntity
 PlayerPerspective = UnimplementedEntity
 ReleaseDate = UnimplementedEntity
@@ -353,18 +352,6 @@ class GameLocalization(IGDBEntity, total=False):
     updated_at: int  # timestamp
 
 
-# https://api-docs.igdb.com/#game-time-to-beat
-class GameTimeToBeat(IGDBEntity, total=False):
-    checksum: str  # uuid
-    completely: int
-    count: int
-    created_at: int  # timestamp
-    game_id: int
-    hastily: int
-    normally: int
-    updated_at: int  # timestamp
-
-
 # https://api-docs.igdb.com/#game-video
 class GameVideo(IGDBEntity, total=False):
     checksum: str  # uuid
@@ -478,6 +465,11 @@ class PlatformVersionCompany(IGDBEntity, total=False):
     company: ExpandableField[Company]
     developer: bool
     manufacturer: bool
+
+
+class PlatformVersionReleaseDate(IGDBEntity, total=False):
+    date: int
+    y: int
 
 
 # https://api-docs.igdb.com/#region

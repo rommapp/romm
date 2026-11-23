@@ -30,6 +30,11 @@ class RateLimiter:
             raise ValueError("requests_per_second must be positive")
         self._min_interval = 1.0 / requests_per_second
 
+    def hold(self, seconds: float) -> None:
+        """Grant no new slot for `seconds`; slots already reserved keep their time."""
+        resume = asyncio.get_running_loop().time() + seconds
+        self._next_slot = max(self._next_slot, resume)
+
     async def acquire(self) -> None:
         # Reserving the slot is a read-then-write on _next_slot with no await
         # between, so it is atomic on the single-threaded loop and needs no lock.

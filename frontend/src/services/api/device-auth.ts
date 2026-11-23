@@ -30,8 +30,8 @@ async function approve({
 }: {
   userCode: string;
   approvedScopes: string[];
-  deviceName?: string;
-  expiresIn?: string;
+  deviceName?: string | undefined;
+  expiresIn?: string | undefined;
 }) {
   return api.post<DeviceAuthApproveResponse>("/auth/device/approve", {
     user_code: userCode,

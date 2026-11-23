@@ -1,22 +1,23 @@
 from datetime import datetime, timezone
-from typing import Any, TypedDict
+from typing import Annotated, Any, Final, Mapping, cast
 
-from fastapi import Body, HTTPException, Request
+from fastapi import Body, HTTPException
+from fastapi import Path as PathVar
+from fastapi import Request, status
 from rq import Worker
 from rq.exceptions import NoSuchJobError
 from rq.job import Job, JobStatus
 from rq.registry import FailedJobRegistry, FinishedJobRegistry
 
-from config import (
-    ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
-    RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
-    TASK_RESULT_TTL,
-)
+from config import ENABLE_RESCAN_ON_FILESYSTEM_CHANGE, RESCAN_ON_FILESYSTEM_CHANGE_DELAY
 from decorators.auth import protected_route
 from endpoints.responses import (
+    BaseTaskStatusResponse,
+    CleanupStats,
     CleanupTaskStatusResponse,
     ConversionTaskStatusResponse,
     GenericTaskStatusResponse,
+    ScanStats,
     ScanTaskStatusResponse,
     SyncTaskStatusResponse,
     TaskExecutionResponse,
@@ -25,29 +26,27 @@ from endpoints.responses import (
     WatcherTaskStatusResponse,
 )
 from endpoints.responses.tasks import GroupedTasksDict, TaskInfo
+from endpoints.sockets.scan import ScanPayload, queue_scan
+from exceptions.socket_exceptions import NoScanWorkerException, ScanInFlightException
+from handler.audit_handler import AuditTarget, record
 from handler.auth.constants import Scope
 from handler.redis_handler import (
-    default_queue,
+    ALL_QUEUES,
     get_job_func_name,
-    high_prio_queue,
+    get_job_kwargs,
+    get_worker_current_job,
+    has_live_worker,
     low_prio_queue,
     redis_client,
 )
-from tasks.manual.cleanup_missing_roms import cleanup_missing_roms_task
-from tasks.manual.recompute_save_content_hashes import (
-    recompute_save_content_hashes_task,
+from models.audit_event import AuditAction, AuditTargetType
+from tasks.registry import (
+    MANUAL_TASKS,
+    SCHEDULED_TASKS,
+    enqueue_task,
+    get_active_task_job,
 )
-from tasks.manual.sync_folder_scan import sync_folder_scan_task
-from tasks.scheduled.cleanup_orphaned_resources import cleanup_orphaned_resources_task
-from tasks.scheduled.cleanup_zip_cache import cleanup_zip_cache_task
-from tasks.scheduled.convert_images_to_webp import convert_images_to_webp_task
-from tasks.scheduled.scan_library import scan_library_task
-from tasks.scheduled.update_launchbox_metadata import update_launchbox_metadata_task
-from tasks.scheduled.update_switch_titledb import update_switch_titledb_task
-from tasks.tasks import (
-    Task,
-    TaskType,
-)
+from tasks.tasks import TaskSpec, TaskType
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -55,88 +54,29 @@ router = APIRouter(
     tags=["tasks"],
 )
 
+# Scheduled tasks an admin can see and trigger. The rest of the catalog runs on
+# its schedule without being surfaced.
+VISIBLE_SCHEDULED_TASKS: Final[dict[str, TaskSpec]] = {
+    name: SCHEDULED_TASKS[name]
+    for name in (
+        "scan_library",
+        "update_launchbox_metadata",
+        "update_switch_titledb",
+        "build_recommendations",
+        "convert_images_to_webp",
+        "cleanup_zip_cache",
+        "cleanup_conversion_cache",
+        "cleanup_orphaned_resources",
+    )
+}
 
-class ScheduledTask(TypedDict):
-    name: str
-    type: TaskType
-    task: Task
+SINGLE_INSTANCE_LOCK_PREFIX: Final = "romm:task-run-lock:"
+SINGLE_INSTANCE_LOCK_SECONDS: Final = 5
 
-
-class ManualTask(ScheduledTask):
-    pass
-
-
-scheduled_tasks: list[ScheduledTask] = [
-    ScheduledTask(
-        {
-            "name": "scan_library",
-            "type": TaskType.SCAN,
-            "task": scan_library_task,
-        }
-    ),
-    ScheduledTask(
-        {
-            "name": "update_launchbox_metadata",
-            "type": TaskType.UPDATE,
-            "task": update_launchbox_metadata_task,
-        }
-    ),
-    ScheduledTask(
-        {
-            "name": "update_switch_titledb",
-            "type": TaskType.UPDATE,
-            "task": update_switch_titledb_task,
-        }
-    ),
-    ScheduledTask(
-        {
-            "name": "convert_images_to_webp",
-            "type": TaskType.CONVERSION,
-            "task": convert_images_to_webp_task,
-        }
-    ),
-    ScheduledTask(
-        {
-            "name": "cleanup_zip_cache",
-            "type": TaskType.CLEANUP,
-            "task": cleanup_zip_cache_task,
-        }
-    ),
-    ScheduledTask(
-        {
-            "name": "cleanup_orphaned_resources",
-            "type": TaskType.CLEANUP,
-            "task": cleanup_orphaned_resources_task,
-        }
-    ),
-]
-
-manual_tasks: list[ManualTask] = [
-    ManualTask(
-        {
-            "name": "cleanup_missing_roms",
-            "type": TaskType.CLEANUP,
-            "task": cleanup_missing_roms_task,
-        }
-    ),
-    ManualTask(
-        {
-            "name": "sync_folder_scan",
-            "type": TaskType.SYNC,
-            "task": sync_folder_scan_task,
-        }
-    ),
-    ManualTask(
-        {
-            "name": "recompute_save_content_hashes",
-            "type": TaskType.CLEANUP,
-            "task": recompute_save_content_hashes_task,
-        }
-    ),
-]
+RUNNABLE_TASKS: Final[dict[str, TaskSpec]] = {**MANUAL_TASKS, **VISIBLE_SCHEDULED_TASKS}
 
 
-def _build_task_info(name: str, task: Task) -> TaskInfo:
+def _build_task_info(name: str, task: TaskSpec) -> TaskInfo:
     """Builds a TaskInfo object from task details."""
     return TaskInfo(
         name=name,
@@ -145,8 +85,57 @@ def _build_task_info(name: str, task: Task) -> TaskInfo:
         description=task.description,
         enabled=task.enabled,
         manual_run=task.can_run_manually,
+        destructive=task.destructive,
         cron_string=task.cron_string or "",
     )
+
+
+# Read off the annotations so a counter added there is filled without a second edit.
+_EMPTY_SCAN_STATS: Final[ScanStats] = cast(
+    ScanStats, dict.fromkeys(ScanStats.__annotations__, 0)
+)
+
+
+def _fill_scan_stats(stats: Mapping[str, Any] | None) -> ScanStats | None:
+    """Zero the counters an older release's stored stats are missing.
+
+    A job's meta in Redis outlives the release that wrote it.
+    """
+    if stats is None:
+        return None
+
+    return cast(ScanStats, {**_EMPTY_SCAN_STATS, **stats})
+
+
+def _fill_cleanup_stats(stats: Mapping[str, Any] | None) -> CleanupStats | None:
+    """Widen the single platform a 5.2.0 job's stored stats named."""
+    # Job meta lives for TASK_RESULT_TTL, so this only ever meets jobs that
+    # finished just before an upgrade.
+    if stats is None or "platform_id" not in stats:
+        return cast(CleanupStats | None, stats)
+
+    legacy = {**stats}
+    platform_id = legacy.pop("platform_id")
+    legacy["platform_ids"] = [platform_id] if platform_id is not None else None
+    return cast(CleanupStats, legacy)
+
+
+def _build_task_execution_response(
+    job: Job, task_key: str | None, task_name: str
+) -> TaskExecutionResponse:
+    """Describe a job that was just queued."""
+    return {
+        "task_key": task_key,
+        "task_name": task_name,
+        "task_id": job.id,
+        "status": job.get_status(refresh=False) or JobStatus.QUEUED,
+        "created_at": (
+            job.created_at.isoformat()
+            if job.created_at
+            else datetime.now(timezone.utc).isoformat()
+        ),
+        "enqueued_at": job.enqueued_at.isoformat() if job.enqueued_at else None,
+    }
 
 
 def _build_task_status_response(
@@ -155,6 +144,7 @@ def _build_task_status_response(
     job_meta = job.get_meta()
     task_type = job_meta.get("task_type")
     task_name = job_meta.get("task_name") or get_job_func_name(job)
+    task_key = job_meta.get("task_key") or (get_job_kwargs(job) or {}).get("name")
 
     # Convert datetime objects to ISO format strings
     created_at = job.created_at.isoformat() if job.created_at else None
@@ -162,7 +152,8 @@ def _build_task_status_response(
     ended_at = job.ended_at.isoformat() if job.ended_at else None
     enqueued_at = job.enqueued_at.isoformat() if job.enqueued_at else None
 
-    common_data = {
+    common_data: BaseTaskStatusResponse = {
+        "task_key": task_key,
         "task_name": task_name,
         "task_id": job.id,
         "status": job.get_status(),
@@ -176,51 +167,53 @@ def _build_task_status_response(
         return GenericTaskStatusResponse(
             task_type=TaskType.GENERIC,
             meta={},
-            **common_data,  # trunk-ignore(mypy/typeddict-item)
+            **common_data,
         )
 
     match TaskType(task_type):
         case TaskType.SCAN:
             return ScanTaskStatusResponse(
                 task_type=TaskType.SCAN,
-                meta={"scan_stats": job_meta.get("scan_stats")},
-                **common_data,  # trunk-ignore(mypy/typeddict-item)
+                meta={"scan_stats": _fill_scan_stats(job_meta.get("scan_stats"))},
+                **common_data,
             )
         case TaskType.CONVERSION:
             return ConversionTaskStatusResponse(
                 task_type=TaskType.CONVERSION,
                 meta={"conversion_stats": job_meta.get("conversion_stats")},
-                **common_data,  # trunk-ignore(mypy/typeddict-item)
+                **common_data,
             )
         case TaskType.UPDATE:
             return UpdateTaskStatusResponse(
                 task_type=TaskType.UPDATE,
                 meta={"update_stats": job_meta.get("update_stats")},
-                **common_data,  # trunk-ignore(mypy/typeddict-item)
+                **common_data,
             )
         case TaskType.CLEANUP:
             return CleanupTaskStatusResponse(
                 task_type=TaskType.CLEANUP,
-                meta={"cleanup_stats": job_meta.get("cleanup_stats")},
-                **common_data,  # trunk-ignore(mypy/typeddict-item)
+                meta={
+                    "cleanup_stats": _fill_cleanup_stats(job_meta.get("cleanup_stats"))
+                },
+                **common_data,
             )
         case TaskType.SYNC:
             return SyncTaskStatusResponse(
                 task_type=TaskType.SYNC,
                 meta={},
-                **common_data,  # trunk-ignore(mypy/typeddict-item)
+                **common_data,
             )
         case TaskType.WATCHER:
             return WatcherTaskStatusResponse(
                 task_type=TaskType.WATCHER,
                 meta={},
-                **common_data,  # trunk-ignore(mypy/typeddict-item)
+                **common_data,
             )
         case TaskType.GENERIC:
             return GenericTaskStatusResponse(
                 task_type=TaskType.GENERIC,
                 meta={},
-                **common_data,  # trunk-ignore(mypy/typeddict-item)
+                **common_data,
             )
         case _:
             raise ValueError(f"Invalid task type: {task_type}")
@@ -228,13 +221,7 @@ def _build_task_status_response(
 
 @protected_route(router.get, "", [Scope.TASKS_RUN])
 async def list_tasks(request: Request) -> GroupedTasksDict:
-    """List all available tasks grouped by task type.
-
-    Args:
-        request (Request): FastAPI Request object
-    Returns:
-        GroupedTasksDict: Dictionary with tasks grouped by their type (scheduled, manual, watcher)
-    """
+    """List the tasks an admin can see, grouped into scheduled, manual and file watcher tasks."""
     # Initialize the grouped tasks dictionary
     grouped_tasks: GroupedTasksDict = {
         "scheduled": [],
@@ -242,11 +229,11 @@ async def list_tasks(request: Request) -> GroupedTasksDict:
         "watcher": [],
     }
 
-    for task in manual_tasks:
-        grouped_tasks["manual"].append(_build_task_info(task["name"], task["task"]))
+    for name, task in MANUAL_TASKS.items():
+        grouped_tasks["manual"].append(_build_task_info(name, task))
 
-    for task in scheduled_tasks:
-        grouped_tasks["scheduled"].append(_build_task_info(task["name"], task["task"]))
+    for name, task in VISIBLE_SCHEDULED_TASKS.items():
+        grouped_tasks["scheduled"].append(_build_task_info(name, task))
 
     # Add the adhoc watcher task
     grouped_tasks["watcher"].append(
@@ -257,6 +244,7 @@ async def list_tasks(request: Request) -> GroupedTasksDict:
             description=f"Runs a scan when a change is detected in the library path, with a {RESCAN_ON_FILESYSTEM_CHANGE_DELAY} minute delay",
             enabled=ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
             manual_run=False,
+            destructive=False,
             cron_string="",
         )
     )
@@ -266,59 +254,28 @@ async def list_tasks(request: Request) -> GroupedTasksDict:
 
 @protected_route(router.get, "/status", [Scope.TASKS_RUN])
 async def get_tasks_status(request: Request) -> list[TaskStatusResponse]:
-    """Get all active, queued, completed, and failed tasks.
-
-    Args:
-        request (Request): FastAPI Request object
-    Returns:
-        list[TaskStatusResponse]: List of all tasks with their current status
-    """
+    """List running, queued, finished and failed tasks, the most recent first."""
     all_tasks: list[TaskStatusResponse] = []
 
     # Get currently running jobs from workers
-    workers = Worker.all(connection=redis_client)
-    for worker in workers:
-        current_job = worker.get_current_job()
+    for worker in Worker.all(connection=redis_client):
+        current_job = get_worker_current_job(worker)
         if current_job:
             all_tasks.append(_build_task_status_response(current_job))
 
     # Get all jobs from the queues (including completed ones)
-    low_prio_jobs = low_prio_queue.get_jobs()
-    default_prio_jobs = default_queue.get_jobs()
-    high_prio_jobs = high_prio_queue.get_jobs()
+    for queue in ALL_QUEUES:
+        for job in queue.get_jobs():
+            all_tasks.append(_build_task_status_response(job))
 
-    for job in low_prio_jobs + default_prio_jobs + high_prio_jobs:
-        all_tasks.append(_build_task_status_response(job))
-
-    # Get finished jobs from all queues
-    finished_registries = [
-        FinishedJobRegistry(queue=low_prio_queue),
-        FinishedJobRegistry(queue=default_queue),
-        FinishedJobRegistry(queue=high_prio_queue),
+    # Process finished and failed jobs
+    registries = [
+        registry_class(queue=queue)
+        for registry_class in (FinishedJobRegistry, FailedJobRegistry)
+        for queue in ALL_QUEUES
     ]
 
-    failed_registries = [
-        FailedJobRegistry(queue=low_prio_queue),
-        FailedJobRegistry(queue=default_queue),
-        FailedJobRegistry(queue=high_prio_queue),
-    ]
-
-    # Process finished jobs
-    for registry in finished_registries:
-        for job_id in registry.get_job_ids():
-            try:
-                job = Job.fetch(job_id, connection=redis_client)
-            except NoSuchJobError:
-                registry.remove(job_id)
-                continue
-            all_tasks.append(
-                _build_task_status_response(
-                    job,
-                )
-            )
-
-    # Process failed jobs
-    for registry in failed_registries:
+    for registry in registries:
         for job_id in registry.get_job_ids():
             try:
                 job = Job.fetch(job_id, connection=redis_client)
@@ -335,18 +292,22 @@ async def get_tasks_status(request: Request) -> list[TaskStatusResponse]:
     return all_tasks
 
 
-@protected_route(router.get, "/{task_id}", [Scope.TASKS_RUN])
-async def get_task_by_id(request: Request, task_id: str) -> TaskStatusResponse:
-    """Get the status of a task by its job ID.
-
-    Args:
-        request (Request): FastAPI Request object
-        task_id (str): Job ID of the task to retrieve status for
-    Returns:
-        TaskStatusResponse: Task status information
-    """
+@protected_route(
+    router.get,
+    "/{task_id}",
+    [Scope.TASKS_RUN],
+    responses={status.HTTP_404_NOT_FOUND: {"description": "No task has this job ID."}},
+)
+async def get_task_by_id(
+    request: Request,
+    task_id: Annotated[
+        str,
+        PathVar(description="The job ID of the task, as returned when it started."),
+    ],
+) -> TaskStatusResponse:
+    """Get the status of a task by its job ID."""
     try:
-        job = Job.fetch(task_id, connection=low_prio_queue.connection)
+        job = Job.fetch(task_id, connection=redis_client)
     except Exception as e:
         raise HTTPException(
             status_code=404,
@@ -359,56 +320,126 @@ async def get_task_by_id(request: Request, task_id: str) -> TaskStatusResponse:
 TASK_KWARGS = Body(default=None)
 
 
-@protected_route(router.post, "/run/{task_name}", [Scope.TASKS_RUN])
+@protected_route(
+    router.post,
+    "/run/{task_name}",
+    [Scope.TASKS_RUN],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The task cannot be run on demand, or it is disabled."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No task in the task list has this name."
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": (
+                "The task allows one run at a time, and a run is already queued"
+                " or in progress."
+            )
+        },
+        status.HTTP_503_SERVICE_UNAVAILABLE: {
+            "description": "No task worker is running to take the job."
+        },
+    },
+)
 async def run_single_task(
     request: Request,
-    task_name: str,
+    task_name: Annotated[
+        str,
+        PathVar(
+            description=(
+                "The name of the task to run. An unknown name returns 404 with"
+                " the names that are available."
+            )
+        ),
+    ],
     task_kwargs: dict[str, Any] | None = TASK_KWARGS,
 ) -> TaskExecutionResponse:
-    """Run a single task endpoint.
-
-    Args:
-        request (Request): FastAPI Request object
-        task_name (str): Name of the task to run
-        task_kwargs (dict | None): Optional keyword arguments forwarded to the task's run() method
-    Returns:
-        TaskExecutionResponse: Task execution response with details
-    """
-    all_tasks = {task["name"]: task["task"] for task in manual_tasks + scheduled_tasks}
-
-    if task_name not in all_tasks:
-        available_tasks = list(all_tasks.keys())
+    """Queue a run of one task. Any JSON object in the body is passed to the task as keyword arguments."""
+    task_instance = RUNNABLE_TASKS.get(task_name)
+    if task_instance is None:
         raise HTTPException(
             status_code=404,
-            detail=f"Task '{task_name}' not found, available tasks are {', '.join(available_tasks)}",
+            detail=f"Task '{task_name}' not found, available tasks are {', '.join(RUNNABLE_TASKS)}",
         )
 
-    task_instance = all_tasks[task_name]
     if not task_instance.can_run_manually:
         raise HTTPException(
             status_code=400,
             detail=f"Task '{task_name}' cannot be run",
         )
 
-    job = low_prio_queue.enqueue(
-        task_instance.run,
-        kwargs=task_kwargs or {},
-        job_timeout=task_instance.timeout,
-        result_ttl=TASK_RESULT_TTL,
-        meta={
-            "task_name": task_instance.title,
-            "task_type": task_instance.task_type.value,
-        },
+    # Without a worker the job would sit queued while the UI waits on it.
+    if not has_live_worker(low_prio_queue):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="No task worker is listening, so the task cannot be queued",
+        )
+
+    # The lock covers two requests landing before either job is queued.
+    if task_instance.single_instance and (
+        not redis_client.set(
+            f"{SINGLE_INSTANCE_LOCK_PREFIX}{task_name}",
+            1,
+            nx=True,
+            ex=SINGLE_INSTANCE_LOCK_SECONDS,
+        )
+        or get_active_task_job(task_name) is not None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"{task_instance.title} is already queued or running",
+        )
+
+    # The caller's arguments are nested rather than spread, so a body cannot
+    # name a different task than the one this route just authorized.
+    job = enqueue_task(
+        task_name,
+        queue=low_prio_queue,
+        task_kwargs=task_kwargs or {},
+        run_by_user_id=request.user.id,
+    )
+    record(
+        AuditAction.TASK_RUN,
+        request,
+        AuditTarget(AuditTargetType.TASK, task_name, task_instance.title),
+        {"job_id": job.id, "kwargs": task_kwargs or {}},
     )
 
-    return {
-        "task_name": task_instance.title,
-        "task_id": job.id,
-        "status": job.get_status() or JobStatus.QUEUED,
-        "created_at": (
-            job.created_at.isoformat()
-            if job.created_at
-            else datetime.now(timezone.utc).isoformat()
-        ),
-        "enqueued_at": job.enqueued_at.isoformat() if job.enqueued_at else None,
-    }
+    return _build_task_execution_response(job, task_name, task_instance.title)
+
+
+SCAN_PAYLOAD = Body(default_factory=ScanPayload)
+
+
+@protected_route(
+    router.post,
+    "/scan",
+    [Scope.TASKS_RUN],
+    status_code=status.HTTP_202_ACCEPTED,
+    responses={
+        status.HTTP_409_CONFLICT: {
+            "description": (
+                "The scan does not name specific roms, and a library scan is"
+                " already queued or running."
+            )
+        },
+        status.HTTP_503_SERVICE_UNAVAILABLE: {
+            "description": "No scan worker is running to take the job."
+        },
+    },
+)
+async def start_scan(
+    request: Request, payload: ScanPayload = SCAN_PAYLOAD
+) -> TaskExecutionResponse:
+    """Queue a scan for clients without a session cookie. An empty body runs a quick scan of the whole library. Follow its progress on `GET /api/tasks/{task_id}`."""
+    try:
+        job = await queue_scan(payload, started_by_user_id=request.user.id)
+    except NoScanWorkerException as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e)
+        ) from e
+    except ScanInFlightException as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
+
+    return _build_task_execution_response(job, None, job.meta["task_name"])

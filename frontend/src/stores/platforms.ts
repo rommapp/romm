@@ -1,7 +1,8 @@
-import { uniqBy } from "lodash";
 import { defineStore } from "pinia";
 import type { PlatformSchema } from "@/__generated__";
 import platformApi from "@/services/api/platform";
+import { toError } from "@/utils/toError";
+import { uniqueBy } from "@/utils/uniqueBy";
 
 export type Platform = PlatformSchema;
 
@@ -30,16 +31,18 @@ export default defineStore("platforms", {
         .sort((a, b) => a.display_name.localeCompare(b.display_name)),
     // Existing database platforms + unscanned folders on disk
     scannablePlatforms: ({ allPlatforms: all, filesystemPlatforms: fs }) =>
-      uniqBy([...all, ...fs], "fs_slug").sort((a, b) =>
+      uniqueBy([...all, ...fs], (p) => p.fs_slug).sort((a, b) =>
         a.display_name.localeCompare(b.display_name),
       ),
   },
 
   actions: {
     _reorder() {
-      this.allPlatforms = uniqBy(this.allPlatforms, "id").sort((a, b) => {
-        return a.display_name.localeCompare(b.display_name);
-      });
+      this.allPlatforms = uniqueBy(this.allPlatforms, (p) => p.id).sort(
+        (a, b) => {
+          return a.display_name.localeCompare(b.display_name);
+        },
+      );
     },
     fetchPlatforms(): Promise<Platform[]> {
       if (this.fetchingPlatforms) return Promise.resolve([]);
@@ -54,7 +57,7 @@ export default defineStore("platforms", {
           })
           .catch((error) => {
             console.error(error);
-            reject(error);
+            reject(toError(error));
           })
           .finally(() => {
             this.fetchingPlatforms = false;
@@ -71,7 +74,7 @@ export default defineStore("platforms", {
           })
           .catch((error) => {
             console.error(error);
-            reject(error);
+            reject(toError(error));
           });
       });
     },

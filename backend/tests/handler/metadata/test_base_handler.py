@@ -1,10 +1,14 @@
 import json
 import re
+from collections.abc import AsyncIterator
 from unittest.mock import AsyncMock, patch
 from urllib.parse import parse_qsl, urlparse
 
+import httpx2
 import pytest
+from tests.handler.metadata.conftest import schema_stamp_get
 
+from handler.metadata import base_handler
 from handler.metadata.base_handler import (
     LEADING_ARTICLE_PATTERN,
     MAME_XML_KEY,
@@ -19,13 +23,24 @@ from handler.metadata.base_handler import (
     SWITCH_PRODUCT_ID_REGEX,
     SWITCH_TITLEDB_REGEX,
     BaseRom,
+    IndexedFormatPlatforms,
     MetadataHandler,
-    UniversalPlatformSlug,
     _normalize_search_term,
+    provider_tag_regex,
     restore_sensitive_query_params,
     strip_sensitive_query_params,
+    tag_id_from_filename,
 )
 from handler.redis_handler import async_cache
+from models.platform import Platform
+from models.rom import Rom
+from tasks.scheduled.update_switch_titledb import (
+    SWITCH_PRODUCT_ID_KEY,
+    SWITCH_TITLEDB_INDEX_KEY,
+    SWITCH_TITLEDB_STORE,
+)
+from utils.context import ctx_httpx_client
+from utils.platform_slugs import UniversalPlatformSlug
 
 
 class ExampleMetadataHandler(MetadataHandler):
@@ -260,11 +275,11 @@ class TestMetadataHandlerMethods:
     @pytest.mark.asyncio
     async def test_switch_titledb_format_cache_exists(self, handler: MetadataHandler):
         """Test Switch TitleDB format when cache exists."""
-        with patch.object(
-            async_cache, "exists", new_callable=AsyncMock
-        ) as mock_exists, patch.object(
-            async_cache, "hget", new_callable=AsyncMock
-        ) as mock_hget:
+        with (
+            patch.object(async_cache, "exists", new_callable=AsyncMock) as mock_exists,
+            patch.object(async_cache, "get", schema_stamp_get(SWITCH_TITLEDB_STORE)),
+            patch.object(async_cache, "hget", new_callable=AsyncMock) as mock_hget,
+        ):
             mock_exists.return_value = True
             mock_hget.return_value = json.dumps(
                 {"name": "Switch Game", "publisher": "Nintendo"}
@@ -284,11 +299,10 @@ class TestMetadataHandlerMethods:
     @pytest.mark.asyncio
     async def test_switch_titledb_format_not_found(self, handler: MetadataHandler):
         """Test Switch TitleDB format when title ID not found."""
-        with patch.object(
-            async_cache, "exists", new_callable=AsyncMock
-        ) as mock_exists, patch.object(
-            async_cache, "hget", new_callable=AsyncMock
-        ) as mock_hget:
+        with (
+            patch.object(async_cache, "exists", new_callable=AsyncMock) as mock_exists,
+            patch.object(async_cache, "hget", new_callable=AsyncMock) as mock_hget,
+        ):
             mock_exists.return_value = True
             mock_hget.return_value = None
 
@@ -299,26 +313,81 @@ class TestMetadataHandlerMethods:
             assert result == ("original", None)
 
     @pytest.mark.asyncio
-    async def test_switch_productid_format_found(self, handler: MetadataHandler):
-        """Test Switch Product ID format when found."""
-        with patch.object(
-            async_cache, "exists", new_callable=AsyncMock
-        ) as mock_exists, patch.object(
-            async_cache, "hget", new_callable=AsyncMock
-        ) as mock_hget:
+    @pytest.mark.parametrize(
+        "product_id",
+        [
+            # A base game is looked up as-is.
+            "0100ABCD12340000",
+            # An update carries bitmask 0x800.
+            "0100ABCD12340800",
+            # DLC carries an addon index in the low 12 bits.
+            "0100ABCD12341001",
+        ],
+    )
+    async def test_switch_productid_format_found(
+        self, handler: MetadataHandler, product_id: str
+    ):
+        """Only the base application has a titledb entry, so updates and DLC
+        are resolved to it before the lookup."""
+        with (
+            patch.object(async_cache, "exists", new_callable=AsyncMock) as mock_exists,
+            patch.object(async_cache, "get", schema_stamp_get(SWITCH_TITLEDB_STORE)),
+            patch.object(async_cache, "hget", new_callable=AsyncMock) as mock_hget,
+        ):
             mock_exists.return_value = True
-            mock_hget.return_value = json.dumps({"name": "Product Game"})
+            mock_hget.side_effect = [
+                json.dumps("70010000000025"),
+                json.dumps({"name": "Product Game"}),
+            ]
 
-            match = re.match(SWITCH_PRODUCT_ID_REGEX, "0100ABC123456789")
-            assert match is not None
-            result = await handler._switch_productid_format(match, "original")
+            rom = Rom(fs_name="Game.nsp", title_id=product_id)
+            result = await handler._switch_productid_format(rom, "Game.nsp", "original")
 
-            # Check that bitmask 0x800 was cleared (ABC -> AB0)
-            mock_hget.assert_called_once_with(
-                "romm:switch_product_id",  # SWITCH_PRODUCT_ID_KEY
-                "0100ABC123456089",
-            )
+            # The product id index holds the title id of its titleID entry.
+            assert [call.args for call in mock_hget.await_args_list] == [
+                (SWITCH_PRODUCT_ID_KEY, "0100ABCD12340000"),
+                (SWITCH_TITLEDB_INDEX_KEY, "70010000000025"),
+            ]
             assert result[0] == "Product Game"
+
+    @pytest.mark.parametrize(
+        ("title_id", "fs_name", "expected"),
+        [
+            # The extracted id wins over whatever the filename says.
+            ("0100ABCD12340000", "Game [0100999988880000].nsp", "0100ABCD12340000"),
+            # sigil reports lowercase; the titledb index is keyed uppercase.
+            ("0100abcd12340000", "Game.nsp", "0100ABCD12340000"),
+            # With nothing extracted, the filename is still scraped.
+            (None, "Game [0100ABCD12340000].nsp", "0100ABCD12340000"),
+            # A non-Switch id is not a product id.
+            ("SLUS-20152", "Game.nsp", None),
+            (None, "Game.nsp", None),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_switch_productid_format_prefers_the_extracted_id(
+        self,
+        handler: MetadataHandler,
+        title_id: str | None,
+        fs_name: str,
+        expected: str | None,
+    ):
+        rom = Rom(fs_name=fs_name, title_id=title_id)
+
+        with (
+            patch.object(async_cache, "exists", new_callable=AsyncMock) as mock_exists,
+            patch.object(async_cache, "get", schema_stamp_get(SWITCH_TITLEDB_STORE)),
+            patch.object(async_cache, "hget", new_callable=AsyncMock) as mock_hget,
+        ):
+            mock_exists.return_value = True
+            mock_hget.return_value = None
+
+            await handler._switch_productid_format(rom, fs_name, "original")
+
+            if expected is None:
+                mock_hget.assert_not_called()
+            else:
+                mock_hget.assert_called_once_with(SWITCH_PRODUCT_ID_KEY, expected)
 
     @pytest.mark.asyncio
     async def test_mame_format_found(self, handler: MetadataHandler):
@@ -414,6 +483,183 @@ class TestMetadataHandlerMethods:
         assert result["api_key"] == "ab***ab"  # Shows first 2 and last 2
 
 
+class TestResolveIndexedTitle:
+    PLATFORMS = IndexedFormatPlatforms(ps1=1, ps2=2, psp=3, switch=4, scummvm=7)
+
+    @pytest.fixture
+    def handler(self) -> MetadataHandler:
+        return ExampleMetadataHandler()
+
+    async def _resolve(
+        self,
+        handler: MetadataHandler,
+        fs_name: str,
+        platform_id: int,
+        platforms: IndexedFormatPlatforms = PLATFORMS,
+        slug: str | None = None,
+    ) -> tuple[str, BaseRom]:
+        fallback_rom = BaseRom()
+        platform = Platform(slug=slug, fs_slug=slug) if slug else None
+        term = await handler._resolve_indexed_title(
+            Rom(fs_name=fs_name, platform=platform),
+            fs_name,
+            "original",
+            platform_id,
+            platforms,
+            fallback_rom,
+        )
+        return term, fallback_rom
+
+    @pytest.mark.parametrize(
+        ("fs_name", "platform_id", "method"),
+        [
+            ("SLUS_200.62.Grand Theft Auto.iso", 2, "_ps2_opl_format"),
+            ("Crash [SCUS-94900].bin", 1, "_ps1_serial_format"),
+            ("Ridge Racer [SLUS-01234].iso", 2, "_ps2_serial_format"),
+            ("Lumines [ULUS-10046].iso", 3, "_psp_serial_format"),
+            ("monkey1.scummvm", 7, "_scummvm_format"),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_named_index_sets_term_and_fallback_name(
+        self, handler: MetadataHandler, fs_name: str, platform_id: int, method: str
+    ):
+        with patch.object(handler, method, AsyncMock(return_value="Indexed Title")):
+            term, fallback_rom = await self._resolve(handler, fs_name, platform_id)
+
+        assert term == "Indexed Title"
+        assert fallback_rom == BaseRom(name="Indexed Title")
+
+    @pytest.mark.parametrize("slug", ["arcade", "fbneo", "naomi", "neogeomvs"])
+    @pytest.mark.asyncio
+    async def test_a_mame_shortname_platform_resolves_the_set_title(
+        self, handler: MetadataHandler, slug: str
+    ):
+        with patch.object(handler, "_mame_format", AsyncMock(return_value="Pac-Man")):
+            term, fallback_rom = await self._resolve(
+                handler, "pacman.zip", 99, slug=slug
+            )
+
+        assert term == "Pac-Man"
+        assert fallback_rom == BaseRom(name="Pac-Man")
+
+    @pytest.mark.parametrize(
+        "slug", ["daphne", "singe", "type-x", "lindbergh", "teknoparrot"]
+    )
+    @pytest.mark.asyncio
+    async def test_an_arcade_platform_with_its_own_set_names_is_left_alone(
+        self, handler: MetadataHandler, slug: str
+    ):
+        with patch.object(handler, "_mame_format", new_callable=AsyncMock) as fmt:
+            term, _ = await self._resolve(handler, "ace.zip", 99, slug=slug)
+
+        fmt.assert_not_called()
+        assert term == "original"
+
+    @pytest.mark.asyncio
+    async def test_switch_entry_fills_the_fallback(self, handler: MetadataHandler):
+        entry = {
+            "name": "Celeste",
+            "description": "Climb",
+            "iconUrl": "https://example.com/icon.png",
+            "screenshots": None,
+        }
+        with (
+            patch.object(
+                handler,
+                "_switch_titledb_format",
+                AsyncMock(return_value=("Celeste", entry)),
+            ),
+            patch.object(
+                handler,
+                "_switch_productid_format",
+                AsyncMock(return_value=("Celeste", None)),
+            ),
+        ):
+            term, fallback_rom = await self._resolve(
+                handler, "Celeste [70010000000025].nsp", 4
+            )
+
+        assert term == "Celeste"
+        assert fallback_rom == BaseRom(
+            name="Celeste",
+            summary="Climb",
+            url_cover="https://example.com/icon.png",
+            url_screenshots=[],
+        )
+
+    @pytest.mark.asyncio
+    async def test_other_platform_is_left_alone(self, handler: MetadataHandler):
+        with patch.object(async_cache, "hget", new_callable=AsyncMock) as mock_hget:
+            term, fallback_rom = await self._resolve(handler, "SLUS-12345.bin", 99)
+
+        mock_hget.assert_not_called()
+        assert term == "original"
+        assert fallback_rom == BaseRom()
+
+    @pytest.mark.asyncio
+    async def test_provider_without_scummvm_skips_it(self, handler: MetadataHandler):
+        platforms = IndexedFormatPlatforms(ps1=1, ps2=2, psp=3, switch=4)
+        with patch.object(handler, "_scummvm_format", new_callable=AsyncMock) as fmt:
+            term, _ = await self._resolve(handler, "monkey1", 7, platforms)
+
+        fmt.assert_not_called()
+        assert term == "original"
+
+
+class TestProviderTags:
+    TAG = provider_tag_regex("igdb")
+
+    @pytest.mark.parametrize(
+        ("fs_name", "expected"),
+        [
+            ("Zelda (igdb-1025).sfc", 1025),
+            ("Zelda (IGDB-1025).sfc", 1025),
+            ("Zelda (moby-1025).sfc", None),
+            ("Zelda (igdb-).sfc", None),
+            ("Zelda.sfc", None),
+            # Past 4300 digits int() raises instead of parsing.
+            ("Zelda (igdb-" + "1" * 5000 + ").sfc", None),
+        ],
+        ids=["tagged", "any_case", "other_provider", "no_id", "untagged", "too_long"],
+    )
+    def test_reads_the_id_from_the_tag(self, fs_name: str, expected: int | None):
+        assert tag_id_from_filename(self.TAG, fs_name) == expected
+
+
+class _HeartbeatHandler(MetadataHandler):
+    enabled = True
+
+    @classmethod
+    def is_enabled(cls) -> bool:
+        return cls.enabled
+
+
+class TestHeartbeat:
+    @pytest.mark.parametrize("answer", [True, False])
+    @pytest.mark.asyncio
+    async def test_reports_what_the_probe_finds(self, answer: bool):
+        probe = AsyncMock(return_value=answer)
+
+        assert await _HeartbeatHandler()._heartbeat("Test API", probe) is answer
+
+    @pytest.mark.asyncio
+    async def test_a_failing_probe_is_down(self):
+        probe = AsyncMock(side_effect=RuntimeError("down"))
+
+        assert await _HeartbeatHandler()._heartbeat("Test API", probe) is False
+
+    @pytest.mark.asyncio
+    async def test_a_disabled_provider_is_not_probed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        monkeypatch.setattr(_HeartbeatHandler, "enabled", False)
+        probe = AsyncMock(return_value=True)
+
+        assert await _HeartbeatHandler()._heartbeat("Test API", probe) is False
+        probe.assert_not_awaited()
+
+
 class TestStripSensitiveQueryParams:
     """Test the strip_sensitive_query_params function."""
 
@@ -429,7 +675,7 @@ class TestStripSensitiveQueryParams:
         """Non-sensitive params should keep their values and ordering."""
         url = "https://api.example.com/media?systemeid=1&ssid=user&romnom=Game.zip"
         result = strip_sensitive_query_params(url)
-        # parse rather than rely on a literal — urlencode may reorder identically-named keys
+        # parse rather than rely on a literal; urlencode may reorder identically-named keys
         parsed = parse_qsl(urlparse(result).query, keep_blank_values=True)
         assert ("systemeid", "1") in parsed
         assert ("romnom", "Game.zip") in parsed
@@ -655,11 +901,11 @@ class TestUniversalPlatformSlug:
 
     def test_specific_platform_slugs(self):
         """Test specific platform slug values."""
-        assert UniversalPlatformSlug.N64 == "n64"
-        assert UniversalPlatformSlug.PSX == "psx"
-        assert UniversalPlatformSlug.PS2 == "ps2"
-        assert UniversalPlatformSlug.SWITCH == "switch"
-        assert UniversalPlatformSlug.ARCADE == "arcade"
+        assert UniversalPlatformSlug.N64.value == "n64"
+        assert UniversalPlatformSlug.PSX.value == "psx"
+        assert UniversalPlatformSlug.PS2.value == "ps2"
+        assert UniversalPlatformSlug.SWITCH.value == "switch"
+        assert UniversalPlatformSlug.ARCADE.value == "arcade"
 
     def test_enum_contains_expected_platforms(self):
         """Test that enum contains major gaming platforms."""
@@ -747,3 +993,39 @@ class TestConstants:
         ]
 
         assert len(keys) == len(set(keys))
+
+
+class _CappedHandler(base_handler.MetadataHandler):
+    @classmethod
+    def is_enabled(cls) -> bool:
+        return True
+
+
+@pytest.mark.asyncio
+async def test_fetch_capped_abandons_an_oversized_body_mid_stream(monkeypatch):
+    """Providers are third parties: the read stops instead of buffering it all."""
+    monkeypatch.setattr(base_handler, "MAX_RESPONSE_BYTES", 1024)
+    sent = 0
+
+    async def endless() -> AsyncIterator[bytes]:
+        nonlocal sent
+        while True:
+            sent += 1
+            yield b"A" * 512
+
+    async def respond(request: httpx2.Request) -> httpx2.Response:
+        if "big" in str(request.url):
+            return httpx2.Response(200, content=endless())
+        return httpx2.Response(200, content=b"small")
+
+    client = httpx2.AsyncClient(transport=httpx2.MockTransport(respond))
+    token = ctx_httpx_client.set(client)
+    try:
+        handler = _CappedHandler()
+        assert await handler._fetch_capped("https://x.test/", headers={}) == b"small"
+        assert await handler._fetch_capped("https://x.test/?big=1", headers={}) is None
+    finally:
+        ctx_httpx_client.reset(token)
+        await client.aclose()
+
+    assert sent == 3, f"stream should stop just past the cap, pulled {sent} chunks"

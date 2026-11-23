@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from config.config_manager import config_manager as cm
 from endpoints.responses.platform import PlatformSchema
+from handler.auth.rom_visibility import UNRESTRICTED, RomVisibilityFilter
 from handler.database import db_platform_handler
 from handler.filesystem import fs_platform_handler
 from handler.metadata import (
@@ -15,8 +16,10 @@ from handler.metadata import (
     meta_ss_handler,
     meta_tgdb_handler,
 )
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
+from handler.metadata.platform_names import resolve_platform_name
 from models.platform import Platform
+from utils.platform_aliases import resolve_platform_slug
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 
 def _build_unmatched_platform(slug: str, fs_slug: str, now: datetime) -> PlatformSchema:
@@ -63,16 +66,7 @@ def _build_unmatched_platform(slug: str, fs_slug: str, now: datetime) -> Platfor
             or hasheous_platform.get("tgdb_id")
             or tgdb_platform.get("tgdb_id")
             or None,
-            "name": igdb_platform.get("name")
-            or ss_platform.get("name")
-            or moby_platform.get("name")
-            or ra_platform.get("name")
-            or launchbox_platform.get("name")
-            or hasheous_platform.get("name")
-            or tgdb_platform.get("name")
-            or flashpoint_platform.get("name")
-            or hltb_platform.get("name")
-            or slug.replace("-", " ").title(),
+            "name": resolve_platform_name(slug),
             "url_logo": igdb_platform.get("url_logo")
             or tgdb_platform.get("url_logo")
             or "",
@@ -82,15 +76,21 @@ def _build_unmatched_platform(slug: str, fs_slug: str, now: datetime) -> Platfor
     return PlatformSchema.model_validate(Platform(**platform_attrs))
 
 
-def get_supported_platforms() -> list[PlatformSchema]:
+def get_supported_platforms(
+    visibility: RomVisibilityFilter = UNRESTRICTED,
+) -> list[PlatformSchema]:
     """Get all supported platforms with metadata from various sources.
+
+    Args:
+        visibility: The caller's ROM visibility. A platform it hides is listed as
+            if it had no database row, and the rest count only the ROMs it shows.
 
     Returns:
         List of platform dictionaries with metadata from IGDB, MobyGames,
         ScreenScraper, RetroAchievements, Launchbox, Hasheous, TGDB,
         Flashpoint, and HowLongToBeat.
     """
-    db_platforms = db_platform_handler.get_platforms()
+    db_platforms = db_platform_handler.get_platforms(visibility=visibility)
 
     # Multiple folders can resolve to the same slug (a folder alias or a
     # platform variant bound to a parent platform). When that happens, prefer
@@ -132,11 +132,7 @@ async def get_filesystem_platforms() -> list[PlatformSchema]:
         if fs_slug in existing_fs_slugs:
             continue
 
-        slug = (
-            cnfg.PLATFORMS_BINDING.get(fs_slug)
-            or cnfg.PLATFORMS_VERSIONS.get(fs_slug)
-            or fs_slug
-        )
+        slug = resolve_platform_slug(fs_slug, cnfg)
         filesystem_platforms.append(_build_unmatched_platform(slug, fs_slug, now))
 
     return filesystem_platforms

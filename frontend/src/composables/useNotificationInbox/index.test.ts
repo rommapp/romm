@@ -1,0 +1,127 @@
+import { flushPromises } from "@vue/test-utils";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { effectScope, type EffectScope } from "vue";
+import type { NotificationSchema } from "@/__generated__";
+import { installNotificationInbox } from "@/composables/useNotificationInbox";
+import storeAuth from "@/stores/auth";
+import storeNotificationInbox from "@/stores/notificationInbox";
+import { makeNotification } from "@/utils/notifications.fixtures";
+import { userFixture } from "@/utils/user.fixtures";
+
+const { create, getNotifications, handlers, show } = vi.hoisted(() => ({
+  create: vi.fn(),
+  getNotifications: vi.fn(),
+  handlers: new Map<string, (payload: unknown) => void>(),
+  show: vi.fn(),
+}));
+
+vi.mock("@/services/api/notification", () => ({
+  default: { create, getNotifications },
+}));
+
+vi.mock("@/composables/useSocketEvent", () => ({
+  useSocketEvent: (event: string, handler: (payload: unknown) => void) => {
+    handlers.set(event, handler);
+    return { stop: () => {} };
+  },
+}));
+
+vi.mock("@/composables/useSnackbar", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/composables/useSnackbar")>()),
+  useSnackbar: () => ({ show }),
+}));
+
+function notification(id: number): NotificationSchema {
+  return makeNotification({
+    id,
+    level: "success",
+    title: `Notification ${id}`,
+  });
+}
+
+function signIn(id: number) {
+  storeAuth().setCurrentUser(userFixture({ id }));
+}
+
+function push(event: string, payload: unknown) {
+  handlers.get(event)?.(payload);
+}
+
+describe("installNotificationInbox", () => {
+  let scope: EffectScope;
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    handlers.clear();
+    getNotifications.mockResolvedValue({ data: [] });
+    scope = effectScope();
+  });
+
+  afterEach(() => {
+    scope.stop();
+  });
+
+  it("toasts a pushed notification once", async () => {
+    signIn(1);
+    scope.run(installNotificationInbox);
+    await flushPromises();
+
+    push("notifications:new", notification(5));
+    push("notifications:new", notification(5));
+
+    expect(storeNotificationInbox().notifications).toHaveLength(1);
+    expect(show).toHaveBeenCalledOnce();
+    expect(show).toHaveBeenCalledWith("success", "Notification 5", {
+      icon: "mdi-check-circle-outline",
+    });
+  });
+
+  it("doesn't toast again what this tab sent itself", async () => {
+    create.mockImplementation((payload) =>
+      Promise.resolve({
+        data: [{ ...notification(5), data: payload.data }],
+      }),
+    );
+    signIn(1);
+    scope.run(installNotificationInbox);
+    await flushPromises();
+    const inbox = storeNotificationInbox();
+    await inbox.send({ title: "Saved", level: "success" });
+    const ownTab = create.mock.calls[0]![0].data;
+
+    push("notifications:new", { ...notification(6), data: ownTab });
+
+    expect(inbox.notifications.map((n) => n.id)).toEqual([6, 5]);
+    expect(show).not.toHaveBeenCalled();
+  });
+
+  it("applies what another tab read and dismissed", async () => {
+    getNotifications.mockResolvedValue({
+      data: [notification(2), notification(1)],
+    });
+    signIn(1);
+    scope.run(installNotificationInbox);
+    await flushPromises();
+    const inbox = storeNotificationInbox();
+
+    push("notifications:read", { ids: [2] });
+    push("notifications:dismissed", { ids: [1] });
+
+    expect(inbox.notifications.map((n) => n.id)).toEqual([2]);
+    expect(inbox.unreadCount).toBe(0);
+  });
+
+  it("drops the last user's inbox even when the next one's can't load", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    getNotifications.mockResolvedValueOnce({ data: [notification(1)] });
+    signIn(1);
+    scope.run(installNotificationInbox);
+    await flushPromises();
+
+    getNotifications.mockRejectedValueOnce(new Error("offline"));
+    signIn(2);
+    await flushPromises();
+
+    expect(storeNotificationInbox().notifications).toEqual([]);
+  });
+});

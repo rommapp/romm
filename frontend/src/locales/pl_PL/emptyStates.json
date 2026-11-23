@@ -1,11 +1,4 @@
 {
   "404-subtitle": "Strona, której szukasz, nie istnieje",
-  "404-title": "Nie znaleziono strony",
-  "firmware-text": "Szukany firmware/BIOS nie istnieje",
-  "firmware-title": "Brak firmware/BIOS",
-  "home-headline": "Brak gier w Twojej bibliotece",
-  "home-text": "Gotowy do gry?",
-  "home-title": "Uruchom szybkie skanowanie, aby automatycznie wykryć gry na swoim systemie",
-  "manual-match": "Wyszukaj gry we wszystkich źródłach metadanych",
-  "search-for-games": "Wyszukaj gry na wszystkich platformach"
+  "404-title": "Nie znaleziono strony"
 }

@@ -5,11 +5,18 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
-    <link rel="manifest" href="/site.webmanifest" />
+    <link
+      rel="manifest"
+      href="/site.webmanifest"
+      crossorigin="use-credentials"
+    />
     <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#9205f2" />
     <meta name="msapplication-TileColor" content="#9205f2" />
     <meta name="theme-color" content="#2a0145" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
     <title>RomM</title>
   </head>
 
@@ -34,7 +41,7 @@
         width: 100vw;
         height: 100vh;
         z-index: 1020 !important;
-        background-color: rgba(242, 244, 248) !important;
+        background-color: #f5f5fa !important;
       }
 
       #app-loading-logo img {
@@ -44,13 +51,12 @@
       }
 
       @media (prefers-color-scheme: dark) {
-        html,
-        body {
-          background-color: rgba(13, 17, 23) !important;
+        html {
+          background-color: #07070f;
         }
 
         #app-loading-logo {
-          background-color: rgba(13, 17, 23) !important;
+          background-color: #07070f !important;
         }
       }
 

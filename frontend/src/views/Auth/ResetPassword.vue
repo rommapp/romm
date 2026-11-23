@@ -1,115 +1,118 @@
 <script setup lang="ts">
-import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { useRouter, useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
+import AuthBackLink from "@/components/shared/AuthBackLink.vue";
+import AuthCard from "@/components/shared/AuthCard.vue";
+import PasswordField from "@/components/shared/PasswordField.vue";
+import { useSnackbar } from "@/composables/useSnackbar";
+import { RAlert, RBtn } from "@/lib";
 import { refetchCSRFToken } from "@/services/api";
 import identityApi from "@/services/api/identity";
 import storeAuth from "@/stores/auth";
-import type { Events } from "@/types/emitter";
 
 const { t } = useI18n();
 const authStore = storeAuth();
-const emitter = inject<Emitter<Events>>("emitter");
+const snackbar = useSnackbar();
 const route = useRoute();
 const router = useRouter();
 const token = route.query.token as string;
+
 const newPassword = ref("");
 const confirmPassword = ref("");
-const visibleNewPassword = ref(false);
-const visibleConfirmNewPassword = ref(false);
+const submitting = ref(false);
+
+const passwordsMismatch = computed(
+  () =>
+    newPassword.value.length > 0 && newPassword.value !== confirmPassword.value,
+);
 
 async function resetPassword() {
-  await identityApi
-    .resetPassword(token, newPassword.value)
-    .then(async () => {
-      await refetchCSRFToken();
-      try {
-        await authStore.fetchCurrentUser();
-      } catch (error) {
-        console.error("Error setting a new password: ", error);
-      }
-      const params = new URLSearchParams(window.location.search);
-      router.push(params.get("next") ?? "/");
-    })
-    .catch(({ response, message }) => {
-      const errorMessage =
-        response.data?.detail ||
-        response.data ||
-        message ||
-        response.statusText;
-      emitter?.emit("snackbarShow", {
-        msg: `Unable to reset password: ${errorMessage}`,
+  if (passwordsMismatch.value || !newPassword.value) return;
+  submitting.value = true;
+  try {
+    await identityApi.resetPassword(token, newPassword.value);
+    await refetchCSRFToken();
+    try {
+      await authStore.fetchCurrentUser();
+    } catch (error) {
+      console.error("Error setting a new password: ", error);
+    }
+    const params = new URLSearchParams(window.location.search);
+    void router.push(params.get("next") ?? "/");
+  } catch (err: unknown) {
+    const { response, message } = err as {
+      response?: {
+        data?: { detail?: string };
+        statusText?: string;
+        status?: number;
+      };
+      message?: string;
+    };
+    const errorMessage =
+      response?.data?.detail ||
+      message ||
+      response?.statusText ||
+      t("login.reset-failed");
+    snackbar.error(
+      t("login.unable-to-reset-password", { error: errorMessage }),
+      {
         icon: "mdi-close-circle",
-        color: "red",
-      });
-      console.error(
-        `[${response.status} ${response.statusText}] ${errorMessage}`,
-      );
-    });
+      },
+    );
+  } finally {
+    submitting.value = false;
+  }
 }
 </script>
 
 <template>
-  <v-card class="translucent py-8 px-5" width="500">
-    <v-img src="/assets/isotipo.svg" class="mx-auto mb-8" width="80" />
-    <v-row class="justify-center mt-2" no-gutters>
-      <v-col cols="10">
-        <v-form @submit.prevent="resetPassword">
-          <v-text-field
-            v-model="newPassword"
-            :label="t('login.new-password')"
-            :type="visibleNewPassword ? 'text' : 'password'"
-            required
-            :append-inner-icon="visibleNewPassword ? 'mdi-eye-off' : 'mdi-eye'"
-            variant="underlined"
-            @click:append-inner="visibleNewPassword = !visibleNewPassword"
-          />
-          <v-text-field
-            v-model="confirmPassword"
-            :label="t('login.confirm-new-password')"
-            :type="visibleConfirmNewPassword ? 'text' : 'password'"
-            required
-            :append-inner-icon="
-              visibleConfirmNewPassword ? 'mdi-eye-off' : 'mdi-eye'
-            "
-            variant="underlined"
-            @click:append-inner="
-              visibleConfirmNewPassword = !visibleConfirmNewPassword
-            "
-          />
-          <span
-            v-if="newPassword !== confirmPassword && newPassword.length > 0"
-            class="text-red text-caption"
-            >Passwords do not match</span
-          >
-          <v-btn
-            type="submit"
-            class="bg-toplayer mt-4"
-            variant="text"
-            block
-            :disabled="newPassword !== confirmPassword"
-          >
-            <template #prepend>
-              <v-icon>mdi-send</v-icon>
-            </template>
-            {{ t("login.reset-password") }}
-            <template #loader>
-              <v-progress-circular
-                color="primary"
-                :width="2"
-                :size="20"
-                indeterminate
-              />
-            </template>
-          </v-btn>
-        </v-form>
-        <div class="my-6 text-right">
-          <a class="text-blue text-caption" href="/login">
-            {{ t("login.back-to-login") }}
-          </a>
-        </div>
-      </v-col>
-    </v-row>
-  </v-card>
+  <AuthCard>
+    <form class="r-reset__form" @submit.prevent="resetPassword">
+      <PasswordField
+        v-model="newPassword"
+        :label="t('login.new-password')"
+        autocomplete="new-password"
+        :disabled="submitting"
+      />
+      <PasswordField
+        v-model="confirmPassword"
+        :label="t('login.confirm-new-password')"
+        prepend-inner-icon="mdi-lock-check"
+        autocomplete="new-password"
+        :disabled="submitting"
+      />
+
+      <RAlert
+        v-if="passwordsMismatch"
+        type="error"
+        density="compact"
+        :text="t('login.passwords-do-not-match')"
+      />
+
+      <RBtn
+        type="submit"
+        variant="flat"
+        color="primary"
+        block
+        prepend-icon="mdi-send"
+        :loading="submitting"
+        :disabled="
+          submitting || passwordsMismatch || !newPassword || !confirmPassword
+        "
+      >
+        {{ t("login.reset-password") }}
+      </RBtn>
+    </form>
+
+    <AuthBackLink />
+  </AuthCard>
 </template>
+
+<style scoped>
+.r-reset__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--r-space-3);
+}
+</style>

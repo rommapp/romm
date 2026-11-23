@@ -8,7 +8,7 @@ export interface ActivityEntry {
   rom_name: string;
   rom_cover_path: string;
   // "Where they are" image (latest save screenshot / title / first
-  // screenshot); empty when none — the card then shows cover art.
+  // screenshot); empty when none: the card then shows cover art.
   screenshot_path: string;
   platform_slug: string;
   platform_name: string;

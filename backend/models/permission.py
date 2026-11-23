@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import enum
+from typing import Final
 
 from sqlalchemy import (
     Boolean,
@@ -11,10 +12,14 @@ from sqlalchemy import (
     Integer,
     String,
     UniqueConstraint,
+    false,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.base import BaseModel
+
+# The highest age a group or user age limit can be set to.
+MAX_AGE_LIMIT: Final = 21
 
 
 class PermEntity(enum.StrEnum):
@@ -35,12 +40,33 @@ class PermEntity(enum.StrEnum):
     USERS = "users"
     TASKS = "tasks"
     LOGS = "logs"
+    STREAMING = "streaming"
+    EMULATION = "emulation"
+
+
+# Entities whose rows belong to a user, so an own_only grant has something to
+# narrow to. Elsewhere "own" means "all" for read/write and nothing for delete.
+OWNABLE_PERM_ENTITIES: Final = frozenset(
+    {
+        PermEntity.COLLECTIONS,
+        PermEntity.PLAYLISTS,
+        PermEntity.ASSETS,
+        PermEntity.DEVICES,
+        PermEntity.STREAMING,
+        PermEntity.EMULATION,
+    }
+)
 
 
 class PermAction(enum.StrEnum):
     READ = "read"
     WRITE = "write"
     DELETE = "delete"
+
+
+class SystemGroupKey(enum.StrEnum):
+    VIEWER = "viewer"
+    EDITOR = "editor"
 
 
 def _str_enum(enum_cls: type[enum.StrEnum], length: int) -> Enum:
@@ -65,8 +91,9 @@ class PermissionGroup(BaseModel):
 
     A group carries a read/write/delete matrix over entity types (its
     ``grants``). Exactly one group is the server-wide default (``is_default``)
-    applied to new users. ``is_system`` marks the auto-created legacy groups so
-    the admin UI can warn before editing/deleting them.
+    applied to new users. ``system_key`` marks the seeded Viewer and Editor
+    groups, whatever an admin renamed them to, so the admin UI can warn before
+    editing/deleting them.
     """
 
     __tablename__ = "permission_groups"
@@ -76,10 +103,17 @@ class PermissionGroup(BaseModel):
     name: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     description: Mapped[str] = mapped_column(String(1000), default="")
     is_default: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
-    is_system: Mapped[bool] = mapped_column(Boolean, default=False)
+    system_key: Mapped[SystemGroupKey | None] = mapped_column(
+        _str_enum(SystemGroupKey, 16), nullable=True, unique=True, index=True
+    )
     # Optional hex color (e.g. "#7c5cff") used by the admin UI to render the
     # group as a colored pill/dot. NULL falls back to a neutral tone.
     color: Mapped[str | None] = mapped_column(String(9), nullable=True)
+    # Members only see ROMs rated for this age or younger; NULL sets no limit.
+    age_limit: Mapped[int | None] = mapped_column(Integer(), nullable=True)
+    hide_unrated_roms: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false()
+    )
 
     grants: Mapped[list[PermissionGroupGrant]] = relationship(
         back_populates="group",

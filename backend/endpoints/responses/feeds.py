@@ -2,14 +2,14 @@ from typing import Annotated, Any, Final, NotRequired, TypedDict
 
 from pydantic import BaseModel, BeforeValidator, Field, field_validator
 
-from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from tasks.scheduled.update_switch_titledb import TITLEDB_REGION_LIST
+from utils.arcade_platforms import PLAYABLE_ARCADE_SET_PLATFORMS
 from utils.database import safe_int
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
-WEBRCADE_SUPPORTED_PLATFORM_SLUGS = frozenset(
+WEBRCADE_SUPPORTED_PLATFORM_SLUGS = PLAYABLE_ARCADE_SET_PLATFORMS | frozenset(
     (
         UPS._3DO,
-        UPS.ARCADE,
         UPS.ATARI2600,
         UPS.ATARI5200,
         UPS.ATARI7800,
@@ -44,7 +44,8 @@ WEBRCADE_SUPPORTED_PLATFORM_SLUGS = frozenset(
     )
 )
 
-WEBRCADE_SLUG_TO_TYPE_MAP = {
+WEBRCADE_SLUG_TO_TYPE_MAP: dict[str, str] = {
+    **dict.fromkeys(PLAYABLE_ARCADE_SET_PLATFORMS, "arcade"),
     UPS.ATARI2600: "2600",
     UPS.ATARI5200: "5200",
     UPS.ATARI7800: "7800",
@@ -158,7 +159,7 @@ class TinfoilFeedTitleDBSchema(BaseModel):
 class TinfoilFeedSchema(TypedDict):
     files: list[TinfoilFeedFileSchema]
     directories: list[str]
-    titledb: NotRequired[dict[str, dict]]  # dict after .model_dump()
+    titledb: NotRequired[dict[str, dict[str, Any]]]  # dict after .model_dump()
     success: NotRequired[str]
     error: NotRequired[str]
 

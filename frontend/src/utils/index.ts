@@ -1,13 +1,16 @@
 import cronstrue from "cronstrue";
 import { formatDistanceToNow } from "date-fns";
-import { storeToRefs } from "pinia";
-import { computed } from "vue";
-import { useDisplay } from "vuetify";
 import type { RomFileSchema, RomUserStatus } from "@/__generated__";
 import type { Config } from "@/stores/config";
 import type { Heartbeat } from "@/stores/heartbeat";
-import storeNavigation from "@/stores/navigation";
 import type { DetailedRom, SimpleRom } from "@/stores/roms";
+
+export {
+  getDownloadFileName,
+  getDownloadLink,
+  getDownloadPath,
+  getSoleRomFile,
+} from "@/utils/downloadPath";
 
 /**
  * Views configuration object.
@@ -81,19 +84,6 @@ export function getRoleIcon(role: string) {
 export const defaultAvatarPath = "/assets/default/user.svg";
 
 /**
- * Normalize a string by converting it to lowercase and removing diacritics.
- *
- * @param s The string to normalize.
- * @returns The normalized string.
- */
-export function normalizeString(s: string) {
-  return s
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
-
-/**
  * Convert a cron expression to a human-readable string.
  *
  * @param expression The cron expression to convert.
@@ -105,52 +95,6 @@ export function convertCronExperssion(expression: string) {
     convertedExpression.charAt(0).toLocaleLowerCase() +
     convertedExpression.substr(1);
   return convertedExpression;
-}
-
-/**
- * Generate a download link for ROM content.
- *
- * @param rom The ROM object.
- * @param files Optional array of file names to include in the download.
- * @returns The download link.
- */
-export function getDownloadPath({
-  rom,
-  fileIDs = [],
-}: {
-  rom: SimpleRom;
-  fileIDs?: number[];
-}) {
-  const queryParams = new URLSearchParams();
-  if (fileIDs.length > 0) {
-    queryParams.append("file_ids", fileIDs.join(","));
-  }
-  const queryString = queryParams.toString();
-
-  // If a single file is selected, use its name for the download path
-  const selectedFile =
-    fileIDs.length === 1
-      ? rom.files?.find((f) => f.id === fileIDs[0])
-      : undefined;
-  const contentName = selectedFile
-    ? encodeURIComponent(selectedFile.file_name)
-    : rom.fs_name;
-
-  return `/api/roms/${rom.id}/content/${contentName}${
-    queryString ? `?${queryString}` : ""
-  }`;
-}
-
-export function getDownloadLink({
-  rom,
-  fileIDs = [],
-}: {
-  rom: SimpleRom;
-  fileIDs?: number[];
-}) {
-  return `${window.location.origin}${encodeURI(
-    getDownloadPath({ rom, fileIDs }),
-  )}`;
 }
 
 /**
@@ -213,10 +157,10 @@ export function formatRelativeDate(date: string | Date) {
  */
 export function regionToEmoji(region: string) {
   switch (region.toLowerCase()) {
-    case "as":
+    case "a":
     case "australia":
       return "🇦🇺";
-    case "a":
+    case "as":
     case "asia":
       return "🌏";
     case "b":
@@ -407,6 +351,9 @@ export function languageToEmoji(language: string) {
     case "pt":
     case "portuguese":
       return "🇵🇹";
+    case "pt-br":
+    case "brazilian portuguese":
+      return "🇧🇷";
     case "ro":
     case "romanian":
       return "🇷🇴";
@@ -451,151 +398,35 @@ export function languageToEmoji(language: string) {
   }
 }
 
-/**
- * Map of supported EJS cores for each platform.
- */
-const _EJS_CORES_MAP: Record<string, string[]> = {
-  "3do": ["opera"],
-  acpc: ["cap32", "crocods"],
-  amiga: ["puae"],
-  "amiga-cd32": ["puae"],
-  arcade: [
-    "mame2003",
-    "mame2003_plus",
-    "fbneo",
-    "fbalpha2012_cps1",
-    "fbalpha2012_cps2",
-  ],
-  neogeoaes: ["fbneo"],
-  neogeomvs: ["fbneo"],
-  atari2600: ["stella2014"],
-  "atari-2600-plus": ["stella2014"],
-  atari5200: ["a5200"],
-  atari7800: ["prosystem"],
-  "c-plus-4": ["vice_xplus4"],
-  c64: ["vice_x64sc", "vice_x64"],
-  cpet: ["vice_xpet"],
-  "commodore-64c": ["vice_x64sc", "vice_x64"],
-  c128: ["vice_x128"],
-  "commmodore-128": ["vice_x128"],
-  colecovision: ["gearcoleco"],
-  doom: ["prboom"],
-  dos: ["dosbox_pure"],
-  jaguar: ["virtualjaguar"],
-  lynx: ["handy"],
-  "atari-lynx-mkii": ["handy"],
-  "neo-geo-pocket": ["mednafen_ngp"],
-  "neo-geo-pocket-color": ["mednafen_ngp"],
-  nes: ["fceumm", "nestopia"],
-  famicom: ["fceumm", "nestopia"],
-  fds: ["fceumm", "nestopia"],
-  "game-televisison": ["fceumm"],
-  "new-style-nes": ["fceumm"],
-  n64: ["mupen64plus_next", "parallel_n64"],
-  "ique-player": ["mupen64plus_next"],
-  nds: ["melonds", "desmume", "desmume2015"],
-  "nintendo-ds-lite": ["melonds", "desmume", "desmume2015"],
-  "nintendo-dsi": ["melonds", "desmume", "desmume2015"],
-  "nintendo-dsi-xl": ["melonds", "desmume", "desmume2015"],
-  gb: ["gambatte", "mgba"],
-  "game-boy-pocket": ["gambatte", "mgba"],
-  "game-boy-light": ["gambatte", "mgba"],
-  gba: ["mgba"],
-  "game-boy-adavance-sp": ["mgba"],
-  "game-boy-micro": ["mgba"],
-  gbc: ["gambatte", "mgba"],
-  "pc-fx": ["mednafen_pcfx"],
-  psx: ["pcsx_rearmed", "mednafen_psx_hw"],
-  "philips-cd-i": ["same_cdi"],
-  psp: ["ppsspp"],
-  segacd: ["genesis_plus_gx", "picodrive"],
-  sega32: ["picodrive"],
-  gamegear: ["genesis_plus_gx"],
-  sms: ["genesis_plus_gx"],
-  "sega-mark-iii": ["genesis_plus_gx"],
-  "sega-game-box-9": ["genesis_plus_gx"],
-  "sega-master-system-ii": ["genesis_plus_gx", "smsplus"],
-  "master-system-super-compact": ["genesis_plus_gx"],
-  "master-system-girl": ["genesis_plus_gx"],
-  genesis: ["genesis_plus_gx"],
-  "sega-mega-drive-2-slash-genesis": ["genesis_plus_gx"],
-  "sega-mega-jet": ["genesis_plus_gx"],
-  "mega-pc": ["genesis_plus_gx"],
-  "tera-drive": ["genesis_plus_gx"],
-  "sega-nomad": ["genesis_plus_gx"],
-  saturn: ["yabause"],
-  snes: ["snes9x"],
-  sfam: ["snes9x"],
-  "super-nintendo-original-european-version": ["snes9x"],
-  "super-famicom-shvc-001": ["snes9x"],
-  "super-famicom-jr-model-shvc-101": ["snes9x"],
-  "new-style-super-nes-model-sns-101": ["snes9x"],
-  tg16: ["mednafen_pce"],
-  "turbografx-cd": ["mednafen_pce"],
-  supergrafx: ["mednafen_pce"],
-  "vic-20": ["vice_xvic"],
-  virtualboy: ["beetle_vb"],
-  wonderswan: ["mednafen_wswan"],
-  swancrystal: ["mednafen_wswan"],
-  "wonderswan-color": ["mednafen_wswan"],
-  zxs: ["fuse"],
-} as const;
-
-// TODO: Merge with _EJS_CORES_MAP next emukatorjs release (post 4.2.3)
-const _EJS_NIGHTLY_CORES_MAP: Record<string, string[]> = {
-  "3ds": ["azahar"],
-  "new-nintendo-3ds": ["azahar"],
-  intellivision: ["freeintv"],
-  segacd: ["genesis_plus_gx", "genesis_plus_gx_wide", "picodrive"],
-  gamegear: ["genesis_plus_gx", "genesis_plus_gx_wide"],
-  sms: ["genesis_plus_gx", "genesis_plus_gx_wide"],
-  "sega-mark-iii": ["genesis_plus_gx", "genesis_plus_gx_wide"],
-  "sega-game-box-9": ["genesis_plus_gx", "genesis_plus_gx_wide"],
-  "sega-master-system-ii": [
-    "genesis_plus_gx",
-    "genesis_plus_gx_wide",
-    "smsplus",
-  ],
-  "master-system-super-compact": ["genesis_plus_gx", "genesis_plus_gx_wide"],
-  "master-system-girl": ["genesis_plus_gx", "genesis_plus_gx_wide"],
-  genesis: ["genesis_plus_gx", "genesis_plus_gx_wide"],
-  "sega-mega-drive-2-slash-genesis": [
-    "genesis_plus_gx",
-    "genesis_plus_gx_wide",
-  ],
-  "sega-mega-jet": ["genesis_plus_gx", "genesis_plus_gx_wide"],
-  "mega-pc": ["genesis_plus_gx", "genesis_plus_gx_wide"],
-  "tera-drive": ["genesis_plus_gx", "genesis_plus_gx_wide"],
-  "sega-nomad": ["genesis_plus_gx", "genesis_plus_gx_wide"],
-  snes: ["snes9x", "bsnes"],
-  sfam: ["snes9x", "bsnes"],
-  "super-nintendo-original-european-version": ["snes9x", "bsnes"],
-  "super-famicom-shvc-001": ["snes9x", "bsnes"],
-  "super-famicom-jr-model-shvc-101": ["snes9x", "bsnes"],
-  "new-style-super-nes-model-sns-101": ["snes9x", "bsnes"],
-};
-
-export type EJSPlatformSlug = keyof typeof _EJS_CORES_MAP;
+/** The EmulatorJS cores per platform the backend serves on the heartbeat. */
+export type EJSCoresMaps = Pick<
+  Heartbeat["EMULATION"],
+  "EJS_CORES" | "EJS_NIGHTLY_CORES"
+>;
 
 /**
  * Get the supported EJS cores for a given platform.
  *
  * @param platformSlug The platform slug.
+ * @param maps The core maps, from the heartbeat's `EMULATION`.
  * @param netplayEnabled Pull nightly cores if netplay is enabled.
  * @returns An array of supported cores.
  */
 export function getSupportedEJSCores(
   platformSlug: string,
+  maps: EJSCoresMaps,
   netplayEnabled: boolean = false,
 ): string[] {
   const coresMap = netplayEnabled
-    ? { ..._EJS_CORES_MAP, ..._EJS_NIGHTLY_CORES_MAP }
-    : _EJS_CORES_MAP;
-  return coresMap[platformSlug.toLowerCase() as EJSPlatformSlug] || [];
+    ? { ...maps.EJS_CORES, ...maps.EJS_NIGHTLY_CORES }
+    : maps.EJS_CORES;
+  return coresMap[platformSlug.toLowerCase()] ?? [];
 }
 
 /**
- * Check if a given EJS core requires threads enabled.
+ * Whether an EJS core ships only as a threaded build; a core added here gets
+ * the cross-origin isolated document it needs from the v2 launch view (see
+ * `useIsolatedLaunch`).
  *
  * @param core The core name.
  * @returns True if threads are required, false otherwise.
@@ -607,6 +438,17 @@ export function areThreadsRequiredForEJSCore(core: string): boolean {
 const canvas = document.createElement("canvas");
 const gl =
   canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+
+/**
+ * Resolve a platform slug through the configured version remap.
+ *
+ * @param platformSlug The platform slug.
+ * @param config Optional configuration object.
+ * @returns The remapped slug, or the original when no remap applies.
+ */
+export function resolvePlatformSlug(platformSlug: string, config?: Config) {
+  return config?.PLATFORMS_VERSIONS[platformSlug] || platformSlug;
+}
 
 /**
  * Check if EJS emulation is supported for a given platform.
@@ -623,10 +465,10 @@ export function isEJSEmulationSupported(
 ) {
   if (heartbeat.EMULATION.DISABLE_EMULATOR_JS) return false;
 
-  const slug = config?.PLATFORMS_VERSIONS[platformSlug] || platformSlug;
+  const slug = resolvePlatformSlug(platformSlug, config);
   return (
-    getSupportedEJSCores(slug, config?.EJS_NETPLAY_ENABLED).length > 0 &&
-    gl instanceof WebGLRenderingContext
+    getSupportedEJSCores(slug, heartbeat.EMULATION, config?.EJS_NETPLAY_ENABLED)
+      .length > 0 && gl instanceof WebGLRenderingContext
   );
 }
 
@@ -680,8 +522,121 @@ export function isRuffleEmulationSupported(
 ) {
   if (heartbeat.EMULATION.DISABLE_RUFFLE_RS) return false;
 
-  const slug = config?.PLATFORMS_VERSIONS[platformSlug] || platformSlug;
+  const slug = resolvePlatformSlug(platformSlug, config);
   return ["flash", "browser"].includes(slug.toLowerCase());
+}
+
+/**
+ * Check if js-dos emulation is supported for a given platform.
+ *
+ * @param platformSlug The platform slug.
+ * @param heartbeat The heartbeat object.
+ * @param config Optional configuration object.
+ * @returns True if supported, false otherwise.
+ */
+export function isJsDosEmulationSupported(
+  platformSlug: string,
+  heartbeat: Heartbeat,
+  config?: Config,
+) {
+  if (heartbeat.EMULATION.DISABLE_JSDOS) return false;
+
+  const slug = resolvePlatformSlug(platformSlug, config);
+  return ["win3x", "win9x"].includes(slug.toLowerCase());
+}
+
+/**
+ * Check if a ROM is a js-dos bundle, or a folder with one at its top level.
+ *
+ * js-dos panics on anything that is not an archive carrying
+ * `.jsdos/dosbox.conf`.
+ *
+ * @param rom The ROM to check.
+ * @returns True if the ROM has a js-dos bundle to boot, false otherwise.
+ */
+export function hasJsDosBundle(rom: SimpleRom | null | undefined) {
+  return rom?.has_jsdos_bundle === true;
+}
+
+/**
+ * Pick the js-dos bundle to boot, so the server sends that file instead of
+ * zipping the folder.
+ *
+ * @param rom The ROM to boot.
+ * @returns The bundle's file ID in a list, or an empty list if there is none.
+ */
+export function jsDosBundleFileIds(rom: DetailedRom): number[] {
+  const bundle = rom.files.find(
+    (file) =>
+      file.is_top_level &&
+      !file.missing_from_fs &&
+      file.file_name.toLowerCase().endsWith(".jsdos"),
+  );
+  return bundle ? [bundle.id] : [];
+}
+
+/**
+ * Check if PICO-8 emulation is supported for a given platform.
+ *
+ * @param platformSlug The platform slug.
+ * @param heartbeat The heartbeat object.
+ * @param config Optional configuration object.
+ * @returns True if supported, false otherwise.
+ */
+export function isPico8EmulationSupported(
+  platformSlug: string,
+  heartbeat: Heartbeat,
+  config?: Config,
+) {
+  if (heartbeat.EMULATION.DISABLE_PICO8) return false;
+
+  const slug = resolvePlatformSlug(platformSlug, config);
+  return slug.toLowerCase() === "pico";
+}
+
+/**
+ * Check if a ROM file is a PICO-8 cartridge.
+ *
+ * `fs_extension` holds only `png` for a `.p8.png` cart: the backend joins
+ * multi-part extensions from letter-only segments, and `p8` has a digit.
+ *
+ * @param rom The ROM to check.
+ * @returns True if the file is a PICO-8 cartridge, false otherwise.
+ */
+export function isPico8Rom(rom: SimpleRom | null | undefined) {
+  const name = rom?.fs_name.toLowerCase();
+  return name?.endsWith(".p8") === true || name?.endsWith(".p8.png") === true;
+}
+
+/**
+ * Check if EasyRPG emulation is supported for a given platform.
+ *
+ * @param platformSlug The platform slug.
+ * @param heartbeat The heartbeat object.
+ * @param config Optional configuration object.
+ * @returns True if supported, false otherwise.
+ */
+export function isEasyRpgEmulationSupported(
+  platformSlug: string,
+  heartbeat: Heartbeat,
+  config?: Config,
+) {
+  if (heartbeat.EMULATION.DISABLE_EASYRPG) return false;
+
+  const slug = resolvePlatformSlug(platformSlug, config);
+  return slug.toLowerCase() === "rpg-maker";
+}
+
+/**
+ * Check if a ROM is an extracted RPG Maker 2000/2003 game folder.
+ *
+ * The web player fetches each file on demand, so it cannot read an archive.
+ *
+ * @param rom The ROM to check.
+ * @returns True if the ROM is a game folder, false otherwise.
+ */
+export function isEasyRpgGame(rom: SimpleRom | null | undefined) {
+  return rom?.is_easyrpg_game === true;
 }
 
 export type PlayingStatus =
@@ -766,7 +721,7 @@ export function getNintendoDSFiles(
   rom: DetailedRom | SimpleRom,
 ): RomFileSchema[] {
   // `files` only ships on DetailedRom. Gallery surfaces pass SimpleRom,
-  // where the inner-file check is impossible — return an empty list so
+  // where the inner-file check is impossible: return an empty list so
   // the caller falls back to the extension check.
   const files = (rom as DetailedRom).files;
   if (!files) return [];
@@ -785,8 +740,8 @@ export function getNintendoDSFiles(
  * Check if a ROM is a valid NDS/3DS/DSi game.
  *
  * Accepts both SimpleRom (gallery cards) and DetailedRom (detail view).
- * With SimpleRom the inner-file check is skipped — only the root
- * extension counts — which is what every gallery surface can ever see.
+ * With SimpleRom the inner-file check is skipped, only the root
+ * extension counts, which is what every gallery surface can ever see.
  */
 export function isNintendoDSRom(rom: DetailedRom | SimpleRom): boolean {
   if (
@@ -800,21 +755,6 @@ export function isNintendoDSRom(rom: DetailedRom | SimpleRom): boolean {
   const hasValidFile = getNintendoDSFiles(rom).length > 0;
 
   return hasValidExtension || hasValidFile;
-}
-
-export function calculateMainLayoutWidth() {
-  const { smAndDown } = useDisplay();
-  const navigationStore = storeNavigation();
-  const { mainBarCollapsed } = storeToRefs(navigationStore);
-  const calculatedWidth = computed(() => {
-    return smAndDown.value
-      ? "calc(100% - 16px) !important"
-      : mainBarCollapsed.value
-        ? "calc(100% - 76px) !important"
-        : "calc(100% - 106px) !important";
-  });
-
-  return { calculatedWidth };
 }
 
 /**
@@ -883,8 +823,56 @@ export function isCDBasedSystem(platformSlug: string): boolean {
   return CD_BASED_SYSTEMS.has(platformSlug.toLowerCase());
 }
 
-export const ARCADE_SYSTEMS = new Set(["arcade", "neogeoaes", "neogeomvs"]);
+export const ARCADE_SYSTEMS = new Set([
+  "arcade",
+  "atomiswave",
+  "chihiro",
+  "daphne",
+  "dice",
+  "fba",
+  "fbneo",
+  "gaelco",
+  "hikaru",
+  "lindbergh",
+  "mame",
+  "mame-advmame",
+  "model2",
+  "model3",
+  "namco2x6",
+  "namco3xx",
+  "naomi",
+  "naomi2",
+  "naomigd",
+  "neogeoaes",
+  "neogeomvs",
+  "singe",
+  "stv",
+  "teknoparrot",
+  "triforce",
+  "type-x",
+]);
 
 export function isArcadeSystem(platformSlug: string): boolean {
   return ARCADE_SYSTEMS.has(platformSlug.toLowerCase());
+}
+
+// Mirrors the backend's SWITCH_PLATFORM_SLUGS.
+const SWITCH_SYSTEMS = new Set(["switch", "switch-2"]);
+
+export function isSwitchSystem(platformSlug: string): boolean {
+  return SWITCH_SYSTEMS.has(platformSlug.toLowerCase());
+}
+
+/** Fisher-Yates shuffle returning a new array. `random` is injectable so
+ *  callers can make shuffled output deterministic under test. */
+export function shuffled<T>(
+  items: T[],
+  random: () => number = Math.random,
+): T[] {
+  const result = [...items];
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    const target = Math.floor(random() * (index + 1));
+    [result[index], result[target]] = [result[target]!, result[index]!];
+  }
+  return result;
 }

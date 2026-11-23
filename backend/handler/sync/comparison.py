@@ -1,16 +1,30 @@
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from datetime import datetime
-from typing import Literal, NamedTuple
+from typing import Literal, NamedTuple, Protocol
 
 from utils.datetime import to_utc
 
-SyncAction = Literal["upload", "download", "conflict", "no_op"]
+SyncAction = Literal["upload", "download", "conflict", "no_op", "delete"]
 
 
 class SyncComparisonResult(NamedTuple):
     action: SyncAction
     reason: str
+
+
+HELD_SAVE_REASON = "the save belongs to a sync channel"
+
+
+def for_held_save(result: SyncComparisonResult, save_id: int) -> SyncComparisonResult:
+    """`result` for a file-transfer device, where a save a sync channel holds
+    never changes in place: the device's newer copy waits as a conflict."""
+    from handler.database import db_snapshot_handler
+
+    if result.action == "upload" and db_snapshot_handler.get_frozen_save_ids([save_id]):
+        return SyncComparisonResult("conflict", HELD_SAVE_REASON)
+    return result
 
 
 def compare_save_state(
@@ -20,8 +34,14 @@ def compare_save_state(
     server_hash: str | None,
     server_updated_at: datetime,
     device_last_synced_at: datetime | None,
+    device_last_sync_hash: str | None = None,
+    device_last_sync_server_hash: str | None = None,
+    removed_at: Mapping[str, datetime] | None = None,
 ) -> SyncComparisonResult:
     """Compare client and server save state to determine the sync action.
+
+    `removed_at` maps versions the server's slot lost to when they were lost, so
+    a client still holding one from before then is behind the server.
 
     Returns a (action, reason) tuple where action is one of:
     - upload: client save should be uploaded to server
@@ -36,11 +56,28 @@ def compare_save_state(
     if client_hash and server_hash and client_hash == server_hash:
         return SyncComparisonResult("no_op", "Content is identical")
 
+    if _held_since_removal(client_hash, client_ts, removed_at):
+        return SyncComparisonResult(
+            "download", "Client holds a version removed on the server"
+        )
+
     # If we have a last sync timestamp, use it to determine which side changed
     if device_last_synced_at:
         synced_ts = to_utc(device_last_synced_at)
-        client_changed = client_ts > synced_ts
-        server_changed = server_ts > synced_ts
+        # A baseline match proves a side is unchanged; a mismatch proves nothing,
+        # so baselines can only ever remove a conflict, never create one.
+        client_unchanged = bool(
+            client_hash
+            and device_last_sync_hash
+            and client_hash == device_last_sync_hash
+        )
+        server_unchanged = bool(
+            server_hash
+            and device_last_sync_server_hash
+            and server_hash == device_last_sync_server_hash
+        )
+        client_changed = client_ts > synced_ts and not client_unchanged
+        server_changed = server_ts > synced_ts and not server_unchanged
 
         if client_changed and server_changed:
             return SyncComparisonResult(
@@ -71,3 +108,112 @@ def compare_save_state(
         return SyncComparisonResult("conflict", "Same timestamp but different content")
 
     return SyncComparisonResult("no_op", "Saves appear identical")
+
+
+class ChannelPosition(NamedTuple):
+    """A slot's channel as one device sees it."""
+
+    current_id: int
+    current_hash: str | None
+    # Save hashes the channel has held as its current, and those its branches hold.
+    current_hashes: frozenset[str]
+    branch_hashes: frozenset[str]
+    # The snapshot the device holds in the channel, None without a record.
+    device_base_id: int | None
+
+    @property
+    def device_holds_current(self) -> bool:
+        return self.device_base_id == self.current_id
+
+
+def compare_on_channel(
+    *,
+    client_hash: str | None,
+    client_updated_at: datetime,
+    position: ChannelPosition,
+    removed_at: Mapping[str, datetime] | None = None,
+) -> SyncComparisonResult | None:
+    """Decide a client save from its slot's channel history, or None without a
+    client hash or for an unknown version from a device the channel never saw."""
+    if not client_hash:
+        return None
+    if client_hash == position.current_hash:
+        return SyncComparisonResult("no_op", "Content is identical")
+    if _held_since_removal(client_hash, to_utc(client_updated_at), removed_at):
+        return SyncComparisonResult(
+            "download", "Client holds a version removed on the server"
+        )
+    if client_hash in position.current_hashes:
+        return SyncComparisonResult(
+            "download", "The channel moved on from the client's version"
+        )
+    if client_hash in position.branch_hashes:
+        return SyncComparisonResult(
+            "conflict", "The client's version was kept as a branch"
+        )
+    if position.device_base_id is None:
+        return None
+    if position.device_holds_current:
+        return SyncComparisonResult("upload", "Client save changed since last sync")
+    return SyncComparisonResult("conflict", "Both sides changed since last sync")
+
+
+def compare_missing_server_save(
+    client_hash: str | None,
+    client_updated_at: datetime,
+    removed_at: Mapping[str, datetime],
+) -> SyncComparisonResult:
+    """Decide a client save whose slot has no server save, matched by identity.
+
+    Args:
+        client_hash: The digest the client reported, when it reported one.
+        client_updated_at: When the client last wrote its copy.
+        removed_at: What the slot is known to have lost, and when.
+
+    Returns:
+        `delete` when the client holds a version the slot lost since the client
+        wrote it, else `upload`.
+    """
+    if _held_since_removal(client_hash, to_utc(client_updated_at), removed_at):
+        return SyncComparisonResult("delete", "Save was deleted on the server")
+    return SyncComparisonResult("upload", "Save exists on client but not on server")
+
+
+def _held_since_removal(
+    client_hash: str | None,
+    client_ts: datetime,
+    removed_at: Mapping[str, datetime] | None,
+) -> bool:
+    """Whether the client's copy is a removed version it wrote before the removal."""
+    # Written after the removal, the same bytes are progress made on the device.
+    removed = (removed_at or {}).get(client_hash) if client_hash else None
+    return removed is not None and client_ts <= to_utc(removed)
+
+
+class _Hashed(Protocol):
+    @property
+    def content_hash(self) -> str | None: ...
+
+
+class _SlotVersion(_Hashed, Protocol):
+    @property
+    def rom_id(self) -> int: ...
+
+    @property
+    def slot(self) -> str | None: ...
+
+
+def roms_to_check_for_removals(
+    client_saves: Iterable[_SlotVersion],
+    current: Mapping[tuple[int, str | None], _Hashed],
+) -> set[int]:
+    """ROMs whose slotted client saves differ from the current version, so may hold a lost one."""
+    return {
+        save.rom_id
+        for save in client_saves
+        if save.slot
+        and (
+            (version := current.get((save.rom_id, save.slot))) is None
+            or version.content_hash != save.content_hash
+        )
+    }

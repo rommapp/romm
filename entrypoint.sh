@@ -19,6 +19,29 @@ elif [[ ! -e /app/frontend/assets/romm/resources ]]; then
 	ln -s "${ROMM_BASE_PATH}/resources" "/app/frontend/assets/romm/resources"
 fi
 
+# The ./frontend bind mount hides whatever the build wrote under /app/frontend,
+# so link the image's emulator runtimes into the tree the dev server serves.
+if [[ -n ${EMULATOR_ASSETS_DIR-} && -d ${EMULATOR_ASSETS_DIR} ]]; then
+	for runtime_dir in "${EMULATOR_ASSETS_DIR}"/*; do
+		target="/app/frontend/assets/$(basename "${runtime_dir}")"
+		mkdir -p "${target}"
+		for entry in "${runtime_dir}"/*; do
+			link="${target}/$(basename "${entry}")"
+			# Never replace checked-in art that shares a name with a runtime file.
+			if [[ -e ${link} && ! -L ${link} ]]; then
+				continue
+			fi
+			ln -sfn "${entry}" "${link}"
+		done
+	done
+fi
+
+# The backend reads the free RTP where the full image keeps it.
+if [[ -n ${EMULATOR_ASSETS_DIR-} && -d ${EMULATOR_ASSETS_DIR}/easyrpg/rtp ]]; then
+	mkdir -p /var/www/html/assets/easyrpg
+	ln -sfn "${EMULATOR_ASSETS_DIR}/easyrpg/rtp" /var/www/html/assets/easyrpg/rtp
+fi
+
 # Define a signal handler to propagate termination signals
 function handle_termination() {
 	echo "Terminating child processes..."
@@ -36,6 +59,16 @@ if [[ -z ${ROMM_AUTH_SECRET_KEY-} ]]; then
 	export ROMM_AUTH_SECRET_KEY
 fi
 
+# Read before the backend starts: its startup can rewrite config.yml.
+streaming_worker_enabled="false"
+if (cd /app/backend && uv run python -c "
+import sys
+from config.config_manager import config_manager
+sys.exit(0 if config_manager.get_config().STREAMING_ENABLED else 1)
+" >/dev/null 2>&1); then
+	streaming_worker_enabled="true"
+fi
+
 # Start all services in the background
 echo "Starting backend..."
 cd /app/backend
@@ -47,39 +80,65 @@ else
 	uv run python main.py &
 fi
 
-echo "Starting RQ scheduler..."
-RQ_REDIS_HOST=${REDIS_HOST:-127.0.0.1} \
-	RQ_REDIS_PORT=${REDIS_PORT:-6379} \
-	RQ_REDIS_USERNAME=${REDIS_USERNAME:-""} \
-	RQ_REDIS_PASSWORD=${REDIS_PASSWORD:-""} \
-	RQ_REDIS_DB=${REDIS_DB:-0} \
-	RQ_REDIS_SSL=${REDIS_SSL:-0} \
-	rqscheduler \
-	--path /app/backend \
-	--pid /tmp/rq_scheduler.pid &
-
-echo "Starting RQ worker..."
-# Build Redis URL properly
+# REDIS_SSL is a boolean to the app, so "false" and "0" mean plaintext.
+REDIS_USERINFO=""
+REDIS_SSL_VALUE="${REDIS_SSL-}"
+case "${REDIS_SSL_VALUE,,}" in
+1 | true | yes | on) REDIS_SCHEME="rediss" ;;
+*) REDIS_SCHEME="redis" ;;
+esac
 if [[ -n ${REDIS_PASSWORD-} ]]; then
-	REDIS_URL="redis${REDIS_SSL:+s}://${REDIS_USERNAME-}:${REDIS_PASSWORD}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
+	REDIS_USERINFO="${REDIS_USERNAME-}:${REDIS_PASSWORD}@"
 elif [[ -n ${REDIS_USERNAME-} ]]; then
-	REDIS_URL="redis${REDIS_SSL:+s}://${REDIS_USERNAME}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
-else
-	REDIS_URL="redis${REDIS_SSL:+s}://${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
+	REDIS_USERINFO="${REDIS_USERNAME}@"
 fi
+REDIS_URL="${REDIS_SCHEME}://${REDIS_USERINFO}${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
+
+echo "Starting RQ cron scheduler..."
+# The URL carries the password, so it goes through RQ_REDIS_URL rather than
+# --url, which would put it on a world-readable command line.
+PYTHONPATH="/app/backend:${PYTHONPATH-}" \
+	RQ_REDIS_URL="${REDIS_URL}" \
+	rq cron \
+	--path /app/backend \
+	--logging-level "${LOGLEVEL:-INFO}" \
+	tasks.cron_config &
 
 # Set PYTHONPATH so RQ can find the tasks module.
 # Use a worker class that drops the noisy per-sweep "cleaning registries for
 # queue" log line. The maintenance interval keeps its default (~10 min) so
-# orphaned STARTED jobs and stale workers are still pruned promptly, which the
-# watcher's Worker.all() scan dedupe relies on.
-PYTHONPATH="/app/backend:${PYTHONPATH-}" rq worker \
-	--path /app/backend \
-	--worker-class handler.rq_worker.RomMWorker \
-	--pid /tmp/rq_worker.pid \
-	--url "${REDIS_URL}" \
-	--logging_level "${LOGLEVEL:-INFO}" \
-	high default low &
+# orphaned STARTED jobs and stale workers are still pruned promptly.
+# --with-scheduler releases delayed jobs, which is how the watcher's rescans
+# wait out their delay.
+start_rq_worker() {
+	local name="$1"
+	local worker_class="$2"
+	shift 2
+
+	PYTHONPATH="/app/backend:${PYTHONPATH-}" \
+		RQ_REDIS_URL="${REDIS_URL}" \
+		rq worker \
+		--path /app/backend \
+		--worker-class "handler.rq_worker.${worker_class}" \
+		--pid "/tmp/${name}.pid" \
+		--logging_level "${LOGLEVEL:-INFO}" \
+		--with-scheduler \
+		"$@" &
+}
+
+echo "Starting RQ worker..."
+start_rq_worker rq_worker RomMWorker high default low
+
+# Scans get a worker of their own, see SCAN_QUEUE_NAME.
+echo "Starting RQ scan worker..."
+start_rq_worker rq_scan_worker RomMWorker scans
+
+# Streaming teardowns get a worker of their own, see STREAMING_QUEUE_NAME. It
+# preloads the reaper, which runs every minute when streaming is on.
+if [[ ${streaming_worker_enabled} == "true" ]]; then
+	echo "Starting RQ streaming worker..."
+	start_rq_worker rq_streaming_worker PreloadingWorker streaming
+fi
 
 echo "Starting watcher..."
 watchfiles \

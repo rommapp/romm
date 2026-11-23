@@ -1,0 +1,248 @@
+import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { expect, fn, userEvent, within } from "storybook/test";
+import { type Component, ref } from "vue";
+import RBtn from "@/lib/primitives/RBtn/RBtn.vue";
+import { CONTRAST_TODO_PARAMETERS } from "@/utils/storyA11y";
+import RCarousel from "./RCarousel.vue";
+
+// RCarousel is generic (`<T>`), so its component-typed shape doesn't fit
+// Storybook's `component` slot or `Meta<typeof RCarousel>`: Vue narrows T
+// to `unknown` here. The casts below are narrow + intentional.
+//
+// The generic's fixed named slots also don't reconcile with Storybook's
+// `components` map (which types each entry as a plain `Component`), so the
+// render stories register the carousel through this cast alias.
+const RCarouselStory = RCarousel as unknown as Component;
+
+// Sample images: picsum is deterministic by seed and works offline through
+// the Storybook CDN cache.
+const SAMPLES = [
+  "https://picsum.photos/seed/r-carousel-1/1280/720",
+  "https://picsum.photos/seed/r-carousel-2/1280/720",
+  "https://picsum.photos/seed/r-carousel-3/1280/720",
+  "https://picsum.photos/seed/r-carousel-4/1280/720",
+  "https://picsum.photos/seed/r-carousel-5/1280/720",
+];
+
+const meta: Meta = {
+  title: "Overlays/RCarousel",
+  component: RCarousel as never,
+  parameters: CONTRAST_TODO_PARAMETERS,
+};
+
+export default meta;
+
+type Story = StoryObj;
+
+export const Inline: Story = {
+  args: {
+    items: SAMPLES,
+    loop: true,
+    showThumbnails: true,
+    ariaLabel: "Image carousel",
+  },
+  render: (args) => ({
+    components: { RCarousel: RCarouselStory },
+    setup() {
+      const index = ref(0);
+      return { args, index };
+    },
+    template: `
+      <div style="padding: 32px; min-height: 540px;">
+        <RCarousel
+          v-bind="args"
+          v-model="index"
+          style="width: 720px; height: 460px;"
+        >
+          <template #default="{ item, index }">
+            <img :src="item" :alt="'Slide ' + (index + 1)" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px;" />
+          </template>
+          <template #thumbnail="{ item }">
+            <img :src="item" alt="" />
+          </template>
+        </RCarousel>
+      </div>
+    `,
+  }),
+  play: async ({ canvasElement, step }) => {
+    const canvas = within(canvasElement);
+
+    await step("counter renders 1 / N to start", async () => {
+      const counter = await canvas.findByText("1 / 5");
+      await expect(counter).toBeInTheDocument();
+    });
+
+    await step("clicking next advances the index", async () => {
+      const next = canvas.getByRole("button", { name: "Next" });
+      await userEvent.click(next);
+      const counter = await canvas.findByText("2 / 5");
+      await expect(counter).toBeInTheDocument();
+    });
+
+    await step("clicking prev rewinds", async () => {
+      const prev = canvas.getByRole("button", { name: "Previous" });
+      await userEvent.click(prev);
+      const counter = await canvas.findByText("1 / 5");
+      await expect(counter).toBeInTheDocument();
+    });
+
+    await step("loop wraps from first to last on prev", async () => {
+      const prev = canvas.getByRole("button", { name: "Previous" });
+      await userEvent.click(prev);
+      const counter = await canvas.findByText("5 / 5");
+      await expect(counter).toBeInTheDocument();
+    });
+
+    await step("clicking a thumbnail jumps to that index", async () => {
+      const thumbs = canvas.getAllByRole("button", { name: /^\d+ \/ 5$/ });
+      await userEvent.click(thumbs[2]!);
+      const counter = await canvas.findByText("3 / 5");
+      await expect(counter).toBeInTheDocument();
+    });
+  },
+};
+
+export const InlineLight: Story = {
+  globals: { theme: "light" },
+  args: {
+    items: SAMPLES,
+    showThumbnails: true,
+  },
+  render: (args) => ({
+    components: { RCarousel: RCarouselStory },
+    setup() {
+      const index = ref(0);
+      return { args, index };
+    },
+    template: `
+      <div style="padding: 32px; min-height: 540px;">
+        <RCarousel
+          v-bind="args"
+          v-model="index"
+          style="width: 720px; height: 460px;"
+        >
+          <template #default="{ item, index }">
+            <img :src="item" :alt="'Slide ' + (index + 1)" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px;" />
+          </template>
+          <template #thumbnail="{ item }">
+            <img :src="item" alt="" />
+          </template>
+        </RCarousel>
+      </div>
+    `,
+  }),
+};
+
+export const Fullscreen: Story = {
+  args: {
+    items: SAMPLES,
+    fullscreen: true,
+    loop: true,
+    showThumbnails: true,
+    ariaLabel: "Screenshot lightbox",
+  },
+  render: (args) => ({
+    components: { RCarousel: RCarouselStory, RBtn },
+    setup() {
+      const index = ref<number | null>(null);
+      const onClose = fn(() => (index.value = null));
+      return { args, index, onClose };
+    },
+    template: `
+      <div style="padding: 32px; min-height: 540px;">
+        <RBtn @click="index = 0">Open lightbox</RBtn>
+        <RCarousel
+          v-if="index !== null"
+          v-bind="args"
+          v-model="index"
+          @close="onClose"
+        >
+          <template #default="{ item, index }">
+            <img :src="item" :alt="'Slide ' + (index + 1)" />
+          </template>
+          <template #thumbnail="{ item }">
+            <img :src="item" />
+          </template>
+        </RCarousel>
+      </div>
+    `,
+  }),
+  play: async ({ canvasElement, step }) => {
+    const canvas = within(canvasElement);
+    // The fullscreen overlay teleports to <body>, outside the story canvas.
+    const overlay = within(document.body);
+    const lightbox = () =>
+      overlay.queryByRole("dialog", { name: "Screenshot lightbox" });
+
+    await step("opens the lightbox", async () => {
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Open lightbox" }),
+      );
+      await expect(lightbox()).toBeInTheDocument();
+    });
+
+    await step("clicking the image itself keeps it open", async () => {
+      await userEvent.click(overlay.getByAltText("Slide 1"));
+      await expect(lightbox()).toBeInTheDocument();
+    });
+
+    await step("clicking the backdrop around the image closes it", async () => {
+      const item = document.querySelector(".r-carousel__item--fullscreen");
+      await userEvent.click(item as HTMLElement);
+      await expect(lightbox()).toBeNull();
+    });
+  },
+};
+
+export const NoLoop: Story = {
+  args: {
+    items: SAMPLES.slice(0, 3),
+    loop: false,
+  },
+  render: (args) => ({
+    components: { RCarousel: RCarouselStory },
+    setup() {
+      const index = ref(0);
+      return { args, index };
+    },
+    template: `
+      <div style="padding: 32px; min-height: 360px;">
+        <RCarousel
+          v-bind="args"
+          v-model="index"
+          style="width: 560px; height: 320px;"
+        >
+          <template #default="{ item, index }">
+            <img :src="item" :alt="'Slide ' + (index + 1)" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px;" />
+          </template>
+        </RCarousel>
+      </div>
+    `,
+  }),
+};
+
+export const SingleItem: Story = {
+  args: {
+    items: SAMPLES.slice(0, 1),
+  },
+  render: (args) => ({
+    components: { RCarousel: RCarouselStory },
+    setup() {
+      const index = ref(0);
+      return { args, index };
+    },
+    template: `
+      <div style="padding: 32px; min-height: 360px;">
+        <RCarousel
+          v-bind="args"
+          v-model="index"
+          style="width: 560px; height: 320px;"
+        >
+          <template #default="{ item }">
+            <img :src="item" alt="Single slide" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px;" />
+          </template>
+        </RCarousel>
+      </div>
+    `,
+  }),
+};

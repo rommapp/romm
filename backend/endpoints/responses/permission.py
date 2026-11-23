@@ -12,12 +12,21 @@ this phase; per-resource scoping is reserved for later.
 from __future__ import annotations
 
 import enum
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel
+from pydantic import Field, field_validator
 
+from endpoints.responses.base import BaseModel
 from handler.auth.permissions import ResolvedPermissions
-from models.permission import PermAction, PermEntity
+from models.permission import (
+    MAX_AGE_LIMIT,
+    OWNABLE_PERM_ENTITIES,
+    PermAction,
+    PermEntity,
+    SystemGroupKey,
+)
+
+AgeLimit = Annotated[int, Field(ge=0, le=MAX_AGE_LIMIT)]
 
 
 class ActionKey(enum.StrEnum):
@@ -41,8 +50,14 @@ class ActionKey(enum.StrEnum):
     COLLECTION_CREATE = "collection.create"
     COLLECTION_EDIT = "collection.edit"
     COLLECTION_DELETE = "collection.delete"
+    # Playlists
+    PLAYLIST_EDIT = "playlist.edit"
     # Library
     LIBRARY_SCAN = "library.scan"
+    # Streaming read has no key: the UI reads the streaming config's `enabled`.
+    STREAM_START = "stream.start"
+    # Netplay (rom.play is the emulation read grant)
+    NETPLAY_HOST = "netplay.host"
     # Users
     USER_VIEW = "user.view"
     USER_CREATE = "user.create"
@@ -59,7 +74,6 @@ class ActionKey(enum.StrEnum):
 _ENTITY_ACTION_KEYS: dict[tuple[PermEntity, PermAction], tuple[ActionKey, ...]] = {
     (PermEntity.ROMS, PermAction.READ): (
         ActionKey.ROM_VIEW,
-        ActionKey.ROM_PLAY,
         ActionKey.ROM_DOWNLOAD,
         ActionKey.ROM_FAVORITE,
     ),
@@ -83,6 +97,10 @@ _ENTITY_ACTION_KEYS: dict[tuple[PermEntity, PermAction], tuple[ActionKey, ...]] 
         ActionKey.COLLECTION_EDIT,
     ),
     (PermEntity.COLLECTIONS, PermAction.DELETE): (ActionKey.COLLECTION_DELETE,),
+    (PermEntity.PLAYLISTS, PermAction.WRITE): (ActionKey.PLAYLIST_EDIT,),
+    (PermEntity.STREAMING, PermAction.WRITE): (ActionKey.STREAM_START,),
+    (PermEntity.EMULATION, PermAction.READ): (ActionKey.ROM_PLAY,),
+    (PermEntity.EMULATION, PermAction.WRITE): (ActionKey.NETPLAY_HOST,),
     (PermEntity.USERS, PermAction.READ): (ActionKey.USER_VIEW,),
     (PermEntity.USERS, PermAction.WRITE): (
         ActionKey.USER_CREATE,
@@ -154,6 +172,20 @@ class GrantSchemaIO(BaseModel):
     entity: PermEntity
     action: PermAction
     own_only: bool = False
+    """Whether the grant covers only things the user owns."""
+
+
+def _reject_ownerless_own_only[T: GrantSchemaIO | OverrideSchemaIO](
+    items: list[T] | None,
+) -> list[T] | None:
+    """Reject ``own_only`` on entities with no owner, which have nothing to narrow it to."""
+    for item in items or ():
+        # A revoke override ignores own_only.
+        if isinstance(item, OverrideSchemaIO) and not item.granted:
+            continue
+        if item.own_only and item.entity not in OWNABLE_PERM_ENTITIES:
+            raise ValueError(f"own_only is not supported for {item.entity}")
+    return items
 
 
 class PermissionGroupSchema(BaseModel):
@@ -161,13 +193,16 @@ class PermissionGroupSchema(BaseModel):
     name: str
     description: str
     is_default: bool
-    is_system: bool
+    system_key: SystemGroupKey | None
     color: str | None
     grants: list[GrantSchemaIO]
     member_count: int
     # Entities hidden from every member of this group (admin override still
     # applies per-user on top). Empty for groups with no group-level hides.
     hidden: list[HiddenEntitySchema] = []
+    # Members see only ROMs rated for this age or younger; null sets no limit.
+    age_limit: int | None = None
+    hide_unrated_roms: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -178,6 +213,10 @@ class PermissionGroupCreate(BaseModel):
     is_default: bool = False
     color: str | None = None
     grants: list[GrantSchemaIO] = []
+    age_limit: AgeLimit | None = None
+    hide_unrated_roms: bool = False
+
+    _check_grants = field_validator("grants")(_reject_ownerless_own_only)
 
 
 class PermissionGroupUpdate(BaseModel):
@@ -186,13 +225,21 @@ class PermissionGroupUpdate(BaseModel):
     is_default: bool | None = None
     color: str | None = None
     grants: list[GrantSchemaIO] | None = None
+    # With `set_age_settings`, both are written as given; a null limit clears it.
+    age_limit: AgeLimit | None = None
+    hide_unrated_roms: bool = False
+    set_age_settings: bool = False
+
+    _check_grants = field_validator("grants")(_reject_ownerless_own_only)
 
 
 class OverrideSchemaIO(BaseModel):
     entity: PermEntity
     action: PermAction
     granted: bool
+    """True grants the action and false denies it."""
     own_only: bool = False
+    """Whether the override covers only things the user owns."""
 
 
 class HiddenEntitySchema(BaseModel):
@@ -205,7 +252,9 @@ class HiddenEntityCreate(BaseModel):
     entity_id: int
     # Exactly one principal must be set (validated by the endpoint).
     user_id: int | None = None
+    """The user to hide it from. Set exactly one of `user_id` and `group_id`."""
     group_id: int | None = None
+    """The group to hide it from. Set exactly one of `user_id` and `group_id`."""
 
 
 class UserPermissionsSchema(BaseModel):
@@ -215,6 +264,9 @@ class UserPermissionsSchema(BaseModel):
     permission_group_id: int | None
     overrides: list[OverrideSchemaIO]
     hidden: list[HiddenEntitySchema]
+    # Replacements for the group's age settings; null inherits the group's.
+    age_limit: int | None = None
+    hide_unrated_roms: bool | None = None
 
 
 class UserPermissionsUpdate(BaseModel):
@@ -223,6 +275,12 @@ class UserPermissionsUpdate(BaseModel):
     permission_group_id: int | None = None
     set_group: bool = False
     overrides: list[OverrideSchemaIO] | None = None
+    # With `set_age_settings`, both are written as given; null inherits.
+    age_limit: AgeLimit | None = None
+    hide_unrated_roms: bool | None = None
+    set_age_settings: bool = False
+
+    _check_overrides = field_validator("overrides")(_reject_ownerless_own_only)
 
 
 class PermissionCatalogSchema(BaseModel):
@@ -230,3 +288,5 @@ class PermissionCatalogSchema(BaseModel):
 
     entities: list[PermEntity]
     actions: list[PermAction]
+    # Entities that accept own_only; the matrix offers "own" only on these.
+    ownable_entities: list[PermEntity]

@@ -1,0 +1,115 @@
+// Shared Esc-key stack.
+//
+// Every escapable v2 overlay (RDialog, RMenu, RDrawer, plus ad-hoc
+// panels like the grid-view focus inside MatchRomBodyGrid) pushes
+// itself here while open. A single window capture-phase listener
+// consults the top of the stack so Esc always closes the most recent
+// context first: outer surfaces stay open until inner ones are
+// dismissed.
+//
+// Per-instance `@keydown` on the panel only fires when the event
+// happens to bubble to it, which fails whenever a child stops
+// propagation, or whenever focus lives outside the panel (a teleported
+// listbox, the body itself). A single capture-phase listener on
+// `window` sidesteps both.
+//
+// The listener claims the key with preventDefault, persistent layers
+// included, so `useGamepad`'s B knows not to fall back to history.
+//
+// Pushing also notifies `onEscapableOpen` subscribers, so surfaces that
+// paint above every overlay (RTooltip) can dismiss themselves.
+
+export interface EscapableEntry {
+  close: () => void;
+  /** When true, this entry stays at the top of the stack but Esc
+   *  becomes a no-op for it. Outer entries do not get a chance to
+   *  respond either: a persistent layer effectively swallows Esc. */
+  persistent: boolean;
+  /** The surface this entry paints, when it owns one. Read lazily: the
+   *  entry outlives the panel, which mounts only while open. */
+  panel?: (() => HTMLElement | null) | undefined;
+}
+
+const stack: EscapableEntry[] = [];
+const openListeners = new Set<() => void>();
+
+function onWindowKeyDown(evt: KeyboardEvent) {
+  if (evt.key !== "Escape") return;
+  const top = stack[stack.length - 1];
+  if (!top) return;
+  evt.stopPropagation();
+  evt.preventDefault();
+  if (!top.persistent) top.close();
+}
+
+function attachListener() {
+  if (stack.length === 1 && typeof window !== "undefined") {
+    window.addEventListener("keydown", onWindowKeyDown, true);
+  }
+}
+function detachListener() {
+  if (stack.length === 0 && typeof window !== "undefined") {
+    window.removeEventListener("keydown", onWindowKeyDown, true);
+  }
+}
+
+export function pushEscapable(entry: EscapableEntry): void {
+  stack.push(entry);
+  attachListener();
+  for (const listener of openListeners) listener();
+}
+
+export function popEscapable(entry: EscapableEntry): void {
+  const idx = stack.indexOf(entry);
+  if (idx !== -1) {
+    stack.splice(idx, 1);
+    detachListener();
+  }
+}
+
+/** Subscribe to "an overlay just opened". Returns an unsubscribe function. */
+export function onEscapableOpen(listener: () => void): () => void {
+  openListeners.add(listener);
+  return () => openListeners.delete(listener);
+}
+
+/** The topmost overlay's panel; null when none is open or it has no panel. */
+export function topEscapablePanel(): HTMLElement | null {
+  return stack[stack.length - 1]?.panel?.() ?? null;
+}
+
+/** True when `el` is covered by the topmost overlay rather than living
+ *  inside it. A panel-less entry has no opinion and covers nothing. */
+export function isUnderOpenEscapable(el: Node | null): boolean {
+  const panel = stack[stack.length - 1]?.panel?.();
+  if (!panel) return false;
+  return !panel.contains(el);
+}
+
+/** True when `node` sits in an overlay opened after `entry`, such as a menu
+ *  nested in it, so a press there does not count as outside `entry`. */
+export function isInsideEscapableAbove(
+  entry: EscapableEntry,
+  node: Node,
+): boolean {
+  const idx = stack.indexOf(entry);
+  if (idx === -1) return false;
+  return stack
+    .slice(idx + 1)
+    .some((above) => above.panel?.()?.contains(node) ?? false);
+}
+
+/** True when any escapable overlay is open, persistent ones included. */
+export function hasOpenEscapable(): boolean {
+  return stack.length > 0;
+}
+
+/** Close every open overlay, innermost first. Used on route changes (see
+ *  `useOverlayRouteDismiss`), where `persistent` does not apply: it
+ *  guards against dismissing a surface by accident, but the page that
+ *  surface belonged to is already gone. Iterates over a snapshot since
+ *  each `close()` removes its own entry (asynchronously, via the owner's
+ *  `modelValue` watcher). */
+export function closeAllEscapables(): void {
+  for (const entry of [...stack].reverse()) entry.close();
+}

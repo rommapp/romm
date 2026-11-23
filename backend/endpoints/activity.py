@@ -1,18 +1,15 @@
-from datetime import datetime, timezone
-
-from fastapi import HTTPException, Request, status
-from pydantic import BaseModel, Field
+from fastapi import HTTPException, Query, Request, status
+from pydantic import Field
 
 from decorators.auth import protected_route
-from endpoints.responses.activity import ActivityClearSchema, ActivityEntrySchema
+from endpoints.responses.activity import ActivityEntrySchema
+from endpoints.responses.base import BaseModel
 from handler.activity_handler import ActivityEntry, activity_handler
 from handler.auth.constants import Scope
 from handler.auth.dependencies import get_permissions
-from handler.database import db_device_handler, db_rom_handler, db_save_handler
-from handler.socket_handler import socket_handler
-from logger.logger import log
-from utils.router import APIRouter
-from utils.screenshots import continue_playing_screenshot
+from handler.database import db_device_handler, db_rom_handler
+from utils.auth import require_device, require_token_device
+from utils.router import APIRouter, RomIdPath
 
 router = APIRouter(
     prefix="/activity",
@@ -24,16 +21,21 @@ def _visible_activity(
     request: Request, entries: list[ActivityEntry]
 ) -> list[ActivityEntrySchema]:
     """Drop sessions whose ROM is hidden from the caller (platform or rom hide)."""
-    perms = get_permissions(request)
-    if not perms.is_admin and (perms.hidden_platform_ids or perms.hidden_rom_ids):
-        rom_ids = [e["rom_id"] for e in entries]
+    visibility = get_permissions(request).rom_visibility
+    if not visibility.is_unrestricted:
         hidden = db_rom_handler.get_hidden_rom_ids_among(
-            rom_ids,
-            list(perms.hidden_platform_ids),
-            list(perms.hidden_rom_ids),
+            [e["rom_id"] for e in entries], visibility
         )
         entries = [e for e in entries if e["rom_id"] not in hidden]
     return [ActivityEntrySchema(**e) for e in entries]
+
+
+def _is_hidden(request: Request, rom_id: int) -> bool:
+    """Whether the caller's visibility rules hide the ROM."""
+    visibility = get_permissions(request).rom_visibility
+    if visibility.is_unrestricted:
+        return False
+    return rom_id in db_rom_handler.get_hidden_rom_ids_among([rom_id], visibility)
 
 
 class DeviceHeartbeatPayload(BaseModel):
@@ -49,79 +51,60 @@ async def get_all_activity(request: Request) -> list[ActivityEntrySchema]:
 
 
 @protected_route(router.get, "/rom/{rom_id}", [Scope.ROMS_USER_READ])
-async def get_rom_activity(request: Request, rom_id: int) -> list[ActivityEntrySchema]:
+async def get_rom_activity(
+    request: Request,
+    rom_id: RomIdPath,
+) -> list[ActivityEntrySchema]:
     """Return all active play sessions for a specific ROM."""
     entries = await activity_handler.get_active_for_rom(rom_id)
     return _visible_activity(request, entries)
 
 
-@protected_route(router.post, "/heartbeat", [Scope.ROMS_USER_WRITE])
+@protected_route(
+    router.post,
+    "/heartbeat",
+    [Scope.ROMS_USER_WRITE],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": (
+                "The caller has no device with this ID that it can see, or no rom"
+                " the caller can see has this ID."
+            )
+        }
+    },
+)
 async def device_heartbeat(
     request: Request, payload: DeviceHeartbeatPayload
 ) -> ActivityEntrySchema:
     """Heartbeat endpoint for external devices (muOS, Android, etc.).
 
     Called periodically by devices while the user is playing a game. Writes
-    activity state to Redis and broadcasts an ``activity:update`` event over
-    the main Socket.IO namespace.
+    activity state to Redis and sends an ``activity:update`` event to the
+    users who can see the ROM.
     """
-    rom = db_rom_handler.get_rom(payload.rom_id)
-    if rom is None:
+    device = require_device(request, payload.device_id)
+
+    # build_entry does the ROM lookup; None back from it is a missing ROM, and a
+    # hidden one answers the same 404.
+    entry = None
+    if not _is_hidden(request, payload.rom_id):
+        entry = await activity_handler.build_entry(
+            user_id=request.user.id,
+            device_id=device.id,
+            rom_id=payload.rom_id,
+            preserve_started_at=True,
+            device_type=device.client or "unknown",
+        )
+    if entry is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"ROM {payload.rom_id} not found",
         )
 
-    device = db_device_handler.get_device(
-        device_id=payload.device_id, user_id=request.user.id
-    )
-    if device is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Device {payload.device_id} not found for this user",
-        )
-
-    # Preserve the started_at from the existing entry if we are refreshing.
-    existing = await activity_handler.get_active(request.user.id, device.id)
-    started_at = (
-        existing["started_at"] if existing else datetime.now(timezone.utc).isoformat()
-    )
-
-    latest_save = db_save_handler.get_latest_saves_for_roms(
-        user_id=request.user.id, rom_ids=[rom.id]
-    ).get(rom.id)
-    screenshot_path = continue_playing_screenshot(rom, latest_save) or ""
-
-    platform = rom.platform
-    entry = ActivityEntry(
-        user_id=request.user.id,
-        username=request.user.username,
-        avatar_path=request.user.avatar_path or "",
-        rom_id=rom.id,
-        rom_name=rom.name or rom.fs_name,
-        rom_cover_path=rom.path_cover_s or "",
-        screenshot_path=screenshot_path,
-        platform_slug=platform.slug if platform else "",
-        platform_name=(platform.custom_name or platform.name) if platform else "",
-        device_id=device.id,
-        device_type=device.client or "unknown",
-        started_at=started_at,
-    )
-
-    await activity_handler.set_active(entry)
+    await activity_handler.publish_active(entry)
 
     # Update the device last_seen as a side-effect (mirrors play session ingest).
     db_device_handler.update_last_seen(device_id=device.id, user_id=request.user.id)
-
-    # Broadcast to all connected sockets. The REST app shares this process with
-    # the Socket.IO server, so emit through the already-initialised, Redis-backed
-    # server (it fans out across workers) rather than opening a manager per call.
-    try:
-        await socket_handler.socket_server.emit("activity:update", dict(entry))
-    except Exception as e:  # noqa: BLE001
-        log.warning(
-            f"Failed to broadcast activity:update for user {request.user.id}: {e}"
-        )
 
     return ActivityEntrySchema(**entry)
 
@@ -131,24 +114,17 @@ async def device_heartbeat(
     "/heartbeat",
     [Scope.ROMS_USER_WRITE],
     status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller uses a token bound to a different device."
+        }
+    },
 )
-async def clear_device_activity(request: Request, device_id: str) -> None:
+async def clear_device_activity(
+    request: Request,
+    device_id: str = Query(),
+) -> None:
     """Immediately clear an active session for a device (e.g. on graceful exit)."""
-    rom_id = await activity_handler.clear_active(request.user.id, device_id)
-    if rom_id is None:
-        return None
-
-    try:
-        await socket_handler.socket_server.emit(
-            "activity:clear",
-            ActivityClearSchema(
-                user_id=request.user.id,
-                device_id=device_id,
-                rom_id=rom_id,
-            ).model_dump(),
-        )
-    except Exception as e:  # noqa: BLE001
-        log.warning(
-            f"Failed to broadcast activity:clear for user {request.user.id}: {e}"
-        )
+    require_token_device(request, device_id)
+    await activity_handler.publish_clear(request.user.id, device_id)
     return None

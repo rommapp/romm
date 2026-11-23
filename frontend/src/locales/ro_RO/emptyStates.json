@@ -1,11 +1,4 @@
 {
   "404-subtitle": "Pagina pe care o căutați nu există",
-  "404-title": "Pagină negăsită",
-  "firmware-text": "Firmware-ul/BIOS-ul căutat nu există",
-  "firmware-title": "Fără firmware/BIOS",
-  "home-headline": "Nu există jocuri în biblioteca dvs.",
-  "home-text": "Sunteți gata de joacă?",
-  "home-title": "Rulați o scanare rapidă pentru a detecta automat jocurile de pe sistemul dvs.",
-  "manual-match": "Căutați jocuri la toți furnizorii de metadate",
-  "search-for-games": "Căutați jocuri pe toate platformele"
+  "404-title": "Pagină negăsită"
 }

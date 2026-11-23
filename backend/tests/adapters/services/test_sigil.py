@@ -1,0 +1,804 @@
+import asyncio
+import hashlib
+import struct
+import types
+import zipfile
+from pathlib import Path
+from unittest.mock import Mock
+
+import pytest
+from tests._zipfile_shim import reload_zipfile
+
+import adapters.services.sigil as sigil_adapter
+from adapters.services.sigil import SigilExtractionResult, SigilService
+from logger.formatter import highlight as hl
+from models.platform import Platform
+from models.rom import Rom, RomFile, RomFileCategory
+from utils.platform_slugs import UniversalPlatformSlug as UPS
+
+
+class FakeSigilError(Exception):
+    def __init__(self, code: int):
+        super().__init__(f"sigil error {code}")
+        self.code = code
+
+
+class FakeNotFoundError(FakeSigilError):
+    pass
+
+
+class FakeUnsupportedFormatError(FakeSigilError):
+    pass
+
+
+class FakeIOError(FakeSigilError):
+    pass
+
+
+class FakeNeedsKeyError(FakeSigilError):
+    pass
+
+
+def make_fake_sigil(extract: Mock) -> types.SimpleNamespace:
+    return types.SimpleNamespace(
+        extract=extract,
+        SigilNotFoundError=FakeNotFoundError,
+        SigilUnsupportedFormatError=FakeUnsupportedFormatError,
+        SigilIOError=FakeIOError,
+        SigilNeedsKeyError=FakeNeedsKeyError,
+    )
+
+
+def patch_log_error(monkeypatch) -> Mock:
+    log_error = Mock()
+    monkeypatch.setattr("adapters.services.sigil.log.error", log_error)
+    return log_error
+
+
+def make_result(
+    title_id: str = "0100ABCD12340000",
+    save_id: str = "0100ABCD12340000",
+    usage: str = "folder-exact",
+    switch_content_type: str | None = None,
+    title_version: int | None = None,
+    raw_serial: str = "",
+    features: int = 0,
+    n64_header: str = "",
+    n64_md5: str = "",
+    n64_md5_n64: str = "",
+) -> types.SimpleNamespace:
+    return types.SimpleNamespace(
+        title_id=title_id,
+        save_id=save_id,
+        usage=usage,
+        switch_content_type=switch_content_type,
+        title_version=title_version,
+        raw_serial=raw_serial,
+        features=features,
+        n64_header=n64_header,
+        n64_md5=n64_md5,
+        n64_md5_n64=n64_md5_n64,
+    )
+
+
+class TestSigilService:
+    @pytest.fixture
+    def service(self):
+        return SigilService()
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_binding_absent(
+        self, service: SigilService, monkeypatch
+    ):
+        monkeypatch.setattr(sigil_adapter, "sigil", None)
+
+        result = await service.extract_title_id(UPS.SWITCH, "/roms/switch/game.nsp")
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_for_unsupported_platform(
+        self, service: SigilService, monkeypatch
+    ):
+        extract = Mock(return_value=make_result())
+        monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
+
+        result = await service.extract_title_id(UPS.NES, "/roms/nes/game.nes")
+
+        assert result is None
+        extract.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_maps_the_n64_identity(self, service: SigilService, monkeypatch):
+        extract = Mock(
+            return_value=make_result(
+                title_id="NTEA",
+                save_id="NTEA",
+                n64_header="1080 SNOWBOARDING",
+                n64_md5="FA27089C425DBAB99F19245C5C997613",
+                n64_md5_n64="10C93DD78B695CD32B6938534ED0EDD5",
+            )
+        )
+        monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
+
+        result = await service.extract_title_id(UPS.N64, "/roms/n64/1080.z64")
+
+        assert result is not None
+        assert (result.n64_header, result.n64_md5, result.n64_md5_n64) == (
+            "1080 SNOWBOARDING",
+            "FA27089C425DBAB99F19245C5C997613",
+            "10C93DD78B695CD32B6938534ED0EDD5",
+        )
+        extract.assert_called_once_with(
+            "/roms/n64/1080.z64", platform="n64", filename_fallback=False
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(("slug", "sigil_slug"), [(UPS.GB, "gb"), (UPS.GBC, "gbc")])
+    async def test_reads_a_game_boy_carts_features(
+        self, service: SigilService, monkeypatch, slug: str, sigil_slug: str
+    ):
+        extract = Mock(return_value=make_result(title_id="", save_id="", features=1))
+        monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
+
+        result = await service.extract_title_id(slug, "/roms/gb/game.gb")
+
+        assert result is not None
+        assert (result.title_id, result.features) == ("", 1)
+        assert extract.call_args.kwargs["platform"] == sigil_slug
+
+    @pytest.mark.asyncio
+    async def test_successful_extraction_maps_fields(
+        self, service: SigilService, monkeypatch
+    ):
+        extract = Mock(
+            return_value=make_result(
+                title_id="SLUS-20152",
+                save_id="BASLUS-20152",
+                usage="folder-prefix",
+                raw_serial="SLUS_201.52",
+                features=1,
+            )
+        )
+        monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
+
+        result = await service.extract_title_id(UPS.PS2, "/roms/ps2/game.iso")
+
+        assert result == SigilExtractionResult(
+            title_id="SLUS-20152",
+            save_target="BASLUS-20152",
+            usage="folder-prefix",
+            raw_serial="SLUS_201.52",
+            features=1,
+        )
+
+    @pytest.mark.asyncio
+    # Version 0 is a real base-game version, not a missing one.
+    @pytest.mark.parametrize(
+        ("content_type", "version"), [("patch", 196608), ("application", 0)]
+    )
+    async def test_maps_switch_content_type_and_version(
+        self,
+        service: SigilService,
+        monkeypatch,
+        content_type: str,
+        version: int,
+    ):
+        extract = Mock(
+            return_value=make_result(
+                switch_content_type=content_type,
+                title_version=version,
+            )
+        )
+        monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
+
+        result = await service.extract_title_id(UPS.SWITCH, "/roms/switch/game.nsp")
+
+        assert result is not None
+        assert result.content_type == content_type
+        assert result.version == version
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("raw", ["unknown", "", None])
+    async def test_absent_content_type_maps_to_none(
+        self, service: SigilService, monkeypatch, raw: str | None
+    ):
+        extract = Mock(return_value=make_result(switch_content_type=raw))
+        monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
+
+        result = await service.extract_title_id(UPS.SWITCH, "/roms/switch/game.nsp")
+
+        assert result is not None
+        assert result.content_type is None
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "error",
+        [
+            pytest.param(FakeNotFoundError(-5), id="not-found"),
+            pytest.param(FakeUnsupportedFormatError(-4), id="unsupported-format"),
+            pytest.param(FakeIOError(-2), id="short-file"),
+            pytest.param(FakeNeedsKeyError(-6), id="needs-key"),
+        ],
+    )
+    async def test_routine_sigil_error_returns_none(
+        self, service: SigilService, monkeypatch, mocker, error: FakeSigilError
+    ):
+        extract = Mock(side_effect=error)
+        monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
+        log = mocker.patch.object(sigil_adapter, "log")
+
+        result = await service.extract_title_id(UPS.PSX, "/roms/psx/game.bin")
+
+        assert result is None
+        log.debug.assert_called_once()
+        log.error.assert_not_called()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "error",
+        [
+            pytest.param(OSError("native crash"), id="native-crash"),
+            pytest.param(FakeSigilError(-2), id="io-error"),
+        ],
+    )
+    async def test_unexpected_error_returns_none(
+        self, service: SigilService, monkeypatch, mocker, error: Exception
+    ):
+        extract = Mock(side_effect=error)
+        monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
+        log = mocker.patch.object(sigil_adapter, "log")
+
+        result = await service.extract_title_id(UPS.PS2, "/roms/ps2/game.iso")
+
+        assert result is None
+        log.error.assert_called_once()
+        log.debug.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_playlist_is_its_first_disc_and_lists_every_discs_id(
+        self, service: SigilService, monkeypatch, tmp_path: Path
+    ):
+        ids = {
+            "Game (Disc 1).chd": "SLUS-21359",
+            "Game (Disc 2).chd": "SLUS-21360",
+            "Game (Disc 3).chd": "",
+        }
+        for name in ids:
+            (tmp_path / name).write_bytes(b"disc")
+        playlist = tmp_path / "Game.m3u"
+        playlist.write_text(
+            "Game (Disc 1).chd\nGame (Disc 2).chd\nGame (Disc 3).chd\nMissing.chd\n"
+        )
+        extract = Mock(
+            side_effect=lambda path, **_: make_result(title_id=ids[Path(path).name])
+        )
+        monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
+
+        result = await service.extract_title_id(UPS.PS2, str(playlist))
+
+        assert result is not None
+        assert result.title_id == "SLUS-21359"
+        assert result.playlist_title_ids == ("SLUS-21359", "SLUS-21360")
+        assert [c.args[0] for c in extract.call_args_list] == [
+            str(tmp_path / name) for name in ids
+        ]
+
+    @pytest.mark.asyncio
+    async def test_a_single_file_has_no_playlist_ids(
+        self, service: SigilService, monkeypatch
+    ):
+        monkeypatch.setattr(
+            sigil_adapter, "sigil", make_fake_sigil(Mock(return_value=make_result()))
+        )
+
+        result = await service.extract_title_id(UPS.PS2, "/roms/ps2/game.iso")
+
+        assert result is not None
+        assert result.playlist_title_ids is None
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "entry",
+        [
+            pytest.param("Game (Disc 1).chd", id="missing-disc"),
+            pytest.param("Game.7z", id="archive-disc"),
+            pytest.param("Game.tar.gz", id="tarball-disc"),
+        ],
+    )
+    async def test_playlist_without_a_readable_disc_is_not_read(
+        self, service: SigilService, monkeypatch, tmp_path: Path, entry: str
+    ):
+        (tmp_path / "Game.7z").write_bytes(b"archive")
+        (tmp_path / "Game.tar.gz").write_bytes(b"archive")
+        playlist = tmp_path / "Game.m3u"
+        playlist.write_text(f"{entry}\n")
+        extract = Mock(return_value=make_result())
+        monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
+
+        result = await service.extract_title_id(UPS.PS2, str(playlist))
+
+        assert result is None
+        extract.assert_not_called()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("name", ["Game.zip", "GAME.ZIP"])
+    async def test_a_zip_is_handed_to_sigil(
+        self, service: SigilService, monkeypatch, name: str
+    ):
+        extract = Mock(return_value=make_result("PCSE00640", "PCSE00640"))
+        monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
+
+        result = await service.extract_title_id(UPS.PSVITA, f"/roms/psvita/{name}")
+
+        assert result is not None
+        assert result.title_id == "PCSE00640"
+        extract.assert_called_once_with(
+            f"/roms/psvita/{name}", platform="psvita", filename_fallback=False
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "name", ["Game.7z", "Game.rar", "Game.tar", "Game.tar.gz", "Game.gz"]
+    )
+    async def test_an_archive_sigil_cannot_open_is_not_read(
+        self, service: SigilService, monkeypatch, name: str
+    ):
+        extract = Mock(return_value=make_result())
+        monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
+
+        result = await service.extract_title_id(UPS.N3DS, f"/roms/3ds/{name}")
+
+        assert result is None
+        extract.assert_not_called()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("platform_slug", [UPS.SWITCH, UPS.SWITCH_2])
+    async def test_no_decryption_keys_are_passed(
+        self, service: SigilService, monkeypatch, platform_slug: UPS
+    ):
+        """RomM never handles a user's console keys, so no key path is passed."""
+        extract = Mock(return_value=make_result())
+        monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
+
+        await service.extract_title_id(platform_slug, "/roms/switch/game.xci")
+
+        extract.assert_called_once_with(
+            "/roms/switch/game.xci",
+            platform="switch",
+            filename_fallback=False,
+        )
+
+
+def make_rom(
+    slug: str = UPS.PSX, title_id: str | None = "SLUS-00892", save_target="SLUS-00892"
+) -> Rom:
+    return Rom(
+        id=1,
+        fs_name="Final Fantasy VIII",
+        fs_path="psx/roms",
+        title_id=title_id,
+        save_target=save_target,
+        platform=Platform(name="Platform", slug=slug, fs_slug=slug),
+    )
+
+
+def make_disc(
+    name: str,
+    title_id: str | None,
+    raw_serial: str | None = None,
+    features: int | None = None,
+    category: RomFileCategory | None = None,
+    **identity: object,
+) -> RomFile:
+    return RomFile(
+        file_name=name,
+        file_path="psx/roms/Final Fantasy VIII",
+        title_id=title_id,
+        raw_serial=raw_serial,
+        sigil_features=features,
+        category=category,
+        **identity,
+    )
+
+
+NO_N64 = {"n64_header": "", "n64_md5": "", "n64_md5_n64": ""}
+
+
+def persisted_kwargs(**kwargs: object) -> dict[str, object]:
+    return kwargs
+
+
+@pytest.fixture
+def fake_sigil(monkeypatch) -> types.SimpleNamespace:
+    fake = types.SimpleNamespace(
+        SigilResult=types.SimpleNamespace(persisted=persisted_kwargs)
+    )
+    monkeypatch.setattr(sigil_adapter, "sigil", fake)
+    return fake
+
+
+class TestStoredGame:
+    def test_rebuilds_disc_ones_result_with_every_disc_id(self, fake_sigil):
+        files = [
+            make_disc("FF8 (Disc 3).chd", "SLUS-00909"),
+            make_disc("FF8 (Disc 10).chd", "SLUS-00910"),
+            make_disc("FF8 (Disc 2).chd", "SLUS-00908", "SLUS_009.08", 0),
+            make_disc("FF8 (Disc 1).chd", "SLUS-00892", "SLUS_008.92", 1),
+            make_disc("FF8.m3u", "SLUS-00892", "SLUS_008.92", 1),
+            make_disc("Bonus.chd", "SLUS-99999", category=RomFileCategory.DLC),
+        ]
+
+        game = SigilService.stored_game(make_rom(), files)
+
+        assert game is not None
+        assert game.result == {
+            "platform": "psx",
+            "title_id": "SLUS-00892",
+            "save_id": "SLUS-00892",
+            "features": 1,
+            "raw_serial": "SLUS_008.92",
+            **NO_N64,
+        }
+        assert game.game_ids == (
+            "SLUS-00892",
+            "SLUS-00908",
+            "SLUS-00909",
+            "SLUS-00910",
+        )
+
+    def test_unread_files_rebuild_as_a_fresh_extraction_would(self, fake_sigil):
+        files = [make_disc("FF8 (Disc 1).chd", "SLUS-00892")]
+
+        game = SigilService.stored_game(make_rom(save_target=None), files)
+
+        assert game is not None
+        assert game.result == {
+            "platform": "psx",
+            "title_id": "SLUS-00892",
+            "save_id": "",
+            "features": 0,
+            "raw_serial": "",
+            **NO_N64,
+        }
+        assert game.game_ids == ("SLUS-00892",)
+
+    def test_the_rom_id_leads_when_no_file_carries_it(self, fake_sigil):
+        files = [make_disc("Game.nsp", "0100ABCD12340800", "", 0)]
+
+        game = SigilService.stored_game(
+            make_rom(UPS.SWITCH, "0100ABCD12340000", "0100ABCD12340000"), files
+        )
+
+        assert game is not None
+        assert game.result["features"] == 0
+        assert game.game_ids == ("0100ABCD12340000", "0100ABCD12340800")
+
+    def test_every_disc_a_playlist_lists_is_a_game_id(self, fake_sigil):
+        files = [
+            make_disc(
+                "FF8.m3u",
+                "SLUS-00892",
+                features=0,
+                playlist_title_ids=["SLUS-00892", "SLUS-00908", "SLUS-00909"],
+            )
+        ]
+
+        game = SigilService.stored_game(make_rom(), files)
+
+        assert game is not None
+        assert game.game_ids == ("SLUS-00892", "SLUS-00908", "SLUS-00909")
+
+    def test_carries_the_n64_identity(self, fake_sigil):
+        n64 = {
+            "n64_header": "1080 SNOWBOARDING",
+            "n64_md5": "FA27089C425DBAB99F19245C5C997613",
+            "n64_md5_n64": "10C93DD78B695CD32B6938534ED0EDD5",
+        }
+        files = [
+            make_disc(
+                "1080.z64",
+                "NTEA",
+                features=0,
+                n64_header=n64["n64_header"],
+                n64_md5=n64["n64_md5"],
+                n64_md5_n64=n64["n64_md5_n64"],
+            )
+        ]
+
+        game = SigilService.stored_game(make_rom(UPS.N64, "NTEA", "NTEA"), files)
+
+        assert game is not None
+        assert game.result == {
+            "platform": "n64",
+            "title_id": "NTEA",
+            "save_id": "NTEA",
+            "features": 0,
+            "raw_serial": "",
+            **n64,
+        }
+
+    @pytest.mark.parametrize(
+        ("slug", "sigil_slug"),
+        [(UPS.GBC, "gbc"), (UPS.SATURN, "saturn"), (UPS.SEGACD, "segacd")],
+    )
+    def test_a_platform_without_title_ids_still_restores(
+        self, fake_sigil, slug: str, sigil_slug: str
+    ):
+        files = [make_disc("Game.gbc", None, features=1)]
+
+        game = SigilService.stored_game(make_rom(slug, None, None), files)
+
+        assert game is not None
+        assert game.result["platform"] == sigil_slug
+        assert (game.result["title_id"], game.result["features"]) == ("", 1)
+        assert game.game_ids == ()
+
+    @pytest.mark.parametrize(
+        ("save_target", "title_id"),
+        [("525a4445", "525A4445"), ("00010001/574b5445", "00010001574B5445")],
+    )
+    def test_a_wii_save_id_carries_its_category_only_for_a_wad(
+        self, fake_sigil, save_target: str, title_id: str
+    ):
+        files = [make_disc("Game.wad", title_id, features=0)]
+
+        game = SigilService.stored_game(make_rom(UPS.WII, title_id, save_target), files)
+
+        assert game is not None
+        assert game.result["platform"] == "wii"
+        assert game.result["save_id"] == save_target
+        assert game.game_ids == (title_id,)
+
+    @pytest.mark.parametrize("slug", [UPS.NES, UPS.XBOX, UPS.XBOX360])
+    def test_none_where_sigil_restores_no_saves(self, fake_sigil, slug: str):
+        assert SigilService.stored_game(make_rom(slug), []) is None
+
+    def test_none_when_binding_absent(self, monkeypatch):
+        monkeypatch.setattr(sigil_adapter, "sigil", None)
+
+        assert SigilService.stored_game(make_rom(), []) is None
+
+
+class TestStoredGameAgainstTheBinding:
+    """Runs where the binding is built (the Docker image, a local build)."""
+
+    def test_rebuilds_a_real_sigil_result(self):
+        binding = pytest.importorskip("sigil")
+        files = [make_disc("FF8 (Disc 1).chd", "SLUS-00892", "SLUS_008.92", 1)]
+
+        game = SigilService.stored_game(make_rom(), files)
+
+        assert game is not None
+        assert isinstance(game.result, binding.SigilResult)
+        assert (game.result.raw_serial, game.result.has_rtc) == ("SLUS_008.92", True)
+
+    @pytest.mark.asyncio
+    async def test_a_file_without_a_title_id_is_routine(
+        self, tmp_path: Path, monkeypatch
+    ):
+        pytest.importorskip("sigil")
+        game = tmp_path / "game.iso"
+        # Large enough to hold the volume descriptors, so the read succeeds.
+        game.write_bytes(b"\0" * (1 << 20))
+        log_error = patch_log_error(monkeypatch)
+
+        result = await SigilService().extract_title_id(UPS.PS2, str(game))
+
+        assert result is None
+        log_error.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_a_stub_file_is_routine(self, tmp_path: Path, monkeypatch):
+        pytest.importorskip("sigil")
+        game = tmp_path / "game.iso"
+        game.write_bytes(b"\0" * 19)
+        log_error = patch_log_error(monkeypatch)
+
+        result = await SigilService().extract_title_id(UPS.PSP, str(game))
+
+        assert result is None
+        log_error.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_a_gdi_sheet_reads_its_high_density_track(self, tmp_path: Path):
+        pytest.importorskip("sigil")
+        sheet = write_gdi_disc(tmp_path, "Game", "T-0001N", "T-8111N")
+
+        result = await SigilService().extract_title_id(UPS.DC, str(sheet))
+
+        assert result is not None
+        assert result.title_id == "T-8111N"
+
+    @pytest.mark.asyncio
+    async def test_a_playlist_of_sheets_lists_every_discs_id(self, tmp_path: Path):
+        pytest.importorskip("sigil")
+        write_gdi_disc(tmp_path, "Game (Disc 1)", "T-0001N", "T-9701N")
+        write_gdi_disc(tmp_path, "Game (Disc 2)", "T-0001N", "T-9702N")
+        playlist = tmp_path / "Game.m3u"
+        playlist.write_text("Game (Disc 1).gdi\nGame (Disc 2).gdi\n")
+
+        result = await SigilService().extract_title_id(UPS.DC, str(playlist))
+
+        assert result is not None
+        assert result.title_id == "T-9701N"
+        assert result.playlist_title_ids == ("T-9701N", "T-9702N")
+
+    @pytest.mark.asyncio
+    async def test_a_vita_zip_is_read_by_its_param_sfo(self, tmp_path: Path):
+        pytest.importorskip("sigil")
+        # No serial in the name, so the id can only come from the dump.
+        dump = write_zip(
+            tmp_path / "Game.zip",
+            {
+                "app/PCSE00640/eboot.bin": bytes(64 * 1024),
+                "app/PCSE00640/sce_sys/param.sfo": vita_param_sfo("PCSE00640"),
+            },
+        )
+
+        result = await SigilService().extract_title_id(UPS.PSVITA, str(dump))
+
+        assert result is not None
+        assert (result.title_id, result.save_target, result.usage) == (
+            "PCSE00640",
+            "PCSE00640",
+            "folder-exact",
+        )
+
+    @pytest.mark.asyncio
+    async def test_a_zipped_game_boy_cart_reads_its_clock(self, tmp_path: Path):
+        binding = pytest.importorskip("sigil")
+        # MBC3 with a timer, RAM and a battery, beside a smaller file.
+        cart = write_zip(
+            tmp_path / "Game.zip",
+            {"Game (USA).gb": game_boy_cart(0x10), "readme.txt": b"notes"},
+        )
+
+        result = await SigilService().extract_title_id(UPS.GB, str(cart))
+
+        assert result is not None
+        assert result.features & binding.FEATURE_RTC
+
+    @pytest.mark.asyncio
+    async def test_a_zipped_n64_cart_reads_its_code_and_hashes_the_whole_rom(
+        self, tmp_path: Path
+    ):
+        pytest.importorskip("sigil")
+        rom = n64_cart("NZTE")
+        cart = write_zip(tmp_path / "Game.zip", {"Game (USA).z64": rom})
+
+        result = await SigilService().extract_title_id(UPS.N64, str(cart))
+
+        whole_rom_md5 = hashlib.md5(rom, usedforsecurity=False).hexdigest().upper()
+        assert result is not None
+        assert result.title_id == "NZTE"
+        assert result.n64_md5 == whole_rom_md5
+
+
+def write_zip(path: Path, members: dict[str, bytes]) -> Path:
+    """A deflated zip of `members`, by name."""
+    reload_zipfile()
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for name, data in members.items():
+            zf.writestr(name, data)
+    return path
+
+
+def vita_param_sfo(title_id: str) -> bytes:
+    """A PARAM.SFO holding only TITLE_ID."""
+    key = b"TITLE_ID\0"
+    value = title_id.encode() + b"\0"
+    key_table_offset = 20 + 16
+    header = b"\0PSF" + struct.pack(
+        "<IIII", 0x0101, key_table_offset, key_table_offset + len(key), 1
+    )
+    entry = struct.pack("<HHIII", 0, 0x0204, len(value), len(value), 0)
+    return header + entry + key + value
+
+
+def game_boy_cart(cart_type: int) -> bytes:
+    """A 32 KiB Game Boy ROM of `cart_type` whose header checksum holds."""
+    rom = bytearray(32 * 1024)
+    rom[0x147] = cart_type
+    checksum = 0
+    for byte in rom[0x134:0x14D]:
+        checksum = (checksum - byte - 1) & 0xFF
+    rom[0x14D] = checksum
+    return bytes(rom)
+
+
+def n64_cart(game_code: str) -> bytes:
+    """A 1 MiB N64 ROM in .z64 byte order naming `game_code`, its body not blank."""
+    rom = bytearray(bytes(range(256)) * 4096)
+    rom[0:4] = b"\x80\x37\x12\x40"
+    rom[0x20:0x34] = b"ZIP TEST".ljust(20)
+    rom[0x3B:0x3F] = game_code.encode()
+    return bytes(rom)
+
+
+def write_dc_track(path: Path, product: str | None) -> None:
+    """A Dreamcast data track, with IP.BIN naming `product` at its start when given."""
+    data = bytearray(20 * 2048)
+    if product:
+        data[0:32] = b"SEGA SEGAKATANA SEGA ENTERPRISES"
+        data[0x40 : 0x40 + 10] = product.ljust(10).encode()
+    path.write_bytes(bytes(data))
+
+
+def write_gdi_disc(
+    folder: Path, name: str, low_density: str, high_density: str
+) -> Path:
+    """A GD-ROM dump as a .gdi sheet and its tracks, returning the sheet."""
+    tracks = [f"{name} (Track {n}).bin" for n in (1, 2, 3)]
+    write_dc_track(folder / tracks[0], low_density)
+    write_dc_track(folder / tracks[1], None)
+    write_dc_track(folder / tracks[2], high_density)
+    sheet = folder / f"{name}.gdi"
+    sheet.write_text(
+        "3\n"
+        f'1 0 4 2352 "{tracks[0]}" 0\n'
+        f'2 450 0 2352 "{tracks[1]}" 0\n'
+        f'3 45000 4 2352 "{tracks[2]}" 0\n'
+    )
+    return sheet
+
+
+class TestScanSummary:
+    @pytest.mark.asyncio
+    async def test_counts_encrypted_files_once_per_scan(self, monkeypatch, mocker):
+        extract = Mock(side_effect=FakeNeedsKeyError(-6))
+        monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
+        log = mocker.patch.object(sigil_adapter, "log")
+        service = SigilService()
+
+        sigil_adapter.begin_scan()
+        await service.extract_title_id(UPS.SWITCH, "/roms/switch/a.nsp")
+        await service.extract_title_id(UPS.SWITCH, "/roms/switch/a.nsp")
+        await service.extract_title_id(UPS.SWITCH, "/roms/switch/b.xci")
+        sigil_adapter.log_scan_summary()
+
+        log.info.assert_called_once()
+        assert "2" in log.info.call_args.args[0]
+
+    @pytest.mark.asyncio
+    async def test_new_scan_drops_the_last_count(self, monkeypatch, mocker):
+        extract = Mock(side_effect=FakeNeedsKeyError(-6))
+        monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
+        log = mocker.patch.object(sigil_adapter, "log")
+
+        sigil_adapter.begin_scan()
+        await SigilService().extract_title_id(UPS.SWITCH, "/roms/switch/a.nsp")
+        sigil_adapter.begin_scan()
+        sigil_adapter.log_scan_summary()
+
+        log.info.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_overlapping_scans_keep_their_own_count(self, monkeypatch, mocker):
+        extract = Mock(side_effect=FakeNeedsKeyError(-6))
+        monkeypatch.setattr(sigil_adapter, "sigil", make_fake_sigil(extract))
+        log = mocker.patch.object(sigil_adapter, "log")
+        first_scanned = asyncio.Event()
+        second_began = asyncio.Event()
+
+        async def first_scan() -> None:
+            sigil_adapter.begin_scan()
+            await SigilService().extract_title_id(UPS.SWITCH, "/roms/switch/a.nsp")
+            first_scanned.set()
+            await second_began.wait()
+            sigil_adapter.log_scan_summary()
+
+        async def second_scan() -> None:
+            await first_scanned.wait()
+            sigil_adapter.begin_scan()
+            second_began.set()
+            for name in ("b.nsp", "c.nsp", "d.xci"):
+                await SigilService().extract_title_id(
+                    UPS.SWITCH, f"/roms/switch/{name}"
+                )
+            sigil_adapter.log_scan_summary()
+
+        await asyncio.gather(first_scan(), second_scan())
+
+        counts = sorted(call.args[0].split(" ")[0] for call in log.info.call_args_list)
+        assert counts == [hl("1"), hl("3")]

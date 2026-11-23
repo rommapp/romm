@@ -5,6 +5,8 @@ from fastapi.responses import Response
 
 from decorators.auth import protected_route
 from handler.auth.constants import Scope
+from handler.auth.dependencies import visible_platform_or_404
+from handler.database import db_platform_handler
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -18,7 +20,31 @@ router = APIRouter(
 )
 
 
-@protected_route(router.post, "/gamelist-xml", [Scope.ROMS_READ])
+def _assert_platforms_exportable(request: Request, platform_ids: List[int]) -> None:
+    """Reject the whole request before anything is written to disk.
+
+    A platform hidden from the caller 404s exactly like a missing one, so the
+    response never reveals that the platform exists.
+    """
+    for platform_id in platform_ids:
+        visible_platform_or_404(
+            request, db_platform_handler.get_platform(platform_id), platform_id
+        )
+
+
+@protected_route(
+    router.post,
+    "/gamelist-xml",
+    [Scope.PLATFORMS_WRITE],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No platform the caller can see has one of these IDs."
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "The export failed, or no file could be written."
+        },
+    },
+)
 async def export_gamelist_xml(
     request: Request,
     platform_ids: Annotated[
@@ -29,11 +55,7 @@ async def export_gamelist_xml(
     ] = False,
 ) -> Response:
     """Export platforms/ROMs to gamelist.xml format and write to platform directories"""
-    if not platform_ids:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="At least one platform ID must be provided",
-        )
+    _assert_platforms_exportable(request, platform_ids)
 
     try:
         exporter = GamelistExporter(local_export=local_export)
@@ -71,7 +93,19 @@ async def export_gamelist_xml(
         ) from e
 
 
-@protected_route(router.post, "/pegasus", [Scope.ROMS_READ])
+@protected_route(
+    router.post,
+    "/pegasus",
+    [Scope.PLATFORMS_WRITE],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No platform the caller can see has one of these IDs."
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "The export failed, or no file could be written."
+        },
+    },
+)
 async def export_pegasus(
     request: Request,
     platform_ids: Annotated[
@@ -82,11 +116,7 @@ async def export_pegasus(
     ] = False,
 ) -> Response:
     """Export platforms/ROMs to Pegasus metadata.pegasus.txt format and write to platform directories"""
-    if not platform_ids:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="At least one platform ID must be provided",
-        )
+    _assert_platforms_exportable(request, platform_ids)
 
     try:
         exporter = PegasusExporter(local_export=local_export)

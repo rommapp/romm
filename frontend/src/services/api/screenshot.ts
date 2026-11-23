@@ -7,6 +7,7 @@ import type {
 import api from "@/services/api";
 import storeUpload from "@/stores/upload";
 import { buildFormInput } from "@/utils/formData";
+import { toError } from "@/utils/toError";
 
 export const screenshotApi = api;
 
@@ -74,7 +75,7 @@ async function uploadGalleryScreenshots({
         .then(({ data }) => resolve(data))
         .catch((error) => {
           uploadStore.fail(file.name, error.response?.data?.detail);
-          reject(error);
+          reject(toError(error));
         });
     });
   });

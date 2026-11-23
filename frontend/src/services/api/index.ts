@@ -1,8 +1,7 @@
-import axios from "axios";
+import { useDebounceFn } from "@vueuse/core";
+import axios, { type AxiosError } from "axios";
 import { default as Cookies } from "js-cookie";
-import { debounce } from "lodash";
-import router from "@/plugins/router";
-import { ROUTES, isAuthExemptRoute } from "@/plugins/router";
+import { isAuthExemptRoute, ROUTES } from "@/plugins/routeNames";
 
 const api = axios.create({
   // This will keep the url query params on refresh
@@ -33,7 +32,9 @@ const api = axios.create({
 
 const inflightRequests = new Set();
 
-const networkQuiesced = debounce(() => {
+const networkQuiesced = useDebounceFn(() => {
+  // The trailing call can outlive the DOM (test teardown), so don't assume it.
+  if (typeof document === "undefined") return;
   document.dispatchEvent(new CustomEvent("network-quiesced"));
 }, 250);
 
@@ -61,18 +62,18 @@ api.interceptors.response.use(
 
     // If there are no more inflight requests, fetch app-wide data
     if (inflightRequests.size === 0) {
-      networkQuiesced();
+      void networkQuiesced();
     }
 
     return response;
   },
-  async (error) => {
-    // Mirror the success path's bookkeeping: a settled request — even a failed
-    // or canceled one — leaves the inflight set so `network-quiesced` can still
+  async (error: AxiosError) => {
+    // Mirror the success path's bookkeeping: a settled request, even a failed
+    // or canceled one, leaves the inflight set so `network-quiesced` can still
     // fire once the network goes quiet.
     inflightRequests.delete(error.config?.url);
     if (inflightRequests.size === 0) {
-      networkQuiesced();
+      void networkQuiesced();
     }
 
     // Canceled requests (AbortController / `signal`) are routine here (gallery /
@@ -87,10 +88,10 @@ api.interceptors.response.use(
     //   * 5xx from a non-heartbeat endpoint → "suspect"; ask the connection
     //     layer to confirm via the authoritative /heartbeat probe (so one
     //     buggy endpoint doesn't flash the banner, and the heartbeat request
-    //     itself never re-triggers this — which would loop).
+    //     itself never re-triggers this, which would loop).
     //   * 4xx → backend is alive; emit backend-online so a stale offline banner
     //     clears immediately instead of waiting for the next heartbeat poll.
-    const status = error.response?.status as number | undefined;
+    const status = error.response?.status;
     const url: string = error.config?.url ?? "";
 
     // Ignore intentionally canceled requests (AbortController / signal). They do
@@ -111,17 +112,31 @@ api.interceptors.response.use(
       document.dispatchEvent(new CustomEvent("backend-online"));
     }
 
-    if (error.response?.status === 403) {
+    // A 403 is a permission denial for an authenticated caller (or a CSRF
+    // failure): the session is still valid, so stay on the page and let the
+    // caller surface the error. Only refresh the CSRF token when the backend
+    // rejected it, so the next attempt uses a fresh one.
+    if (isCsrfFailure(error)) {
+      await refetchCSRFToken().catch(() => {});
+    }
+
+    // A 401 means there are no valid credentials behind the request: clear
+    // the stale session and send the user to the login page.
+    if (error.response?.status === 401) {
       // Clear cookies and redirect to login page
       Cookies.remove("romm_session");
 
       // Refetch CSRF cookie
-      await refetchCSRFToken();
+      await refetchCSRFToken().catch(() => {});
 
       const pathname = window.location.pathname;
       const search = window.location.search;
       const params = new URLSearchParams(search);
       const fullPath = pathname + search;
+
+      // Loaded lazily: a static import evaluates the router while this module
+      // is still initialising, so `router` reads as undefined.
+      const { default: router } = await import("@/plugins/router");
 
       // Don't redirect to login if already on an auth-exempt route.
       // Also resolve the route from the browser URL to handle the case where
@@ -137,7 +152,7 @@ api.interceptors.response.use(
         return Promise.reject(error);
       }
 
-      router.push({
+      void router.push({
         name: ROUTES.LOGIN,
         query: {
           next: params.get("next") ?? (pathname !== "/login" ? fullPath : "/"),
@@ -149,6 +164,28 @@ api.interceptors.response.use(
 );
 
 export default api;
+
+// `fetch(..., { keepalive: true })` is the only way to reach the backend from a
+// page that is going away, and it does not run the request interceptor above,
+// so the CSRF header that interceptor sets has to be built by hand here.
+export function keepaliveHeaders(): Record<string, string> {
+  return { "Content-Type": "application/json", ...keepaliveFormHeaders() };
+}
+
+/** `keepaliveHeaders` for a FormData body, whose multipart content type the browser sets. */
+export function keepaliveFormHeaders(): Record<string, string> {
+  return { "x-csrftoken": Cookies.get("romm_csrftoken") ?? "" };
+}
+
+/** Whether the backend turned a request down over its CSRF token, not its user. */
+export function isCsrfFailure(error: unknown): boolean {
+  const response = axios.isAxiosError(error) ? error.response : undefined;
+  return (
+    response?.status === 403 &&
+    typeof response.data === "string" &&
+    response.data.includes("CSRF")
+  );
+}
 
 export async function refetchCSRFToken() {
   Cookies.remove("romm_csrftoken");

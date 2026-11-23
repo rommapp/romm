@@ -1,19 +1,20 @@
-import datetime
 import json
-from typing import Final, NotRequired, TypedDict
+from typing import Any, Final, NotRequired, TypedDict
 
-import httpx
 import pydash
 import yarl
-from fastapi import HTTPException, status
 
+from adapters.services.provider_http import unavailable
 from config import FLASHPOINT_API_ENABLED
 from logger.logger import log
 from utils import get_version, is_valid_uuid
 from utils.context import ctx_httpx_client
+from utils.datetime import parse_utc_timestamp
+from utils.html_text import html_to_text
+from utils.platform_slugs import UniversalPlatformSlug as UPS
+from utils.platform_slugs import fill_duplicate_slugs
 
-from .base_handler import MetadataHandler
-from .base_handler import UniversalPlatformSlug as UPS
+from .base_handler import HTTPX_REQUEST_ERRORS, MetadataHandler
 
 
 class FlashpointPlatform(TypedDict):
@@ -46,6 +47,8 @@ class FlashpointGame(TypedDict):
 class FlashpointMetadata(TypedDict):
     franchises: list[str]
     companies: list[str]
+    publishers: list[str]
+    developers: list[str]
     source: str | None
     genres: list[str]
     first_release_date: str
@@ -66,18 +69,17 @@ class FlashpointRom(TypedDict):
 
 
 def extract_flashpoint_metadata(game: FlashpointGame) -> FlashpointMetadata:
-    # Convert from "2003-08-30" format to unix timestamp
-    first_release_date = ""
-    if game.get("release_date"):
-        try:
-            date_obj = datetime.datetime.strptime(game["release_date"], "%Y-%m-%d")
-            first_release_date = str(int(date_obj.timestamp()))
-        except (ValueError, TypeError):
-            first_release_date = ""
+    released = parse_utc_timestamp(game.get("release_date"), ("%Y-%m-%d",))
+    first_release_date = str(released) if released is not None else ""
+
+    publishers = pydash.compact([game["publisher"]])
+    developers = pydash.compact([game["developer"]])
 
     return FlashpointMetadata(
         franchises=pydash.compact([game["series"]]),
-        companies=pydash.uniq(pydash.compact([game["developer"], game["publisher"]])),
+        companies=pydash.uniq([*developers, *publishers]),
+        publishers=publishers,
+        developers=developers,
         source=game["source"],
         genres=game["tags"],
         first_release_date=first_release_date,
@@ -105,13 +107,13 @@ class FlashpointHandler(MetadataHandler):
     def is_enabled(cls) -> bool:
         return FLASHPOINT_API_ENABLED
 
-    async def _request(self, url: str, query: dict) -> dict:
+    async def _request(self, url: str, query: dict[str, Any]) -> Any:
         """
         Sends a request to Flashpoint API.
 
         :param url: The API endpoint URL.
         :param query: A dictionary containing the query parameters.
-        :return: A dictionary with the json result.
+        :return: The decoded JSON body.
         :raises HTTPException: If the request fails or the service is unavailable.
         """
         httpx_client = ctx_httpx_client.get()
@@ -136,29 +138,20 @@ class FlashpointHandler(MetadataHandler):
             res = await httpx_client.get(url, headers=headers, timeout=60)
             res.raise_for_status()
             return res.json()
-        except (httpx.HTTPStatusError, httpx.ConnectError, httpx.ReadTimeout) as exc:
+        except HTTPX_REQUEST_ERRORS as exc:
             log.warning(
                 "Connection error: can't connect to Flashpoint API", exc_info=True
             )
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Can't connect to Flashpoint API, check your internet connection",
-            ) from exc
+            raise unavailable("Flashpoint API") from exc
         except json.JSONDecodeError as exc:
             log.error("Error decoding JSON response from Flashpoint API: %s", exc)
             return {}
 
     async def heartbeat(self) -> bool:
-        if not self.is_enabled():
-            return False
+        async def probe() -> bool:
+            return bool(await self._request(self.platforms_url, {}))
 
-        try:
-            response = await self._request(self.platforms_url, {})
-        except Exception as e:
-            log.error("Error checking Flashpoint API: %s", e)
-            return False
-
-        return bool(response)
+        return await self._heartbeat("Flashpoint API", probe)
 
     async def search_games(self, search_term: str) -> list[FlashpointGame]:
         """
@@ -211,7 +204,7 @@ class FlashpointHandler(MetadataHandler):
 
         except Exception as exc:
             log.error("Error searching Flashpoint API: %s", exc)
-            return []
+            raise
 
     def get_platform(self, slug: str) -> FlashpointPlatform:
         """
@@ -283,7 +276,7 @@ class FlashpointHandler(MetadataHandler):
                 return FlashpointRom(
                     flashpoint_id=best_game["id"],
                     name=best_game["title"],
-                    summary=best_game["original_description"],
+                    summary=html_to_text(best_game["original_description"]),
                     url_cover=f"https://infinity.unstable.life/images/Logos/{best_game['id'][:2]}/{best_game['id'][2:4]}/{best_game['id']}?type=jpg",
                     url_screenshots=[
                         f"https://infinity.unstable.life/images/Screenshots/{best_game['id'][:2]}/{best_game['id'][2:4]}/{best_game['id']}?type=jpg"
@@ -320,7 +313,7 @@ class FlashpointHandler(MetadataHandler):
             FlashpointRom(
                 flashpoint_id=game["id"],
                 name=game["title"],
-                summary=game["original_description"],
+                summary=html_to_text(game["original_description"]),
                 url_cover=f"https://infinity.unstable.life/images/Logos/{game['id'][:2]}/{game['id'][2:4]}/{game['id']}?type=jpg",
                 url_screenshots=[
                     f"https://infinity.unstable.life/images/Screenshots/{game['id'][:2]}/{game['id'][2:4]}/{game['id']}?type=jpg"
@@ -396,7 +389,7 @@ class FlashpointHandler(MetadataHandler):
             return FlashpointRom(
                 flashpoint_id=game["id"],
                 name=game["title"],
-                summary=game["original_description"],
+                summary=html_to_text(game["original_description"]),
                 url_cover=f"https://infinity.unstable.life/images/Logos/{game['id'][:2]}/{game['id'][2:4]}/{game['id']}?type=jpg",
                 url_screenshots=[
                     f"https://infinity.unstable.life/images/Screenshots/{game['id'][:2]}/{game['id'][2:4]}/{game['id']}?type=jpg"
@@ -406,7 +399,7 @@ class FlashpointHandler(MetadataHandler):
 
         except Exception as exc:
             log.error("Error getting ROM by ID from Flashpoint API: %s", exc)
-            return FlashpointRom(flashpoint_id=None)
+            raise
 
 
 class SlugToFlashpointId(TypedDict):
@@ -417,3 +410,5 @@ class SlugToFlashpointId(TypedDict):
 FLASHPOINT_PLATFORM_LIST: dict[UPS, SlugToFlashpointId] = {
     UPS.BROWSER: {"id": 1, "name": "Browser (Flash/HTML5)"}
 }
+
+fill_duplicate_slugs(FLASHPOINT_PLATFORM_LIST)

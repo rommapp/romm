@@ -1,12 +1,19 @@
 from datetime import datetime, timedelta, timezone
-from typing import Literal, NotRequired, TypedDict
+from typing import Any, Literal, NotRequired, TypedDict
 
 from pydash import compact
+from rq.exceptions import DuplicateJobError
 
+from handler.audit_handler import AuditActor, AuditDraft, AuditTarget, record_many
+from handler.auth.permissions import ResolvedPermissions
 from handler.database import db_device_handler, db_play_session_handler, db_rom_handler
+from handler.metadata import meta_ra_handler
+from handler.redis_handler import low_prio_queue
 from logger.logger import log
+from models.audit_event import AuditAction, AuditActorKind
 from models.play_session import PlaySession
 from models.rom import RomUserStatus
+from tasks.registry import SYNC_RETROACHIEVEMENTS_PROGRESS_SPEC
 from utils.datetime import to_utc
 
 
@@ -52,7 +59,7 @@ def _apply_play_to_rom_user(
         if current is not None and latest_end_time <= current:
             continue
 
-        updates: dict = {"last_played": latest_end_time, "now_playing": True}
+        updates: dict[str, Any] = {"last_played": latest_end_time, "now_playing": True}
         # Playing again counts as active: rewind an empty or "finished" status
         # to "incomplete", but leave statuses the user set on purpose
         # (completed_100 / retired / never_playing) untouched.
@@ -61,25 +68,66 @@ def _apply_play_to_rom_user(
         db_rom_handler.update_rom_user(rom_user.id, updates)
 
 
+RA_PROGRESS_SYNC_FAILURE_TTL_SECONDS = 300
+
+
+def queue_ra_progress_sync(user_id: int, *, refresh_all: bool = False) -> bool:
+    """Refresh the user's RetroAchievements progress, at most one job at a time.
+
+    Returns:
+        Whether a sync is queued, including one queued before this call.
+    """
+    try:
+        low_prio_queue.enqueue(
+            "tasks.scheduled.sync_retroachievements_progress.sync_user_progress_job",
+            kwargs={"user_id": user_id, "refresh_all": refresh_all},
+            job_id=f"ra_progress_sync_{user_id}",
+            unique=True,
+            job_timeout=SYNC_RETROACHIEVEMENTS_PROGRESS_SPEC.timeout,
+            result_ttl=0,
+            # A worker killed mid-run fails the job, which must not hold the id long.
+            # Not 0: RQ reads a stored 0 back as unset, which means a year.
+            failure_ttl=RA_PROGRESS_SYNC_FAILURE_TTL_SECONDS,
+            meta={"task_name": "RetroAchievements progress sync"},
+        )
+    except DuplicateJobError:
+        pass
+    except Exception:  # noqa: BLE001 - the nightly sync catches up
+        log.exception("Failed to queue a RetroAchievements progress sync")
+        return False
+    return True
+
+
 def ingest_play_sessions(
     *,
     user_id: int,
     username: str,
     entries: list[PlaySessionEntry],
     device_id: str | None = None,
-    sync_session_id: int | None = None,
     max_future_minutes: int = 5,
+    perms: ResolvedPermissions | None,
 ) -> PlaySessionIngestSummary:
-    """Core play session ingestion logic shared by the standalone endpoint and sync complete."""
+    """Core play session ingestion logic shared by the standalone endpoint and sync complete.
+
+    Args:
+        perms: The caller's permissions, a rom hidden from them counting as
+            unknown; None when its roms were already checked.
+    """
     max_future = datetime.now(timezone.utc) + timedelta(minutes=max_future_minutes)
     resolved_device_id = _resolve_device(device_id, user_id)
 
     # Bulk-resolve all referenced rom IDs in one query
     candidate_rom_ids = {e["rom_id"] for e in entries}
-    valid_rom_ids: set[int] = set()
-    if candidate_rom_ids:
-        found_roms = db_rom_handler.get_roms_by_ids(compact(candidate_rom_ids))
-        valid_rom_ids = {r.id for r in found_roms}
+    found_roms = (
+        {
+            r.id: r
+            for r in db_rom_handler.get_roms_by_ids(compact(candidate_rom_ids))
+            if perms is None or perms.can_see_rom(r)
+        }
+        if candidate_rom_ids
+        else {}
+    )
+    valid_rom_ids = set(found_roms)
 
     # Phase 1: Validate and resolve each entry
     results: list[PlaySessionIngestResult] = []
@@ -125,7 +173,6 @@ def ingest_play_sessions(
                     user_id=user_id,
                     device_id=resolved_device_id,
                     rom_id=resolved_rom_id,
-                    sync_session_id=sync_session_id,
                     save_slot=item.get("save_slot"),
                     start_time=item["start_time"],
                     end_time=item["end_time"],
@@ -148,6 +195,30 @@ def ingest_play_sessions(
 
     # Phase 4: Side effects
     _apply_play_to_rom_user(rom_user_updates, user_id)
+    if meta_ra_handler.is_enabled() and any(
+        found_roms[rom_id].ra_id for rom_id in rom_user_updates
+    ):
+        queue_ra_progress_sync(user_id)
+
+    actor = AuditActor(
+        AuditActorKind.USER,
+        user_id=user_id,
+        name=username,
+        device_id=resolved_device_id,
+    )
+    record_many(
+        [
+            AuditDraft(
+                AuditAction.ROM_PLAY,
+                actor,
+                AuditTarget.of_rom(found_roms[ps.rom_id]),
+                {"duration_ms": ps.duration_ms, "save_slot": ps.save_slot},
+                occurred_at=to_utc(ps.start_time),
+            )
+            for _, _, ps in to_insert
+            if ps.rom_id is not None
+        ]
+    )
 
     if resolved_device_id is not None:
         db_device_handler.update_last_seen(

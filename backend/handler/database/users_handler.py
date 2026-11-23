@@ -1,25 +1,34 @@
-from collections.abc import Sequence
+from collections.abc import Collection, Mapping, Sequence
+from datetime import datetime, timedelta, timezone
+from typing import Any
 
-from sqlalchemy import and_, delete, func, not_, select, update
+from sqlalchemy import Result, and_, delete, func, not_, or_, select, update
 from sqlalchemy.orm import QueryableAttribute, Session, load_only
 from sqlalchemy.sql import Delete, Select, Update
 
-from decorators.database import begin_session
+from decorators.database import INJECTED_SESSION, begin_session
+from exceptions.database_exceptions import LastAdminError
+from models.snapshot import Snapshot
 from models.user import Role, User
 
-from .base_handler import DBBaseHandler
+from .base_handler import DBBaseHandler, affected_rows
+
+LAST_ACTIVE_DEBOUNCE = timedelta(minutes=5)
 
 
 class DBUsersHandler(DBBaseHandler):
-    def filter[QueryT: Select[tuple[User]] | Update | Delete](
+    def filter[QueryT: (Select[User], Update, Delete)](
         self,
         query: QueryT,
         *,
+        ids: Collection[int] = (),
         usernames: Sequence[str] = (),
         emails: Sequence[str] = (),
         roles: Sequence[Role] = (),
         has_ra_username: bool | None = None,
     ) -> QueryT:
+        if ids:
+            query = query.filter(User.id.in_(ids))
         if usernames:
             query = query.filter(
                 func.lower(User.username).in_([u.lower() for u in usernames])
@@ -41,7 +50,7 @@ class DBUsersHandler(DBBaseHandler):
     def add_user(
         self,
         user: User,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> User:
         return session.merge(user)
 
@@ -49,7 +58,7 @@ class DBUsersHandler(DBBaseHandler):
     def get_user_by_username(
         self,
         username: str,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> User | None:
         query = self.filter(select(User), usernames=[username])
         return session.scalar(query.limit(1))
@@ -58,47 +67,147 @@ class DBUsersHandler(DBBaseHandler):
     def get_user_by_email(
         self,
         email: str,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> User | None:
         query = self.filter(select(User), emails=[email])
         return session.scalar(query.limit(1))
 
     @begin_session
+    def get_user_by_oidc_identity(
+        self,
+        oidc_issuer: str,
+        oidc_sub: str,
+        session: Session = INJECTED_SESSION,
+    ) -> User | None:
+        return session.scalar(
+            select(User).filter_by(oidc_issuer=oidc_issuer, oidc_sub=oidc_sub).limit(1)
+        )
+
+    @begin_session
     def get_user(
         self,
         id: int,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> User | None:
         return session.get(User, id)
+
+    @begin_session
+    def refuse_removing_the_last_admin(
+        self,
+        id: int,
+        data: dict[str, Any] | None = None,
+        *,
+        session: Session = INJECTED_SESSION,
+    ) -> None:
+        """Raise LastAdminError if writing `data` to `id`, or deleting it when None, would leave no admin, locking the admin rows until the transaction ends."""
+        if data is not None and data.get("role", Role.ADMIN) == Role.ADMIN:
+            return
+        admin_ids = session.scalars(
+            select(User.id)
+            .where(User.role == Role.ADMIN)
+            .order_by(User.id)
+            .with_for_update()
+        ).all()
+        if list(admin_ids) == [id]:
+            raise LastAdminError(id)
 
     @begin_session
     def update_user(
         self,
         id: int,
-        data: dict,
-        session: Session = None,  # type: ignore
+        data: dict[str, Any],
+        *,
+        keep_an_admin: bool = False,
+        session: Session = INJECTED_SESSION,
     ) -> User:
+        if keep_an_admin:
+            self.refuse_removing_the_last_admin(id, data, session=session)
         session.execute(
             update(User)
             .where(User.id == id)
             .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
-        return session.query(User).filter_by(id=id).one()
+        return session.scalars(select(User).filter_by(id=id)).one()
+
+    @begin_session
+    def set_ra_progression(
+        self,
+        id: int,
+        ra_username: str,
+        progression: Mapping[str, object],
+        session: Session = INJECTED_SESSION,
+    ) -> bool:
+        """Store progression fetched for `ra_username` if the user still links that profile.
+
+        Returns:
+            Whether the progression was stored.
+        """
+        result = session.execute(
+            update(User)
+            .where(User.id == id, User.ra_username == ra_username)
+            .values(ra_progression=progression)
+            .execution_options(synchronize_session=False)
+        )
+        return affected_rows(result) > 0
+
+    @begin_session
+    def replace_avatar_path(
+        self,
+        id: int,
+        expected: str,
+        avatar_path: str,
+        session: Session = INJECTED_SESSION,
+    ) -> bool:
+        """Set the avatar path if the user's current one is still `expected`.
+
+        Returns:
+            Whether the avatar path was set.
+        """
+        result = session.execute(
+            update(User)
+            .where(User.id == id, User.avatar_path == expected)
+            .values(avatar_path=avatar_path)
+            .execution_options(synchronize_session=False)
+        )
+        return affected_rows(result) > 0
+
+    @begin_session
+    def update_last_active(
+        self,
+        id: int,
+        session: Session = INJECTED_SESSION,
+    ) -> None:
+        """Bump last_active, skipping a user already bumped within the debounce window."""
+        now = datetime.now(timezone.utc)
+        session.execute(
+            update(User)
+            .where(
+                User.id == id,
+                or_(
+                    User.last_active.is_(None),
+                    User.last_active < now - LAST_ACTIVE_DEBOUNCE,
+                ),
+            )
+            .values(last_active=now)
+            .execution_options(synchronize_session=False)
+        )
 
     @begin_session
     def get_users(
         self,
         *,
+        ids: Collection[int] = (),
         usernames: Sequence[str] = (),
         emails: Sequence[str] = (),
         roles: Sequence[Role] = (),
         has_ra_username: bool | None = None,
-        only_fields: Sequence[QueryableAttribute] | None = None,
-        session: Session = None,  # type: ignore
+        only_fields: Sequence[QueryableAttribute[Any]] | None = None,
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[User]:
         query = self.filter(
             select(User),
+            ids=ids,
             usernames=usernames,
             emails=emails,
             roles=roles,
@@ -114,8 +223,19 @@ class DBUsersHandler(DBBaseHandler):
     def delete_user(
         self,
         id: int,
-        session: Session = None,  # type: ignore
-    ):
+        *,
+        keep_an_admin: bool = False,
+        session: Session = INJECTED_SESSION,
+    ) -> Result[*tuple[Any, ...]]:
+        if keep_an_admin:
+            self.refuse_removing_the_last_admin(id, session=session)
+        # PostgreSQL checks the snapshots' RESTRICT keys inside the cascade, before
+        # it reaches the snapshots, so they go first.
+        session.execute(
+            delete(Snapshot)
+            .where(Snapshot.user_id == id)
+            .execution_options(synchronize_session=False)
+        )
         return session.execute(
             delete(User)
             .where(User.id == id)
@@ -125,7 +245,7 @@ class DBUsersHandler(DBBaseHandler):
     @begin_session
     def get_admin_users(
         self,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[User]:
         query = self.filter(select(User), roles=[Role.ADMIN])
         return session.scalars(query).all()

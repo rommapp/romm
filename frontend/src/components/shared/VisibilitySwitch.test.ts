@@ -1,0 +1,36 @@
+import { mount } from "@vue/test-utils";
+import { describe, expect, it, vi } from "vitest";
+import VisibilitySwitch from "./VisibilitySwitch.vue";
+
+vi.mock("vue-i18n");
+
+describe("VisibilitySwitch", () => {
+  it("keeps both labels in place and shows the one it is on", async () => {
+    const wrapper = mount(VisibilitySwitch, { props: { modelValue: false } });
+    const labels = wrapper.findAll(".r-visibility-switch__label > span");
+    const publicLabel = labels[0]!;
+    const privateLabel = labels[1]!;
+
+    expect(publicLabel.classes()).toContain("r-visibility-switch__off");
+    expect(privateLabel.classes()).not.toContain("r-visibility-switch__off");
+    expect(wrapper.get("button").attributes("aria-label")).toBe(
+      "common.private",
+    );
+
+    await wrapper.setProps({ modelValue: true });
+
+    expect(publicLabel.classes()).not.toContain("r-visibility-switch__off");
+    expect(privateLabel.classes()).toContain("r-visibility-switch__off");
+    expect(wrapper.get("button").attributes("aria-label")).toBe(
+      "common.public",
+    );
+  });
+
+  it("flips its model when clicked", async () => {
+    const wrapper = mount(VisibilitySwitch, { props: { modelValue: false } });
+
+    await wrapper.get("button").trigger("click");
+
+    expect(wrapper.emitted("update:modelValue")).toEqual([[true]]);
+  });
+});

@@ -1,22 +1,67 @@
+from types import SimpleNamespace
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
+from tests.factories import make_rom
 
 from adapters.services.retroachievements_types import RAUserCompletionProgressKind
+from handler.database import db_rom_handler, db_user_handler
 from handler.database.roms_handler import DBRomsHandler
 from handler.database.users_handler import DBUsersHandler
 from handler.metadata.ra_handler import RAHandler
-from models.rom import RomUser, RomUserStatus
+from handler.socket_handler import socket_handler
+from models.rom import RomUserStatus
+from models.user import User
 from tasks.scheduled.sync_retroachievements_progress import (
+    RA_SYNCED_EVENT,
     SyncRetroAchievementsProgressTask,
     _get_rom_user_status_from_ra_award_kind,
+    _sync_and_report,
+    _sync_user_progress_by_id,
 )
+
+JOB_PATH = "tasks.scheduled.sync_retroachievements_progress"
 
 
 @pytest.fixture
 def task() -> SyncRetroAchievementsProgressTask:
     """Create a task instance for testing."""
     return SyncRetroAchievementsProgressTask()
+
+
+def _progression(*games: tuple[int, str | None]) -> dict[str, Any]:
+    return {
+        "total": len(games),
+        "results": [
+            {"rom_ra_id": ra_id, "highest_award_kind": award_kind}
+            for ra_id, award_kind in games
+        ],
+    }
+
+
+def _mock_sync(
+    mocker,
+    user: User,
+    progression: dict[str, Any],
+    roms: list[tuple[int, int]],
+) -> tuple[MagicMock, MagicMock]:
+    """Patch one user's RA feed and the sync's DB calls.
+
+    Returns:
+        The `get_roms_by_ra_ids` and `set_rom_user_statuses` mocks.
+    """
+    mocker.patch.object(DBUsersHandler, "get_users", return_value=[user])
+    mocker.patch.object(DBUsersHandler, "set_ra_progression", return_value=True)
+    mocker.patch.object(RAHandler, "get_user_progression", return_value=progression)
+    return (
+        mocker.patch.object(
+            DBRomsHandler,
+            "get_roms_by_ra_ids",
+            return_value=[SimpleNamespace(id=i, ra_id=r) for i, r in roms],
+        ),
+        mocker.patch.object(DBRomsHandler, "set_rom_user_statuses", return_value=0),
+    )
 
 
 class TestGetRomUserStatusFromRaAwardKind:
@@ -67,10 +112,8 @@ class TestSyncRetroAchievementsProgressTask:
     def test_task_initialization(self, task):
         """Test task initialization with correct parameters."""
         assert (
-            task.func
-            == "tasks.scheduled.sync_retroachievements_progress.sync_retroachievements_progress_task.run"
+            task.spec.description == "Updates RetroAchievements progress for all users"
         )
-        assert task.description == "Updates RetroAchievements progress for all users"
 
     async def test_run_when_retroachievements_api_disabled(self, task, mocker):
         """Test run method when RetroAchievements API is disabled."""
@@ -100,7 +143,9 @@ class TestSyncRetroAchievementsProgressTask:
     async def test_run_saves_progress(self, task, viewer_user, mocker):
         """Test run method saves retrieved progress."""
         mocker.patch.object(DBUsersHandler, "get_users", return_value=[viewer_user])
-        mock_update_user = mocker.patch.object(DBUsersHandler, "update_user")
+        mock_set_progression = mocker.patch.object(
+            DBUsersHandler, "set_ra_progression", return_value=True
+        )
         user_progression = {"total": 0, "results": []}
         mocker.patch.object(
             RAHandler, "get_user_progression", return_value=user_progression
@@ -108,9 +153,8 @@ class TestSyncRetroAchievementsProgressTask:
 
         await task.run()
 
-        mock_update_user.assert_called_once_with(
-            viewer_user.id,
-            {"ra_progression": user_progression},
+        mock_set_progression.assert_called_once_with(
+            viewer_user.id, viewer_user.ra_username, user_progression
         )
 
     async def test_run_is_resilient_to_errors(
@@ -131,196 +175,219 @@ class TestSyncRetroAchievementsProgressTask:
                 user_progression,
             ],
         )
-        mock_update_user = mocker.patch.object(DBUsersHandler, "update_user")
+        mock_set_progression = mocker.patch.object(
+            DBUsersHandler, "set_ra_progression", return_value=True
+        )
 
         await task.run()
 
-        mock_update_user.assert_called_once_with(
-            editor_user.id,
-            {"ra_progression": user_progression},
+        mock_set_progression.assert_called_once_with(
+            editor_user.id, editor_user.ra_username, user_progression
         )
 
-    async def test_run_sets_rom_user_status_when_unset(
-        self, task, viewer_user, rom, mocker
+    @pytest.mark.parametrize(
+        ("award_kind", "expected_status"),
+        [
+            (RAUserCompletionProgressKind.MASTERED, RomUserStatus.COMPLETED_100),
+            (RAUserCompletionProgressKind.BEATEN_SOFTCORE, RomUserStatus.FINISHED),
+            (None, RomUserStatus.INCOMPLETE),
+        ],
+    )
+    async def test_run_maps_award_to_rom_user_status(
+        self, task, viewer_user, mocker, award_kind, expected_status
     ):
-        """Test that rom_user.status is set from RA award kind when currently unset."""
-        ra_id = 12345
-        mocker.patch.object(DBUsersHandler, "get_users", return_value=[viewer_user])
-        mocker.patch.object(DBUsersHandler, "update_user")
-        user_progression = {
-            "total": 1,
-            "results": [
-                {
-                    "rom_ra_id": ra_id,
-                    "max_possible": 50,
-                    "num_awarded": 50,
-                    "num_awarded_hardcore": 50,
-                    "highest_award_kind": RAUserCompletionProgressKind.MASTERED,
-                    "earned_achievements": [],
-                }
-            ],
-        }
-        mocker.patch.object(
-            RAHandler, "get_user_progression", return_value=user_progression
+        _, mock_set_statuses = _mock_sync(
+            mocker,
+            viewer_user,
+            _progression((12345, award_kind)),
+            roms=[(1, 12345)],
         )
-        mock_rom = MagicMock()
-        mock_rom.id = rom.id
-        mocker.patch.object(
-            DBRomsHandler, "get_rom_by_metadata_id", return_value=mock_rom
-        )
-        mock_rom_user = MagicMock(spec=RomUser)
-        mock_rom_user.id = 1
-        mock_rom_user.status = None
-        mocker.patch.object(DBRomsHandler, "get_rom_user", return_value=mock_rom_user)
-        mock_update_rom_user = mocker.patch.object(DBRomsHandler, "update_rom_user")
 
         await task.run()
 
-        mock_update_rom_user.assert_called_once_with(
-            mock_rom_user.id, {"status": RomUserStatus.COMPLETED_100}
-        )
-
-    async def test_run_updates_existing_rom_user_status_when_changed(
-        self, task, viewer_user, rom, mocker
-    ):
-        """Test that rom_user.status is updated when the RA award kind changes."""
-        ra_id = 12345
-        mocker.patch.object(DBUsersHandler, "get_users", return_value=[viewer_user])
-        mocker.patch.object(DBUsersHandler, "update_user")
-        user_progression = {
-            "total": 1,
-            "results": [
-                {
-                    "rom_ra_id": ra_id,
-                    "max_possible": 50,
-                    "num_awarded": 50,
-                    "num_awarded_hardcore": 50,
-                    "highest_award_kind": RAUserCompletionProgressKind.MASTERED,
-                    "earned_achievements": [],
-                }
-            ],
-        }
-        mocker.patch.object(
-            RAHandler, "get_user_progression", return_value=user_progression
-        )
-        mock_rom = MagicMock()
-        mock_rom.id = rom.id
-        mocker.patch.object(
-            DBRomsHandler, "get_rom_by_metadata_id", return_value=mock_rom
-        )
-        mock_rom_user = MagicMock(spec=RomUser)
-        mock_rom_user.id = 1
-        # Previously INCOMPLETE (set by an earlier sync), now mastered in RA
-        mock_rom_user.status = RomUserStatus.INCOMPLETE
-        mocker.patch.object(DBRomsHandler, "get_rom_user", return_value=mock_rom_user)
-        mock_update_rom_user = mocker.patch.object(DBRomsHandler, "update_rom_user")
-
-        await task.run()
-
-        mock_update_rom_user.assert_called_once_with(
-            mock_rom_user.id, {"status": RomUserStatus.COMPLETED_100}
-        )
-
-    async def test_run_skips_update_when_status_already_matches(
-        self, task, viewer_user, rom, mocker
-    ):
-        """Test that rom_user.status is not written again when it already matches RA."""
-        ra_id = 12345
-        mocker.patch.object(DBUsersHandler, "get_users", return_value=[viewer_user])
-        mocker.patch.object(DBUsersHandler, "update_user")
-        user_progression = {
-            "total": 1,
-            "results": [
-                {
-                    "rom_ra_id": ra_id,
-                    "max_possible": 50,
-                    "num_awarded": 50,
-                    "num_awarded_hardcore": 50,
-                    "highest_award_kind": RAUserCompletionProgressKind.MASTERED,
-                    "earned_achievements": [],
-                }
-            ],
-        }
-        mocker.patch.object(
-            RAHandler, "get_user_progression", return_value=user_progression
-        )
-        mock_rom = MagicMock()
-        mock_rom.id = rom.id
-        mocker.patch.object(
-            DBRomsHandler, "get_rom_by_metadata_id", return_value=mock_rom
-        )
-        mock_rom_user = MagicMock(spec=RomUser)
-        mock_rom_user.id = 1
-        mock_rom_user.status = RomUserStatus.COMPLETED_100  # Already up-to-date
-        mocker.patch.object(DBRomsHandler, "get_rom_user", return_value=mock_rom_user)
-        mock_update_rom_user = mocker.patch.object(DBRomsHandler, "update_rom_user")
-
-        await task.run()
-
-        mock_update_rom_user.assert_not_called()
-
-    async def test_run_sets_incomplete_status_for_started_games(
-        self, task, viewer_user, rom, mocker
-    ):
-        """Test that INCOMPLETE status is set for games started but not beaten in RA."""
-        ra_id = 99999
-        mocker.patch.object(DBUsersHandler, "get_users", return_value=[viewer_user])
-        mocker.patch.object(DBUsersHandler, "update_user")
-        user_progression = {
-            "total": 1,
-            "results": [
-                {
-                    "rom_ra_id": ra_id,
-                    "max_possible": 100,
-                    "num_awarded": 10,
-                    "num_awarded_hardcore": 0,
-                    "highest_award_kind": None,
-                    "earned_achievements": [],
-                }
-            ],
-        }
-        mocker.patch.object(
-            RAHandler, "get_user_progression", return_value=user_progression
-        )
-        mock_rom = MagicMock()
-        mock_rom.id = rom.id
-        mocker.patch.object(
-            DBRomsHandler, "get_rom_by_metadata_id", return_value=mock_rom
-        )
-        mock_rom_user = MagicMock(spec=RomUser)
-        mock_rom_user.id = 1
-        mock_rom_user.status = None
-        mocker.patch.object(DBRomsHandler, "get_rom_user", return_value=mock_rom_user)
-        mock_update_rom_user = mocker.patch.object(DBRomsHandler, "update_rom_user")
-
-        await task.run()
-
-        mock_update_rom_user.assert_called_once_with(
-            mock_rom_user.id, {"status": RomUserStatus.INCOMPLETE}
-        )
+        mock_set_statuses.assert_called_once_with(viewer_user.id, {1: expected_status})
 
     async def test_run_skips_status_update_when_rom_not_found(
         self, task, viewer_user, mocker
     ):
         """Test that status update is skipped when the ROM is not in the database."""
-        mocker.patch.object(DBUsersHandler, "get_users", return_value=[viewer_user])
-        mocker.patch.object(DBUsersHandler, "update_user")
-        user_progression = {
-            "total": 1,
-            "results": [
-                {
-                    "rom_ra_id": 99999,
-                    "highest_award_kind": RAUserCompletionProgressKind.MASTERED,
-                    "earned_achievements": [],
-                }
-            ],
-        }
-        mocker.patch.object(
-            RAHandler, "get_user_progression", return_value=user_progression
+        _, mock_set_statuses = _mock_sync(
+            mocker,
+            viewer_user,
+            _progression((99999, RAUserCompletionProgressKind.MASTERED)),
+            roms=[],
         )
-        mocker.patch.object(DBRomsHandler, "get_rom_by_metadata_id", return_value=None)
-        mock_update_rom_user = mocker.patch.object(DBRomsHandler, "update_rom_user")
 
         await task.run()
 
-        mock_update_rom_user.assert_not_called()
+        mock_set_statuses.assert_called_once_with(viewer_user.id, {})
+
+    async def test_run_skips_unknown_award(self, task, viewer_user, mocker):
+        """An unrecognised award kind is skipped without a write."""
+        mock_get_roms, mock_set_statuses = _mock_sync(
+            mocker,
+            viewer_user,
+            _progression((12345, "unknown_award")),
+            roms=[],
+        )
+
+        await task.run()
+
+        mock_get_roms.assert_called_once_with([])
+        mock_set_statuses.assert_called_once_with(viewer_user.id, {})
+
+    async def test_run_batches_one_read_and_one_write_per_user(
+        self, task, viewer_user, mocker
+    ):
+        """Regional ROMs sharing an ra_id all get that game's status."""
+        mock_get_roms, mock_set_statuses = _mock_sync(
+            mocker,
+            viewer_user,
+            _progression(
+                (12345, RAUserCompletionProgressKind.MASTERED),
+                (67890, None),
+            ),
+            roms=[(1, 12345), (2, 12345), (3, 67890)],
+        )
+
+        await task.run()
+
+        mock_get_roms.assert_called_once_with([12345, 67890])
+        mock_set_statuses.assert_called_once_with(
+            viewer_user.id,
+            {
+                1: RomUserStatus.COMPLETED_100,
+                2: RomUserStatus.COMPLETED_100,
+                3: RomUserStatus.INCOMPLETE,
+            },
+        )
+
+    async def test_run_continues_after_status_sync_error(
+        self, task, viewer_user, editor_user, mocker
+    ):
+        """A status-sync failure for one user still syncs the next user."""
+        mock_get_roms, mock_set_statuses = _mock_sync(
+            mocker,
+            viewer_user,
+            _progression((12345, RAUserCompletionProgressKind.MASTERED)),
+            roms=[],
+        )
+        mocker.patch.object(
+            DBUsersHandler, "get_users", return_value=[viewer_user, editor_user]
+        )
+        mock_get_roms.side_effect = [
+            Exception("DB error"),
+            [SimpleNamespace(id=1, ra_id=12345)],
+        ]
+
+        await task.run()
+
+        mock_set_statuses.assert_called_once_with(
+            editor_user.id, {1: RomUserStatus.COMPLETED_100}
+        )
+
+    async def test_run_syncs_real_rows(self, task, viewer_user, platform, mocker):
+        """Unmocked getters: every regional ROM is synced and RETIRED is kept."""
+        usa_rom = make_rom(platform, "Game USA", ra_id=12345)
+        eur_rom = make_rom(platform, "Game Europe", ra_id=12345)
+        retired_rom = make_rom(platform, "Retired Game", ra_id=67890)
+        retired_rom_user = db_rom_handler.add_rom_user(retired_rom.id, viewer_user.id)
+        db_rom_handler.update_rom_user(
+            retired_rom_user.id, {"status": RomUserStatus.RETIRED}
+        )
+        mocker.patch.object(DBUsersHandler, "get_users", return_value=[viewer_user])
+        mocker.patch.object(DBUsersHandler, "set_ra_progression", return_value=True)
+        mocker.patch.object(
+            RAHandler,
+            "get_user_progression",
+            return_value=_progression(
+                (12345, RAUserCompletionProgressKind.MASTERED),
+                (67890, RAUserCompletionProgressKind.MASTERED),
+            ),
+        )
+
+        await task.run()
+
+        for synced_rom in (usa_rom, eur_rom):
+            rom_user = db_rom_handler.get_rom_user(synced_rom.id, viewer_user.id)
+            assert rom_user is not None
+            assert rom_user.status == RomUserStatus.COMPLETED_100
+        rom_user = db_rom_handler.get_rom_user(retired_rom.id, viewer_user.id)
+        assert rom_user is not None
+        assert rom_user.status == RomUserStatus.RETIRED
+
+
+class TestSyncUserProgressJob:
+    async def test_syncs_the_user(self, viewer_user, mocker):
+        db_user_handler.update_user(viewer_user.id, {"ra_username": "player"})
+        progression = {"total": 0, "results": []}
+        get_progression = mocker.patch.object(
+            RAHandler, "get_user_progression", return_value=progression
+        )
+
+        await _sync_user_progress_by_id(viewer_user.id)
+
+        get_progression.assert_awaited_once()
+        await_args = get_progression.await_args
+        assert await_args is not None
+        assert await_args.args == ("player",)
+        synced = db_user_handler.get_user(viewer_user.id)
+        assert synced and synced.ra_progression == progression
+
+    async def test_drops_progress_fetched_for_a_profile_unlinked_meanwhile(
+        self, viewer_user, mocker
+    ):
+        db_user_handler.update_user(viewer_user.id, {"ra_username": "player"})
+
+        async def unlink_during_fetch(*_args, **_kwargs):
+            db_user_handler.update_user(
+                viewer_user.id, {"ra_username": None, "ra_progression": {}}
+            )
+            return _progression((12345, RAUserCompletionProgressKind.MASTERED))
+
+        mocker.patch.object(
+            RAHandler, "get_user_progression", side_effect=unlink_during_fetch
+        )
+        set_statuses = mocker.patch.object(DBRomsHandler, "set_rom_user_statuses")
+
+        await _sync_user_progress_by_id(viewer_user.id)
+
+        unlinked = db_user_handler.get_user(viewer_user.id)
+        assert unlinked and unlinked.ra_progression == {}
+        set_statuses.assert_not_called()
+
+    async def test_skips_a_user_without_an_ra_username(self, viewer_user, mocker):
+        get_progression = mocker.patch.object(RAHandler, "get_user_progression")
+
+        await _sync_user_progress_by_id(viewer_user.id)
+
+        get_progression.assert_not_called()
+
+    async def test_a_full_refresh_rereads_every_game(self, viewer_user, mocker):
+        stored = {"total": 1, "results": [{"rom_ra_id": 7}]}
+        db_user_handler.update_user(
+            viewer_user.id, {"ra_username": "player", "ra_progression": stored}
+        )
+        get_progression = mocker.patch.object(
+            RAHandler,
+            "get_user_progression",
+            return_value={"total": 0, "results": []},
+        )
+
+        await _sync_user_progress_by_id(viewer_user.id, refresh_all=True)
+
+        get_progression.assert_awaited_once_with(
+            "player", current_progression=stored, refresh_all=True
+        )
+
+    @pytest.mark.parametrize("fails", [False, True], ids=["synced", "sync_failed"])
+    async def test_the_outcome_reaches_the_users_tabs(self, mocker, fails: bool):
+        mocker.patch(
+            f"{JOB_PATH}._sync_user_progress_by_id",
+            side_effect=RuntimeError("RetroAchievements is down") if fails else None,
+        )
+        emit = mocker.patch.object(socket_handler, "emit_to_user")
+
+        await _sync_and_report(3, refresh_all=False)
+
+        emit.assert_awaited_once_with(3, RA_SYNCED_EVENT, {"ok": not fails})

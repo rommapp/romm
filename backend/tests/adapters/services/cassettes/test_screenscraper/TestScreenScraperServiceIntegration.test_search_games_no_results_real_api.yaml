@@ -8,7 +8,7 @@ interactions:
       body:
         string:
           "{\n\t\"header\" : {\n\t\t\"APIversion\" : \"2.0\",\n\t\t\"dateTime\"\
-          \ : \"2025-07-23 05:47:11\",\n\t\t\"commandRequested\" : \"https://neoclone.screenscraper.fr/api2/jeuRecherche.php?recherche=ZZZNonexistentGameZZZ&devid=zurdi15&devpassword=xTJwoOFjOQG&output=json&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"\
+          \ : \"2025-07-23 05:47:11\",\n\t\t\"commandRequested\" : \"https://neoclone.screenscraper.fr/api2/jeuRecherche.php?recherche=ZZZNonexistentGameZZZ&devid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&devpassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&output=json&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"\
           ,\n\t\t\"success\": \"true\",\n\t\t\"error\": \"\"\n\t},\n\t\"response\" :\
           \ {\n\t\t\"serveurs\" : {\n\t\t\t\"cpu1\": \"0\",\n\t\t\t\"cpu2\": \"0\",\n\
           \t\t\t\"cpu3\": \"0\",\n\t\t\t\"cpu4\": \"0\",\n\t\t\t\"threadsmin\": \"3580\"\

@@ -1,0 +1,166 @@
+// Metadata-provider registry. Single source of truth for the provider
+// list rendered by ProviderGrid (and any future surface that needs
+// per-ROM provider links). Each entry binds a DetailedRom field to a
+// brand colour token + logo + URL builder.
+import type { DetailedRom } from "@/stores/roms";
+
+export type Provider = {
+  /** Field on DetailedRom that holds the provider's external ID. */
+  key: keyof DetailedRom;
+  name: string;
+  /** CSS color value (token reference): kept inline because tokens
+   *  resolve at the consumer's CSS context, not at this file. */
+  color: string;
+  /** Optional favicon for the provider's identity. */
+  logo: string | null;
+  /** Optional URL builder; when null the card renders unlinked. The ROM is
+   *  passed so builders can reach fields beyond the provider ID (e.g. IGDB
+   *  links by slug, not by numeric ID). */
+  url: ((id: string | number, rom: DetailedRom) => string) | null;
+};
+
+export const PROVIDERS: Provider[] = [
+  {
+    key: "igdb_id",
+    name: "IGDB",
+    color: "var(--r-color-provider-igdb)",
+    logo: "/assets/scrappers/igdb.png",
+    // IGDB game pages live at /games/<slug>; the numeric ID only feeds a text
+    // search that returns nothing. Fall back to the ID search when the slug
+    // (populated from the IGDB match) is missing.
+    url: (id, rom) =>
+      rom.slug
+        ? `https://www.igdb.com/games/${rom.slug}`
+        : `https://www.igdb.com/search?type=1&q=${id}`,
+  },
+  {
+    key: "moby_id",
+    name: "MobyGames",
+    color: "var(--r-color-provider-moby)",
+    logo: "/assets/scrappers/moby.png",
+    url: (id) => `https://www.mobygames.com/game/${id}/`,
+  },
+  {
+    key: "ss_id",
+    name: "ScreenScraper",
+    color: "var(--r-color-provider-screenscraper)",
+    logo: "/assets/scrappers/ss.png",
+    url: (id) => `https://www.screenscraper.fr/gameinfos.php?gameid=${id}`,
+  },
+  {
+    key: "ra_id",
+    name: "RetroAchievements",
+    color: "var(--r-color-provider-retroachievements)",
+    logo: "/assets/scrappers/ra.png",
+    url: (id) => `https://retroachievements.org/game/${id}`,
+  },
+  {
+    key: "sgdb_id",
+    name: "SteamGridDB",
+    color: "var(--r-color-provider-steamgriddb)",
+    logo: "/assets/scrappers/sgdb.png",
+    url: (id) => `https://www.steamgriddb.com/game/${id}`,
+  },
+  {
+    key: "launchbox_id",
+    name: "LaunchBox",
+    color: "var(--r-color-provider-launchbox)",
+    logo: "/assets/scrappers/launchbox.png",
+    url: (id) => `https://gamesdb.launchbox-app.com/games/dbid/${id}`,
+  },
+  {
+    key: "hasheous_id",
+    name: "Hasheous",
+    color: "var(--r-color-provider-hasheous)",
+    logo: "/assets/scrappers/hasheous.png",
+    url: (id) =>
+      `https://hasheous.org/index.html?page=dataobjectdetail&type=game&id=${id}`,
+  },
+  {
+    key: "flashpoint_id",
+    name: "Flashpoint",
+    color: "var(--r-color-provider-flashpoint)",
+    logo: "/assets/scrappers/flashpoint.png",
+    url: null,
+  },
+  {
+    key: "hltb_id",
+    name: "HowLongToBeat",
+    color: "var(--r-color-provider-hltb)",
+    logo: "/assets/scrappers/hltb.png",
+    url: (id) => `https://howlongtobeat.com/game/${id}`,
+  },
+  {
+    key: "demozoo_id",
+    name: "Demozoo",
+    color: "var(--r-color-provider-hltb)",
+    logo: "/assets/scrappers/demozoo.png?v=2",
+    url: (id) => `https://demozoo.org/productions/${id}/`,
+  },
+  {
+    key: "pouet_id",
+    name: "Pouët",
+    color: "var(--r-color-provider-hltb)",
+    logo: "/assets/scrappers/pouet.png?v=2",
+    url: (id) => `https://www.pouet.net/prod.php?which=${id}`,
+  },
+  {
+    key: "csdb_id",
+    name: "CSDb",
+    color: "var(--r-color-provider-hltb)",
+    logo: "/assets/scrappers/csdb.png",
+    url: (id) => `https://csdb.dk/release/?id=${id}`,
+  },
+  {
+    key: "steam_id",
+    name: "Steam",
+    color: "var(--r-color-provider-steam)",
+    logo: "/assets/scrappers/steam.png",
+    url: (id) => `https://store.steampowered.com/app/${id}`,
+  },
+];
+
+/**
+ * Resolves a provider's external ID on a ROM, returning null when
+ * unset. Centralised so callers don't have to deal with the
+ * `null | undefined | "" | 0` matrix.
+ */
+export function providerId(
+  rom: DetailedRom,
+  provider: Provider,
+): string | number | null {
+  const v = rom[provider.key];
+  if (v === null || v === undefined || v === "" || v === 0) return null;
+  return v as string | number;
+}
+
+// Providers grade on their own scales, so bring each to 0-100 here.
+const RATING_SCORES: Partial<
+  Record<Provider["key"], (rom: DetailedRom) => number>
+> = {
+  igdb_id: (rom) => parseFloat(rom.igdb_metadata?.total_rating ?? ""),
+  ss_id: (rom) => parseFloat(rom.ss_metadata?.ss_score ?? "") * 10,
+  moby_id: (rom) => parseFloat(rom.moby_metadata?.moby_score ?? "") * 10,
+  launchbox_id: (rom) =>
+    (rom.launchbox_metadata?.community_rating ?? Number.NaN) * 20,
+  hltb_id: (rom) => rom.hltb_metadata?.review_score ?? Number.NaN,
+  // Steam carries the Metacritic score, already on a 0-100 scale.
+  steam_id: (rom) => parseFloat(rom.steam_metadata?.total_rating ?? ""),
+};
+
+/**
+ * Formats a provider's score for a ROM as a percentage, or null when the
+ * provider carries no rating. Scores below 10 keep a decimal to stay
+ * meaningful; `maximumFractionDigits` never pads a trailing zero.
+ */
+export function providerRating(
+  rom: DetailedRom,
+  provider: Provider,
+): string | null {
+  const score = RATING_SCORES[provider.key]?.(rom) ?? Number.NaN;
+  if (!Number.isFinite(score)) return null;
+  return (score / 100).toLocaleString("en-US", {
+    style: "percent",
+    maximumFractionDigits: score >= 10 ? 0 : 1,
+  });
+}

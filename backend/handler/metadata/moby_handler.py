@@ -1,6 +1,5 @@
 import re
-from typing import Final, NotRequired, TypedDict
-from urllib.parse import quote
+from typing import Final, NotRequired, TypedDict, cast
 
 import pydash
 from unidecode import unidecode as uc
@@ -9,25 +8,33 @@ from adapters.services.mobygames import MobyGamesService
 from adapters.services.mobygames_types import MobyGame
 from config import MOBYGAMES_API_KEY
 from logger.logger import log
+from models.rom import Rom
+from utils.arcade_platforms import arcade_fallbacks
+from utils.html_text import html_to_text
+from utils.platform_slugs import UniversalPlatformSlug as UPS
+from utils.platform_slugs import fill_duplicate_slugs
 
 from .base_handler import (
-    PS2_OPL_REGEX,
-    SONY_SERIAL_REGEX,
-    SWITCH_PRODUCT_ID_REGEX,
-    SWITCH_TITLEDB_REGEX,
     BaseRom,
+    IndexedFormatPlatforms,
     MetadataHandler,
+    provider_tag_regex,
+    tag_id_from_filename,
 )
-from .base_handler import UniversalPlatformSlug as UPS
 
 PS1_MOBY_ID: Final = 6
 PS2_MOBY_ID: Final = 7
 PSP_MOBY_ID: Final = 46
 SWITCH_MOBY_ID: Final = 203
-ARCADE_MOBY_IDS: Final = [143, 36]
+MOBY_INDEXED_FORMAT_PLATFORMS: Final = IndexedFormatPlatforms(
+    ps1=PS1_MOBY_ID,
+    ps2=PS2_MOBY_ID,
+    psp=PSP_MOBY_ID,
+    switch=SWITCH_MOBY_ID,
+)
 
 # Regex to detect MobyGames ID tags in filenames like (moby-12345)
-MOBYGAMES_TAG_REGEX = re.compile(r"\(moby-(\d+)\)", re.IGNORECASE)
+MOBYGAMES_TAG_REGEX = provider_tag_regex("moby")
 
 
 class MobyGamesPlatform(TypedDict):
@@ -57,7 +64,9 @@ class MobyGamesRom(BaseRom):
 def extract_metadata_from_moby_rom(rom: MobyGame) -> MobyMetadata:
     return MobyMetadata(
         {
-            "moby_score": str(rom.get("moby_score", "")),
+            "moby_score": (
+                str(rom["moby_score"]) if rom.get("moby_score") is not None else None
+            ),
             "genres": [genre["genre_name"] for genre in rom.get("genres", [])],
             "alternate_titles": [
                 alt["title"] for alt in rom.get("alternate_titles", [])
@@ -73,6 +82,18 @@ def extract_metadata_from_moby_rom(rom: MobyGame) -> MobyMetadata:
     )
 
 
+def build_moby_rom(game: MobyGame) -> MobyGamesRom:
+    rom = {
+        "moby_id": game["game_id"],
+        "name": game["title"],
+        "summary": html_to_text(game.get("description")),
+        "url_cover": pydash.get(game, "sample_cover.image", None),
+        "url_screenshots": [s["image"] for s in game.get("sample_screenshots", [])],
+        "moby_metadata": extract_metadata_from_moby_rom(game),
+    }
+    return cast(MobyGamesRom, {k: v for k, v in rom.items() if v})
+
+
 class MobyGamesHandler(MetadataHandler):
     def __init__(self) -> None:
         self.moby_service = MobyGamesService()
@@ -83,24 +104,15 @@ class MobyGamesHandler(MetadataHandler):
         return bool(MOBYGAMES_API_KEY)
 
     async def heartbeat(self) -> bool:
-        if not self.is_enabled():
-            return False
+        async def probe() -> bool:
+            return bool(await self.moby_service.list_groups(limit=1))
 
-        try:
-            response = await self.moby_service.list_groups(limit=1)
-        except Exception as e:
-            log.error("Error checking MobyGames API: %s", e)
-            return False
-
-        return bool(response)
+        return await self._heartbeat("MobyGames API", probe)
 
     @staticmethod
     def extract_mobygames_id_from_filename(fs_name: str) -> int | None:
         """Extract MobyGames ID from filename tag like (moby-12345)."""
-        match = MOBYGAMES_TAG_REGEX.search(fs_name)
-        if match:
-            return int(match.group(1))
-        return None
+        return tag_id_from_filename(MOBYGAMES_TAG_REGEX, fs_name)
 
     async def _search_rom(
         self, search_term: str, platform_moby_id: int, split_game_name: bool = False
@@ -110,7 +122,8 @@ class MobyGamesHandler(MetadataHandler):
 
         roms = await self.moby_service.list_games(
             platform_ids=[platform_moby_id],
-            title=quote(uc(search_term), safe="/ "),
+            # Pass the raw term to prevent double-encoding
+            title=uc(search_term),
         )
         if not roms:
             return None
@@ -150,7 +163,9 @@ class MobyGamesHandler(MetadataHandler):
             name=platform["name"],
         )
 
-    async def get_rom(self, fs_name: str, platform_moby_id: int) -> MobyGamesRom:
+    async def get_rom(
+        self, rom: Rom, fs_name: str, platform_moby_id: int
+    ) -> MobyGamesRom:
         from handler.filesystem import fs_rom_handler
 
         if not self.is_enabled():
@@ -176,61 +191,14 @@ class MobyGamesHandler(MetadataHandler):
 
         search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name)
         fallback_rom = MobyGamesRom(moby_id=None)
-
-        # Support for PS2 OPL filename format
-        match = PS2_OPL_REGEX.match(fs_name)
-        if platform_moby_id == PS2_MOBY_ID and match:
-            search_term = await self._ps2_opl_format(match, search_term)
-            fallback_rom = MobyGamesRom(moby_id=None, name=search_term)
-
-        # Support for sony serial filename format (PS, PS3, PS3)
-        match = SONY_SERIAL_REGEX.search(fs_name)
-        if platform_moby_id == PS1_MOBY_ID and match:
-            search_term = await self._ps1_serial_format(match, search_term)
-            fallback_rom = MobyGamesRom(moby_id=None, name=search_term)
-
-        if platform_moby_id == PS2_MOBY_ID and match:
-            search_term = await self._ps2_serial_format(match, search_term)
-            fallback_rom = MobyGamesRom(moby_id=None, name=search_term)
-
-        if platform_moby_id == PSP_MOBY_ID and match:
-            search_term = await self._psp_serial_format(match, search_term)
-            fallback_rom = MobyGamesRom(moby_id=None, name=search_term)
-
-        # Support for switch titleID filename format
-        match = SWITCH_TITLEDB_REGEX.search(fs_name)
-        if platform_moby_id == SWITCH_MOBY_ID and match:
-            search_term, index_entry = await self._switch_titledb_format(
-                match, search_term
-            )
-            if index_entry:
-                fallback_rom = MobyGamesRom(
-                    moby_id=None,
-                    name=index_entry["name"],
-                    summary=index_entry.get("description", ""),
-                    url_cover=index_entry.get("iconUrl", ""),
-                    url_screenshots=index_entry.get("screenshots", None) or [],
-                )
-
-        # Support for switch productID filename format
-        match = SWITCH_PRODUCT_ID_REGEX.search(fs_name)
-        if platform_moby_id == SWITCH_MOBY_ID and match:
-            search_term, index_entry = await self._switch_productid_format(
-                match, search_term
-            )
-            if index_entry:
-                fallback_rom = MobyGamesRom(
-                    moby_id=None,
-                    name=index_entry["name"],
-                    summary=index_entry.get("description", ""),
-                    url_cover=index_entry.get("iconUrl", ""),
-                    url_screenshots=index_entry.get("screenshots", None) or [],
-                )
-
-        # Support for MAME arcade filename format
-        if platform_moby_id in ARCADE_MOBY_IDS:
-            search_term = await self._mame_format(search_term)
-            fallback_rom = MobyGamesRom(moby_id=None, name=search_term)
+        search_term = await self._resolve_indexed_title(
+            rom,
+            fs_name,
+            search_term,
+            platform_moby_id,
+            MOBY_INDEXED_FORMAT_PLATFORMS,
+            fallback_rom,
+        )
 
         normalized_search_term = self.normalize_search_term(
             search_term, remove_punctuation=False
@@ -244,22 +212,13 @@ class MobyGamesHandler(MetadataHandler):
         if not res:
             terms = re.split(self.SEARCH_TERM_SPLIT_PATTERN, search_term)
             res = await self._search_rom(
-                terms[-1], platform_moby_id, split_game_name=True
+                terms[-1].strip(), platform_moby_id, split_game_name=True
             )
 
         if not res:
             return fallback_rom
 
-        rom = {
-            "moby_id": res["game_id"],
-            "name": res["title"],
-            "summary": res.get("description", ""),
-            "url_cover": pydash.get(res, "sample_cover.image", None),
-            "url_screenshots": [s["image"] for s in res.get("sample_screenshots", [])],
-            "moby_metadata": extract_metadata_from_moby_rom(res),
-        }
-
-        return MobyGamesRom({k: v for k, v in rom.items() if v})  # type: ignore[misc]
+        return build_moby_rom(res)
 
     async def get_rom_by_id(self, moby_id: int) -> MobyGamesRom:
         if not self.is_enabled():
@@ -269,17 +228,7 @@ class MobyGamesHandler(MetadataHandler):
         if not roms:
             return MobyGamesRom(moby_id=None)
 
-        res = roms[0]
-        rom = {
-            "moby_id": res["game_id"],
-            "name": res["title"],
-            "summary": res.get("description", None),
-            "url_cover": pydash.get(res, "sample_cover.image", None),
-            "url_screenshots": [s["image"] for s in res.get("sample_screenshots", [])],
-            "moby_metadata": extract_metadata_from_moby_rom(res),
-        }
-
-        return MobyGamesRom({k: v for k, v in rom.items() if v})  # type: ignore[misc]
+        return build_moby_rom(roms[0])
 
     async def get_matched_rom_by_id(self, moby_id: int) -> MobyGamesRom | None:
         if not self.is_enabled():
@@ -299,7 +248,7 @@ class MobyGamesHandler(MetadataHandler):
 
         matched_roms = await self.moby_service.list_games(
             platform_ids=[platform_moby_id],
-            title=quote(uc(search_term), safe="/ "),
+            title=uc(search_term),
         )
 
         return [
@@ -309,7 +258,7 @@ class MobyGamesHandler(MetadataHandler):
                     for k, v in {
                         "moby_id": rom["game_id"],
                         "name": rom["title"],
-                        "summary": rom.get("description", ""),
+                        "summary": html_to_text(rom.get("description")),
                         "url_cover": pydash.get(rom, "sample_cover.image", None),
                         "url_screenshots": [
                             s["image"] for s in rom.get("sample_screenshots", [])
@@ -1006,7 +955,6 @@ MOBYGAMES_PLATFORM_LIST: dict[UPS, SlugToMobyId] = {
         "slug": "philips-vg-5000",
     },
     UPS.PHOTOCD: {"id": 272, "name": "Photo CD", "slug": "photocd"},
-    UPS.PICO: {"id": 316, "name": "PICO", "slug": "pico"},
     UPS.PIPPIN: {"id": 112, "name": "Pippin", "slug": "pippin"},
     UPS.PLAYDATE: {"id": 303, "name": "Playdate", "slug": "playdate"},
     UPS.PLAYDIA: {"id": 107, "name": "Playdia", "slug": "playdia"},
@@ -1382,9 +1330,9 @@ MOBYGAMES_PLATFORM_LIST: dict[UPS, SlugToMobyId] = {
     UPS.ZX80: {"id": 118, "name": "ZX80", "slug": "zx80"},
     UPS.ZX81: {"id": 119, "name": "ZX81", "slug": "zx81"},
 }
+MOBYGAMES_PLATFORM_LIST |= arcade_fallbacks(MOBYGAMES_PLATFORM_LIST)
 
-# Reverse lookup
-MOBY_ID_TO_SLUG = {v["id"]: k for k, v in MOBYGAMES_PLATFORM_LIST.items()}
+fill_duplicate_slugs(MOBYGAMES_PLATFORM_LIST)
 
 
 # These platforms are ignored due to lack of data:

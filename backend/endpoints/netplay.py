@@ -1,10 +1,17 @@
-from typing import Dict, TypedDict
+from typing import Annotated, Dict, TypedDict
 
-from fastapi import Request
+from fastapi import Query, Request, status
 
 from decorators.auth import protected_route
 from handler.auth.constants import Scope
+from handler.auth.dependencies import (
+    can_access,
+    get_permissions,
+    visible_rom_or_404,
+)
+from handler.database import db_rom_handler
 from handler.netplay_handler import NetplayRoom, netplay_handler
+from models.permission import PermAction, PermEntity
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -31,7 +38,7 @@ def _get_owner_player_name(room: NetplayRoom) -> str:
     )
 
 
-def _is_room_open(room: NetplayRoom, game_id: str) -> bool:
+def _is_room_open(room: NetplayRoom, game_id: int) -> bool:
     if len(room["players"]) >= room["max_players"]:
         return False
     return str(room["game_id"]) == str(game_id)
@@ -45,8 +52,35 @@ class RoomsResponse(TypedDict):
     hasPassword: bool
 
 
-@protected_route(router.get, "/list", [Scope.ASSETS_READ])
-async def get_rooms(request: Request, game_id: str) -> Dict[str, RoomsResponse]:
+@protected_route(
+    router.get,
+    "/list",
+    [Scope.ROMS_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID."
+        }
+    },
+)
+async def get_rooms(
+    request: Request,
+    game_id: Annotated[
+        int,
+        Query(
+            description=(
+                "The internal ID of the rom. A rom that is unknown or hidden"
+                " returns 404."
+            )
+        ),
+    ],
+) -> Dict[str, RoomsResponse]:
+    """List the open netplay rooms for a game. The list is empty when the caller cannot use emulation."""
+    visible_rom_or_404(request, db_rom_handler.get_rom_visibility(game_id), game_id)
+
+    # Empty rather than 403, like the streaming joinable list.
+    if not can_access(get_permissions(request), PermEntity.EMULATION, PermAction.READ):
+        return {}
+
     netplay_rooms = await netplay_handler.get_all()
 
     open_rooms: Dict[str, RoomsResponse] = {

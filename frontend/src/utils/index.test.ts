@@ -1,59 +1,238 @@
 import { describe, expect, it } from "vitest";
-import type { SimpleRom } from "@/stores/roms";
-import { getDownloadPath } from "./index";
+import type { Config } from "@/stores/config";
+import type { Heartbeat } from "@/stores/heartbeat";
+import { ejsCoresFixture } from "./ejsCores.fixtures";
+import {
+  getSupportedEJSCores,
+  hasJsDosBundle,
+  isArcadeSystem,
+  isEasyRpgEmulationSupported,
+  isEasyRpgGame,
+  isJsDosEmulationSupported,
+  isPico8EmulationSupported,
+  isPico8Rom,
+  jsDosBundleFileIds,
+  languageToEmoji,
+} from "./index";
+import { detailedRomFixture, romFileFixture, romFixture } from "./rom.fixtures";
 
-function makeRom(overrides: Partial<SimpleRom>): SimpleRom {
+function makeHeartbeat(
+  emulation: Partial<Heartbeat["EMULATION"]> = {},
+): Heartbeat {
   return {
-    id: 1,
-    fs_name: "Game",
-    files: [],
-    ...overrides,
-  } as SimpleRom;
+    EMULATION: {
+      DISABLE_EMULATOR_JS: false,
+      DISABLE_RUFFLE_RS: false,
+      DISABLE_JSDOS: false,
+      DISABLE_PICO8: false,
+      DISABLE_EASYRPG: false,
+      ...ejsCoresFixture(),
+      ...emulation,
+    },
+  } as Heartbeat;
 }
 
-describe("getDownloadPath", () => {
-  it("uses fs_name when no file is selected", () => {
-    const rom = makeRom({ id: 14, fs_name: "Maniac Mansion (1989).adf" });
-    expect(getDownloadPath({ rom })).toBe(
-      "/api/roms/14/content/Maniac Mansion (1989).adf",
-    );
+function makeConfig(versions: Record<string, string> = {}): Config {
+  return { PLATFORMS_VERSIONS: versions } as Config;
+}
+
+describe("isJsDosEmulationSupported", () => {
+  it("supports win3x and win9x", () => {
+    expect(isJsDosEmulationSupported("win3x", makeHeartbeat())).toBe(true);
+    expect(isJsDosEmulationSupported("win9x", makeHeartbeat())).toBe(true);
   });
 
-  it("uses the selected file name (with extension) for a single file", () => {
-    // Multi-file rom: fs_name is the folder name with no extension. The URL
-    // path segment must carry the selected file's real name so the emulator
-    // receives a file with the correct extension.
-    const rom = makeRom({
-      id: 24,
-      fs_name: "B.A.T.",
+  it("is case-insensitive on the slug", () => {
+    expect(isJsDosEmulationSupported("WIN3X", makeHeartbeat())).toBe(true);
+  });
+
+  it("does not claim dos or other platforms", () => {
+    expect(isJsDosEmulationSupported("dos", makeHeartbeat())).toBe(false);
+    expect(isJsDosEmulationSupported("flash", makeHeartbeat())).toBe(false);
+    expect(isJsDosEmulationSupported("snes", makeHeartbeat())).toBe(false);
+  });
+
+  it("respects the DISABLE_JSDOS admin toggle", () => {
+    expect(
+      isJsDosEmulationSupported(
+        "win3x",
+        makeHeartbeat({ DISABLE_JSDOS: true }),
+      ),
+    ).toBe(false);
+  });
+
+  it("honours a PLATFORMS_VERSIONS remap onto win3x", () => {
+    expect(
+      isJsDosEmulationSupported(
+        "dos",
+        makeHeartbeat(),
+        makeConfig({ dos: "win3x" }),
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("hasJsDosBundle", () => {
+  it("follows the backend's bundle flag", () => {
+    expect(hasJsDosBundle(romFixture({ has_jsdos_bundle: true }))).toBe(true);
+    expect(hasJsDosBundle(romFixture({ has_jsdos_bundle: false }))).toBe(false);
+  });
+
+  it("rejects a missing rom", () => {
+    expect(hasJsDosBundle(null)).toBe(false);
+    expect(hasJsDosBundle(undefined)).toBe(false);
+  });
+});
+
+describe("jsDosBundleFileIds", () => {
+  const file = (id: number, file_name: string, is_top_level = true) =>
+    romFileFixture({ id, file_name, is_top_level });
+
+  it("picks the top-level bundle beside other files", () => {
+    const rom = detailedRomFixture({
       files: [
-        { id: 29, file_name: "B.A.T. Disk1.adf" },
-        { id: 30, file_name: "B.A.T. Disk2.adf" },
-      ] as SimpleRom["files"],
+        file(1, "manual.pdf"),
+        file(2, "Game (1996).JSDOS"),
+        file(3, "extra.jsdos", false),
+      ],
     });
-    expect(getDownloadPath({ rom, fileIDs: [29] })).toBe(
-      "/api/roms/24/content/B.A.T.%20Disk1.adf?file_ids=29",
-    );
+    expect(jsDosBundleFileIds(rom)).toEqual([2]);
   });
 
-  it("falls back to fs_name when multiple files are selected (zip)", () => {
-    const rom = makeRom({
-      id: 24,
-      fs_name: "B.A.T.",
+  it("returns none without a top-level bundle", () => {
+    const rom = detailedRomFixture({ files: [file(3, "extra.jsdos", false)] });
+    expect(jsDosBundleFileIds(rom)).toEqual([]);
+  });
+
+  it("skips a bundle missing from disk", () => {
+    const rom = detailedRomFixture({
       files: [
-        { id: 29, file_name: "B.A.T. Disk1.adf" },
-        { id: 30, file_name: "B.A.T. Disk2.adf" },
-      ] as SimpleRom["files"],
+        romFileFixture({
+          id: 1,
+          file_name: "A.jsdos",
+          is_top_level: true,
+          missing_from_fs: true,
+        }),
+        file(2, "B.jsdos"),
+      ],
     });
-    expect(getDownloadPath({ rom, fileIDs: [29, 30] })).toBe(
-      "/api/roms/24/content/B.A.T.?file_ids=29%2C30",
-    );
+    expect(jsDosBundleFileIds(rom)).toEqual([2]);
+  });
+});
+
+describe("PICO-8 support", () => {
+  it("supports the pico platform and configured remaps", () => {
+    expect(isPico8EmulationSupported("pico", makeHeartbeat())).toBe(true);
+    expect(
+      isPico8EmulationSupported(
+        "custom-pico",
+        makeHeartbeat(),
+        makeConfig({ "custom-pico": "pico" }),
+      ),
+    ).toBe(true);
+    expect(isPico8EmulationSupported("snes", makeHeartbeat())).toBe(false);
   });
 
-  it("falls back to fs_name when the selected file id is unknown", () => {
-    const rom = makeRom({ id: 24, fs_name: "B.A.T." });
-    expect(getDownloadPath({ rom, fileIDs: [999] })).toBe(
-      "/api/roms/24/content/B.A.T.?file_ids=999",
+  it("respects the DISABLE_PICO8 admin toggle", () => {
+    expect(
+      isPico8EmulationSupported("pico", makeHeartbeat({ DISABLE_PICO8: true })),
+    ).toBe(false);
+  });
+
+  // A `.p8.png` cart lands with fs_extension "png", so the name is the only
+  // thing that identifies one.
+  it("accepts .p8 and .p8.png cartridges only", () => {
+    expect(
+      isPico8Rom(romFixture({ fs_name: "celeste.p8", fs_extension: "p8" })),
+    ).toBe(true);
+    expect(
+      isPico8Rom(
+        romFixture({ fs_name: "slipways.p8.png", fs_extension: "png" }),
+      ),
+    ).toBe(true);
+    expect(
+      isPico8Rom(
+        romFixture({ fs_name: "SLIPWAYS.P8.PNG", fs_extension: "PNG" }),
+      ),
+    ).toBe(true);
+    expect(
+      isPico8Rom(romFixture({ fs_name: "label.png", fs_extension: "png" })),
+    ).toBe(false);
+    expect(
+      isPico8Rom(romFixture({ fs_name: "game.zip", fs_extension: "zip" })),
+    ).toBe(false);
+    expect(isPico8Rom(null)).toBe(false);
+  });
+});
+
+describe("EasyRPG support", () => {
+  it("supports the rpg-maker platform and configured remaps", () => {
+    expect(isEasyRpgEmulationSupported("rpg-maker", makeHeartbeat())).toBe(
+      true,
     );
+    expect(
+      isEasyRpgEmulationSupported(
+        "easyrpg",
+        makeHeartbeat(),
+        makeConfig({ easyrpg: "rpg-maker" }),
+      ),
+    ).toBe(true);
+    expect(isEasyRpgEmulationSupported("snes", makeHeartbeat())).toBe(false);
+  });
+
+  it("respects the DISABLE_EASYRPG admin toggle", () => {
+    expect(
+      isEasyRpgEmulationSupported(
+        "rpg-maker",
+        makeHeartbeat({ DISABLE_EASYRPG: true }),
+      ),
+    ).toBe(false);
+  });
+
+  it("follows the backend's game folder check", () => {
+    expect(isEasyRpgGame(romFixture({ is_easyrpg_game: true }))).toBe(true);
+    expect(isEasyRpgGame(romFixture({ is_easyrpg_game: false }))).toBe(false);
+    expect(isEasyRpgGame(null)).toBe(false);
+  });
+});
+
+describe("getSupportedEJSCores", () => {
+  const maps = ejsCoresFixture();
+
+  it("reads the platform's cores from the served map, in any case", () => {
+    expect(getSupportedEJSCores("PSX", maps)).toEqual([
+      "pcsx_rearmed",
+      "mednafen_psx_hw",
+    ]);
+  });
+
+  it("layers the nightly cores on when netplay is on", () => {
+    expect(getSupportedEJSCores("snes", maps)).toEqual(["snes9x"]);
+    expect(getSupportedEJSCores("snes", maps, true)).toEqual([
+      "snes9x",
+      "bsnes",
+    ]);
+    expect(getSupportedEJSCores("3ds", maps)).toEqual([]);
+    expect(getSupportedEJSCores("3ds", maps, true)).toEqual(["azahar"]);
+  });
+
+  it("offers no core for a platform the map leaves out", () => {
+    expect(getSupportedEJSCores("naomi", maps)).toEqual([]);
+  });
+});
+
+describe("arcade platforms", () => {
+  it("treats every arcade board as arcade hardware", () => {
+    expect(isArcadeSystem("naomi")).toBe(true);
+    expect(isArcadeSystem("model2")).toBe(true);
+    expect(isArcadeSystem("snes")).toBe(false);
+  });
+});
+
+describe("languageToEmoji", () => {
+  it("tells Brazilian from European Portuguese", () => {
+    expect(languageToEmoji("Brazilian Portuguese")).toBe("🇧🇷");
+    expect(languageToEmoji("pt-BR")).toBe("🇧🇷");
+    expect(languageToEmoji("Portuguese")).toBe("🇵🇹");
   });
 });

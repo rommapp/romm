@@ -10,9 +10,4 @@ describe("vitest harness", () => {
     const mod = await import("@/locales");
     expect(mod).toBeDefined();
   });
-
-  it("can resolve the @v2 alias", async () => {
-    const tokens = await import("@v2/tokens");
-    expect(tokens).toBeDefined();
-  });
 });

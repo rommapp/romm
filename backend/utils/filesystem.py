@@ -4,13 +4,45 @@ import re
 import shutil
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Final, Literal
+
+from logger.logger import log
+
+ArchiveFormat = Literal["zip", "tar", "gzip", "bz2", "xz", "7z", "rar"]
+
+# Longest suffix first, so a .tar.gz is not taken for a plain .gz.
+ARCHIVE_FORMAT_BY_SUFFIX: Final[tuple[tuple[str, ArchiveFormat], ...]] = (
+    (".tar.gz", "tar"),
+    (".tar.bz2", "tar"),
+    (".tar.xz", "tar"),
+    (".tgz", "tar"),
+    (".tbz2", "tar"),
+    (".txz", "tar"),
+    (".tar", "tar"),
+    (".zip", "zip"),
+    (".gz", "gzip"),
+    (".bz2", "bz2"),
+    (".xz", "xz"),
+    (".7z", "7z"),
+    (".rar", "rar"),
+)
 
 # Container file extensions treated as compressed archives across modules
 # (roms_handler for hashing decisions, rahasher for skipping disc-platform
 # buffer-hash attempts, feeds for PKGi passthrough).
 COMPRESSED_FILE_EXTENSIONS: frozenset[str] = frozenset(
-    (".7z", ".bz2", ".gz", ".rar", ".tar", ".zip", ".xz", ".tgz", ".tbz2", ".txz")
+    suffix for suffix, _ in ARCHIVE_FORMAT_BY_SUFFIX
 )
+
+# str.endswith takes a tuple, never a set, so it is built once here.
+COMPRESSED_FILE_SUFFIXES: tuple[str, ...] = tuple(COMPRESSED_FILE_EXTENSIONS)
+
+# tempfile.mkstemp creates files 0600, too narrow for the nginx user to read.
+SERVED_FILE_MODE = 0o644
+
+# Prefix of in-progress writes and staged conversions, renamed into place once
+# complete. Scans skip dot-prefixed names, so these stay unseen.
+TEMP_FILE_PREFIX = ".romm_tmp_"
 
 
 def iter_files(path: str, recursive: bool = False) -> Iterator[tuple[Path, str]]:
@@ -43,7 +75,7 @@ def iter_directories(path: str, recursive: bool = False) -> Iterator[tuple[Path,
 # EXDEV: cross-device link. EPERM: filesystem doesn't permit/support hardlinks
 # (e.g. FAT32, exFAT, some network mounts). EOPNOTSUPP/ENOTSUP: same, on BSD/macOS.
 # EMLINK: source already has the maximum number of hardlinks for the filesystem.
-_LINK_FALLBACK_ERRNOS: frozenset[int] = frozenset(
+LINK_FALLBACK_ERRNOS: frozenset[int] = frozenset(
     e
     for e in (
         getattr(errno, "EXDEV", None),
@@ -55,6 +87,25 @@ _LINK_FALLBACK_ERRNOS: frozenset[int] = frozenset(
     )
     if e is not None
 )
+
+
+def rel_platform_folder(fs_path: str, platform_fs_path: str) -> str:
+    """The part of a rom's folder that sits below its platform folder.
+
+    Args:
+        fs_path: The rom's folder.
+        platform_fs_path: The platform folder holding the metadata export files.
+    Returns:
+        `Disks/Set A` for a rom nested by a custom library structure, empty for one
+        sitting directly in the platform folder.
+    """
+    rel = fs_path.removeprefix(f"{platform_fs_path}/")
+    return "" if rel in (fs_path, platform_fs_path) else rel
+
+
+def join_rel_path(*parts: str) -> str:
+    """Join the non-empty parts of a path written into an export file."""
+    return "/".join(part for part in parts if part)
 
 
 def link_or_copy_file(source: Path, dest: Path) -> None:
@@ -75,7 +126,7 @@ def link_or_copy_file(source: Path, dest: Path) -> None:
         try:
             os.link(source, tmp_path)
         except OSError as exc:
-            if exc.errno not in _LINK_FALLBACK_ERRNOS:
+            if exc.errno not in LINK_FALLBACK_ERRNOS:
                 raise
             shutil.copy2(source, tmp_path)
         os.replace(tmp_path, dest)
@@ -87,8 +138,56 @@ def link_or_copy_file(source: Path, dest: Path) -> None:
         raise
 
 
+def place_export_asset(source: Path, dest: Path) -> bool:
+    """Link or copy an exported asset to ``dest``, keeping one already there.
+
+    Returns: whether ``dest`` holds the asset afterwards.
+    """
+    if dest.exists():
+        return True
+
+    # Metadata scanned before unfetched media paths were cleared can still
+    # point at files that were never downloaded.
+    if not source.is_file():
+        log.debug(f"Skipping asset {source}: source file is missing")
+        return False
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        link_or_copy_file(source, dest)
+        return True
+    except OSError as e:
+        log.warning(f"Failed to copy {source} -> {dest}: {e}")
+        return False
+
+
 INVALID_CHARS_HYPHENS = re.compile(r"[\\/:|]")
-INVALID_CHARS_EMPTY = re.compile(r'[*?"<>+]')
+INVALID_CHARS_EMPTY = re.compile(r'[*?"<>]')
+
+# C0 controls plus DEL. Illegal on most filesystems, and a line feed in a name
+# that reaches a line-oriented protocol (the nginx mod_zip manifest) would split
+# the record it sits in.
+CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
+
+# NAME_MAX on ext4, XFS, Btrfs and ZFS. The limit is in bytes, so a CJK name
+# reaches it at about 85 characters.
+FILE_NAME_MAX_BYTES = 255
+
+
+def check_filename_length(filename: str) -> None:
+    """Raise ValueError if `filename` is too long for the filesystem to create."""
+    if len(filename.encode()) > FILE_NAME_MAX_BYTES:
+        raise ValueError(
+            f"Filename exceeds the filesystem limit of {FILE_NAME_MAX_BYTES} bytes"
+        )
+
+
+def fit_filename(name: str, tail: str) -> str:
+    """`name` cut so `name + tail` fits in FILE_NAME_MAX_BYTES, never splitting
+    a character."""
+    room = max(FILE_NAME_MAX_BYTES - len(tail.encode()), 0)
+    return name.encode()[:room].decode(errors="ignore") + tail
 
 
 def sanitize_filename(filename: str) -> str:
@@ -114,8 +213,8 @@ def sanitize_filename(filename: str) -> str:
     # Remove other invalid characters
     sanitized_filename = INVALID_CHARS_EMPTY.sub("", sanitized_filename)
 
-    # Ensure null bytes are not included (ZFS allows any characters except null bytes)
-    sanitized_filename = sanitized_filename.replace("\0", "")
+    # Drop control characters, null bytes included (ZFS allows every other character)
+    sanitized_filename = CONTROL_CHARS.sub("", sanitized_filename)
 
     # Remove leading/trailing whitespace
     sanitized_filename = sanitized_filename.strip()

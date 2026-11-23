@@ -15,7 +15,7 @@ Typical use inside a handler::
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from fastapi import HTTPException, Request, status
 
@@ -23,23 +23,35 @@ from exceptions.endpoint_exceptions import (
     PlatformNotFoundInDatabaseException,
     RomNotFoundInDatabaseException,
 )
+from handler.auth.constants import Scope
 from handler.auth.permissions import ResolvedPermissions, resolve_permissions
+from handler.auth.rom_visibility import UNRESTRICTED, RomVisibilityFilter
 from models.permission import PermAction, PermEntity
+from models.user import Role
 
 if TYPE_CHECKING:
+    from models.assets import Save, Screenshot, State
     from models.firmware import Firmware
     from models.platform import Platform
-    from models.rom import Rom
+    from models.rom import Rom, RomInstallTarget, RomVisibility, RomVisibilityLabel
 
 
 def get_permissions(request: Request) -> ResolvedPermissions:
     """Resolve (and cache for the request) the caller's effective permissions."""
     cached = getattr(request.state, "permissions", None)
     if cached is not None:
-        return cached
+        return cast(ResolvedPermissions, cached)
     perms = resolve_permissions(request.user)
     request.state.permissions = perms
     return perms
+
+
+def get_rom_visibility_filter(request: Request) -> RomVisibilityFilter:
+    """The caller's ROM visibility; unrestricted when unauthenticated, as there is
+    no caller to scope it to."""
+    if not request.user.is_authenticated:
+        return UNRESTRICTED
+    return get_permissions(request).rom_visibility
 
 
 def can_access(
@@ -76,20 +88,6 @@ def assert_can(
         )
 
 
-def require_permission(entity: PermEntity, action: PermAction):
-    """FastAPI dependency factory for library-wide gating of a route.
-
-    Returns the resolved permissions so the handler can reuse them.
-    """
-
-    def _dependency(request: Request) -> ResolvedPermissions:
-        perms = get_permissions(request)
-        assert_can(perms, entity, action)
-        return perms
-
-    return _dependency
-
-
 def assert_admin(request: Request) -> ResolvedPermissions:
     """Raise 403 unless the caller is an admin. For permission-management routes."""
     perms = get_permissions(request)
@@ -101,11 +99,31 @@ def assert_admin(request: Request) -> ResolvedPermissions:
     return perms
 
 
+def is_scoped_admin(request: Request, scope: Scope) -> bool:
+    """Whether the caller is an admin whose credential also carries ``scope``."""
+    return (
+        getattr(request.user, "role", None) == Role.ADMIN
+        and scope in request.auth.scopes
+    )
+
+
+def assert_admin_for_admin(request: Request, role: str | None, detail: str) -> None:
+    """Raise 403 when a non-admin targets or grants the admin role.
+
+    ``USERS_WRITE`` can be delegated to non-admins, so it alone never reaches admins.
+    """
+    if role == Role.ADMIN and getattr(request.user, "role", None) != Role.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
+
+
 # 404-masking helpers: a hidden entity must read as non-existent, not forbidden,
 # so its existence isn't leaked. The auth guard skips the check on unauthenticated
 # download endpoints, which carry no permission context to resolve.
 def assert_rom_visible(
-    request: Request, rom: Rom, *, not_found_detail: str | None = None
+    request: Request,
+    rom: Rom | RomVisibility | RomVisibilityLabel | RomInstallTarget,
+    *,
+    not_found_detail: str | None = None,
 ) -> None:
     """Raise 404 (not 403) when the rom is hidden from the caller.
 
@@ -113,14 +131,54 @@ def assert_rom_visible(
     ``not_found_detail`` for endpoints with a bespoke 404 (metadata-id / hash
     lookups) so the masked response is indistinguishable from their not-found.
     """
-    if request.user.is_authenticated and not get_permissions(request).can_see_rom(
-        rom.id, rom.platform_id
-    ):
+    if not get_rom_visibility_filter(request).allows(rom):
         if not_found_detail is not None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail=not_found_detail
             )
         raise RomNotFoundInDatabaseException(rom.id)
+
+
+def visible_rom_or_404[R: (Rom, RomVisibility, RomVisibilityLabel, RomInstallTarget)](
+    request: Request, rom: R | None, not_found: int | str
+) -> R:
+    """`rom` when it exists and the caller sees it, else one 404 for both cases.
+
+    Args:
+        not_found: the rom id for the standard not-found, or a bespoke 404 detail.
+    """
+    detail = not_found if isinstance(not_found, str) else None
+    if rom is None:
+        if isinstance(not_found, str):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=not_found)
+        raise RomNotFoundInDatabaseException(not_found)
+    assert_rom_visible(request, rom, not_found_detail=detail)
+    return rom
+
+
+def owned_rom_asset_or_404[A: (Save, State, Screenshot)](
+    request: Request, asset: A | None, detail: str
+) -> A:
+    """`asset` when the caller owns it and sees its ROM, else 404 with `detail`.
+    A detached asset, whose ROM was deleted, answers like a missing one."""
+    if not asset or asset.user_id != request.user.id or asset.rom is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
+    assert_rom_visible(request, asset.rom, not_found_detail=detail)
+    return asset
+
+
+def readable_rom_asset_or_404[A: (Save, State)](
+    request: Request, asset: A | None, detail: str
+) -> A:
+    """`asset` when the caller owns it, or it is public and its ROM is visible to
+    them, else 404 with `detail`. Another user's detached asset has no ROM to check."""
+    if not asset or (
+        asset.user_id != request.user.id and (not asset.is_public or asset.rom is None)
+    ):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
+    if asset.rom is not None:
+        assert_rom_visible(request, asset.rom, not_found_detail=detail)
+    return asset
 
 
 def assert_platform_visible(
@@ -140,6 +198,23 @@ def assert_platform_visible(
         raise PlatformNotFoundInDatabaseException(platform.id)
 
 
+def visible_platform_or_404(
+    request: Request, platform: Platform | None, not_found: int | str
+) -> Platform:
+    """`platform` when it exists and the caller sees it, else one 404 for both cases.
+
+    Args:
+        not_found: the platform id for the standard not-found, or a bespoke 404 detail.
+    """
+    detail = not_found if isinstance(not_found, str) else None
+    if platform is None:
+        if isinstance(not_found, str):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=not_found)
+        raise PlatformNotFoundInDatabaseException(not_found)
+    assert_platform_visible(request, platform, not_found_detail=detail)
+    return platform
+
+
 def assert_firmware_visible(request: Request, firmware: Firmware) -> None:
     """Raise 404 when the firmware's platform is hidden (firmware inherits it)."""
     if request.user.is_authenticated and not get_permissions(request).can_see_platform(
@@ -149,3 +224,16 @@ def assert_firmware_visible(request: Request, firmware: Firmware) -> None:
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Firmware with ID {firmware.id} not found",
         )
+
+
+def visible_firmware_or_404(
+    request: Request, firmware: Firmware | None, firmware_id: int
+) -> Firmware:
+    """`firmware` when it exists and the caller sees its platform, else one 404."""
+    if firmware is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Firmware with ID {firmware_id} not found",
+        )
+    assert_firmware_visible(request, firmware)
+    return firmware

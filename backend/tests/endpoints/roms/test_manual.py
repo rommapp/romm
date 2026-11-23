@@ -4,21 +4,20 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from pytest_mock import MockerFixture
+from streaming_form_data import StreamingFormDataParser
+from tests.auth_helpers import bearer
 
-from endpoints.roms import manual as manual_endpoint
 from handler.database import db_rom_handler
+from handler.filesystem import fs_resource_handler
 from models.rom import Rom, RomFile, RomFileCategory
 
 PDF_BYTES = b"%PDF-1.4\n%mock pdf\n%%EOF"
 MD_BYTES = b"# Manual\n\nSome **markdown** content.\n"
 
 
-def _auth(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
-
-
 @pytest.fixture
-def manual_fs_resources(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def manual_fs_resources(tmp_path: Path, mocker: MockerFixture):
     """Mock fs_resource_handler so /manuals (resources path) writes to tmp_path."""
     resources_dir = tmp_path / "resources"
     resources_dir.mkdir()
@@ -27,11 +26,9 @@ def manual_fs_resources(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         target = resources_dir / Path(path).name
         return target
 
-    monkeypatch.setattr(
-        manual_endpoint.fs_resource_handler, "validate_path", validate_path
-    )
-    monkeypatch.setattr(
-        manual_endpoint.fs_resource_handler,
+    mocker.patch.object(fs_resource_handler, "validate_path", validate_path)
+    mocker.patch.object(
+        fs_resource_handler,
         "make_directory",
         AsyncMock(return_value=None),
     )
@@ -39,33 +36,11 @@ def manual_fs_resources(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture
-def manual_fs_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    """Mock fs_rom_handler so /manuals/files (folder path) writes to tmp_path."""
-    folder_dir = tmp_path / "library"
-    folder_dir.mkdir()
-
-    def validate_path(path: str) -> Path:
-        return folder_dir / Path(path).name
-
-    async def remove_file(path: str) -> None:
-        target = folder_dir / Path(path).name
-        if target.exists():
-            target.unlink()
-        else:
-            raise FileNotFoundError(path)
-
-    monkeypatch.setattr(manual_endpoint.fs_rom_handler, "validate_path", validate_path)
-    monkeypatch.setattr(
-        manual_endpoint.fs_rom_handler,
-        "make_directory",
-        AsyncMock(return_value=None),
-    )
-    monkeypatch.setattr(
-        manual_endpoint.fs_rom_handler,
-        "remove_file",
-        AsyncMock(side_effect=remove_file),
-    )
-    return folder_dir
+def manual_fs_folder(game_folder_on_disk: Path) -> Path:
+    """The ROM's manual folder inside a real temp library."""
+    media_dir = game_folder_on_disk / "manual"
+    media_dir.mkdir()
+    return media_dir
 
 
 # ---------- POST /api/roms/{id}/manuals (resources) ----------
@@ -79,7 +54,7 @@ def test_upload_manual_to_resources_success(
 ):
     response = client.post(
         f"/api/roms/{rom.id}/manuals",
-        headers={**_auth(access_token), "x-upload-filename": "manual.pdf"},
+        headers={**bearer(access_token), "x-upload-filename": "manual.pdf"},
         files={"manual.pdf": ("manual.pdf", PDF_BYTES, "application/pdf")},
     )
 
@@ -88,7 +63,9 @@ def test_upload_manual_to_resources_success(
     assert written.exists()
     assert written.read_bytes() == PDF_BYTES
     refreshed = db_rom_handler.get_rom(rom.id)
+    assert refreshed is not None
     assert refreshed.path_manual == f"{rom.fs_resources_path}/manual/{rom.id}.pdf"
+    assert refreshed.locked_fields == ["url_manual"]
 
 
 def test_upload_markdown_manual_to_resources_preserves_extension(
@@ -99,7 +76,7 @@ def test_upload_markdown_manual_to_resources_preserves_extension(
 ):
     response = client.post(
         f"/api/roms/{rom.id}/manuals",
-        headers={**_auth(access_token), "x-upload-filename": "README.md"},
+        headers={**bearer(access_token), "x-upload-filename": "README.md"},
         files={"README.md": ("README.md", MD_BYTES, "text/markdown")},
     )
 
@@ -108,6 +85,7 @@ def test_upload_markdown_manual_to_resources_preserves_extension(
     assert written.exists()
     assert written.read_bytes() == MD_BYTES
     refreshed = db_rom_handler.get_rom(rom.id)
+    assert refreshed is not None
     assert refreshed.path_manual == f"{rom.fs_resources_path}/manual/{rom.id}.md"
 
 
@@ -119,8 +97,10 @@ def test_upload_manual_to_resources_rejects_unsupported_extension(
 ):
     response = client.post(
         f"/api/roms/{rom.id}/manuals",
-        headers={**_auth(access_token), "x-upload-filename": "manual.txt"},
-        files={"manual.txt": ("manual.txt", b"not allowed", "text/plain")},
+        headers={**bearer(access_token), "x-upload-filename": "manual.exe"},
+        files={
+            "manual.exe": ("manual.exe", b"not allowed", "application/octet-stream")
+        },
     )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -139,13 +119,38 @@ def test_upload_manual_to_resources_drops_stale_other_extension(
 
     response = client.post(
         f"/api/roms/{rom.id}/manuals",
-        headers={**_auth(access_token), "x-upload-filename": "README.md"},
+        headers={**bearer(access_token), "x-upload-filename": "README.md"},
         files={"README.md": ("README.md", MD_BYTES, "text/markdown")},
     )
 
     assert response.status_code == status.HTTP_201_CREATED
     assert (manual_fs_resources / f"{rom.id}.md").exists()
     assert not (manual_fs_resources / f"{rom.id}.pdf").exists()
+
+
+def test_upload_manual_to_resources_failure_keeps_other_extension(
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+    manual_fs_resources: Path,
+    mocker: MockerFixture,
+):
+    (manual_fs_resources / f"{rom.id}.pdf").write_bytes(PDF_BYTES)
+    mocker.patch.object(
+        StreamingFormDataParser,
+        "data_received",
+        side_effect=RuntimeError("stream broke"),
+    )
+
+    response = client.post(
+        f"/api/roms/{rom.id}/manuals",
+        headers={**bearer(access_token), "x-upload-filename": "README.md"},
+        files={"README.md": ("README.md", MD_BYTES, "text/markdown")},
+    )
+
+    assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+    assert (manual_fs_resources / f"{rom.id}.pdf").read_bytes() == PDF_BYTES
+    assert not (manual_fs_resources / f"{rom.id}.md").exists()
 
 
 def test_upload_manual_to_resources_rom_not_found(
@@ -155,7 +160,7 @@ def test_upload_manual_to_resources_rom_not_found(
 ):
     response = client.post(
         "/api/roms/999999/manuals",
-        headers={**_auth(access_token), "x-upload-filename": "manual.pdf"},
+        headers={**bearer(access_token), "x-upload-filename": "manual.pdf"},
         files={"manual.pdf": ("manual.pdf", PDF_BYTES, "application/pdf")},
     )
 
@@ -173,7 +178,7 @@ def test_upload_manual_to_folder_success(
 ):
     response = client.post(
         f"/api/roms/{game_folder_rom.id}/manuals/files",
-        headers={**_auth(access_token), "x-upload-filename": "english.pdf"},
+        headers={**bearer(access_token), "x-upload-filename": "english.pdf"},
         files={"english.pdf": ("english.pdf", PDF_BYTES, "application/pdf")},
     )
 
@@ -183,6 +188,7 @@ def test_upload_manual_to_folder_success(
     assert written.read_bytes() == PDF_BYTES
 
     rom_after = db_rom_handler.get_rom(game_folder_rom.id)
+    assert rom_after is not None
     manual_files = [f for f in rom_after.files if f.category == RomFileCategory.MANUAL]
     assert len(manual_files) == 1
     assert manual_files[0].file_name == "english.pdf"
@@ -199,12 +205,13 @@ def test_upload_manual_to_folder_upserts_on_reupload(
     for _ in range(2):
         response = client.post(
             f"/api/roms/{game_folder_rom.id}/manuals/files",
-            headers={**_auth(access_token), "x-upload-filename": "english.pdf"},
+            headers={**bearer(access_token), "x-upload-filename": "english.pdf"},
             files={"english.pdf": ("english.pdf", PDF_BYTES, "application/pdf")},
         )
         assert response.status_code == status.HTTP_201_CREATED
 
     rom_after = db_rom_handler.get_rom(game_folder_rom.id)
+    assert rom_after is not None
     manual_files = [f for f in rom_after.files if f.category == RomFileCategory.MANUAL]
     assert len(manual_files) == 1
 
@@ -220,8 +227,8 @@ def test_upload_manual_to_folder_rejects_non_pdf(
 ):
     response = client.post(
         f"/api/roms/{game_folder_rom.id}/manuals/files",
-        headers={**_auth(access_token), "x-upload-filename": "manual.txt"},
-        files={"manual.txt": ("manual.txt", b"not a pdf", "text/plain")},
+        headers={**bearer(access_token), "x-upload-filename": "manual.exe"},
+        files={"manual.exe": ("manual.exe", b"not a pdf", "application/octet-stream")},
     )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -238,7 +245,7 @@ def test_redownload_manual_no_url(
 ):
     response = client.post(
         f"/api/roms/{rom.id}/manuals/redownload",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -249,26 +256,32 @@ def test_redownload_manual_success(
     client: TestClient,
     access_token: str,
     rom: Rom,
-    monkeypatch: pytest.MonkeyPatch,
+    mocker: MockerFixture,
 ):
     db_rom_handler.update_rom(
-        rom.id, {"url_manual": "https://screenscraper.fr/api/manual.pdf"}
+        rom.id,
+        {
+            "url_manual": "https://screenscraper.fr/api/manual.pdf",
+            "locked_fields": ["url_manual"],
+        },
     )
     fake_path = f"{rom.fs_resources_path}/manual/{rom.id}.pdf"
-    monkeypatch.setattr(
-        manual_endpoint.fs_resource_handler,
+    mocker.patch.object(
+        fs_resource_handler,
         "get_manual",
         AsyncMock(return_value=fake_path),
     )
 
     response = client.post(
         f"/api/roms/{rom.id}/manuals/redownload",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK
     refreshed = db_rom_handler.get_rom(rom.id)
+    assert refreshed is not None
     assert refreshed.path_manual == fake_path
+    assert refreshed.locked_fields == []
 
 
 # ---------- DELETE /api/roms/{id}/manuals (resources) ----------
@@ -278,17 +291,17 @@ def test_delete_manual_no_manual_returns_404(
     client: TestClient,
     access_token: str,
     rom: Rom,
-    monkeypatch: pytest.MonkeyPatch,
+    mocker: MockerFixture,
 ):
-    monkeypatch.setattr(
-        manual_endpoint.fs_resource_handler,
+    mocker.patch.object(
+        fs_resource_handler,
         "manual_exists",
         lambda _rom: False,
     )
 
     response = client.delete(
         f"/api/roms/{rom.id}/manuals",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -298,33 +311,32 @@ def test_delete_manual_success(
     client: TestClient,
     access_token: str,
     rom: Rom,
-    monkeypatch: pytest.MonkeyPatch,
+    mocker: MockerFixture,
 ):
     db_rom_handler.update_rom(
         rom.id,
         {
             "path_manual": f"{rom.fs_resources_path}/manual/{rom.id}.pdf",
             "url_manual": "https://screenscraper.fr/api/manual.pdf",
+            "locked_fields": ["url_manual"],
         },
     )
-    monkeypatch.setattr(
-        manual_endpoint.fs_resource_handler, "manual_exists", lambda _rom: True
-    )
+    mocker.patch.object(fs_resource_handler, "manual_exists", lambda _rom: True)
     remove_mock = AsyncMock(return_value=None)
-    monkeypatch.setattr(
-        manual_endpoint.fs_resource_handler, "remove_manual", remove_mock
-    )
+    mocker.patch.object(fs_resource_handler, "remove_manual", remove_mock)
 
     response = client.delete(
         f"/api/roms/{rom.id}/manuals",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK
     remove_mock.assert_awaited_once()
     refreshed = db_rom_handler.get_rom(rom.id)
+    assert refreshed is not None
     assert refreshed.path_manual == ""
     assert refreshed.url_manual == ""
+    assert refreshed.locked_fields == []
 
 
 # ---------- DELETE /api/roms/{id}/manuals/files/{file_id} ----------
@@ -350,7 +362,7 @@ def test_delete_manual_file_success(
 
     response = client.delete(
         f"/api/roms/{game_folder_rom.id}/manuals/files/{manual_file.id}",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -377,7 +389,7 @@ def test_delete_manual_file_wrong_rom_returns_404(
 
     response = client.delete(
         f"/api/roms/{rom.id}/manuals/files/{manual_file.id}",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -401,7 +413,7 @@ def test_delete_manual_file_wrong_category_returns_404(
 
     response = client.delete(
         f"/api/roms/{game_folder_rom.id}/manuals/files/{not_manual.id}",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -419,7 +431,7 @@ def test_upload_manual_to_resources_forbidden_viewer(
     response = client.post(
         f"/api/roms/{rom.id}/manuals",
         headers={
-            **_auth(viewer_access_token),
+            **bearer(viewer_access_token),
             "x-upload-filename": "manual.pdf",
         },
         files={"manual.pdf": ("manual.pdf", PDF_BYTES, "application/pdf")},
@@ -436,7 +448,7 @@ def test_upload_manual_to_folder_forbidden_viewer(
     response = client.post(
         f"/api/roms/{game_folder_rom.id}/manuals/files",
         headers={
-            **_auth(viewer_access_token),
+            **bearer(viewer_access_token),
             "x-upload-filename": "english.pdf",
         },
         files={"english.pdf": ("english.pdf", PDF_BYTES, "application/pdf")},
@@ -451,7 +463,7 @@ def test_redownload_manual_forbidden_viewer(
 ):
     response = client.post(
         f"/api/roms/{rom.id}/manuals/redownload",
-        headers=_auth(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
     assert response.status_code == status.HTTP_403_FORBIDDEN
 
@@ -474,7 +486,7 @@ def test_delete_manual_file_forbidden_viewer(
 
     response = client.delete(
         f"/api/roms/{game_folder_rom.id}/manuals/files/{manual_file.id}",
-        headers=_auth(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
     assert response.status_code == status.HTTP_403_FORBIDDEN
 
@@ -490,7 +502,7 @@ def test_upload_manual_file_rejects_dotdot_filename(
 ):
     response = client.post(
         f"/api/roms/{game_folder_rom.id}/manuals/files",
-        headers={**_auth(access_token), "x-upload-filename": ".."},
+        headers={**bearer(access_token), "x-upload-filename": ".."},
         files={"..": ("..", PDF_BYTES, "application/pdf")},
     )
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -506,7 +518,7 @@ def test_upload_manual_file_rejects_path_components(
     response = client.post(
         f"/api/roms/{game_folder_rom.id}/manuals/files",
         headers={
-            **_auth(access_token),
+            **bearer(access_token),
             "x-upload-filename": "../../evil.pdf",
         },
         files={"../../evil.pdf": ("evil.pdf", PDF_BYTES, "application/pdf")},
@@ -522,7 +534,7 @@ def test_delete_manual_file_tolerates_missing_disk_file(
     game_folder_rom: Rom,
     manual_fs_folder: Path,
 ):
-    # Don't create the file on disk — DELETE should still drop the row.
+    # Don't create the file on disk; DELETE should still drop the row.
     manual_file = db_rom_handler.add_rom_file(
         RomFile(
             rom_id=game_folder_rom.id,
@@ -535,7 +547,7 @@ def test_delete_manual_file_tolerates_missing_disk_file(
 
     response = client.delete(
         f"/api/roms/{game_folder_rom.id}/manuals/files/{manual_file.id}",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK

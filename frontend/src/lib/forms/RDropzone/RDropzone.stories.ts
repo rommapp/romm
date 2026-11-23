@@ -1,0 +1,107 @@
+import type { Meta, StoryObj } from "@storybook/vue3-vite";
+import { expect, within } from "storybook/test";
+import { ref } from "vue";
+import RDropzone from "./RDropzone.vue";
+
+const meta: Meta<typeof RDropzone> = {
+  title: "Forms/RDropzone",
+  component: RDropzone,
+  args: {
+    title: "Drop files here",
+    hint: "Drag and drop, or click to browse",
+    activeTitle: "Release to upload",
+    inputLabel: "Upload files",
+    multiple: true,
+  },
+  render: (args) => ({
+    components: { RDropzone },
+    setup() {
+      const picked = ref<string[]>([]);
+      function onFiles(files: File[]) {
+        picked.value = files.map((f) => f.name);
+      }
+      return { args, picked, onFiles };
+    },
+    template: `
+      <div style="max-width: 520px">
+        <RDropzone v-bind="args" @files="onFiles" />
+        <p v-if="picked.length" style="margin-top: 12px; font-size: 12px">
+          Picked: {{ picked.join(", ") }}
+        </p>
+      </div>
+    `,
+  }),
+};
+
+export default meta;
+type Story = StoryObj<typeof RDropzone>;
+
+/** Default empty-state call-to-action. */
+export const CTA: Story = {};
+
+/** Single-row CTA for panels that sit next to other controls. */
+export const Compact: Story = {
+  args: { compact: true },
+};
+
+/** CTA stretched to a parent with a fixed height (e.g. a full-height panel). */
+export const Fill: Story = {
+  args: { fill: true },
+  render: (args) => ({
+    components: { RDropzone },
+    setup: () => ({ args }),
+    template: `
+      <div style="max-width: 520px; height: 360px">
+        <RDropzone v-bind="args" />
+      </div>
+    `,
+  }),
+};
+
+export const Disabled: Story = {
+  args: { disabled: true },
+};
+
+/** Overlay mode wraps existing content; the drag-over overlay floats on top. */
+export const Overlay: Story = {
+  args: { overlay: true, releaseLabel: "Release to upload" },
+  render: (args) => ({
+    components: { RDropzone },
+    setup: () => ({ args }),
+    template: `
+      <div style="max-width: 520px">
+        <RDropzone v-bind="args">
+          <div
+            style="
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 8px;
+            "
+          >
+            <div
+              v-for="n in 6"
+              :key="n"
+              style="
+                aspect-ratio: 16 / 9;
+                border-radius: 6px;
+                background: var(--r-color-cover-placeholder);
+              "
+            />
+          </div>
+        </RDropzone>
+      </div>
+    `,
+  }),
+};
+
+/** Interaction: the CTA renders its copy and is keyboard-focusable. */
+export const Interaction: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const button = canvas.getByRole("button");
+    await expect(button).toBeInTheDocument();
+    await expect(canvas.getByText("Drop files here")).toBeInTheDocument();
+    button.focus();
+    await expect(button).toHaveFocus();
+  },
+};

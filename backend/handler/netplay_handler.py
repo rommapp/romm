@@ -1,5 +1,5 @@
 import json
-from typing import Optional, TypedDict
+from typing import Optional, TypedDict, cast
 
 from handler.redis_handler import async_cache
 
@@ -25,7 +25,7 @@ class NetplayRoom(TypedDict):
 class NetplayHandler:
     """A class to handle netplay rooms in Redis."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.hash_name = "netplay:rooms"
 
     async def get(self, room_id: str) -> NetplayRoom | None:
@@ -33,17 +33,17 @@ class NetplayHandler:
         room = await async_cache.hget(self.hash_name, room_id)
         return json.loads(room) if room else None
 
-    async def set(self, room_id: str, room_data: NetplayRoom):
+    async def set(self, room_id: str, room_data: NetplayRoom) -> int:
         """Set a room in Redis."""
         return await async_cache.hset(self.hash_name, room_id, json.dumps(room_data))
 
-    async def delete(self, room_ids: list[str]):
+    async def delete(self, room_ids: list[str]) -> int:
         """Delete a room from Redis."""
         return await async_cache.hdel(self.hash_name, *room_ids)
 
     async def get_all(self) -> dict[str, NetplayRoom]:
         """Get all rooms from Redis."""
-        rooms = await async_cache.hgetall(self.hash_name)
+        rooms = cast(dict[str, str], await async_cache.hgetall(self.hash_name))
         return {room_id: json.loads(room_data) for room_id, room_data in rooms.items()}
 
 

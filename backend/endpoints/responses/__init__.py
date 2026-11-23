@@ -1,7 +1,9 @@
-from typing import Literal, TypedDict, Union
+from typing import Annotated, Literal, TypedDict, Union
 
-from rq_scheduler.scheduler import JobStatus
+from pydantic import Field, with_config
+from rq.job import JobStatus
 
+from endpoints.responses.base import API_SCHEMA_CONFIG
 from tasks.tasks import TaskType
 
 
@@ -16,6 +18,8 @@ class ScanStats(TypedDict):
     identified_roms: int
     scanned_firmware: int
     new_firmware: int
+    updated_roms: int
+    new_files: int
 
 
 class ScanTaskMeta(TypedDict):
@@ -51,13 +55,24 @@ class OrphanedResourcesCleanupStats(TypedDict):
 
 
 class MissingRomsCleanupStats(TypedDict):
-    platform_id: int | None
+    platform_ids: list[int] | None
     roms_found: int
     roms_deleted: int
     errors: int
 
 
-CleanupStats = Union[OrphanedResourcesCleanupStats, MissingRomsCleanupStats]
+class MissingFirmwareCleanupStats(TypedDict):
+    platform_ids: list[int] | None
+    firmware_found: int
+    firmware_deleted: int
+    errors: int
+
+
+CleanupStats = Union[
+    OrphanedResourcesCleanupStats,
+    MissingRomsCleanupStats,
+    MissingFirmwareCleanupStats,
+]
 
 
 class CleanupTaskMeta(TypedDict):
@@ -88,9 +103,23 @@ TaskMeta = Union[
 ]
 
 
+# A TypedDict reads attribute docstrings only from its own body, so the fields
+# the status responses inherit keep their descriptions on `Field`.
 class TaskExecutionResponse(TypedDict):
+    task_key: Annotated[
+        str | None,
+        Field(
+            description=(
+                "The key of the task in the catalog. Null for scans that a client"
+                " or the file watcher started outside the catalog."
+            )
+        ),
+    ]
     task_name: str
-    task_id: str
+    task_id: Annotated[
+        str,
+        Field(description="The job ID, which `GET /tasks/{task_id}` takes."),
+    ]
     status: JobStatus
     created_at: str | None
     enqueued_at: str | None
@@ -101,36 +130,43 @@ class BaseTaskStatusResponse(TaskExecutionResponse):
     ended_at: str | None
 
 
+@with_config(API_SCHEMA_CONFIG)
 class ScanTaskStatusResponse(BaseTaskStatusResponse):
     task_type: Literal[TaskType.SCAN]
     meta: ScanTaskMeta
 
 
+@with_config(API_SCHEMA_CONFIG)
 class ConversionTaskStatusResponse(BaseTaskStatusResponse):
     task_type: Literal[TaskType.CONVERSION]
     meta: ConversionTaskMeta
 
 
+@with_config(API_SCHEMA_CONFIG)
 class UpdateTaskStatusResponse(BaseTaskStatusResponse):
     task_type: Literal[TaskType.UPDATE]
     meta: UpdateTaskMeta
 
 
+@with_config(API_SCHEMA_CONFIG)
 class CleanupTaskStatusResponse(BaseTaskStatusResponse):
     task_type: Literal[TaskType.CLEANUP]
     meta: CleanupTaskMeta
 
 
+@with_config(API_SCHEMA_CONFIG)
 class SyncTaskStatusResponse(BaseTaskStatusResponse):
     task_type: Literal[TaskType.SYNC]
     meta: SyncTaskMeta
 
 
+@with_config(API_SCHEMA_CONFIG)
 class WatcherTaskStatusResponse(BaseTaskStatusResponse):
     task_type: Literal[TaskType.WATCHER]
     meta: WatcherTaskMeta
 
 
+@with_config(API_SCHEMA_CONFIG)
 class GenericTaskStatusResponse(BaseTaskStatusResponse):
     task_type: Literal[TaskType.GENERIC]
     meta: GenericTaskMeta

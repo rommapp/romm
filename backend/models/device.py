@@ -3,9 +3,9 @@ from __future__ import annotations
 import enum
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import JSON, TIMESTAMP, Boolean, Enum, ForeignKey, String
+from sqlalchemy import JSON, TIMESTAMP, Boolean, Enum, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.base import BaseModel
@@ -36,12 +36,23 @@ KNOWN_DEVICES: dict[str, DeviceType] = {
     "argosy-launcher": DeviceType(
         platform="Android", client="argosy-launcher", sync_mode=SyncMode.API
     ),
+    "retroarch": DeviceType(
+        platform="RetroArch", client="retroarch", sync_mode=SyncMode.API
+    ),
 }
 
 
 class Device(BaseModel):
     __tablename__ = "devices"
-    __table_args__ = {"extend_existing": True}
+    __table_args__ = (
+        Index(
+            "ix_devices_user_client_identifier",
+            "user_id",
+            "client_device_identifier",
+            unique=True,
+        ),
+        {"extend_existing": True},
+    )
 
     id: Mapped[str] = mapped_column(String(255), primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
@@ -61,9 +72,12 @@ class Device(BaseModel):
 
     sync_mode: Mapped[SyncMode] = mapped_column(Enum(SyncMode), default=SyncMode.API)
     sync_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-    sync_config: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    sync_config: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    capabilities: Mapped[dict[str, bool] | None] = mapped_column(JSON, nullable=True)
 
-    last_seen: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
+    last_seen: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), index=True
+    )
 
     user: Mapped[User] = relationship(lazy="joined")
     save_syncs: Mapped[list[DeviceSaveSync]] = relationship(

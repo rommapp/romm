@@ -4,8 +4,11 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
+from models.user import TEXT_FIELD_LENGTH
 from utils.validation import (
     ValidationError,
+    narrow_rom_id_scope,
+    sanitize_username,
     validate_ascii_only,
     validate_email,
     validate_password,
@@ -84,6 +87,13 @@ class TestValidateUsername:
             validate_username("user.name")
         assert True
 
+    @pytest.mark.parametrize("suffix", ["\n", "\r\n", "\t"])
+    def test_trailing_control_characters_are_rejected(self, suffix):
+        with pytest.raises(ValidationError) as exc_info:
+            validate_username(f"username{suffix}")
+        assert "letters, numbers, underscores, and hyphens" in exc_info.value.message
+        assert exc_info.value.field_name == "Username"
+
     def test_invalid_non_ascii_username(self):
         """Test that usernames with non-ASCII characters fail validation."""
         with pytest.raises(ValidationError) as exc_info:
@@ -93,6 +103,37 @@ class TestValidateUsername:
         with pytest.raises(ValidationError) as exc_info:
             validate_username("résumé")
         assert True
+
+
+class TestSanitizeUsername:
+    """Test coercion of provider-supplied usernames."""
+
+    @pytest.mark.parametrize(
+        ("supplied", "expected"),
+        [
+            ("already_valid-1", "already_valid-1"),
+            ("first.last", "first-last"),
+            ("first.last@example.com", "first-last-example-com"),
+            ("  spaced  out  ", "spaced-out"),
+            (".leading.and.trailing.", "leading-and-trailing"),
+            ("naïve", "na-ve"),
+        ],
+    )
+    def test_sanitized_usernames_pass_validation(self, supplied, expected):
+        sanitized = sanitize_username(supplied)
+        assert sanitized == expected
+        validate_username(sanitized)
+
+    def test_falls_back_when_nothing_usable_survives(self):
+        assert sanitize_username("ユーザー", fallback="someone") == "someone"
+        assert sanitize_username("...", fallback="...") == "user"
+
+    def test_truncates_to_the_column_length(self):
+        assert len(sanitize_username("a" * 300)) == TEXT_FIELD_LENGTH
+
+    @given(st.text(min_size=1))
+    def test_any_input_sanitizes_to_a_valid_username(self, supplied):
+        validate_username(sanitize_username(supplied))
 
 
 class TestValidatePassword:
@@ -154,11 +195,26 @@ class TestValidateEmail:
             validate_email("@domain.com")
         assert True
 
+    @pytest.mark.parametrize("suffix", ["\n", "\r\n", "\t"])
+    def test_trailing_control_characters_are_rejected(self, suffix):
+        with pytest.raises(ValidationError) as exc_info:
+            validate_email(f"user@example.com{suffix}")
+        assert exc_info.value.message == "Invalid email format"
+        assert exc_info.value.field_name == "Email"
+
     def test_invalid_non_ascii_email(self):
         """Test that emails with non-ASCII characters fail validation."""
         with pytest.raises(ValidationError) as exc_info:
             validate_email("résumé@example.com")
         assert "ASCII characters" in exc_info.value.message
+
+    def test_email_over_column_length(self):
+        """An email the column cannot hold fails validation, not the insert."""
+        domain = "@example.com"
+        validate_email("a" * (TEXT_FIELD_LENGTH - len(domain)) + domain)
+        with pytest.raises(ValidationError) as exc_info:
+            validate_email("a" * (TEXT_FIELD_LENGTH - len(domain) + 1) + domain)
+        assert "no more than 255 characters" in exc_info.value.message
 
 
 _USERNAME_ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-"
@@ -185,3 +241,25 @@ class TestValidateEmailProperties:
     )
     def test_well_formed_emails_pass(self, local, domain, tld):
         validate_email(f"{local}@{domain}.{tld}")
+
+
+class TestNarrowRomIdScope:
+    """Test folding a single-ROM filter into a `rom_ids` scope."""
+
+    def test_no_filters_leaves_the_scope_absent(self):
+        assert narrow_rom_id_scope(None, None) is None
+
+    def test_rom_id_alone_becomes_a_single_id_scope(self):
+        assert narrow_rom_id_scope(7, None) == [7]
+
+    def test_rom_ids_alone_passes_through(self):
+        assert narrow_rom_id_scope(None, [1, 2]) == [1, 2]
+
+    def test_both_narrow_to_their_intersection(self):
+        assert narrow_rom_id_scope(2, [1, 2, 3]) == [2]
+
+    def test_disjoint_filters_yield_an_empty_scope(self):
+        assert narrow_rom_id_scope(9, [1, 2]) == []
+
+    def test_empty_scope_stays_empty(self):
+        assert narrow_rom_id_scope(1, []) == []

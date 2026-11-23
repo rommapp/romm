@@ -13,6 +13,7 @@ export type DeviceCreatePayload = {
     hostname?: (string | null);
     sync_mode?: (SyncMode | null);
     sync_config?: (Record<string, any> | null);
+    capabilities?: (Record<string, boolean> | null);
     allow_existing?: boolean;
     allow_duplicate?: boolean;
     reset_syncs?: boolean;

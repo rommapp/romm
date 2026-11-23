@@ -1,0 +1,5 @@
+rules:
+  # actionlint doesn't understand the $/ self-repository syntax yet, so local
+  # actions and reusable workflows stay on ./ paths.
+  self-repository:
+    disable: true

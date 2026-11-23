@@ -271,7 +271,7 @@ def upgrade():
                                     AND JSON_LENGTH(JSON_EXTRACT(r.igdb_metadata, '$.age_ratings')) > 0
                                 THEN
                                      IF(
-                                        JSON_TYPE(JSON_EXTRACT(r.igdb_metadata, '$.age_ratings[*].rating')) = 'ARRAY',
+                                        CAST(JSON_TYPE(JSON_EXTRACT(r.igdb_metadata, '$.age_ratings[*].rating')) AS CHAR) = 'ARRAY',
                                         JSON_EXTRACT(r.igdb_metadata, '$.age_ratings[*].rating'),
                                         JSON_ARRAY(JSON_UNQUOTE(JSON_EXTRACT(r.igdb_metadata, '$.age_ratings[*].rating')))
                                     )
@@ -283,7 +283,7 @@ def upgrade():
                                     AND JSON_LENGTH(JSON_EXTRACT(r.ss_metadata, '$.age_ratings')) > 0
                                 THEN
                                     IF(
-                                        JSON_TYPE(JSON_EXTRACT(r.ss_metadata, '$.age_ratings[*].rating')) = 'ARRAY',
+                                        CAST(JSON_TYPE(JSON_EXTRACT(r.ss_metadata, '$.age_ratings[*].rating')) AS CHAR) = 'ARRAY',
                                         JSON_EXTRACT(r.ss_metadata, '$.age_ratings[*].rating'),
                                         JSON_ARRAY(JSON_UNQUOTE(JSON_EXTRACT(r.ss_metadata, '$.age_ratings[*].rating')))
                                     )

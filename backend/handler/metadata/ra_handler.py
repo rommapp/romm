@@ -1,14 +1,18 @@
 import json
 import os
-import re
 import time
-from datetime import datetime
-from typing import NotRequired, TypedDict, cast
+from typing import Annotated, NotRequired, TypedDict, cast
 
 import pydash
 from anyio import Path as AnyioPath
+from fastapi import HTTPException
+from pydantic import Field, with_config
 
-from adapters.services.retroachievements import RetroAchievementsService
+from adapters.services.provider_http import unavailable
+from adapters.services.retroachievements import (
+    RARequestRejectedError,
+    RetroAchievementsService,
+)
 from adapters.services.retroachievements_types import (
     RAGameExtendedDetails,
 )
@@ -16,15 +20,24 @@ from config import (
     REFRESH_RETROACHIEVEMENTS_CACHE_DAYS,
     RETROACHIEVEMENTS_API_KEY,
 )
+from endpoints.responses.base import API_SCHEMA_CONFIG
 from handler.filesystem import fs_resource_handler
 from logger.logger import log
 from models.rom import Rom
+from utils.arcade_platforms import RA_ARCADE_PLATFORMS, arcade_fallbacks
+from utils.datetime import parse_utc_timestamp
+from utils.platform_slugs import UniversalPlatformSlug as UPS
+from utils.platform_slugs import fill_duplicate_slugs
 
-from .base_handler import BaseRom, MetadataHandler
-from .base_handler import UniversalPlatformSlug as UPS
+from .base_handler import (
+    BaseRom,
+    MetadataHandler,
+    provider_tag_regex,
+    tag_id_from_filename,
+)
 
 # Regex to detect RetroAchievements ID tags in filenames like (ra-12345)
-RA_TAG_REGEX = re.compile(r"\(ra-(\d+)\)", re.IGNORECASE)
+RA_TAG_REGEX = provider_tag_regex("ra")
 
 
 class RAGamesPlatform(TypedDict):
@@ -53,7 +66,11 @@ class RAMetadata(TypedDict):
     first_release_date: int | None
     genres: list[str]
     companies: list[str]
+    publishers: list[str]
+    developers: list[str]
     achievements: list[RAGameRomAchievement]
+    # The ROM's RA hash is one RetroAchievements lists for this game.
+    hash_match: NotRequired[bool]
 
 
 class RAGameRom(BaseRom):
@@ -61,8 +78,11 @@ class RAGameRom(BaseRom):
     ra_metadata: NotRequired[RAMetadata]
 
 
+@with_config(API_SCHEMA_CONFIG)
 class EarnedAchievement(TypedDict):
-    id: str
+    id: Annotated[str, Field(deprecated=True)]
+    """The badge name. Several achievements can share one, so use `ra_id` to identify an achievement."""
+    ra_id: NotRequired[int]
     date: str
     date_hardcore: NotRequired[str]
 
@@ -83,26 +103,29 @@ class RAUserProgression(TypedDict):
 
 
 def extract_metadata_from_rom_details(
-    rom: Rom, rom_details: RAGameExtendedDetails
+    rom: Rom, rom_details: RAGameExtendedDetails, hash_match: bool
 ) -> RAMetadata:
-    def parse_release_timestamp():
+    def parse_release_timestamp() -> int | None:
         release_date_str = rom_details.get("Released")
         if not release_date_str:
             return None
 
         try:
-            # Extract date part (assuming format: "YYYY-MM-DD [additional info]")
-            parsed_date = datetime.strptime(release_date_str.split()[0], "%Y-%m-%d")
-            return int(parsed_date.timestamp())
-        except (AttributeError, ValueError, IndexError):
+            # "YYYY-MM-DD [additional info]"
+            date_part = release_date_str.split()[0]
+        except AttributeError, IndexError:
             return None
+        return parse_utc_timestamp(date_part, ("%Y-%m-%d",))
+
+    publishers = pydash.compact([rom_details.get("Publisher", None)])
+    developers = pydash.compact([rom_details.get("Developer", None)])
 
     return RAMetadata(
         first_release_date=parse_release_timestamp(),
         genres=pydash.compact([rom_details.get("Genre", None)]),
-        companies=pydash.compact(
-            [rom_details.get("Publisher", None), rom_details.get("Developer", None)]
-        ),
+        companies=[*publishers, *developers],
+        publishers=publishers,
+        developers=developers,
         achievements=[
             RAGameRomAchievement(
                 ra_id=achievement.get("ID", None),
@@ -121,37 +144,31 @@ def extract_metadata_from_rom_details(
             )
             for achievement in rom_details.get("Achievements", {}).values()
         ],
+        hash_match=hash_match,
     )
 
 
 class RAHandler(MetadataHandler):
     def __init__(self) -> None:
         self.ra_service = RetroAchievementsService()
-        self.HASHES_FILE_NAME = "ra_hashes_v2.json"
+        self.HASHES_FILE_NAME = "ra_hashes_v3.json"
+        # Parsed hash index per platform id, with the cache file mtime it came from.
+        self._hash_indexes: dict[int, tuple[float, dict[str, int]]] = {}
 
     @classmethod
     def is_enabled(cls) -> bool:
         return bool(RETROACHIEVEMENTS_API_KEY)
 
     async def heartbeat(self) -> bool:
-        if not self.is_enabled():
-            return False
+        async def probe() -> bool:
+            return bool(await self.ra_service.get_achievement_of_the_week())
 
-        try:
-            response = await self.ra_service.get_achievement_of_the_week()
-        except Exception as e:
-            log.error("Error checking RetroAchievements API: %s", e)
-            return False
-
-        return bool(response)
+        return await self._heartbeat("RetroAchievements API", probe)
 
     @staticmethod
     def extract_ra_id_from_filename(fs_name: str) -> int | None:
         """Extract RetroAchievements ID from filename tag like (ra-12345)."""
-        match = RA_TAG_REGEX.search(fs_name)
-        if match:
-            return int(match.group(1))
-        return None
+        return tag_id_from_filename(RA_TAG_REGEX, fs_name)
 
     def _get_hashes_file_path(self, platform_id: int) -> str:
         platform_resources_path = fs_resource_handler.get_platform_resources_path(
@@ -184,12 +201,16 @@ class RAHandler(MetadataHandler):
             <= await self._days_since_last_cache_file_update(rom.platform.id)
             or not await self._exists_cache_file(rom.platform.id)
         ):
-            # Fetch all games (including those without achievements) and build index
+            # An RA match should mean a set exists, so skip games without one
             roms = await self.ra_service.get_game_list(
                 system_id=rom.platform.ra_id,
-                only_games_with_achievements=False,
+                only_games_with_achievements=True,
                 include_hashes=True,
             )
+            # A failed request comes back as {}, which must not be cached as an
+            # empty index for the whole refresh window.
+            if not isinstance(roms, list):
+                raise unavailable("RetroAchievements")
 
             hash_index = {h.lower(): r["ID"] for r in roms for h in r.get("Hashes", ())}
 
@@ -204,13 +225,33 @@ class RAHandler(MetadataHandler):
                 self.HASHES_FILE_NAME,
             )
         else:
-            # Read the hash index from the JSON file
-            json_file_bytes = await fs_resource_handler.read_file(
-                self._get_hashes_file_path(rom.platform.id)
-            )
-            hash_index = json.loads(json_file_bytes.decode("utf-8"))
+            file_path = self._get_hashes_file_path(rom.platform.id)
+            full_path = fs_resource_handler.validate_path(file_path)
+            mtime = (await AnyioPath(str(full_path)).stat()).st_mtime
+            cached = self._hash_indexes.get(rom.platform.id)
+            if cached and cached[0] == mtime:
+                hash_index = cached[1]
+            else:
+                json_file_bytes = await fs_resource_handler.read_file(file_path)
+                hash_index = json.loads(json_file_bytes.decode("utf-8"))
+                self._hash_indexes[rom.platform.id] = (mtime, hash_index)
 
         return hash_index.get(ra_hash.lower())
+
+    async def _hash_matches(self, rom: Rom, ra_hash: str | None, ra_id: int) -> bool:
+        if not ra_hash:
+            return False
+        try:
+            return await self._search_rom(rom, ra_hash) == ra_id
+        except Exception as exc:
+            # A failed check must not block the ID lookup, nor drop a match
+            # already recorded for this game and hash.
+            log.warning(f"Couldn't check the RetroAchievements hash list: {exc}")
+            return (
+                rom.ra_id == ra_id
+                and rom.ra_hash == ra_hash
+                and bool((rom.ra_metadata or {}).get("hash_match"))
+            )
 
     def get_platform(self, slug: str) -> RAGamesPlatform:
         if slug not in RA_PLATFORM_LIST:
@@ -232,7 +273,9 @@ class RAHandler(MetadataHandler):
         ra_id_from_tag = self.extract_ra_id_from_filename(rom.fs_name)
         if ra_id_from_tag:
             log.debug(f"Found RetroAchievements ID tag in filename: {ra_id_from_tag}")
-            rom_by_id = await self.get_rom_by_id(rom=rom, ra_id=ra_id_from_tag)
+            rom_by_id = await self.get_rom_by_id(
+                rom=rom, ra_id=ra_id_from_tag, ra_hash=ra_hash
+            )
             if rom_by_id["ra_id"]:
                 log.debug(
                     f"Successfully matched ROM by RetroAchievements ID tag: {rom.fs_name} -> {ra_id_from_tag}"
@@ -251,9 +294,12 @@ class RAHandler(MetadataHandler):
         if ra_game_id is None:
             return RAGameRom(ra_id=None)
 
-        try:
-            rom_details = await self.ra_service.get_game_extended_details(ra_game_id)
+        rom_details = await self.ra_service.get_game_extended_details(ra_game_id)
+        # A failed request raises; None means RA retired the game the index named.
+        if not rom_details:
+            return RAGameRom(ra_id=None)
 
+        try:
             return RAGameRom(
                 ra_id=rom_details["ID"],
                 name=rom_details.get("Title", ""),
@@ -271,19 +317,27 @@ class RAHandler(MetadataHandler):
                         )
                     ]
                 ),
-                ra_metadata=extract_metadata_from_rom_details(rom, rom_details),
+                ra_metadata=extract_metadata_from_rom_details(
+                    rom, rom_details, hash_match=True
+                ),
             )
         except KeyError:
             return RAGameRom(ra_id=None)
 
-    async def get_rom_by_id(self, rom: Rom, ra_id: int) -> RAGameRom:
+    async def get_rom_by_id(
+        self, rom: Rom, ra_id: int, ra_hash: str | None = None
+    ) -> RAGameRom:
         if not ra_id:
             return RAGameRom(ra_id=None)
 
         try:
             rom_details = await self.ra_service.get_game_extended_details(ra_id)
+            if not rom_details:
+                return RAGameRom(ra_id=None)
+            game_id = rom_details["ID"]
+            hash_match = await self._hash_matches(rom, ra_hash, ra_id)
             return RAGameRom(
-                ra_id=rom_details["ID"],
+                ra_id=game_id,
                 name=rom_details.get("Title", ""),
                 url_cover=(
                     f"https://media.retroachievements.org{rom_details['ImageTitle']}"
@@ -299,7 +353,9 @@ class RAHandler(MetadataHandler):
                         )
                     ]
                 ),
-                ra_metadata=extract_metadata_from_rom_details(rom, rom_details),
+                ra_metadata=extract_metadata_from_rom_details(
+                    rom, rom_details, hash_match=hash_match
+                ),
             )
         except KeyError:
             return RAGameRom(ra_id=None)
@@ -308,56 +364,95 @@ class RAHandler(MetadataHandler):
         self,
         username: str,
         current_progression: RAUserProgression | None = None,
+        *,
+        refresh_all: bool = False,
     ) -> RAUserProgression:
         """Retrieves the user's RetroAchievements progression.
 
-        If `current_progression` is provided, it will only incrementally update the
-        progression based on new achievements since the last check.
+        Args:
+            current_progression: stored progression; unchanged games reuse it,
+                and games RA fails to detail keep it.
+            refresh_all: re-read every game's details, even unchanged ones.
         """
         game_progressions: list[RAUserGameProgression] = []
+        ra_unavailable = False
         current_progression_by_game_id: dict[int | None, RAUserGameProgression] = {}
         if current_progression:
             current_progression_by_game_id = {
                 p["rom_ra_id"]: p for p in current_progression.get("results", [])
             }
 
-        async for rom in self.ra_service.iter_user_completion_progress(username):
+        # Every page is read before any detail request, so a throttled page
+        # fails the sync before details are fetched and thrown away.
+        completion = [
+            rom async for rom in self.ra_service.iter_user_completion_progress(username)
+        ]
+        for rom in completion:
             rom_game_id = rom.get("GameID")
             highest_award_kind = rom.get("HighestAwardKind", None)
 
+            game_current_progression = current_progression_by_game_id.get(rom_game_id)
+            # The completion row's award kind is current even when the stored entry is reused.
+            if game_current_progression:
+                game_current_progression = cast(
+                    RAUserGameProgression,
+                    {
+                        **game_current_progression,
+                        "highest_award_kind": highest_award_kind,
+                    },
+                )
+
             # If we have current progression data, and number of awarded achievements and most
             # recent awarded date match, then we can skip fetching progression details.
-            game_current_progression = current_progression_by_game_id.get(rom_game_id)
             if (
-                game_current_progression
+                not refresh_all
+                and game_current_progression
+                # Entries stored before `ra_id` existed are read again to gain it.
+                and all(
+                    "ra_id" in e
+                    for e in game_current_progression.get("earned_achievements", [])
+                )
                 and rom["NumAwarded"] == game_current_progression.get("num_awarded")
                 and rom["NumAwardedHardcore"]
                 == game_current_progression.get("num_awarded_hardcore")
                 and rom["MostRecentAwardedDate"]
                 == game_current_progression.get("most_recent_awarded_date")
             ):
-                # Always keep highest_award_kind up-to-date even for cached progressions
-                if (
-                    game_current_progression.get("highest_award_kind")
-                    != highest_award_kind
-                ):
-                    game_current_progression = cast(
-                        RAUserGameProgression,
-                        {
-                            **game_current_progression,
-                            "highest_award_kind": highest_award_kind,
-                        },
-                    )
                 game_progressions.append(game_current_progression)
                 continue
 
             earned_achievements: list[EarnedAchievement] = []
             if rom_game_id:
-                result = await self.ra_service.get_user_game_progress(
-                    username=username,
-                    game_id=rom_game_id,
-                )
-                for achievement in result.get("Achievements", {}).values():
+                result = None
+                failed = ra_unavailable
+                if not ra_unavailable:
+                    try:
+                        result = await self.ra_service.get_user_game_progress(
+                            username=username,
+                            game_id=rom_game_id,
+                        )
+                    except RARequestRejectedError as exc:
+                        log.warning(
+                            "RetroAchievements refused progress for game %s, "
+                            "keeping its stored progress: %s",
+                            rom_game_id,
+                            exc.detail,
+                        )
+                        failed = True
+                    except HTTPException as exc:
+                        log.warning(
+                            "RetroAchievements is unavailable at game %s, "
+                            "deferring the remaining games to the next sync: %s",
+                            rom_game_id,
+                            exc.detail,
+                        )
+                        failed = ra_unavailable = True
+                if failed:
+                    if game_current_progression:
+                        game_progressions.append(game_current_progression)
+                    continue
+                achievements = result.get("Achievements", {}) if result else {}
+                for achievement in achievements.values():
                     badge_name = achievement.get("BadgeName")
                     date_earned = achievement.get("DateEarned")
                     date_earned_hardcore = achievement.get("DateEarnedHardcore")
@@ -366,6 +461,8 @@ class RAHandler(MetadataHandler):
                             id=badge_name,
                             date=date_earned,
                         )
+                        if achievement.get("ID") is not None:
+                            earned_achievement["ra_id"] = achievement["ID"]
                         if date_earned_hardcore:
                             earned_achievement["date_hardcore"] = date_earned_hardcore
                         earned_achievements.append(earned_achievement)
@@ -430,6 +527,8 @@ RA_PLATFORM_LIST: dict[UPS, SlugToRAId] = {
     UPS.FAMICOM: {"id": 7, "name": "Family Computer"},
     UPS.FDS: {"id": 81, "name": "Famicom Disk System"},
     UPS.NEO_GEO_CD: {"id": 56, "name": "Neo Geo CD"},
+    UPS.NEOGEOAES: {"id": 27, "name": "Neo Geo AES"},
+    UPS.NEOGEOMVS: {"id": 27, "name": "Neo Geo MVS"},
     UPS.NEO_GEO_POCKET: {"id": 14, "name": "Neo Geo Pocket"},
     UPS.NEO_GEO_POCKET_COLOR: {
         "id": 14,
@@ -468,6 +567,7 @@ RA_PLATFORM_LIST: dict[UPS, SlugToRAId] = {
     UPS.WONDERSWAN: {"id": 53, "name": "WonderSwan"},
     UPS.WONDERSWAN_COLOR: {"id": 53, "name": "WonderSwan Color"},
 }
+# RetroAchievements has one Arcade console and hashes its games by set name.
+RA_PLATFORM_LIST |= arcade_fallbacks(RA_PLATFORM_LIST, RA_ARCADE_PLATFORMS)
 
-# Reverse lookup
-RA_ID_TO_SLUG = {v["id"]: k for k, v in RA_PLATFORM_LIST.items()}
+fill_duplicate_slugs(RA_PLATFORM_LIST)

@@ -1,4 +1,6 @@
 import logging
+from collections.abc import Mapping
+from types import MappingProxyType
 from typing import Final
 
 from logger.formatter import redact_sensitive, resolve_module_name, strip_ansi
@@ -9,6 +11,11 @@ from logger.formatter import redact_sensitive, resolve_module_name, strip_ansi
 LOG_CHANNEL: Final = "romm:logs"
 LOG_BUFFER_KEY: Final = "romm:logs:buffer"
 LOG_BUFFER_SIZE: Final = 1000
+
+_STDOUT_ONLY_ATTR: Final = "stdout_only"
+# Pass as `extra=` on a record that carries a usable secret: stdout keeps it,
+# the buffer and stream that `logs.read` holders can see do not.
+STDOUT_ONLY: Final[Mapping[str, object]] = MappingProxyType({_STDOUT_ONLY_ATTR: True})
 
 
 class LogStreamHandler(logging.Handler):
@@ -24,12 +31,14 @@ class LogStreamHandler(logging.Handler):
     covers the whole backend.
 
     Failures are swallowed **silently** — stdout is the source-of-truth log, so
-    a Redis hiccup (or the metadata package not being importable yet during the
+    a Redis hiccup (or the Redis client not being importable yet during the
     first few boot lines) must neither raise into the app nor spam tracebacks
     via ``handleError``.
     """
 
     def emit(self, record: logging.LogRecord) -> None:
+        if getattr(record, _STDOUT_ONLY_ATTR, False):
+            return
         try:
             from handler.redis_handler import redis_client
             from utils import json_module

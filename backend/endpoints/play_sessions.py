@@ -1,18 +1,22 @@
 from datetime import datetime
+from typing import Annotated
 
-from fastapi import HTTPException, Request, status
-from pydantic import BaseModel, Field, model_validator
+from fastapi import Depends, HTTPException, Query, Request, status
+from pydantic import Field, model_validator
 
 from decorators.auth import protected_route
+from endpoints.responses.base import PAGE_QUERY, BaseModel, PageParams
 from endpoints.responses.play_session import (
     PlaySessionIngestResponse,
     PlaySessionIngestResult,
     PlaySessionSchema,
 )
 from handler.auth.constants import Scope
+from handler.auth.dependencies import get_permissions
 from handler.database import db_play_session_handler
 from handler.play_session_handler import ingest_play_sessions as _ingest
 from logger.logger import log
+from utils.auth import require_token_device, token_device_id
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -21,6 +25,14 @@ router = APIRouter(
 )
 
 MAX_BATCH_SIZE = 100
+
+
+def assert_batch_size(count: int) -> None:
+    if count > MAX_BATCH_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Batch size exceeds maximum of {MAX_BATCH_SIZE}",
+        )
 
 
 class PlaySessionEntry(BaseModel):
@@ -45,28 +57,41 @@ class PlaySessionIngestPayload(BaseModel):
 
 
 @protected_route(
-    router.post, "", [Scope.ROMS_USER_WRITE], status_code=status.HTTP_201_CREATED
+    router.post,
+    "",
+    [Scope.ROMS_USER_WRITE],
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": (
+                f"The batch has no sessions or more than {MAX_BATCH_SIZE} of them."
+            )
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The client token is bound to a device other than `device_id`."
+        },
+    },
 )
 def ingest_play_sessions(
     request: Request,
     payload: PlaySessionIngestPayload,
 ) -> PlaySessionIngestResponse:
+    """Record a batch of play sessions reported by a client. The sessions are recorded for the payload's `device_id`, or for the client token's device when it is not set."""
     if not payload.sessions:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Payload must contain at least one session",
         )
-    if len(payload.sessions) > MAX_BATCH_SIZE:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Batch size exceeds maximum of {MAX_BATCH_SIZE}",
-        )
+    assert_batch_size(len(payload.sessions))
 
-    device_id = payload.device_id or getattr(request.state, "device_id", None)
+    if payload.device_id:
+        require_token_device(request, payload.device_id)
+    device_id = payload.device_id or token_device_id(request)
 
     summary = _ingest(
         user_id=request.user.id,
         username=request.user.username,
+        perms=get_permissions(request),
         entries=[
             {
                 "rom_id": s.rom_id,
@@ -95,25 +120,59 @@ def ingest_play_sessions(
     )
 
 
-@protected_route(router.get, "", [Scope.ROMS_USER_READ])
+@protected_route(
+    router.get,
+    "",
+    [Scope.ROMS_USER_READ],
+    responses={
+        status.HTTP_403_FORBIDDEN: {
+            "description": (
+                "The request does not set `device_id` to the client token's own"
+                " device, and the caller lacks the `devices.read` scope."
+            )
+        }
+    },
+)
 def get_play_sessions(
     request: Request,
+    page: Annotated[PageParams, Depends(PAGE_QUERY)],
     rom_id: int | None = None,
     device_id: str | None = None,
-    start_after: datetime | None = None,
-    end_before: datetime | None = None,
-    limit: int = 50,
-    offset: int = 0,
+    start_after: Annotated[
+        datetime | None,
+        Query(
+            description=(
+                "Only sessions that started at or after this time. When this or"
+                " `end_before` is set, `limit` is ignored and every match after"
+                " `offset` is returned."
+            )
+        ),
+    ] = None,
+    end_before: Annotated[
+        datetime | None,
+        Query(
+            description=(
+                "Only sessions that started at or before this time. The end time"
+                " of a session is not considered."
+            )
+        ),
+    ] = None,
 ) -> list[PlaySessionSchema]:
-    effective_device_id = device_id or getattr(request.state, "device_id", None)
+    """List the caller's play sessions. A client may read its own device's sessions with `roms.user.read`; any other device needs `devices.read`."""
+    # A device-bound client may read its own device with roms.user.read alone.
+    if (
+        device_id is None or device_id != token_device_id(request)
+    ) and Scope.DEVICES_READ not in request.auth.scopes:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     sessions = db_play_session_handler.get_sessions(
         user_id=request.user.id,
         rom_id=rom_id,
-        device_id=effective_device_id,
+        device_id=device_id,
         start_after=start_after,
         end_before=end_before,
-        limit=limit if start_after is None and end_before is None else None,
-        offset=offset,
+        limit=page.limit if start_after is None and end_before is None else None,
+        offset=page.offset,
+        visibility=get_permissions(request).rom_visibility,
     )
     return [PlaySessionSchema.model_validate(s) for s in sessions]
 
@@ -123,10 +182,21 @@ def get_play_sessions(
     "/{session_id}",
     [Scope.ROMS_USER_WRITE],
     status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no play session with this ID on a rom it can see."
+        }
+    },
 )
-def delete_play_session(request: Request, session_id: int) -> None:
+def delete_play_session(
+    request: Request,
+    session_id: int,
+) -> None:
+    """Delete one of the caller's play sessions."""
     deleted = db_play_session_handler.delete_session(
-        session_id=session_id, user_id=request.user.id
+        session_id=session_id,
+        user_id=request.user.id,
+        visibility=get_permissions(request).rom_visibility,
     )
     if not deleted:
         raise HTTPException(

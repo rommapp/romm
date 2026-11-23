@@ -4,11 +4,16 @@
   "hours-ago": "{n} órája",
   "hours-minutes-ago": "{h} ó {m} perce",
   "just-now": "Az imént",
-  "live": "ÉLŐ",
   "minutes-ago": "{n} perce",
   "no-activity": "Jelenleg senki sem játszik",
-  "now-playing": "Most játszik",
-  "playing-on": "Ezen játszik: {device}",
-  "playing-since": "Játszik ekkortól: {time}",
-  "total-sessions": "Összes munkamenet"
+  "release-failed": "A munkamenetet nem sikerült felszabadítani",
+  "release-reason": "Reason (optional)",
+  "release-reason-placeholder": "Shown to the player whose session ends",
+  "release-session": "Felszabadítás",
+  "release-session-body": "Ez azonnal leállítja a(z) {game} játékot, és lecsatlakoztatja {user} felhasználót. A nem mentett előrehaladás elvész.",
+  "release-session-title": "Felszabadítod a streaming munkamenetet?",
+  "session-released": "Munkamenet felszabadítva",
+  "streaming-sessions": "Streaming munkamenetek",
+  "total-sessions": "Összes munkamenet",
+  "unknown-user": "Ismeretlen felhasználó"
 }

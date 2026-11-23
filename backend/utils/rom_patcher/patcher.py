@@ -5,28 +5,225 @@ a patch file to a ROM file.
 """
 
 import asyncio
+import copy
 import json
+import shutil
+import zipfile
+import zlib
+from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 from anyio import Path as AnyioPath
 
-from config import ROM_PATCHER_MAX_CONCURRENCY, ROM_PATCHER_TIMEOUT
+from config import (
+    ROM_PATCHER_MAX_CONCURRENCY,
+    ROM_PATCHER_MAX_FILE_SIZE_BYTES,
+    ROM_PATCHER_TIMEOUT,
+)
+from utils.archives import (
+    FILE_READ_CHUNK_SIZE,
+    ArchiveReadError,
+    read_zip_archive_files,
+)
+from utils.filesystem import COMPRESSED_FILE_EXTENSIONS
 
 PATCHER_SCRIPT = Path(__file__).parent / "patcher.js"
 
 SUPPORTED_PATCH_EXTENSIONS = frozenset(
-    (".ips", ".ups", ".bps", ".ppf", ".rup", ".aps", ".bdf", ".pmsr", ".vcdiff")
+    (
+        ".ips",
+        ".ups",
+        ".bps",
+        ".ppf",
+        ".rup",
+        ".aps",
+        ".bdf",
+        ".pmsr",
+        ".vcdiff",
+        ".xdelta",
+    )
 )
 
-# Bound concurrent node subprocesses, each of which loads a full ROM into memory.
+
+def is_patch_file_name(file_name: str) -> bool:
+    """Whether a file name carries a supported patch format's extension."""
+    return Path(file_name).suffix.lower() in SUPPORTED_PATCH_EXTENSIONS
+
+
+# Hacks may double a ROM or expand a small one to its console's largest
+# cartridge, but never further; the patch's own declared size is not trusted.
+MIN_PATCH_OUTPUT_GROWTH_BYTES = 64 * 1024 * 1024
+
+# Exit code patcher.js uses when the patch declares too large an output.
+_OUTPUT_TOO_LARGE_EXIT_CODE = 3
+
+
+def max_patch_output_size(rom_size: int) -> int:
+    """Largest patched ROM accepted for a source ROM of ``rom_size`` bytes."""
+    return min(
+        ROM_PATCHER_MAX_FILE_SIZE_BYTES,
+        rom_size + max(rom_size, MIN_PATCH_OUTPUT_GROWTH_BYTES),
+    )
+
+
+# Bound concurrent operations because each Node subprocess loads a full ROM.
 _patch_semaphore = asyncio.Semaphore(ROM_PATCHER_MAX_CONCURRENCY)
+
+_WRITABLE_ZIP_COMPRESSION_TYPES = frozenset(
+    (
+        zipfile.ZIP_STORED,
+        zipfile.ZIP_DEFLATED,
+        zipfile.ZIP_BZIP2,
+        zipfile.ZIP_LZMA,
+        zipfile.ZIP_ZSTANDARD,
+    )
+)
 
 
 class PatcherError(Exception):
     """Raised when the Node.js patcher script fails or produces no output."""
 
 
-async def apply_patch(rom_path: Path, patch_path: Path, output_path: Path) -> bool:
+class PatcherInputError(PatcherError):
+    """Raised when a ROM cannot be safely prepared for patching."""
+
+
+def _extract_zip_member(
+    archive_path: Path, output_path: Path, member_name: str | None
+) -> str:
+    try:
+        with zipfile.ZipFile(archive_path, "r") as archive:
+            members = [entry for entry in archive.infolist() if not entry.is_dir()]
+            if not members:
+                raise PatcherInputError("The ROM archive contains no files")
+
+            if member_name is None:
+                if len(members) != 1:
+                    raise PatcherInputError(
+                        "Select which file inside the ROM archive to patch"
+                    )
+                selected = members[0]
+            else:
+                matches = [entry for entry in members if entry.filename == member_name]
+                if len(matches) != 1:
+                    raise PatcherInputError(
+                        "The selected file was not found uniquely in the ROM archive"
+                    )
+                selected = matches[0]
+
+            if any(entry.flag_bits & 0x1 for entry in members):
+                raise PatcherInputError("Encrypted ROM archives are not supported")
+            if selected.file_size > ROM_PATCHER_MAX_FILE_SIZE_BYTES:
+                raise PatcherInputError(
+                    "The uncompressed ROM is too large to patch "
+                    f"({selected.file_size} bytes, max {ROM_PATCHER_MAX_FILE_SIZE_BYTES})"
+                )
+            if (
+                sum(entry.file_size for entry in members)
+                > ROM_PATCHER_MAX_FILE_SIZE_BYTES
+            ):
+                raise PatcherInputError("The uncompressed ROM archive is too large")
+
+            selected_name = selected.filename
+    except PatcherInputError:
+        raise
+    # Looked up at raise time: several test modules reload zipfile, which
+    # rebinds BadZipFile and would let it escape a module-level tuple.
+    except (EOFError, OSError, RuntimeError, zipfile.BadZipFile, zlib.error) as e:
+        raise PatcherInputError("The ROM archive could not be read") from e
+
+    try:
+        for name, _size, chunks in read_zip_archive_files(archive_path, [], []):
+            if name != selected_name:
+                for _chunk in chunks:
+                    pass
+                continue
+
+            written = 0
+            with output_path.open("wb") as output:
+                for chunk in chunks:
+                    # Budgeted as the bytes come out: `file_size` is whatever
+                    # the uploader put there, and a lying header fills the disk.
+                    written += len(chunk)
+                    if written > ROM_PATCHER_MAX_FILE_SIZE_BYTES:
+                        raise PatcherInputError(
+                            "The uncompressed ROM is too large to patch"
+                        )
+                    output.write(chunk)
+            break
+        else:
+            raise PatcherInputError(
+                "The selected file was not found uniquely in the ROM archive"
+            )
+    except ArchiveReadError as e:
+        raise PatcherInputError("The ROM archive could not be read") from e
+    except PatcherInputError:
+        output_path.unlink(missing_ok=True)
+        raise
+
+    return selected_name
+
+
+def _read_zip_entry(
+    archive: zipfile.ZipFile, entry: zipfile.ZipInfo
+) -> Iterator[bytes]:
+    try:
+        with archive.open(entry, "r") as source:
+            while chunk := source.read(FILE_READ_CHUNK_SIZE):
+                yield chunk
+    except (EOFError, OSError, RuntimeError, zipfile.BadZipFile, zlib.error) as e:
+        raise PatcherInputError("The ROM archive could not be read") from e
+
+
+def _rebuild_zip(
+    archive_path: Path,
+    output_path: Path,
+    patched_path: Path,
+    patched_size: int,
+    patched_member_name: str,
+) -> None:
+    try:
+        source_archive = zipfile.ZipFile(archive_path, "r")
+    except (EOFError, OSError, RuntimeError, zipfile.BadZipFile, zlib.error) as e:
+        raise PatcherInputError("The ROM archive could not be read") from e
+
+    try:
+        with (
+            source_archive,
+            zipfile.ZipFile(output_path, "w", allowZip64=True) as output_archive,
+        ):
+            output_archive.comment = source_archive.comment
+            for source_entry in source_archive.infolist():
+                output_entry = copy.copy(source_entry)
+                if output_entry.compress_type not in _WRITABLE_ZIP_COMPRESSION_TYPES:
+                    output_entry.compress_type = zipfile.ZIP_DEFLATED
+
+                if source_entry.is_dir():
+                    output_archive.writestr(output_entry, b"")
+                    continue
+
+                is_patched = source_entry.filename == patched_member_name
+                # Declaring the final size up front lets zipfile pick ZIP64 only
+                # where it is needed, keeping small entries widely readable.
+                output_entry.file_size = (
+                    patched_size if is_patched else source_entry.file_size
+                )
+                with output_archive.open(output_entry, "w") as output_file:
+                    if is_patched:
+                        with patched_path.open("rb") as patched_file:
+                            shutil.copyfileobj(patched_file, output_file)
+                    else:
+                        for chunk in _read_zip_entry(source_archive, source_entry):
+                            output_file.write(chunk)
+    except PatcherInputError:
+        output_path.unlink(missing_ok=True)
+        raise
+
+
+async def _apply_binary_patch(
+    rom_path: Path, patch_path: Path, output_path: Path
+) -> bool:
     """Apply ``patch_path`` to ``rom_path`` and write the result to ``output_path``.
 
     Returns whether the patch's embedded source checksum matched the ROM (always
@@ -34,45 +231,101 @@ async def apply_patch(rom_path: Path, patch_path: Path, output_path: Path) -> bo
     regardless; the result lets callers warn on a likely ROM/patch mismatch.
 
     Raises :class:`PatcherError` if the subprocess fails, times out, or the
-    output file is missing.
+    output file is missing, and :class:`PatcherInputError` if the patch
+    declares an output larger than :func:`max_patch_output_size` allows.
     """
-    async with _patch_semaphore:
-        proc = await asyncio.create_subprocess_exec(
-            "node",
-            str(PATCHER_SCRIPT),
-            str(rom_path),
-            str(patch_path),
-            str(output_path),
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+    rom_size = (await AnyioPath(rom_path).stat()).st_size
+    proc = await asyncio.create_subprocess_exec(
+        "node",
+        str(PATCHER_SCRIPT),
+        str(rom_path),
+        str(patch_path),
+        str(output_path),
+        str(max_patch_output_size(rom_size)),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    try:
+        stdout, stderr = await asyncio.wait_for(
+            proc.communicate(), timeout=ROM_PATCHER_TIMEOUT
         )
-        try:
-            stdout, stderr = await asyncio.wait_for(
-                proc.communicate(), timeout=ROM_PATCHER_TIMEOUT
-            )
-        except (asyncio.TimeoutError, TimeoutError) as e:
-            proc.kill()
-            await proc.wait()
-            raise PatcherError(
-                f"Patching timed out after {ROM_PATCHER_TIMEOUT}s"
-            ) from e
+    except TimeoutError as e:
+        proc.kill()
+        await proc.wait()
+        raise PatcherError(f"Patching timed out after {ROM_PATCHER_TIMEOUT}s") from e
 
+    if proc.returncode == _OUTPUT_TOO_LARGE_EXIT_CODE:
+        raise PatcherInputError("The patch would produce a ROM that is too large")
     if proc.returncode != 0:
-        message = "Patching failed"
-        try:
-            err_data = json.loads(stderr.decode())
-            message = err_data.get("error", message)
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            if stderr:
-                message = stderr.decode(errors="replace").strip()
-        raise PatcherError(message)
+        error = _last_json_object(stderr).get("error")
+        if isinstance(error, str) and error:
+            raise PatcherError(error)
+        raise PatcherError(stderr.decode(errors="replace").strip() or "Patching failed")
 
     if not await AnyioPath(output_path).exists():
         raise PatcherError("Patcher did not produce an output file")
 
     # The script reports source-checksum validation in its JSON stdout.
-    try:
-        result = json.loads(stdout.decode())
-        return bool(result.get("validated", True))
-    except (json.JSONDecodeError, UnicodeDecodeError):
-        return True
+    return bool(_last_json_object(stdout).get("validated", True))
+
+
+def _last_json_object(output: bytes) -> dict[str, Any]:
+    """Return the last JSON-object line or ``{}``, ignoring RomPatcher.js logs."""
+    for line in reversed(output.decode(errors="replace").splitlines()):
+        try:
+            value = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(value, dict):
+            return value
+    return {}
+
+
+async def apply_patch(
+    rom_path: Path,
+    patch_path: Path,
+    output_path: Path,
+    archive_member_name: str | None = None,
+) -> bool:
+    """Apply a patch to a raw ROM or to one member of a ZIP archive.
+
+    Returns whether the patch's embedded source checksum matched the ROM (always
+    ``True`` for formats that carry no source checksum); the patch is applied
+    either way.
+    """
+    async with _patch_semaphore:
+        extension = rom_path.suffix.lower()
+        if extension != ".zip":
+            if archive_member_name is not None:
+                raise PatcherInputError("Archive member selection requires a ZIP ROM")
+            if extension in COMPRESSED_FILE_EXTENSIONS:
+                raise PatcherInputError(
+                    f"ROM archives in '{extension}' format are not supported for patching"
+                )
+            return await _apply_binary_patch(rom_path, patch_path, output_path)
+
+        extracted_path = output_path.parent / "source_rom"
+        member_name = await asyncio.to_thread(
+            _extract_zip_member, rom_path, extracted_path, archive_member_name
+        )
+        patched_path = output_path.parent / "patched_rom"
+        validated = await _apply_binary_patch(extracted_path, patch_path, patched_path)
+        # The intermediates are each as large as the ROM; only the rebuilt
+        # archive is streamed back, so don't keep three copies on disk.
+        await AnyioPath(extracted_path).unlink(missing_ok=True)
+        patched_size = (await AnyioPath(patched_path).stat()).st_size
+        if patched_size > ROM_PATCHER_MAX_FILE_SIZE_BYTES:
+            raise PatcherInputError(
+                "The patched ROM is too large "
+                f"({patched_size} bytes, max {ROM_PATCHER_MAX_FILE_SIZE_BYTES})"
+            )
+        await asyncio.to_thread(
+            _rebuild_zip,
+            rom_path,
+            output_path,
+            patched_path,
+            patched_size,
+            member_name,
+        )
+        await AnyioPath(patched_path).unlink(missing_ok=True)
+        return validated

@@ -1,15 +1,20 @@
-import asyncio
-import http
 import json
 from collections.abc import Collection
-from typing import Final, Literal, overload
+from typing import Any, Final, Literal, overload
 
 import aiohttp
 import yarl
 from aiohttp.client import ClientTimeout
-from fastapi import HTTPException, status
 
-from adapters.services.mobygames_types import MobyGame, MobyGameBrief, MobyOutputFormat
+from adapters.services.mobygames_types import (
+    MobyGame,
+    MobyGameBrief,
+    MobyGamesResponse,
+    MobyGroupsResponse,
+    MobyOutputFormat,
+)
+from adapters.services.provider_http import send_with_retries
+from adapters.services.response_validation import parse_response
 from config import MOBYGAMES_API_KEY
 from logger.logger import log
 from utils import get_version
@@ -25,7 +30,9 @@ async def auth_middleware(
     req: aiohttp.ClientRequest, handler: aiohttp.ClientHandlerType
 ) -> aiohttp.ClientResponse:
     """MobyGames API authentication mechanism."""
-    req.url = req.url.update_query({"api_key": MOBYGAMES_API_KEY})
+    # Without a key MobyGames answers 401, which the callers already map to {}.
+    if MOBYGAMES_API_KEY is not None:
+        req.url = req.url.update_query({"api_key": MOBYGAMES_API_KEY})
     return await handler(req)
 
 
@@ -41,51 +48,13 @@ class MobyGamesService:
     ) -> None:
         self.url = yarl.URL(base_url or "https://api.mobygames.com/v1")
 
-    async def _request(self, url: str, request_timeout: int = 120) -> dict:
+    async def _request[T](
+        self, url: str, tp: type[T], request_timeout: float = 120
+    ) -> T | None:
+        source = f"MobyGames {yarl.URL(url).name}"
         aiohttp_session = ctx_aiohttp_session.get()
-        log.debug(
-            "API request: URL=%s, Timeout=%s",
-            url,
-            request_timeout,
-        )
 
-        try:
-            await _rate_limiter.acquire()
-            res = await aiohttp_session.get(
-                url,
-                headers={"user-agent": f"RomM/{get_version()}"},
-                middlewares=(auth_middleware,),
-                timeout=ClientTimeout(total=request_timeout),
-            )
-            res.raise_for_status()
-            return await res.json()
-        except aiohttp.ServerTimeoutError:
-            # Retry the request once if it times out
-            log.debug("Request to URL=%s timed out. Retrying...", url)
-        except aiohttp.ClientConnectionError as exc:
-            log.critical("Connection error: can't connect to MobyGames", exc_info=True)
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Can't connect to MobyGames, check your internet connection",
-            ) from exc
-        except aiohttp.ClientResponseError as exc:
-            if exc.status == http.HTTPStatus.UNAUTHORIZED:
-                # Sometimes MobyGames returns 401 even with a valid API key
-                log.error(exc)
-                return {}
-            elif exc.status == http.HTTPStatus.TOO_MANY_REQUESTS:
-                # Retry after 2 seconds if rate limit hit
-                await asyncio.sleep(2)
-            else:
-                # Log the error and return an empty dict if the request fails with a different code
-                log.error(exc)
-                return {}
-        except json.JSONDecodeError as exc:
-            log.error("Error decoding JSON response from ScreenScraper: %s", exc)
-            return {}
-
-        # Retry the request once if it times out
-        try:
+        async def send() -> T | None:
             log.debug(
                 "API request: URL=%s, Timeout=%s",
                 url,
@@ -99,21 +68,19 @@ class MobyGamesService:
                 timeout=ClientTimeout(total=request_timeout),
             )
             res.raise_for_status()
-            return await res.json()
-        except (aiohttp.ClientResponseError, aiohttp.ServerTimeoutError) as exc:
-            if (
-                isinstance(exc, aiohttp.ClientResponseError)
-                and exc.status == http.HTTPStatus.UNAUTHORIZED
-            ):
-                return {}
+            return parse_response(tp, await res.read(), source=source)
 
+        try:
+            return await send_with_retries(send, provider="MobyGames", url=url)
+        # MobyGames sometimes answers 401 even with a valid API key.
+        except (aiohttp.ClientResponseError, TimeoutError) as exc:
             log.error(exc)
-            return {}
+            return None
         except json.JSONDecodeError as exc:
-            log.error("Error decoding JSON response from ScreenScraper: %s", exc)
-            return {}
+            log.error("Error decoding JSON response from MobyGames: %s", exc)
+            return None
 
-    async def list_groups(self, limit: int | None = None) -> list[dict]:
+    async def list_groups(self, limit: int | None = None) -> list[dict[str, Any]]:
         """Retrieve a list of groups.
 
         Reference: https://www.mobygames.com/info/api/#groups
@@ -122,9 +89,12 @@ class MobyGamesService:
         if limit is not None:
             params["limit"] = [str(limit)]
 
-        url = self.url.joinpath("groups").with_query(**params)
-        response = await self._request(str(url))
-        return response.get("groups", [])
+        url = self.url.joinpath("groups")
+        # yarl refuses an empty with_query.
+        if params:
+            url = url.with_query(**params)
+        response = await self._request(str(url), MobyGroupsResponse)
+        return (response.get("groups") or []) if response else []
 
     @overload
     async def list_games(
@@ -203,5 +173,11 @@ class MobyGamesService:
             params["offset"] = [str(offset)]
 
         url = self.url.joinpath("games").with_query(**params)
-        response = await self._request(str(url))
-        return response.get("games", [])
+        if output_format == "id":
+            ids = await self._request(str(url), MobyGamesResponse[int])
+            return (ids.get("games") or []) if ids else []
+        if output_format == "brief":
+            briefs = await self._request(str(url), MobyGamesResponse[MobyGameBrief])
+            return (briefs.get("games") or []) if briefs else []
+        games = await self._request(str(url), MobyGamesResponse[MobyGame])
+        return (games.get("games") or []) if games else []

@@ -3,6 +3,10 @@ import type { TaskInfo } from "@/__generated__/models/TaskInfo";
 import tasksApi from "@/services/api/task";
 import type { TaskStatusResponse } from "@/utils/tasks";
 
+// Status requests can overlap, so only the newest writes the list; a failure
+// keeps the last known statuses rather than claiming nothing is running.
+let latestStatusRequest = 0;
+
 export default defineStore("tasks", {
   state: () => ({
     watcherTasks: [] as TaskInfo[],
@@ -38,13 +42,13 @@ export default defineStore("tasks", {
       }
     },
     async fetchTaskStatus(): Promise<TaskStatusResponse[]> {
+      const request = ++latestStatusRequest;
       try {
         const response = await tasksApi.getTaskStatus();
-        this.taskStatuses = response.data;
-        return this.taskStatuses;
+        if (request === latestStatusRequest) this.taskStatuses = response.data;
+        return response.data;
       } catch (error) {
         console.error("Error fetching task status: ", error);
-        this.taskStatuses = [];
         return [];
       }
     },

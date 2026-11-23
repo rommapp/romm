@@ -12,21 +12,22 @@ Run from the backend directory:
 
 import sys
 from xml.sax.handler import ContentHandler  # nosec
+from xml.sax.xmlreader import Locator  # nosec
 
 from defusedxml import ElementTree as ET
 from defusedxml.sax import make_parser
 
 
 class DiagnosticHandler(ContentHandler):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.line_number = 0
         self.column_number = 0
 
-    def setDocumentLocator(self, locator):
+    def setDocumentLocator(self, locator: Locator) -> None:
         self.locator = locator
 
-    def characters(self, content):
+    def characters(self, content: str) -> None:
         # Check for invalid XML characters
         for char in content:
             if ord(char) >= 0xFFFE or (ord(char) <= 0x1F and char not in "\n\r\t"):
@@ -35,7 +36,7 @@ class DiagnosticHandler(ContentHandler):
                 )
 
 
-def diagnose_xml(filename):
+def diagnose_xml(filename: str) -> None:
     print(f"Analyzing {filename}...")
 
     # First, try to read the file in chunks to find encoding issues

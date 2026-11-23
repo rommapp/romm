@@ -4,11 +4,16 @@
   "hours-ago": "преди {n} ч",
   "hours-minutes-ago": "преди {h} ч {m} мин",
   "just-now": "Току-що",
-  "live": "НА ЖИВО",
   "minutes-ago": "преди {n} мин",
   "no-activity": "В момента никой не играе",
-  "now-playing": "Сега играе",
-  "playing-on": "Играе на {device}",
-  "playing-since": "Играе от {time}",
-  "total-sessions": "Общо сесии"
+  "release-failed": "Сесията не можа да бъде освободена",
+  "release-reason": "Reason (optional)",
+  "release-reason-placeholder": "Shown to the player whose session ends",
+  "release-session": "Освобождаване",
+  "release-session-body": "Това незабавно ще спре {game} и ще прекъсне връзката на {user}. Незапазеният напредък ще бъде загубен.",
+  "release-session-title": "Освобождаване на стрийминг сесията?",
+  "session-released": "Сесията е освободена",
+  "streaming-sessions": "Стрийминг сесии",
+  "total-sessions": "Общо сесии",
+  "unknown-user": "Неизвестен потребител"
 }

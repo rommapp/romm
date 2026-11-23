@@ -1,14 +1,16 @@
 import asyncio
+from collections.abc import Callable, Mapping, Sequence
+from typing import Annotated, Any, TypeVar
 
-from fastapi import HTTPException, Request, status
+from fastapi import HTTPException, Query, Request, status
 
 from decorators.auth import protected_route
 from endpoints.responses.search import SearchCoverSchema, SearchRomSchema
-from exceptions.endpoint_exceptions import SGDBInvalidAPIKeyException
 from handler.auth.constants import Scope
-from handler.auth.dependencies import get_permissions
+from handler.auth.dependencies import get_rom_visibility_filter
 from handler.database import db_rom_handler
 from handler.metadata import (
+    meta_demozoo_handler,
     meta_flashpoint_handler,
     meta_igdb_handler,
     meta_launchbox_handler,
@@ -16,7 +18,10 @@ from handler.metadata import (
     meta_moby_handler,
     meta_sgdb_handler,
     meta_ss_handler,
+    meta_steam_handler,
 )
+from handler.metadata.base_handler import CoverResult, MetadataHandler
+from handler.metadata.demozoo_handler import DemozooRom
 from handler.metadata.flashpoint_handler import FlashpointRom
 from handler.metadata.igdb_handler import IGDBRom
 from handler.metadata.launchbox_handler.types import LaunchboxRom
@@ -24,16 +29,16 @@ from handler.metadata.libretro_handler import LibretroRom
 from handler.metadata.moby_handler import MobyGamesRom
 from handler.metadata.sgdb_handler import SGDBRom
 from handler.metadata.ss_handler import SSRom
-from handler.scan_handler import (
-    MetadataSource,
-    get_main_platform_igdb_id,
-    get_priority_ordered_metadata_sources,
-)
+from handler.metadata.steam_handler import SteamRom
+from handler.scan.lookups import get_main_platform_igdb_id
+from handler.scan.sources import MetadataSource, get_priority_ordered_metadata_sources
 from logger.formatter import BLUE, CYAN
 from logger.formatter import highlight as hl
 from logger.logger import log
 from utils import emoji
 from utils.router import APIRouter
+
+_CoverRomT = TypeVar("_CoverRomT", SGDBRom, LibretroRom)
 
 router = APIRouter(
     prefix="/search",
@@ -41,26 +46,88 @@ router = APIRouter(
 )
 
 
-@protected_route(router.get, "/roms", [Scope.ROMS_READ])
+def _without_failures(
+    results: list[tuple[str, _CoverRomT] | BaseException], provider: str
+) -> list[tuple[str, _CoverRomT]]:
+    """Drop the cover lookups that failed."""
+    fetched = []
+    for result in results:
+        if isinstance(result, BaseException):
+            log.error("Error fetching %s covers: %s", provider, result)
+        else:
+            fetched.append(result)
+    return fetched
+
+
+# The order the provider lookups are gathered in, for reporting which one failed.
+_ID_SEARCH_PROVIDERS = (
+    "IGDB",
+    "MobyGames",
+    "ScreenScraper",
+    "LaunchBox",
+    "Demozoo",
+    "Steam",
+)
+_NAME_SEARCH_PROVIDERS = (
+    "IGDB",
+    "MobyGames",
+    "ScreenScraper",
+    "Flashpoint",
+    "LaunchBox",
+    "Demozoo",
+    "Steam",
+)
+
+
+def _resolved(
+    results: Sequence[Any], providers: Sequence[str], fallback: Callable[[], Any]
+) -> list[Any]:
+    """Let a provider that could not answer cost only its own matches."""
+    resolved: list[Any] = []
+    for provider, result in zip(providers, results, strict=True):
+        if isinstance(result, BaseException):
+            log.error("Error searching %s: %s", provider, result)
+            resolved.append(fallback())
+        else:
+            resolved.append(result)
+    return resolved
+
+
+@protected_route(
+    router.get,
+    "/roms",
+    [Scope.ROMS_READ],
+    responses={
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "No metadata provider is enabled, or `search_by` is `id` and `search_term` is not a number."
+        }
+    },
+)
 async def search_rom(
     request: Request,
-    rom_id: int,
-    search_term: str | None = None,
-    search_by: str = "name",
+    rom_id: Annotated[
+        int,
+        Query(
+            description=(
+                "The ID of the rom to identify. A rom that is unknown or hidden"
+                " from the caller returns an empty list."
+            )
+        ),
+    ],
+    search_term: Annotated[
+        str | None,
+        Query(
+            description=(
+                "The title to search for. Defaults to the rom's file name"
+                " without its tags."
+            )
+        ),
+    ] = None,
+    search_by: Annotated[
+        str, Query(description="What to search by: `name` or `id`.")
+    ] = "name",
 ) -> list[SearchRomSchema]:
-    """Search for rom in metadata providers
-
-    Args:
-        request (Request): FastAPI request
-        rom_id (int): Rom ID
-        source (str): Source of the rom
-        search_term (str, optional): Search term. Defaults to None.
-        search_by (str, optional): Search by name or ID. Defaults to "name".
-        search_extended (bool, optional): Search extended info. Defaults to False.
-
-    Returns:
-        list[SearchRomSchema]: List of matched roms
-    """
+    """Search the enabled metadata providers for games that match a rom, by title or by provider ID."""
 
     if (
         not meta_igdb_handler.is_enabled()
@@ -68,6 +135,8 @@ async def search_rom(
         and not meta_moby_handler.is_enabled()
         and not meta_flashpoint_handler.is_enabled()
         and not meta_launchbox_handler.is_cloud_enabled()
+        and not meta_demozoo_handler.is_enabled()
+        and not meta_steam_handler.is_enabled()
     ):
         log.error("Search error: No metadata providers enabled")
         raise HTTPException(
@@ -80,9 +149,7 @@ async def search_rom(
         return []
 
     # Treat a rom hidden from the caller as non-existent.
-    if request.user.is_authenticated and not get_permissions(request).can_see_rom(
-        rom.id, rom.platform_id
-    ):
+    if not get_rom_visibility_filter(request).allows(rom):
         return []
 
     search_term = search_term or rom.fs_name_no_tags
@@ -103,14 +170,21 @@ async def search_rom(
     ss_matched_roms: list[SSRom] = []
     flashpoint_matched_roms: list[FlashpointRom] = []
     launchbox_matched_roms: list[LaunchboxRom] = []
+    demozoo_matched_roms: list[DemozooRom] = []
+    steam_matched_roms: list[SteamRom] = []
 
     if search_by.lower() == "id":
         try:
-            igdb_rom, moby_rom, ss_rom, lb_rom = await asyncio.gather(
+            gathered = await asyncio.gather(
                 meta_igdb_handler.get_matched_rom_by_id(rom, int(search_term)),
                 meta_moby_handler.get_matched_rom_by_id(int(search_term)),
                 meta_ss_handler.get_matched_rom_by_id(rom, int(search_term)),
                 meta_launchbox_handler.get_matched_rom_by_id(int(search_term)),
+                meta_demozoo_handler.get_rom_by_id(int(search_term)),
+                meta_steam_handler.get_matched_rom_by_id(
+                    int(search_term), rom.platform.slug
+                ),
+                return_exceptions=True,
             )
         except ValueError as exc:
             log.error(f"Search error: invalid ID '{search_term}'")
@@ -119,10 +193,19 @@ async def search_rom(
                 detail=f"Tried searching by ID, but '{search_term}' is not a valid ID",
             ) from exc
         else:
+            igdb_rom, moby_rom, ss_rom, lb_rom, dz_rom, steam_rom = _resolved(
+                gathered, _ID_SEARCH_PROVIDERS, lambda: None
+            )
             igdb_matched_roms = [igdb_rom] if igdb_rom else []
             moby_matched_roms = [moby_rom] if moby_rom else []
             ss_matched_roms = [ss_rom] if ss_rom else []
             launchbox_matched_roms = [lb_rom] if lb_rom else []
+            demozoo_matched_roms = (
+                [dz_rom] if dz_rom and dz_rom.get("demozoo_id") else []
+            )
+            steam_matched_roms = (
+                [steam_rom] if steam_rom and steam_rom.get("steam_id") else []
+            )
     elif search_by.lower() == "name":
         (
             igdb_matched_roms,
@@ -130,27 +213,42 @@ async def search_rom(
             ss_matched_roms,
             flashpoint_matched_roms,
             launchbox_matched_roms,
-        ) = await asyncio.gather(
-            meta_igdb_handler.get_matched_roms_by_name(
-                rom, search_term, get_main_platform_igdb_id(rom.platform)
+            demozoo_matched_roms,
+            steam_matched_roms,
+        ) = _resolved(
+            await asyncio.gather(
+                meta_igdb_handler.get_matched_roms_by_name(
+                    rom, search_term, get_main_platform_igdb_id(rom.platform)
+                ),
+                meta_moby_handler.get_matched_roms_by_name(
+                    search_term, rom.platform.moby_id
+                ),
+                meta_ss_handler.get_matched_roms_by_name(
+                    rom, search_term, rom.platform.ss_id
+                ),
+                meta_flashpoint_handler.get_matched_roms_by_name(
+                    search_term, rom.platform.slug
+                ),
+                meta_launchbox_handler.get_matched_roms_by_name(
+                    search_term, rom.platform.slug
+                ),
+                meta_demozoo_handler.get_matched_roms_by_name(
+                    search_term, rom.platform.slug
+                ),
+                meta_steam_handler.get_matched_roms_by_name(
+                    search_term, rom.platform.slug
+                ),
+                return_exceptions=True,
             ),
-            meta_moby_handler.get_matched_roms_by_name(
-                search_term, rom.platform.moby_id
-            ),
-            meta_ss_handler.get_matched_roms_by_name(
-                rom, search_term, rom.platform.ss_id
-            ),
-            meta_flashpoint_handler.get_matched_roms_by_name(
-                search_term, rom.platform.slug
-            ),
-            meta_launchbox_handler.get_matched_roms_by_name(
-                search_term, rom.platform.slug
-            ),
+            _NAME_SEARCH_PROVIDERS,
+            list,
         )
 
-    merged_dict: dict[str, dict] = {}
+    merged_dict: dict[str, dict[str, Any]] = {}
 
-    source_configs = {
+    source_configs: dict[
+        MetadataSource, tuple[Sequence[Mapping[str, Any]], MetadataHandler, str, str]
+    ] = {
         MetadataSource.IGDB: (
             igdb_matched_roms,
             meta_igdb_handler,
@@ -176,6 +274,18 @@ async def search_rom(
             "launchbox_url_cover",
         ),
         MetadataSource.SS: (ss_matched_roms, meta_ss_handler, "ss_id", "ss_url_cover"),
+        MetadataSource.DEMOZOO: (
+            demozoo_matched_roms,
+            meta_demozoo_handler,
+            "demozoo_id",
+            "demozoo_url_cover",
+        ),
+        MetadataSource.STEAM: (
+            steam_matched_roms,
+            meta_steam_handler,
+            "steam_id",
+            "steam_url_cover",
+        ),
     }
 
     ordered_sources = get_priority_ordered_metadata_sources(
@@ -186,7 +296,7 @@ async def search_rom(
         source_matched_roms, meta_handler, id_key, cover_key = source_configs[
             meta_source
         ]
-        for source_rom in source_matched_roms:  # trunk-ignore(mypy/attr-defined)
+        for source_rom in source_matched_roms:
             if source_rom[id_key]:
                 normalized_name = meta_handler.normalize_search_term(
                     source_rom.get("name", ""),
@@ -207,13 +317,19 @@ async def search_rom(
     async def get_libretro_rom(name: str) -> tuple[str, LibretroRom]:
         return name, await meta_libretro_handler.get_rom(name, rom.platform.slug)
 
+    # These two only add cover art to matches the other providers already
+    # produced, so an unreachable one costs a thumbnail rather than the results.
     merged_names = list(merged_dict.keys())
     sgdb_roms, libretro_roms = await asyncio.gather(
-        asyncio.gather(*[get_sgdb_rom(name) for name in merged_names]),
-        asyncio.gather(*[get_libretro_rom(name) for name in merged_names]),
+        asyncio.gather(
+            *[get_sgdb_rom(name) for name in merged_names], return_exceptions=True
+        ),
+        asyncio.gather(
+            *[get_libretro_rom(name) for name in merged_names], return_exceptions=True
+        ),
     )
 
-    for name, sgdb_rom in sgdb_roms:
+    for name, sgdb_rom in _without_failures(sgdb_roms, "SteamGridDB"):
         if sgdb_rom["sgdb_id"]:
             merged_dict[name] = {
                 **merged_dict[name],
@@ -221,7 +337,7 @@ async def search_rom(
                 "sgdb_url_cover": sgdb_rom.get("url_cover", ""),
             }
 
-    for name, libretro_rom in libretro_roms:
+    for name, libretro_rom in _without_failures(libretro_roms, "Libretro"):
         if libretro_rom["libretro_id"]:
             merged_dict[name] = {
                 **merged_dict[name],
@@ -229,32 +345,74 @@ async def search_rom(
                 "libretro_url_cover": libretro_rom.get("url_cover", ""),
             }
 
-    matched_roms: list = list(merged_dict.values())
+    matched_roms = list(merged_dict.values())
 
     log.info("Results:")
     for m_rom in matched_roms:
         log.info(f"\t - {m_rom['name']}")
 
-    return matched_roms
+    return [SearchRomSchema.model_validate(m_rom) for m_rom in matched_roms]
 
 
-@protected_route(router.get, "/cover", [Scope.ROMS_READ])
+@protected_route(
+    router.get,
+    "/cover",
+    [Scope.ROMS_READ],
+    responses={
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "SteamGridDB rejected the server's API key."
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "No cover art provider is enabled."
+        },
+    },
+)
 async def search_cover(
     request: Request,
     search_term: str = "",
 ) -> list[SearchCoverSchema]:
-    if not meta_sgdb_handler.is_enabled():
-        log.error("Search error: No SteamGridDB enabled")
+    """Search the cover art providers, in the configured cover priority order."""
+    if not meta_sgdb_handler.is_enabled() and not meta_steam_handler.is_enabled():
+        log.error("Search error: No cover art providers enabled")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="No SteamGridDB enabled",
+            detail="No cover art providers enabled",
         )
 
-    try:
-        covers = await meta_sgdb_handler.get_details(search_term=search_term)
-    except SGDBInvalidAPIKeyException as err:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid SGDB API key"
-        ) from err
+    # An age-restricted caller gets no NSFW artwork, whatever the client asks for.
+    sfw_only = get_rom_visibility_filter(request).has_age_rule
+    lookups = {
+        MetadataSource.SGDB: meta_sgdb_handler.get_details(
+            search_term=search_term, sfw_only=sfw_only
+        ),
+        MetadataSource.STEAM: meta_steam_handler.get_details(search_term=search_term),
+    }
+    gathered = await asyncio.gather(*lookups.values(), return_exceptions=True)
+    fetched: dict[MetadataSource, list[CoverResult] | BaseException] = dict(
+        zip(lookups, gathered, strict=True)
+    )
 
-    return [SearchCoverSchema.model_validate(cover) for cover in covers]
+    # A rejected key is the user's to fix, so it is reported rather than
+    # costing the SteamGridDB covers silently.
+    sgdb_result = fetched[MetadataSource.SGDB]
+    if (
+        isinstance(sgdb_result, HTTPException)
+        and sgdb_result.status_code == status.HTTP_401_UNAUTHORIZED
+    ):
+        raise sgdb_result  # route-errors: raises 401
+
+    ordered_sources = get_priority_ordered_metadata_sources(
+        metadata_sources=list(lookups.keys()), priority_type="url_cover"
+    )
+    covers: list[SearchCoverSchema] = []
+    for source in ordered_sources:
+        results = fetched[source]
+        if isinstance(results, BaseException):
+            log.error("Error fetching %s covers: %s", source.value, results)
+            continue
+        covers.extend(
+            SearchCoverSchema.model_validate({"provider": source.value, **cover})
+            for cover in results
+        )
+
+    return covers

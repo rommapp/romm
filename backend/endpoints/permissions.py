@@ -1,4 +1,5 @@
-from typing import Annotated
+import asyncio
+from typing import Annotated, Any, Final
 
 from fastapi import Body, HTTPException, Request, status
 
@@ -16,12 +17,25 @@ from endpoints.responses.permission import (
     UserPermissionsSchema,
     UserPermissionsUpdate,
 )
+from handler.audit_handler import AuditTarget, record
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_admin, get_permissions
-from handler.database import db_permission_handler, db_user_handler
-from handler.socket_handler import socket_handler
+from handler.database import (
+    db_client_token_handler,
+    db_permission_handler,
+    db_platform_handler,
+    db_rom_handler,
+    db_user_handler,
+)
+from handler.socket_handler import close_client_token_sockets, socket_handler
 from logger.logger import log
-from models.permission import PermAction, PermEntity, PermissionGroup
+from models.audit_event import AuditAction, AuditTargetType
+from models.permission import (
+    OWNABLE_PERM_ENTITIES,
+    PermAction,
+    PermEntity,
+    PermissionGroup,
+)
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -29,20 +43,45 @@ router = APIRouter(
     tags=["permissions"],
 )
 
+ADMIN_ONLY_RESPONSE: Final[dict[int | str, dict[str, Any]]] = {
+    status.HTTP_403_FORBIDDEN: {"description": "The caller is not an admin."}
+}
+GROUP_NOT_FOUND_RESPONSE: Final[dict[int | str, dict[str, Any]]] = {
+    status.HTTP_404_NOT_FOUND: {"description": "No permission group has this ID."}
+}
+USER_NOT_FOUND_RESPONSE: Final[dict[int | str, dict[str, Any]]] = {
+    status.HTTP_404_NOT_FOUND: {"description": "No user has this ID."}
+}
 
-async def emit_permissions_changed(user_id: int) -> None:
-    """Notify clients that `user_id`'s effective permissions changed.
 
-    Broadcast (Redis-backed fan-out); the frontend re-fetches `/permissions/me`
-    only when the affected user is the current user. Call this from any path that
-    mutates a user's role, group, overrides or hidden entities.
-    """
+async def _broadcast_permissions_changed(user_id: int) -> None:
     try:
         await socket_handler.socket_server.emit(
             "permissions:changed", {"user_id": user_id}
         )
     except Exception as e:  # noqa: BLE001
         log.warning(f"Failed to broadcast permissions:changed for user {user_id}: {e}")
+
+
+async def emit_permissions_changed(*user_ids: int) -> None:
+    """Notify clients that the users' effective permissions changed.
+
+    Broadcast (Redis-backed fan-out); the frontend re-fetches `/permissions/me`
+    only when the affected user is the current user. Call this from any path that
+    mutates a user's role, group, overrides, hidden entities or age settings.
+    """
+    # The gallery's cached id index, counts and filter values are computed per
+    # user with visibility applied, so they go stale with it.
+    db_rom_handler.invalidate_filter_values_cache()
+    if not user_ids:
+        return
+    await asyncio.gather(*(_broadcast_permissions_changed(u) for u in user_ids))
+    try:
+        token_ids = db_client_token_handler.get_token_ids_by_users(user_ids)
+    except Exception:  # noqa: BLE001
+        log.warning(f"Failed to look up the tokens of users {user_ids}", exc_info=True)
+        return
+    await close_client_token_sockets(token_ids)
 
 
 @protected_route(router.get, "/me", [Scope.ME_READ])
@@ -58,11 +97,17 @@ def get_my_permissions(request: Request) -> PermissionsResponse:
 # --- Admin: catalog -----------------------------------------------------------
 
 
-@protected_route(router.get, "/catalog", [Scope.USERS_READ])
+@protected_route(
+    router.get, "/catalog", [Scope.USERS_READ], responses=ADMIN_ONLY_RESPONSE
+)
 def get_permission_catalog(request: Request) -> PermissionCatalogSchema:
     """The entity/action vocabulary the admin UI renders its matrix from."""
     assert_admin(request)
-    return PermissionCatalogSchema(entities=list(PermEntity), actions=list(PermAction))
+    return PermissionCatalogSchema(
+        entities=list(PermEntity),
+        actions=list(PermAction),
+        ownable_entities=[e for e in PermEntity if e in OWNABLE_PERM_ENTITIES],
+    )
 
 
 # --- Admin: permission groups -------------------------------------------------
@@ -74,7 +119,7 @@ def _group_schema(group: PermissionGroup) -> PermissionGroupSchema:
         name=group.name,
         description=group.description,
         is_default=group.is_default,
-        is_system=group.is_system,
+        system_key=group.system_key,
         color=group.color,
         grants=[
             GrantSchemaIO(entity=g.entity, action=g.action, own_only=g.own_only)
@@ -85,10 +130,49 @@ def _group_schema(group: PermissionGroup) -> PermissionGroupSchema:
             HiddenEntitySchema(entity=h.entity, entity_id=h.entity_id)
             for h in db_permission_handler.get_hidden_entities(group_id=group.id)
         ],
+        age_limit=group.age_limit,
+        hide_unrated_roms=group.hide_unrated_roms,
     )
 
 
-@protected_route(router.get, "/groups", [Scope.USERS_READ])
+def _group_target(group: PermissionGroup) -> AuditTarget:
+    return AuditTarget(AuditTargetType.PERMISSION_GROUP, group.id, group.name)
+
+
+def _hidden_target(entity: PermEntity, entity_id: int) -> AuditTarget | None:
+    if entity == PermEntity.ROMS:
+        rom = db_rom_handler.get_rom_visibility_label(entity_id)
+        return (
+            AuditTarget.of_rom(rom)
+            if rom
+            else AuditTarget(AuditTargetType.ROM, entity_id, None)
+        )
+    if entity == PermEntity.PLATFORMS:
+        platform = db_platform_handler.get_platform(entity_id)
+        return (
+            AuditTarget.of_platform(platform)
+            if platform
+            else AuditTarget(AuditTargetType.PLATFORM, entity_id, None)
+        )
+    return None
+
+
+def _group_name(group_id: int | None) -> str | None:
+    group = db_permission_handler.get_group(group_id) if group_id is not None else None
+    return group.name if group else None
+
+
+def _principal(user_id: int | None, group_id: int | None) -> dict[str, Any]:
+    """Who something was hidden from, named for the audit log."""
+    if user_id is not None:
+        user = db_user_handler.get_user(user_id)
+        return {"type": "user", "id": user_id, "name": user.username if user else None}
+    return {"type": "group", "id": group_id, "name": _group_name(group_id)}
+
+
+@protected_route(
+    router.get, "/groups", [Scope.USERS_READ], responses=ADMIN_ONLY_RESPONSE
+)
 def list_permission_groups(request: Request) -> list[PermissionGroupSchema]:
     """List all permission groups with their grants."""
     assert_admin(request)
@@ -96,9 +180,18 @@ def list_permission_groups(request: Request) -> list[PermissionGroupSchema]:
 
 
 @protected_route(
-    router.post, "/groups", [Scope.USERS_WRITE], status_code=status.HTTP_201_CREATED
+    router.post,
+    "/groups",
+    [Scope.USERS_WRITE],
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "A group with this name already exists."
+        },
+        **ADMIN_ONLY_RESPONSE,
+    },
 )
-def create_permission_group(
+async def create_permission_group(
     request: Request, body: PermissionGroupCreate
 ) -> PermissionGroupSchema:
     """Create a permission group."""
@@ -114,6 +207,18 @@ def create_permission_group(
         is_default=body.is_default,
         color=body.color,
         grants=[(g.entity, g.action, g.own_only) for g in body.grants],
+        age_limit=body.age_limit,
+        hide_unrated_roms=body.hide_unrated_roms,
+    )
+    if body.is_default:
+        await emit_permissions_changed(
+            *db_permission_handler.get_group_follower_ids(group.id)
+        )
+    record(
+        AuditAction.PERMISSION_GROUP_CREATE,
+        request,
+        _group_target(group),
+        {"grants": len(body.grants), "is_default": body.is_default},
     )
     return _group_schema(group)
 
@@ -122,10 +227,21 @@ def create_permission_group(
     router.put,
     "/groups/{id}",
     [Scope.USERS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": (
+                "Another group has this name, or the request unsets the default"
+                " group without making another group the default."
+            )
+        },
+        **ADMIN_ONLY_RESPONSE,
+        **GROUP_NOT_FOUND_RESPONSE,
+    },
 )
 async def update_permission_group(
-    request: Request, id: int, body: PermissionGroupUpdate
+    request: Request,
+    id: int,
+    body: PermissionGroupUpdate,
 ) -> PermissionGroupSchema:
     """Update a permission group (name/description/default/grants)."""
     assert_admin(request)
@@ -160,20 +276,41 @@ async def update_permission_group(
             if body.grants is not None
             else None
         ),
+        set_age_settings=body.set_age_settings,
+        age_limit=body.age_limit,
+        hide_unrated_roms=body.hide_unrated_roms,
     )
-    # Grant changes alter every member's effective permissions.
-    for member_id in db_permission_handler.get_group_member_ids(id):
-        await emit_permissions_changed(member_id)
-    return _group_schema(updated)  # type: ignore[arg-type]
+    if updated is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+    await emit_permissions_changed(*db_permission_handler.get_group_follower_ids(id))
+    # Age settings apply only with the flag, so only the flag reports them.
+    age_fields = {"set_age_settings", "age_limit", "hide_unrated_roms"}
+    changed = set(body.model_dump(exclude_none=True)) - age_fields
+    if body.set_age_settings:
+        changed |= {"age_limit", "hide_unrated_roms"}
+    record(
+        AuditAction.PERMISSION_GROUP_EDIT,
+        request,
+        _group_target(updated),
+        {"changed": sorted(changed)},
+    )
+    return _group_schema(updated)
 
 
 @protected_route(
     router.delete,
     "/groups/{id}",
     [Scope.USERS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"description": "The group is the default group."},
+        **ADMIN_ONLY_RESPONSE,
+        **GROUP_NOT_FOUND_RESPONSE,
+    },
 )
-async def delete_permission_group(request: Request, id: int) -> None:
+async def delete_permission_group(
+    request: Request,
+    id: int,
+) -> None:
     """Delete a permission group. Members fall back to the default group."""
     assert_admin(request)
     group = db_permission_handler.get_group(id)
@@ -187,21 +324,30 @@ async def delete_permission_group(request: Request, id: int) -> None:
 
     member_ids = db_permission_handler.get_group_member_ids(id)
     db_permission_handler.delete_group(id)
-    for member_id in member_ids:
-        await emit_permissions_changed(member_id)
+    record(
+        AuditAction.PERMISSION_GROUP_DELETE,
+        request,
+        _group_target(group),
+        {"members": len(member_ids)},
+    )
+    await emit_permissions_changed(*member_ids)
 
 
 # --- Admin: per-user assignment ----------------------------------------------
 
 
 def _user_permissions(
-    user_id: int, permission_group_id: int | None
+    user_id: int,
+    *,
+    group_id: int | None,
+    age_limit: int | None,
+    hide_unrated_roms: bool | None,
 ) -> UserPermissionsSchema:
     overrides = db_permission_handler.get_user_overrides(user_id)
     hidden = db_permission_handler.get_hidden_entities(user_id=user_id)
     return UserPermissionsSchema(
         user_id=user_id,
-        permission_group_id=permission_group_id,
+        permission_group_id=group_id,
         overrides=[
             OverrideSchemaIO(
                 entity=o.entity,
@@ -214,6 +360,8 @@ def _user_permissions(
         hidden=[
             HiddenEntitySchema(entity=h.entity, entity_id=h.entity_id) for h in hidden
         ],
+        age_limit=age_limit,
+        hide_unrated_roms=hide_unrated_roms,
     )
 
 
@@ -221,25 +369,35 @@ def _user_permissions(
     router.get,
     "/users/{user_id}",
     [Scope.USERS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={**ADMIN_ONLY_RESPONSE, **USER_NOT_FOUND_RESPONSE},
 )
-def get_user_permissions(request: Request, user_id: int) -> UserPermissionsSchema:
+def get_user_permissions(
+    request: Request,
+    user_id: int,
+) -> UserPermissionsSchema:
     """A user's group membership, per-user overrides and hidden entities."""
     assert_admin(request)
     user = db_user_handler.get_user(user_id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
-    return _user_permissions(user_id, user.permission_group_id)
+    return _user_permissions(
+        user_id,
+        group_id=user.permission_group_id,
+        age_limit=user.age_limit,
+        hide_unrated_roms=user.hide_unrated_roms,
+    )
 
 
 @protected_route(
     router.put,
     "/users/{user_id}",
     [Scope.USERS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={**ADMIN_ONLY_RESPONSE, **USER_NOT_FOUND_RESPONSE},
 )
 async def update_user_permissions(
-    request: Request, user_id: int, body: UserPermissionsUpdate
+    request: Request,
+    user_id: int,
+    body: UserPermissionsUpdate,
 ) -> UserPermissionsSchema:
     """Assign a user's group and/or replace their per-user overrides."""
     assert_admin(request)
@@ -256,15 +414,51 @@ async def update_user_permissions(
             user_id,
             [(o.entity, o.action, o.granted, o.own_only) for o in body.overrides],
         )
+    age_limit, hide_unrated_roms = user.age_limit, user.hide_unrated_roms
+    if body.set_age_settings:
+        age_limit, hide_unrated_roms = body.age_limit, body.hide_unrated_roms
+        db_user_handler.update_user(
+            user_id,
+            {"age_limit": age_limit, "hide_unrated_roms": hide_unrated_roms},
+        )
 
     await emit_permissions_changed(user_id)
-    return _user_permissions(user_id, group_id)
+    record(
+        AuditAction.USER_PERMISSIONS_EDIT,
+        request,
+        AuditTarget.of_user(user),
+        lambda: {
+            "group": _group_name(group_id),
+            "group_changed": body.set_group and group_id != user.permission_group_id,
+            "overrides": len(body.overrides) if body.overrides is not None else None,
+            "age_settings_changed": body.set_age_settings,
+        },
+    )
+    return _user_permissions(
+        user_id,
+        group_id=group_id,
+        age_limit=age_limit,
+        hide_unrated_roms=hide_unrated_roms,
+    )
 
 
 # --- Admin: hidden entities ---------------------------------------------------
 
 
-@protected_route(router.post, "/hidden", [Scope.USERS_WRITE])
+@protected_route(
+    router.post,
+    "/hidden",
+    [Scope.USERS_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": (
+                "The request does not set exactly one of `user_id` and `group_id`,"
+                " or the entity is not a platform or a rom."
+            )
+        },
+        **ADMIN_ONLY_RESPONSE,
+    },
+)
 async def add_hidden_entity(
     request: Request, body: HiddenEntityCreate
 ) -> HiddenEntitySchema:
@@ -289,6 +483,16 @@ async def add_hidden_entity(
     db_permission_handler.add_hidden_entity(
         body.entity, body.entity_id, user_id=body.user_id, group_id=body.group_id
     )
+    record(
+        AuditAction.VISIBILITY_HIDE,
+        request,
+        lambda: _hidden_target(body.entity, body.entity_id),
+        lambda: {
+            "from": _principal(body.user_id, body.group_id),
+            "entity": body.entity,
+            "entity_id": body.entity_id,
+        },
+    )
     await _emit_for_principal(body.user_id, body.group_id)
     return HiddenEntitySchema(entity=body.entity, entity_id=body.entity_id)
 
@@ -298,13 +502,37 @@ async def add_hidden_entity(
     "/hidden",
     [Scope.USERS_WRITE],
     status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The request does not set exactly one of `user_id` and `group_id`."
+        },
+        **ADMIN_ONLY_RESPONSE,
+    },
 )
 async def remove_hidden_entity(
     request: Request,
     entity: Annotated[PermEntity, Body(embed=True)],
     entity_id: Annotated[int, Body(embed=True)],
-    user_id: Annotated[int | None, Body(embed=True)] = None,
-    group_id: Annotated[int | None, Body(embed=True)] = None,
+    user_id: Annotated[
+        int | None,
+        Body(
+            embed=True,
+            description=(
+                "The user it was hidden from. Set exactly one of `user_id` and"
+                " `group_id`."
+            ),
+        ),
+    ] = None,
+    group_id: Annotated[
+        int | None,
+        Body(
+            embed=True,
+            description=(
+                "The group it was hidden from. Set exactly one of `user_id` and"
+                " `group_id`."
+            ),
+        ),
+    ] = None,
 ) -> None:
     """Un-hide an entity for a user OR a group."""
     assert_admin(request)
@@ -316,6 +544,16 @@ async def remove_hidden_entity(
     db_permission_handler.remove_hidden_entity(
         entity, entity_id, user_id=user_id, group_id=group_id
     )
+    record(
+        AuditAction.VISIBILITY_UNHIDE,
+        request,
+        lambda: _hidden_target(entity, entity_id),
+        lambda: {
+            "from": _principal(user_id, group_id),
+            "entity": entity,
+            "entity_id": entity_id,
+        },
+    )
     await _emit_for_principal(user_id, group_id)
 
 
@@ -323,5 +561,6 @@ async def _emit_for_principal(user_id: int | None, group_id: int | None) -> None
     if user_id is not None:
         await emit_permissions_changed(user_id)
     elif group_id is not None:
-        for member_id in db_permission_handler.get_group_member_ids(group_id):
-            await emit_permissions_changed(member_id)
+        await emit_permissions_changed(
+            *db_permission_handler.get_group_follower_ids(group_id)
+        )

@@ -1,10 +1,20 @@
 import dataclasses
 from collections.abc import Collection
+from pathlib import PurePath
 from typing import Any
 from urllib.parse import quote
 
 from anyio import Path
 from fastapi.responses import Response
+
+from utils.filesystem import CONTROL_CHARS
+
+
+def content_disposition(filename: str, disposition: str = "attachment") -> str:
+    """Build a Content-Disposition value for `filename`, percent-encoded once."""
+    encoded = quote(filename)
+    # Plain `filename` first (RFC 6266 appendix D): EmulatorJS reads the first match.
+    return f"{disposition}; filename=\"{encoded}\"; filename*=UTF-8''{encoded}"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -19,6 +29,18 @@ class ZipContentLine:
     size_bytes: int
     encoded_location: str
     filename: str
+
+    def __post_init__(self) -> None:
+        """Keep the rendered line parseable as exactly one mod_zip record.
+
+        The manifest is line-oriented, so a line feed in a name taken off disk
+        would otherwise let that name forge an extra archive entry.
+        """
+        location = self.encoded_location
+        if " " in location or CONTROL_CHARS.search(location):
+            raise ValueError(f"mod_zip location must be URL-encoded, got {location!r}")
+
+        object.__setattr__(self, "filename", CONTROL_CHARS.sub("_", self.filename))
 
     def __str__(self) -> str:
         crc32 = self.crc32 or "-"
@@ -43,7 +65,7 @@ class ZipResponse(Response):
         kwargs["content"] = "\n".join(str(line) for line in content_lines)
         kwargs.setdefault("headers", {}).update(
             {
-                "Content-Disposition": f"attachment; filename*=UTF-8''{filename}; filename=\"{filename}\"",
+                "Content-Disposition": content_disposition(filename),
                 "X-Archive-Files": "zip",
                 "X-Archive-Charset": "UTF-8",
             }
@@ -58,14 +80,15 @@ class FileRedirectResponse(Response):
     def __init__(
         self,
         *,
-        download_path: Path,
+        download_path: Path | PurePath,
         filename: str | None = None,
         disposition: str = "attachment",
         **kwargs: Any,
     ):
         """
         Arguments:
-          - download_path: Path to the file to be served.
+          - download_path: Path to the file to be served. Only its name and string
+              form are read, so either flavour of Path works.
           - filename: Name of the file to be served. If not provided, the file name from the
               download_path is used.
           - disposition: "attachment" (default) forces a download; "inline" lets the
@@ -76,7 +99,7 @@ class FileRedirectResponse(Response):
         filename = filename or download_path.name
         kwargs.setdefault("headers", {}).update(
             {
-                "Content-Disposition": f"{disposition}; filename*=UTF-8''{quote(filename)}; filename=\"{quote(filename)}\"",
+                "Content-Disposition": content_disposition(filename, disposition),
                 "X-Accel-Redirect": quote(str(download_path)),
             }
         )

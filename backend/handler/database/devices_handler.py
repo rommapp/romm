@@ -1,12 +1,12 @@
 from collections.abc import Sequence
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.orm import Session
 
-from decorators.database import begin_session
+from decorators.database import INJECTED_SESSION, begin_session
 from models.device import Device, SyncMode
-from utils.datetime import to_utc
 
 from .base_handler import DBBaseHandler
 
@@ -18,7 +18,7 @@ class DBDevicesHandler(DBBaseHandler):
     def add_device(
         self,
         device: Device,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> Device:
         return session.merge(device)
 
@@ -27,7 +27,7 @@ class DBDevicesHandler(DBBaseHandler):
         self,
         device_id: str,
         user_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> Device | None:
         return session.scalar(
             select(Device).filter_by(id=device_id, user_id=user_id).limit(1)
@@ -41,7 +41,7 @@ class DBDevicesHandler(DBBaseHandler):
         hostname: str | None = None,
         ip_address: str | None = None,
         platform: str | None = None,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> Device | None:
         if mac_address:
             device = session.scalar(
@@ -72,7 +72,7 @@ class DBDevicesHandler(DBBaseHandler):
     def get_device_by_id(
         self,
         device_id: str,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> Device | None:
         """Get a device by ID without user filtering (for server-side operations)."""
         return session.scalar(select(Device).filter_by(id=device_id).limit(1))
@@ -82,7 +82,7 @@ class DBDevicesHandler(DBBaseHandler):
         self,
         user_id: int,
         client_device_identifier: str,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> Device | None:
         """Find a device by its client-supplied stable identifier, scoped to a user."""
         if not client_device_identifier:
@@ -100,7 +100,7 @@ class DBDevicesHandler(DBBaseHandler):
     def get_devices(
         self,
         user_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[Device]:
         return session.scalars(select(Device).filter_by(user_id=user_id)).all()
 
@@ -108,7 +108,7 @@ class DBDevicesHandler(DBBaseHandler):
     def get_all_devices_by_sync_mode(
         self,
         sync_mode: SyncMode,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> Sequence[Device]:
         """Get all devices with a specific sync mode (across all users)."""
         return session.scalars(select(Device).filter_by(sync_mode=sync_mode)).all()
@@ -118,8 +118,8 @@ class DBDevicesHandler(DBBaseHandler):
         self,
         device_id: str,
         user_id: int,
-        data: dict,
-        session: Session = None,  # type: ignore
+        data: dict[str, Any],
+        session: Session = INJECTED_SESSION,
     ) -> Device | None:
         session.execute(
             update(Device)
@@ -136,7 +136,7 @@ class DBDevicesHandler(DBBaseHandler):
         self,
         device_id: str,
         user_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> None:
         session.execute(
             update(Device)
@@ -149,7 +149,7 @@ class DBDevicesHandler(DBBaseHandler):
     def update_last_seen_debounced(
         self,
         device_id: str,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> None:
         """Bump last_seen on the device, skipping if updated within the debounce window.
 
@@ -157,18 +157,18 @@ class DBDevicesHandler(DBBaseHandler):
         request. Mirrors the debounce used by ClientToken.update_last_used.
         """
         now = datetime.now(timezone.utc)
-        device = session.get(Device, device_id)
-        if device is None:
-            return
-
-        if device.last_seen and (now - to_utc(device.last_seen)) < LAST_SEEN_DEBOUNCE:
-            return
-
+        # Debounced in the WHERE clause, so concurrent bumps have no earlier read to race.
         session.execute(
             update(Device)
-            .where(Device.id == device_id)
+            .where(
+                Device.id == device_id,
+                or_(
+                    Device.last_seen.is_(None),
+                    Device.last_seen < now - LAST_SEEN_DEBOUNCE,
+                ),
+            )
             .values(last_seen=now)
-            .execution_options(synchronize_session="evaluate")
+            .execution_options(synchronize_session=False)
         )
 
     @begin_session
@@ -176,7 +176,7 @@ class DBDevicesHandler(DBBaseHandler):
         self,
         device_id: str,
         user_id: int,
-        session: Session = None,  # type: ignore
+        session: Session = INJECTED_SESSION,
     ) -> None:
         session.execute(
             delete(Device)

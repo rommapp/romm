@@ -2,6 +2,7 @@ import logging
 import os
 import re
 from pprint import pformat
+from typing import Final
 
 from colorama import Fore, Style, init
 
@@ -49,7 +50,8 @@ LOGGING_CONFIG = {
             "propagate": False,
         },
         "uvicorn.access": {
-            "level": LOGLEVEL,
+            # Suppress HTTP access logs unless the user has explicitly opted into DEBUG logging.
+            "level": "DEBUG" if LOGLEVEL == "DEBUG" else "WARNING",
             "handlers": ["default"],
             "propagate": False,
         },
@@ -57,7 +59,7 @@ LOGGING_CONFIG = {
 }
 
 
-# Strips ANSI SGR escapes (colors) embedded by `highlight()` — they render as
+# Strips ANSI SGR escapes (colors) embedded by `highlight()`; they render as
 # colors on a terminal but as garbage anywhere else (e.g. a browser log view).
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
@@ -67,17 +69,27 @@ def strip_ansi(text: str) -> str:
     return _ANSI_RE.sub("", text)
 
 
-def redact_sensitive(text: str) -> str:
-    """Mask sensitive values (api keys, tokens, …) in a log string.
+SENSITIVE_KEYS: Final = {
+    "Authorization",
+    "Client-ID",
+    "Client-Secret",
+    "client_id",
+    "client_secret",
+    "api_key",
+    "ssid",
+    "sspassword",
+    "devid",
+    "devpassword",
+    "y",
+}
+SENSITIVE_KEYS_REGEX: Final = re.compile(
+    rf"({'|'.join(re.escape(k) for k in SENSITIVE_KEYS)})=[^&\s\"]*",
+    re.IGNORECASE,
+)
 
-    The redaction regex lives in ``handler.metadata.base_handler``, which pulls
-    a heavy import chain that isn't importable during the first few boot lines —
-    skip redaction until it is, exactly like the Formatter does.
-    """
-    try:
-        from handler.metadata.base_handler import SENSITIVE_KEYS_REGEX
-    except ImportError:
-        return text
+
+def redact_sensitive(text: str) -> str:
+    """Mask sensitive values (api keys, tokens, …) in a log string."""
     return SENSITIVE_KEYS_REGEX.sub(r"\1=***", text)
 
 
@@ -158,7 +170,7 @@ class Formatter(logging.Formatter):
         return redact_sensitive(output)
 
 
-def highlight(msg: str = "", color=YELLOW) -> str:
+def highlight(msg: str = "", color: str = YELLOW) -> str:
     """
     Highlights the message to send to the fancylog.
 

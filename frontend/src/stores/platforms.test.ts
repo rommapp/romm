@@ -1,23 +1,17 @@
-import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import storePlatforms, { type Platform } from "@/stores/platforms";
+import { platformFixture } from "@/utils/platform.fixtures";
 
 function platform(id: number, displayName: string, romCount: number): Platform {
-  return {
+  return platformFixture({
     id,
-    display_name: displayName,
     name: displayName,
     slug: displayName.toLowerCase().replaceAll(" ", "-"),
-    fs_slug: displayName.toLowerCase().replaceAll(" ", "-"),
     rom_count: romCount,
-  } as Platform;
+  });
 }
 
 describe("platform store lists", () => {
-  beforeEach(() => {
-    setActivePinia(createPinia());
-  });
-
   it("keeps empty platforms reachable from the Platforms index", () => {
     const store = storePlatforms();
     const empty = platform(1, "Game Boy", 0);

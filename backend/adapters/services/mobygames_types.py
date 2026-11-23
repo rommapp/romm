@@ -1,4 +1,4 @@
-from typing import Literal, TypedDict
+from typing import Any, Literal, TypedDict
 
 MobyOutputFormat = Literal["id", "brief", "normal"]
 
@@ -50,11 +50,19 @@ class MobyGame(TypedDict):
     description: str
     game_id: int
     genres: list[MobyGenre]
-    moby_score: float
+    moby_score: float | None
     moby_url: str
     num_votes: int
     official_url: str | None
     platforms: list[MobyPlatform]
-    sample_cover: MobyGameCover
+    sample_cover: MobyGameCover | None
     sample_screenshots: list[MobyGameScreenshot]
     title: str
+
+
+class MobyGamesResponse[T](TypedDict):
+    games: list[T]
+
+
+class MobyGroupsResponse(TypedDict):
+    groups: list[dict[str, Any]]

@@ -1,25 +1,65 @@
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import Body, File, HTTPException, Request, UploadFile, status
+from fastapi import Body, File, HTTPException
+from fastapi import Path as PathVar
+from fastapi import Query, Request, UploadFile, status
 from fastapi.responses import FileResponse
 
 from decorators.auth import protected_route
 from endpoints.responses.assets import StateSchema
+from endpoints.roms import refresh_affected_smart_collections
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
+from handler.asset_store import (
+    assert_backup,
+    assert_backups,
+    release_thumbnail,
+    remove_asset_file,
+    rename_asset,
+    store_screenshot,
+    store_state_file,
+)
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_rom_visible
-from handler.database import db_rom_handler, db_screenshot_handler, db_state_handler
+from handler.auth.dependencies import (
+    get_rom_visibility_filter,
+    owned_rom_asset_or_404,
+    readable_rom_asset_or_404,
+    visible_rom_or_404,
+)
+from handler.database import (
+    db_rom_handler,
+    db_screenshot_handler,
+    db_state_handler,
+)
 from handler.filesystem import fs_asset_handler
-from handler.filesystem.assets_handler import build_asset_file_response
-from handler.scan_handler import scan_screenshot, scan_state
+from handler.filesystem.assets_handler import (
+    build_asset_file_response,
+    check_upload_archive,
+)
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.assets import State
-from utils.filesystem import sanitize_filename
-from utils.router import APIRouter
-from utils.uploads import check_asset_upload_size
+from models.assets import EMULATOR_MAX_LENGTH, EMULATOR_VERSION_MAX_LENGTH, State
+from models.base import FILE_NAME_MAX_LENGTH
+from utils.assets import normalize_asset_labels
+from utils.auth import DEVICE_WRITE_FORBIDDEN, resolve_device
+from utils.router import APIRouter, RomIdQuery
+from utils.uploads import (
+    check_asset_upload_size,
+    check_emulator_folder_name,
+    sanitize_asset_filename,
+)
+from utils.validation import RomIdScope, narrow_rom_id_scope
+
+
+async def _delete_state(state: State) -> None:
+    """Drop a state row with its file and screenshot."""
+    # Read first: a screenshot linked by `state_id` goes with the row.
+    screenshot = state.screenshot
+    db_state_handler.delete_state(state.id)
+    await remove_asset_file(state.full_path, "State file")
+    await release_thumbnail(screenshot)
+
 
 router = APIRouter(
     prefix="/states",
@@ -35,29 +75,82 @@ STATE_FILE_UPDATE = File(default=None, description="Updated state file content."
 STATE_SCREENSHOT_UPDATE = File(default=None, description="Updated screenshot file.")
 
 
-@protected_route(router.post, "", [Scope.ASSETS_WRITE])
+StateIdPath = Annotated[int, PathVar(description="The ID of the state.")]
+
+OWNED_STATE_NOT_FOUND = "The caller has no state with this ID that it can see."
+STATE_FILE_TOO_LARGE = "The state file or screenshot is larger than the server allows."
+STATE_IN_CHANNEL = "The state belongs to a sync channel."
+
+
+@protected_route(
+    router.post,
+    "",
+    [Scope.ASSETS_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": (
+                "The state file has no name, the state or screenshot file name is"
+                " not valid, or `emulator` is not a valid folder name."
+            )
+        },
+        status.HTTP_403_FORBIDDEN: {"description": DEVICE_WRITE_FORBIDDEN},
+        status.HTTP_404_NOT_FOUND: {
+            "description": (
+                "No rom the caller can see has this ID, or the caller has no device"
+                " with this `device_id`."
+            )
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": (
+                "The upload would replace a state that belongs to a sync channel."
+            )
+        },
+        status.HTTP_413_CONTENT_TOO_LARGE: {"description": STATE_FILE_TOO_LARGE},
+    },
+)
 async def add_state(
     request: Request,
-    rom_id: int,
-    emulator: str | None = None,
+    rom_id: RomIdQuery,
+    emulator: Annotated[
+        str | None,
+        Query(
+            max_length=EMULATOR_MAX_LENGTH,
+            description="The emulator that wrote the state, such as `mednafen_psx_hw`.",
+        ),
+    ] = None,
+    emulator_version: Annotated[
+        str | None,
+        Query(
+            max_length=EMULATOR_VERSION_MAX_LENGTH,
+        ),
+    ] = None,
+    core: Annotated[
+        str | None,
+        Query(
+            max_length=EMULATOR_MAX_LENGTH,
+            description="The libretro core that wrote the state, when one did.",
+        ),
+    ] = None,
+    core_version: Annotated[
+        str | None,
+        Query(
+            max_length=EMULATOR_VERSION_MAX_LENGTH,
+        ),
+    ] = None,
+    device_id: Annotated[
+        str | None, Query(description="The uploading device, recorded as its origin.")
+    ] = None,
     stateFile: UploadFile = STATE_FILE_UPLOAD,
     screenshotFile: UploadFile | None = STATE_SCREENSHOT_UPLOAD,
 ) -> StateSchema:
+    """Upload a state file for a ROM."""
     check_asset_upload_size(stateFile, "State file")
     check_asset_upload_size(screenshotFile, "Screenshot file")
+    check_upload_archive(stateFile, "State file")
 
-    rom = db_rom_handler.get_rom(rom_id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(rom_id)
+    device = resolve_device(request, device_id, Scope.DEVICES_WRITE)
 
-    log.info(f"Uploading state of {rom.name}")
-
-    states_path = fs_asset_handler.build_states_file_path(
-        user=request.user,
-        platform_fs_slug=rom.platform.fs_slug,
-        rom_id=rom_id,
-        emulator=emulator,
-    )
+    rom = visible_rom_or_404(request, db_rom_handler.get_rom(rom_id), rom_id)
 
     if not stateFile.filename:
         log.error("State file has no filename")
@@ -65,96 +158,42 @@ async def add_state(
             status_code=status.HTTP_400_BAD_REQUEST, detail="State file has no filename"
         )
 
-    try:
-        sanitized_state_filename = sanitize_filename(stateFile.filename)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid state filename: {str(exc)}",
-        ) from exc
+    sanitized_state_filename = sanitize_asset_filename(stateFile.filename, "state")
+    sanitized_screenshot_filename = (
+        sanitize_asset_filename(screenshotFile.filename, "screenshot")
+        if screenshotFile and screenshotFile.filename
+        else ""
+    )
 
-    rom = db_rom_handler.get_rom(rom_id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(rom_id)
+    check_emulator_folder_name(emulator)
 
     log.info(
         f"Uploading state {hl(sanitized_state_filename)} for {hl(str(rom.name), color=BLUE)}"
     )
 
-    states_path = fs_asset_handler.build_states_file_path(
-        user=request.user,
-        platform_fs_slug=rom.platform.fs_slug,
-        rom_id=rom.id,
-        emulator=emulator,
+    reported = {
+        "emulator_version": emulator_version,
+        "core": core,
+        "core_version": core_version,
+        "origin_device_id": device.id if device else None,
+    }
+    db_state = await store_state_file(
+        request.user,
+        rom,
+        emulator,
+        stateFile,
+        sanitized_state_filename,
+        {key: value for key, value in reported.items() if value is not None},
     )
 
-    await fs_asset_handler.write_file(
-        file=stateFile, path=states_path, filename=sanitized_state_filename
-    )
-
-    # Scan or update state
-    scanned_state = await scan_state(
-        file_name=sanitized_state_filename,
-        user=request.user,
-        platform_fs_slug=rom.platform.fs_slug,
-        rom_id=rom_id,
-        emulator=emulator,
-    )
-    db_state = db_state_handler.get_state_by_filename(
-        user_id=request.user.id, rom_id=rom.id, file_name=sanitized_state_filename
-    )
-    if db_state:
-        db_state = db_state_handler.update_state(
-            db_state.id, {"file_size_bytes": scanned_state.file_size_bytes}
+    if screenshotFile and sanitized_screenshot_filename:
+        await store_screenshot(
+            request.user,
+            rom,
+            screenshotFile,
+            sanitized_screenshot_filename,
+            is_public=db_state.is_public,
         )
-    else:
-        scanned_state.rom_id = rom.id
-        scanned_state.user_id = request.user.id
-        scanned_state.emulator = emulator
-        db_state = db_state_handler.add_state(state=scanned_state)
-
-    if screenshotFile and screenshotFile.filename:
-        try:
-            sanitized_screenshot_filename = sanitize_filename(screenshotFile.filename)
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid screenshot filename: {str(exc)}",
-            ) from exc
-
-        screenshots_path = fs_asset_handler.build_screenshots_file_path(
-            user=request.user, platform_fs_slug=rom.platform_slug, rom_id=rom.id
-        )
-
-        await fs_asset_handler.write_file(
-            file=screenshotFile,
-            path=screenshots_path,
-            filename=sanitized_screenshot_filename,
-        )
-
-        # Scan or update screenshot
-        scanned_screenshot = await scan_screenshot(
-            file_name=sanitized_screenshot_filename,
-            user=request.user,
-            platform_fs_slug=rom.platform_slug,
-            rom_id=rom.id,
-        )
-        db_screenshot = db_screenshot_handler.get_screenshot(
-            file_name=sanitized_screenshot_filename,
-            rom_id=rom.id,
-            user_id=request.user.id,
-        )
-        if db_screenshot:
-            db_screenshot = db_screenshot_handler.update_screenshot(
-                db_screenshot.id,
-                {"file_size_bytes": scanned_screenshot.file_size_bytes},
-            )
-        else:
-            scanned_screenshot.rom_id = rom.id
-            scanned_screenshot.user_id = request.user.id
-            db_screenshot = db_screenshot_handler.add_screenshot(
-                screenshot=scanned_screenshot
-            )
 
     # Set the last played time for the current user
     rom_user = db_rom_handler.get_rom_user(rom_id=rom.id, user_id=request.user.id)
@@ -165,19 +204,38 @@ async def add_state(
     )
 
     # Refetch the rom to get updated states
-    rom = db_rom_handler.get_rom(rom_id)
-    if not rom:
+    refreshed = db_rom_handler.get_rom(rom_id)
+    if not refreshed:
         raise RomNotFoundInDatabaseException(rom_id)
+    rom = refreshed
+
+    refresh_affected_smart_collections([rom.id], membership_only=True)
 
     return StateSchema.model_validate(db_state)
 
 
 @protected_route(router.get, "", [Scope.ASSETS_READ])
 def get_states(
-    request: Request, rom_id: int | None = None, platform_id: int | None = None
+    request: Request,
+    rom_id: int | None = None,
+    rom_ids: Annotated[
+        RomIdScope,
+        Query(
+            description=(
+                "ROM IDs to scope the results to, for clients syncing a known "
+                "set of ROMs. Multiple values are allowed by repeating the "
+                "parameter. Combined with `rom_id` when both are given."
+            ),
+        ),
+    ] = None,
+    platform_id: int | None = None,
 ) -> list[StateSchema]:
+    """Retrieve states for the current user."""
     states = db_state_handler.get_states(
-        user_id=request.user.id, rom_id=rom_id, platform_id=platform_id
+        user_id=request.user.id,
+        rom_ids=narrow_rom_id_scope(rom_id, rom_ids),
+        platform_id=platform_id,
+        visibility=get_rom_visibility_filter(request),
     )
 
     return [StateSchema.model_validate(state) for state in states]
@@ -187,49 +245,45 @@ def get_states(
 def get_state_identifiers(
     request: Request,
 ) -> list[int]:
-    """Get state identifiers endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-
-    Returns:
-        list[int]: List of state IDs
-    """
-    states = db_state_handler.get_states(
-        user_id=request.user.id,
-        only_fields=[State.id],
+    """Retrieve the IDs of the caller's states."""
+    return db_state_handler.get_state_ids(
+        user_id=request.user.id, visibility=get_rom_visibility_filter(request)
     )
 
-    return [state.id for state in states]
 
-
-@protected_route(router.get, "/{id}", [Scope.ASSETS_READ])
-def get_state(request: Request, id: int) -> StateSchema:
-    state = db_state_handler.get_state(user_id=request.user.id, id=id)
-
-    if not state:
-        error = f"State with ID {id} not found"
-        log.error(error)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+@protected_route(
+    router.get,
+    "/{id}",
+    [Scope.ASSETS_READ],
+    responses={status.HTTP_404_NOT_FOUND: {"description": OWNED_STATE_NOT_FOUND}},
+)
+def get_state(request: Request, id: StateIdPath) -> StateSchema:
+    """Retrieve a state by ID."""
+    state = owned_rom_asset_or_404(
+        request, db_state_handler.get_state_by_id(id), f"State with ID {id} not found"
+    )
 
     return StateSchema.model_validate(state)
 
 
-@protected_route(router.get, "/{id}/content", [Scope.ASSETS_READ])
-def download_state(request: Request, id: int) -> FileResponse:
+@protected_route(
+    router.get,
+    "/{id}/content",
+    [Scope.ASSETS_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": (
+                "No state the caller can read has this ID, or the state's file is"
+                " missing."
+            )
+        }
+    },
+)
+def download_state(request: Request, id: StateIdPath) -> FileResponse:
     """Download a state file. Owner can download any of their states; everyone
     else only public ones."""
-    state = db_state_handler.get_state_by_id(id)
-    if not state or (state.user_id != request.user.id and not state.is_public):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"State with ID {id} not found",
-        )
-
-    # Sharing must not override the hidden-ROM/platform policy: a state on a ROM
-    # hidden from the caller stays 404-masked, just like the ROM itself.
-    assert_rom_visible(
-        request, state.rom, not_found_detail=f"State with ID {id} not found"
+    state = readable_rom_asset_or_404(
+        request, db_state_handler.get_state_by_id(id), f"State with ID {id} not found"
     )
 
     try:
@@ -249,78 +303,89 @@ def download_state(request: Request, id: int) -> FileResponse:
     return build_asset_file_response(file_path, filename=state.file_name)
 
 
-@protected_route(router.put, "/{id}", [Scope.ASSETS_WRITE])
+@protected_route(
+    router.put,
+    "/{id}",
+    [Scope.ASSETS_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The screenshot file name is not valid."
+        },
+        status.HTTP_403_FORBIDDEN: {"description": DEVICE_WRITE_FORBIDDEN},
+        status.HTTP_404_NOT_FOUND: {
+            "description": (
+                "The caller has no state with this ID that it can see, or no device"
+                " with this `device_id`."
+            )
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": (
+                "The request uploads a state file, and the state belongs to a sync"
+                " channel."
+            )
+        },
+        status.HTTP_413_CONTENT_TOO_LARGE: {"description": STATE_FILE_TOO_LARGE},
+    },
+)
 async def update_state(
     request: Request,
-    id: int,
+    id: StateIdPath,
+    device_id: Annotated[
+        str | None,
+        Query(description="The device writing new content, recorded as its origin."),
+    ] = None,
     stateFile: UploadFile | None = STATE_FILE_UPDATE,
     screenshotFile: UploadFile | None = STATE_SCREENSHOT_UPDATE,
 ) -> StateSchema:
+    """Update a state file."""
     check_asset_upload_size(stateFile, "State file")
     check_asset_upload_size(screenshotFile, "Screenshot file")
+    check_upload_archive(stateFile, "State file")
 
-    db_state = db_state_handler.get_state(user_id=request.user.id, id=id)
-    if not db_state:
-        error = f"State with ID {id} not found"
-        log.error(error)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+    device = resolve_device(request, device_id, Scope.DEVICES_WRITE)
+
+    db_state = owned_rom_asset_or_404(
+        request, db_state_handler.get_state_by_id(id), f"State with ID {id} not found"
+    )
+    if stateFile:
+        assert_backup(db_state)
+
+    sanitized_screenshot_filename = (
+        sanitize_asset_filename(screenshotFile.filename, "screenshot")
+        if screenshotFile and screenshotFile.filename
+        else ""
+    )
 
     if stateFile:
         await fs_asset_handler.write_file(
             file=stateFile, path=db_state.file_path, filename=db_state.file_name
         )
         db_state = db_state_handler.update_state(
-            db_state.id, {"file_size_bytes": stateFile.size}
+            db_state.id,
+            {
+                "file_size_bytes": stateFile.size,
+                "content_hash": await fs_asset_handler.compute_content_hash(
+                    db_state.full_path
+                ),
+                # The origin follows the content, so a client naming no device
+                # leaves it unknown rather than credited to the previous writer.
+                "origin_device_id": device.id if device else None,
+            },
         )
-    if screenshotFile and screenshotFile.filename:
-        try:
-            sanitized_screenshot_filename = sanitize_filename(screenshotFile.filename)
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid screenshot filename: {str(exc)}",
-            ) from exc
-
-        screenshots_path = fs_asset_handler.build_screenshots_file_path(
-            user=request.user,
-            platform_fs_slug=db_state.rom.platform_slug,
-            rom_id=db_state.rom.id,
+    if screenshotFile and sanitized_screenshot_filename:
+        await store_screenshot(
+            request.user,
+            db_state.attached_rom,
+            screenshotFile,
+            sanitized_screenshot_filename,
+            is_public=db_state.is_public,
         )
-
-        await fs_asset_handler.write_file(
-            file=screenshotFile,
-            path=screenshots_path,
-            filename=sanitized_screenshot_filename,
-        )
-
-        # Scan or update screenshot
-        scanned_screenshot = await scan_screenshot(
-            file_name=sanitized_screenshot_filename,
-            user=request.user,
-            platform_fs_slug=db_state.rom.platform_slug,
-            rom_id=db_state.rom.id,
-        )
-        db_screenshot = db_screenshot_handler.get_screenshot(
-            file_name=sanitized_screenshot_filename,
-            rom_id=db_state.rom.id,
-            user_id=request.user.id,
-        )
-        if db_screenshot:
-            db_screenshot = db_screenshot_handler.update_screenshot(
-                db_screenshot.id,
-                {"file_size_bytes": scanned_screenshot.file_size_bytes},
-            )
-        else:
-            scanned_screenshot.rom_id = db_state.rom.id
-            scanned_screenshot.user_id = request.user.id
-            db_screenshot = db_screenshot_handler.add_screenshot(
-                screenshot=scanned_screenshot
-            )
 
     # Set the last played time for the current user
-    rom_user = db_rom_handler.get_rom_user(db_state.rom_id, request.user.id)
+    rom_id = db_state.attached_rom_id
+    rom_user = db_rom_handler.get_rom_user(rom_id, request.user.id)
     if not rom_user:
-        rom_user = db_rom_handler.add_rom_user(db_state.rom_id, request.user.id)
+        rom_user = db_rom_handler.add_rom_user(rom_id, request.user.id)
     db_rom_handler.update_rom_user(
         rom_user.id, {"last_played": datetime.now(timezone.utc)}
     )
@@ -333,22 +398,27 @@ async def update_state(
     router.put,
     "/{id}/visibility",
     [Scope.ASSETS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": OWNED_STATE_NOT_FOUND},
+        status.HTTP_409_CONFLICT: {"description": STATE_IN_CHANNEL},
+    },
 )
 def update_state_visibility(
     request: Request,
-    id: int,
-    is_public: Annotated[bool, Body(embed=True)],
+    id: StateIdPath,
+    is_public: Annotated[
+        bool,
+        Body(embed=True),
+    ],
 ) -> StateSchema:
-    """Toggle a state's public/private visibility (owner only)."""
-    state = db_state_handler.get_state_by_id(id)
-    if not state or state.user_id != request.user.id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"State with ID {id} not found",
-        )
+    """Toggle a state's public/private visibility (owner only). A state a
+    channel holds is shared with the channel."""
+    state = owned_rom_asset_or_404(
+        request, db_state_handler.get_state_by_id(id), f"State with ID {id} not found"
+    )
+    assert_backup(state)
 
-    updated = db_state_handler.update_state(id, {"is_public": is_public})
+    updated = db_state_handler.update_state(id, {"is_public": is_public}, touch=False)
 
     # Keep the auto-captured thumbnail's visibility in sync so a shared state
     # still renders its preview for other users.
@@ -357,7 +427,105 @@ def update_state_visibility(
             state.screenshot.id, {"is_public": is_public}
         )
 
+    # Sharing a state exposes it to every other user's `has_states` filter.
+    if state.rom_id is not None:
+        refresh_affected_smart_collections([state.rom_id], membership_only=True)
+
     return StateSchema.model_validate(updated)
+
+
+@protected_route(
+    router.put,
+    "/{id}/favorite",
+    [Scope.ASSETS_WRITE],
+    responses={status.HTTP_404_NOT_FOUND: {"description": OWNED_STATE_NOT_FOUND}},
+)
+def update_state_favorite(
+    request: Request,
+    id: StateIdPath,
+    is_favorite: Annotated[
+        bool,
+        Body(embed=True),
+    ],
+) -> StateSchema:
+    """Favorite a state, sorting it ahead of the rest (owner only)."""
+    owned_rom_asset_or_404(
+        request, db_state_handler.get_state_by_id(id), f"State with ID {id} not found"
+    )
+
+    return StateSchema.model_validate(
+        db_state_handler.update_state(id, {"is_favorite": is_favorite}, touch=False)
+    )
+
+
+@protected_route(
+    router.put,
+    "/{id}/labels",
+    [Scope.ASSETS_WRITE],
+    responses={status.HTTP_404_NOT_FOUND: {"description": OWNED_STATE_NOT_FOUND}},
+)
+def update_state_labels(
+    request: Request,
+    id: StateIdPath,
+    labels: Annotated[
+        list[str],
+        Body(
+            embed=True,
+            description="The new list of labels. It replaces the existing labels.",
+        ),
+    ],
+) -> StateSchema:
+    """Replace a state's free-text labels (owner only)."""
+    owned_rom_asset_or_404(
+        request, db_state_handler.get_state_by_id(id), f"State with ID {id} not found"
+    )
+
+    return StateSchema.model_validate(
+        db_state_handler.update_state(
+            id, {"labels": normalize_asset_labels(labels)}, touch=False
+        )
+    )
+
+
+@protected_route(
+    router.put,
+    "/{id}/file-name",
+    [Scope.ASSETS_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The new file name is not valid or has no name before the extension."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": (
+                "The caller has no state with this ID that it can see, or the"
+                " state's file is missing."
+            )
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": (
+                "Another state of the rom, or a screenshot that is not this state's,"
+                " already has the new name."
+            )
+        },
+    },
+)
+async def rename_state(
+    request: Request,
+    id: StateIdPath,
+    file_name: Annotated[
+        str,
+        Body(
+            embed=True,
+            max_length=FILE_NAME_MAX_LENGTH,
+        ),
+    ],
+) -> StateSchema:
+    """Rename a state's file, its screenshot following along (owner only)."""
+    state = owned_rom_asset_or_404(
+        request, db_state_handler.get_state_by_id(id), f"State with ID {id} not found"
+    )
+
+    return StateSchema.model_validate(await rename_asset(state, file_name))
 
 
 @protected_route(
@@ -365,8 +533,13 @@ def update_state_visibility(
     "/delete",
     [Scope.ASSETS_WRITE],
     responses={
-        status.HTTP_400_BAD_REQUEST: {},
-        status.HTTP_404_NOT_FOUND: {},
+        status.HTTP_400_BAD_REQUEST: {"description": "The list of states is empty."},
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no state that it can see with one of the given IDs."
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "One of the states belongs to a sync channel."
+        },
     },
 )
 async def delete_states(
@@ -385,33 +558,24 @@ async def delete_states(
         log.error(error)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
 
-    for state_id in states:
-        state = db_state_handler.get_state(user_id=request.user.id, id=state_id)
-        if not state:
-            error = f"State with ID {state_id} not found"
-            log.error(error)
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
-
-        db_state_handler.delete_state(state_id)
-        log.info(
-            f"Deleting state {hl(state.file_name)} [{state.rom.platform_slug}] from filesystem"
+    affected_rom_ids: set[int] = set()
+    # Resolved up front, so a bad id fails the batch before anything is removed.
+    owned = [
+        owned_rom_asset_or_404(
+            request,
+            db_state_handler.get_state_by_id(state_id),
+            f"State with ID {state_id} not found",
         )
+        for state_id in states
+    ]
+    assert_backups(owned)
+    for state in owned:
+        affected_rom_ids.add(state.attached_rom_id)
+        log.info(
+            f"Deleting state {hl(state.file_name)} [{state.attached_rom.platform_slug}] from filesystem"
+        )
+        await _delete_state(state)
 
-        try:
-            file_path = f"{state.file_path}/{state.file_name}"
-            await fs_asset_handler.remove_file(file_path=file_path)
-        except FileNotFoundError:
-            error = f"State file {hl(state.file_name)} not found for platform {hl(state.rom.platform_display_name, color=BLUE)}[{hl(state.rom.platform_slug)}]"
-            log.error(error)
-
-        if state.screenshot:
-            db_screenshot_handler.delete_screenshot(state.screenshot.id)
-
-            try:
-                file_path = f"{state.screenshot.file_path}/{state.screenshot.file_name}"
-                await fs_asset_handler.remove_file(file_path=file_path)
-            except FileNotFoundError:
-                error = f"Screenshot file {hl(state.screenshot.file_name)} not found for state {hl(state.file_name)}[{hl(state.rom.platform_slug)}]"
-                log.error(error)
+    refresh_affected_smart_collections(list(affected_rom_ids), membership_only=True)
 
     return states

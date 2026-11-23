@@ -2,12 +2,11 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import collectionApi from "@/services/api/collection";
 import storeCollections from "@/stores/collections";
-import storeRoms, { type SimpleRom } from "@/stores/roms";
+import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 
 export function useFavoriteToggle(emitter?: Emitter<Events>) {
   const collectionsStore = storeCollections();
-  const romsStore = storeRoms();
   const { favoriteCollection } = storeToRefs(collectionsStore);
 
   async function ensureFavoriteCollection() {
@@ -27,7 +26,6 @@ export function useFavoriteToggle(emitter?: Emitter<Events>) {
       },
     });
     collectionsStore.addCollection(data);
-    collectionsStore.setFavoriteCollection(data);
     emitter?.emit("snackbarShow", {
       msg: `Collection ${data.name} created successfully!`,
       icon: "mdi-check-bold",
@@ -51,11 +49,6 @@ export function useFavoriteToggle(emitter?: Emitter<Events>) {
         : await collectionApi.addRomsToCollection(fav.id, [rom.id]);
 
       collectionsStore.updateCollection(data);
-      collectionsStore.setFavoriteCollection(data);
-
-      if (currentlyFav && romsStore.currentCollection?.id === fav.id) {
-        romsStore.remove([rom]);
-      }
 
       emitter?.emit("snackbarShow", {
         msg: `${rom.name} ${currentlyFav ? "removed from" : "added to"} ${data.name} successfully!`,

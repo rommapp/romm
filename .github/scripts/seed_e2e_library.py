@@ -23,7 +23,7 @@ sys.path.insert(
 )
 
 from endpoints.sockets.scan import scan_platforms  # noqa: E402
-from handler.scan_handler import ScanType  # noqa: E402
+from handler.scan.sources import ScanType  # noqa: E402
 
 
 async def _scan() -> int:

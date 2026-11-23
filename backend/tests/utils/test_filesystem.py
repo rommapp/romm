@@ -8,9 +8,17 @@ import pytest
 from hypothesis import assume, given
 from hypothesis import strategies as st
 
-from utils.filesystem import link_or_copy_file, sanitize_filename
+from utils.filesystem import (
+    FILE_NAME_MAX_BYTES,
+    fit_filename,
+    join_rel_path,
+    link_or_copy_file,
+    place_export_asset,
+    rel_platform_folder,
+    sanitize_filename,
+)
 
-INVALID_AFTER_SANITIZE = set('\\/:|*?"<>+\0')
+INVALID_AFTER_SANITIZE = set('\\/:|*?"<>') | {chr(c) for c in (*range(0x20), 0x7F)}
 
 
 class TestLinkOrCopyFile:
@@ -186,6 +194,39 @@ class TestLinkOrCopyFile:
         assert args[1].name.startswith(".romm_link_tmp_")
 
 
+class TestPlaceExportAsset:
+    def test_places_asset_in_new_directory(self, tmp_path):
+        source = tmp_path / "source.png"
+        source.write_bytes(b"data")
+        dest = tmp_path / "out" / "dest.png"
+
+        assert place_export_asset(source, dest)
+        assert dest.read_bytes() == b"data"
+
+    def test_keeps_existing_dest(self, tmp_path):
+        source = tmp_path / "source.png"
+        source.write_bytes(b"new")
+        dest = tmp_path / "dest.png"
+        dest.write_bytes(b"old")
+
+        assert place_export_asset(source, dest)
+        assert dest.read_bytes() == b"old"
+
+    def test_missing_source_leaves_no_directory(self, tmp_path):
+        dest = tmp_path / "out" / "dest.png"
+
+        assert not place_export_asset(tmp_path / "missing.png", dest)
+        assert not dest.parent.exists()
+
+    def test_copy_failure_returns_false(self, tmp_path):
+        source = tmp_path / "source.png"
+        source.write_bytes(b"data")
+        dest = tmp_path / "dest.png"
+
+        with patch("utils.filesystem.link_or_copy_file", side_effect=OSError):
+            assert not place_export_asset(source, dest)
+
+
 class TestSanitizeFilename:
     """Property-based tests for the cross-filesystem filename sanitizer."""
 
@@ -235,3 +276,63 @@ class TestSanitizeFilename:
     def test_rejects_names_without_a_basename(self, name: str):
         with pytest.raises(ValueError):
             sanitize_filename(name)
+
+    @pytest.mark.parametrize(
+        ("name", "expected"),
+        [
+            ("save\n.sav", "save.sav"),
+            ("save\r\n.sav", "save.sav"),
+            ("save\t.sav", "save.sav"),
+            ("save\x7f.sav", "save.sav"),
+            ("save\0.sav", "save.sav"),
+            # A mod_zip manifest line forged through a rom folder rename: the
+            # payload needs a URI, whose slash takes the line feed with it.
+            ("game\n- 3 /decode?value=cG5n pwned", "decodevalue=cG5n pwned"),
+            ("game\n- 3 decode pwned", "game- 3 decode pwned"),
+        ],
+    )
+    def test_drops_control_characters(self, name: str, expected: str):
+        assert sanitize_filename(name) == expected
+
+    @pytest.mark.parametrize("name", ["\n", "\0", "\r\n\t"])
+    def test_rejects_names_made_only_of_control_characters(self, name: str):
+        with pytest.raises(ValueError):
+            sanitize_filename(name)
+
+
+class TestRelPlatformFolder:
+    @pytest.mark.parametrize(
+        ("fs_path", "expected"),
+        [
+            ("roms/snes", ""),
+            ("roms/snes/USA", "USA"),
+            ("roms/snes/Disks/Set A", "Disks/Set A"),
+            # A path that is not under the platform folder cannot be made relative.
+            ("roms/nes/USA", ""),
+            ("snes/roms", ""),
+        ],
+    )
+    def test_folder_below_the_platform(self, fs_path: str, expected: str):
+        assert rel_platform_folder(fs_path, "roms/snes") == expected
+
+
+class TestJoinRelPath:
+    def test_skips_the_empty_parts(self):
+        assert join_rel_path("covers", "", "game.jpg") == "covers/game.jpg"
+        assert join_rel_path("covers", "USA", "game.jpg") == "covers/USA/game.jpg"
+        assert join_rel_path("", "") == ""
+
+
+class TestFitFilename:
+    def test_a_short_name_is_kept_whole(self):
+        assert fit_filename("Game", " [tag].zip") == "Game [tag].zip"
+
+    def test_cuts_between_characters_to_fit_the_byte_limit(self):
+        fitted = fit_filename("あ" * 100, " [tag].zip")
+        assert len(fitted.encode()) <= FILE_NAME_MAX_BYTES
+        assert fitted.endswith(" [tag].zip")
+        assert set(fitted.removesuffix(" [tag].zip")) == {"あ"}
+
+    def test_a_tail_over_the_limit_leaves_no_name(self):
+        tail = "t" * (FILE_NAME_MAX_BYTES + 1)
+        assert fit_filename("Game", tail) == tail

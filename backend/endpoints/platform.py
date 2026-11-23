@@ -9,11 +9,13 @@ from decorators.auth import protected_route
 from endpoints.responses.platform import PlatformSchema
 from exceptions.endpoint_exceptions import PlatformNotFoundInDatabaseException
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
+from handler.audit_handler import AuditTarget, changed_fields, record
 from handler.auth.constants import Scope
 from handler.auth.dependencies import (
     assert_can,
-    assert_platform_visible,
     get_permissions,
+    get_rom_visibility_filter,
+    visible_platform_or_404,
 )
 from handler.database import db_platform_handler
 from handler.filesystem import fs_platform_handler
@@ -21,11 +23,11 @@ from handler.scan_handler import scan_platform
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.audit_event import AuditAction
 from models.permission import PermAction, PermEntity
 from models.platform import (
     CUSTOM_NAME_MAX_LENGTH,
     DESCRIPTION_MAX_LENGTH,
-    Platform,
 )
 from utils.platforms import get_filesystem_platforms, get_supported_platforms
 from utils.router import APIRouter
@@ -54,9 +56,14 @@ async def add_platform(
         log.info(f"Detected platform: {hl(fs_slug)}")
 
     scanned_platform = await scan_platform(fs_slug, [fs_slug])
-    return PlatformSchema.model_validate(
-        db_platform_handler.add_platform(scanned_platform)
+    platform = db_platform_handler.add_platform(scanned_platform)
+    record(
+        AuditAction.PLATFORM_CREATE,
+        request,
+        AuditTarget.of_platform(platform),
+        {"fs_slug": fs_slug},
     )
+    return PlatformSchema.model_validate(platform)
 
 
 @protected_route(router.get, "", [Scope.PLATFORMS_READ])
@@ -71,12 +78,11 @@ def get_platforms(
 ) -> list[PlatformSchema]:
     """Retrieve platforms."""
 
-    perms = get_permissions(request)
     return [
         PlatformSchema.model_validate(p)
         for p in db_platform_handler.get_platforms(
             updated_after=updated_after,
-            hidden_platform_ids=perms.hidden_platform_ids,
+            visibility=get_rom_visibility_filter(request),
         )
     ]
 
@@ -88,18 +94,16 @@ def get_platform_identifiers(
     """Retrieve platform identifiers."""
 
     perms = get_permissions(request)
-    platforms = db_platform_handler.get_platforms(
-        only_fields=[Platform.id],
+    return db_platform_handler.get_platform_ids(
         hidden_platform_ids=perms.hidden_platform_ids,
     )
-    return [p.id for p in platforms]
 
 
 @protected_route(router.get, "/supported", [Scope.PLATFORMS_READ])
 def get_supported_platforms_endpoint(request: Request) -> list[PlatformSchema]:
     """Retrieve the list of supported platforms."""
 
-    return get_supported_platforms()
+    return get_supported_platforms(get_rom_visibility_filter(request))
 
 
 @protected_route(router.get, "/filesystem", [Scope.PLATFORMS_READ])
@@ -113,7 +117,11 @@ async def get_filesystem_platforms_endpoint(request: Request) -> list[PlatformSc
     router.get,
     "/{id}",
     [Scope.PLATFORMS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No platform the caller can see has this ID."
+        }
+    },
 )
 def get_platform(
     request: Request,
@@ -121,10 +129,10 @@ def get_platform(
 ) -> PlatformSchema:
     """Retrieve a platform by ID."""
 
-    platform = db_platform_handler.get_platform(id)
-    if not platform:
-        raise PlatformNotFoundInDatabaseException(id)
-    assert_platform_visible(request, platform)
+    platform = db_platform_handler.get_platform(
+        id, visibility=get_rom_visibility_filter(request)
+    )
+    platform = visible_platform_or_404(request, platform, id)
     return PlatformSchema.model_validate(platform)
 
 
@@ -132,7 +140,11 @@ def get_platform(
     router.put,
     "/{id}",
     [Scope.PLATFORMS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No platform the caller can see has this ID."
+        }
+    },
 )
 async def update_platform(
     request: Request,
@@ -156,17 +168,34 @@ async def update_platform(
 ) -> PlatformSchema:
     """Update a platform."""
 
-    platform_db = db_platform_handler.get_platform(id)
-    if not platform_db:
-        raise PlatformNotFoundInDatabaseException(id)
-    assert_platform_visible(request, platform_db)
+    platform_db = visible_platform_or_404(
+        request, db_platform_handler.get_platform(id), id
+    )
 
+    submitted = {"custom_name": custom_name, "description": description}
+    changed = changed_fields(
+        platform_db, {k: v for k, v in submitted.items() if v is not None}, submitted
+    )
     if custom_name is not None:
         platform_db.custom_name = custom_name
     if description is not None:
         platform_db.description = description
     platform_db = db_platform_handler.add_platform(platform_db)
+    if changed:
+        record(
+            AuditAction.PLATFORM_EDIT,
+            request,
+            AuditTarget.of_platform(platform_db),
+            {"changed": changed},
+        )
 
+    visibility = get_rom_visibility_filter(request)
+    if not visibility.is_unrestricted:
+        # Re-read for the caller's totals; the saved row carries everyone's.
+        refreshed = db_platform_handler.get_platform(id, visibility=visibility)
+        if not refreshed:
+            raise PlatformNotFoundInDatabaseException(id)
+        platform_db = refreshed
     return PlatformSchema.model_validate(platform_db)
 
 
@@ -174,7 +203,14 @@ async def update_platform(
     router.delete,
     "/{id}",
     [Scope.PLATFORMS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_403_FORBIDDEN: {
+            "description": "The caller is not allowed to delete platforms."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No platform the caller can see has this ID."
+        },
+    },
 )
 async def delete_platform(
     request: Request,
@@ -183,13 +219,18 @@ async def delete_platform(
     """Delete a platform by ID."""
 
     perms = get_permissions(request)
-    platform = db_platform_handler.get_platform(id)
-    if not platform:
-        raise PlatformNotFoundInDatabaseException(id)
-    assert_platform_visible(request, platform)
+    platform = visible_platform_or_404(
+        request, db_platform_handler.get_platform(id), id
+    )
     assert_can(perms, PermEntity.PLATFORMS, PermAction.DELETE)
 
     log.info(
         f"Deleting {hl(platform.name, color=BLUE)} [{hl(platform.fs_slug)}] from database"
     )
     db_platform_handler.delete_platform(id)
+    record(
+        AuditAction.PLATFORM_DELETE,
+        request,
+        AuditTarget.of_platform(platform),
+        {"fs_slug": platform.fs_slug},
+    )

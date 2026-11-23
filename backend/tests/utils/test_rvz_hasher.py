@@ -2,16 +2,18 @@ import bz2
 import hashlib
 import lzma
 import struct
+from compression import zstd
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import cast
 
 import pytest
-import zstandard
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 from utils.rvz_hasher import (
     RVZ_NATIVE_HASH_EXTENSIONS,
     _LaggedFibonacci,
+    _RvzReader,
     calculate_gamecube_ra_hash,
     calculate_wii_ra_hash,
     is_rvz_native_hash_file,
@@ -102,7 +104,7 @@ def _read_padded(data: bytes, offset: int, length: int) -> bytes:
 
 
 def _be32(data: bytes, offset: int = 0) -> int:
-    return struct.unpack_from(">I", data, offset)[0]
+    return cast(int, struct.unpack_from(">I", data, offset)[0])
 
 
 def reference_gamecube_hash(disc: bytes) -> str:
@@ -308,7 +310,7 @@ class RvzBuilder:
         if self.compression == COMPRESSION_LZMA2:
             return lzma.compress(data, format=lzma.FORMAT_RAW, filters=_LZMA2_FILTERS)
         if self.compression == COMPRESSION_ZSTD:
-            return zstandard.ZstdCompressor(level=3).compress(data)
+            return zstd.compress(data, level=3)
         raise ValueError(f"unsupported compression {self.compression}")
 
     @property
@@ -877,6 +879,38 @@ class TestLaggedFibonacci:
         prod.forward(0x7123)
 
         assert prod.get_bytes(600) == spec.get_bytes(600)
+
+
+class TestZstdGroupDecompression:
+    """Frames from another encoder, not just the stdlib one the builder uses."""
+
+    PAYLOAD = b"RVZ group data. " * 256
+    # PAYLOAD as `zstandard` 0.25 compressed it, one-shot and streamed; a
+    # streamed frame carries no content-size header.
+    LEGACY_FRAMES = {
+        "one-shot": "28b52ffd60000fc500008052565a2067726f757020646174612e200100da3ffe5c02",
+        "streamed": "28b52ffd0058c500008052565a2067726f757020646174612e200100da3ffe5c02",
+    }
+
+    @staticmethod
+    def _zstd_reader() -> _RvzReader:
+        reader = _RvzReader.__new__(_RvzReader)
+        reader.compression = COMPRESSION_ZSTD
+        return reader
+
+    @pytest.mark.parametrize("frame", LEGACY_FRAMES.values(), ids=LEGACY_FRAMES)
+    def test_decodes_a_frame_from_another_encoder(self, frame: str):
+        reader = self._zstd_reader()
+
+        assert reader._decompress(bytes.fromhex(frame), len(self.PAYLOAD)) == (
+            self.PAYLOAD
+        )
+
+    @pytest.mark.parametrize("frame", LEGACY_FRAMES.values(), ids=LEGACY_FRAMES)
+    def test_caps_output_at_max_output(self, frame: str):
+        reader = self._zstd_reader()
+
+        assert reader._decompress(bytes.fromhex(frame), 100) == self.PAYLOAD[:100]
 
 
 # ---------------------------------------------------------------------------

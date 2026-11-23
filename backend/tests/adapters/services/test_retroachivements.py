@@ -1,18 +1,75 @@
-from typing import cast
-from unittest.mock import AsyncMock, MagicMock, patch
+import asyncio
+import json
+from collections.abc import AsyncIterator
+from typing import Any, cast
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import aiohttp
 import pytest
+import pytest_asyncio
 import yarl
 from fastapi import HTTPException, status
+from tests.adapters.services.scripted_server import (
+    DISCONNECT,
+    Reply,
+    ScriptedServer,
+    scripted_server,
+)
 
 from adapters.services import retroachievements
 from adapters.services.retroachievements import (
+    RARequestRejectedError,
     RetroAchievementsService,
     auth_middleware,
 )
+from utils.rate_limiter import RateLimiter
 
 INVALID_GAME_ID = 999999
+
+
+@pytest.fixture(autouse=True)
+def fresh_rate_limiter(monkeypatch: pytest.MonkeyPatch) -> RateLimiter:
+    """A limiter per test that never waits, since a 429 throttles the shared one."""
+    limiter = RateLimiter(retroachievements.RA_MAX_REQUESTS_PER_SECOND)
+    monkeypatch.setattr(limiter, "acquire", AsyncMock())
+    monkeypatch.setattr(retroachievements, "_rate_limiter", limiter)
+    return limiter
+
+
+# RA sends null credits for games without them, such as homebrew and hacks.
+UNCREDITED_GAME = {
+    "ID": 1,
+    "Title": "Homebrew",
+    "ConsoleID": 1,
+    "ForumTopicID": None,
+    "ImageIcon": "",
+    "ImageTitle": "",
+    "ImageIngame": "",
+    "ImageBoxArt": "",
+    "Publisher": None,
+    "Developer": None,
+    "Genre": None,
+    "Released": None,
+    "ReleasedAtGranularity": None,
+    "RichPresencePatch": "",
+    "GuideURL": None,
+    "ConsoleName": "Genesis/Mega Drive",
+    "ParentGameID": None,
+    "NumDistinctPlayers": 0,
+    "NumAchievements": 0,
+    "Achievements": {},
+}
+
+
+def _session_returning(body: dict[str, object]) -> MagicMock:
+    mock_response = MagicMock()
+    mock_response.read = AsyncMock(return_value=json.dumps(body).encode())
+    mock_response.raise_for_status.return_value = None
+    mock_session = AsyncMock()
+    mock_session.get.return_value = mock_response
+    mock_context = MagicMock()
+    mock_context.get.return_value = mock_session
+    return mock_context
 
 
 class TestAuthMiddleware:
@@ -37,6 +94,20 @@ class TestAuthMiddleware:
         assert mock_request.url == expected_url
         mock_handler.assert_called_once_with(mock_request)
         assert result == mock_response
+
+    @patch("adapters.services.retroachievements.RETROACHIEVEMENTS_API_KEY", None)
+    @pytest.mark.asyncio
+    async def test_auth_middleware_sends_empty_key_when_unset(self):
+        mock_request = MagicMock()
+        mock_request.url = yarl.URL("https://retroachievements.org/API")
+        mock_handler = AsyncMock()
+
+        await auth_middleware(mock_request, mock_handler)
+
+        assert mock_request.url == yarl.URL(
+            "https://retroachievements.org/API"
+        ).with_query(y="")
+        mock_handler.assert_called_once_with(mock_request)
 
 
 class TestRetroAchievementsServiceUnit:
@@ -74,16 +145,96 @@ class TestRetroAchievementsServiceUnit:
             "adapters.services.retroachievements.ctx_aiohttp_session", mock_context
         ):
             with pytest.raises(HTTPException) as exc_info:
-                await service._request("https://retroachievements.org/API")
+                await service._request("https://retroachievements.org/API", object)
 
         assert exc_info.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
         assert "Can't connect to RetroAchievements" in exc_info.value.detail
 
     @pytest.mark.asyncio
+    async def test_request_raises_when_ra_refuses(self, service):
+        mock_response = MagicMock()
+        mock_response.raise_for_status.side_effect = aiohttp.ClientResponseError(
+            request_info=MagicMock(), history=(), status=500
+        )
+        mock_session = AsyncMock()
+        mock_session.get.return_value = mock_response
+        mock_context = MagicMock()
+        mock_context.get.return_value = mock_session
+
+        with patch(
+            "adapters.services.retroachievements.ctx_aiohttp_session", mock_context
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                await service._request("https://retroachievements.org/API", object)
+
+        assert exc_info.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+
+    @pytest.mark.asyncio
+    async def test_request_reads_an_unknown_id_as_none(self, service):
+        mock_response = MagicMock()
+        mock_response.read = AsyncMock(return_value=b"[]")
+        mock_response.raise_for_status.return_value = None
+        mock_session = AsyncMock()
+        mock_session.get.return_value = mock_response
+        mock_context = MagicMock()
+        mock_context.get.return_value = mock_session
+
+        with patch(
+            "adapters.services.retroachievements.ctx_aiohttp_session", mock_context
+        ):
+            assert await service.get_game_extended_details(999999) is None
+
+    @pytest.mark.asyncio
+    async def test_game_extended_details_accept_missing_credits(self, service):
+        body = {
+            **UNCREDITED_GAME,
+            "Updated": "2025-07-06T16:20:59.000000Z",
+            "NumDistinctPlayersCasual": 0,
+            "NumDistinctPlayersHardcore": 0,
+        }
+
+        with patch(
+            "adapters.services.retroachievements.ctx_aiohttp_session",
+            _session_returning(body),
+        ):
+            assert await service.get_game_extended_details(1) == body
+
+    @pytest.mark.asyncio
+    async def test_user_game_progress_accepts_missing_credits(self, service):
+        body = {
+            **UNCREDITED_GAME,
+            "NumAwardedToUser": 0,
+            "NumAwardedToUserHardcore": 0,
+            "NumDistinctPlayersCasual": 0,
+            "NumDistinctPlayersHardcore": 0,
+            "UserCompletion": "0.00%",
+            "UserCompletionHardcore": "0.00%",
+        }
+
+        with patch(
+            "adapters.services.retroachievements.ctx_aiohttp_session",
+            _session_returning(body),
+        ):
+            assert await service.get_user_game_progress("user", 1) == body
+
+    @pytest.mark.asyncio
+    async def test_a_failed_progress_page_aborts_the_iteration(self, service):
+        first_page = {"Count": 500, "Total": 1000, "Results": [{}] * 500}
+        unavailable = HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
+        with patch.object(
+            service,
+            "get_user_completion_progress",
+            AsyncMock(side_effect=[first_page, unavailable]),
+        ):
+            with pytest.raises(HTTPException):
+                async for _ in service.iter_user_completion_progress("user"):
+                    pass
+
+    @pytest.mark.asyncio
     async def test_request_acquires_rate_limiter(self, service):
         """Test that the request reserves a rate-limiter slot before sending."""
         mock_response = MagicMock()
-        mock_response.json = AsyncMock(return_value={})
+        mock_response.read = AsyncMock(return_value=json.dumps({}).encode())
         mock_response.raise_for_status.return_value = None
 
         # Record the order in which the rate limiter is acquired and the request is sent
@@ -104,7 +255,7 @@ class TestRetroAchievementsServiceUnit:
         with patch(
             "adapters.services.retroachievements.ctx_aiohttp_session", mock_context
         ):
-            await service._request("https://retroachievements.org/API")
+            await service._request("https://retroachievements.org/API", object)
 
         # The rate-limiter slot must be reserved, and before the request is sent.
         acquire_mock.assert_awaited_once()
@@ -188,13 +339,11 @@ class TestRetroAchievementsServiceIntegration:
             "adapters.services.retroachievements.ctx_aiohttp_session",
             mock_ctx_aiohttp_session,
         ):
-            result = await service.get_user_completion_progress("arcanecraeda", limit=5)
+            # The recording caught RA rejecting the key, which is a failed request.
+            with pytest.raises(HTTPException) as exc_info:
+                await service.get_user_completion_progress("arcanecraeda", limit=5)
 
-        assert isinstance(result, dict)
-        if result:  # Non-empty response
-            assert "Total" in result
-            assert "Results" in result
-            assert isinstance(result["Results"], list)
+        assert exc_info.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
 
     @pytest.mark.asyncio
     @pytest.mark.vcr
@@ -291,4 +440,283 @@ class TestRetroAchievementsServiceIntegration:
             ):
                 # This should handle the error gracefully
                 result = await service.get_game_extended_details(INVALID_GAME_ID)
-                assert isinstance(result, list)
+                assert result is None
+
+
+def _progress(game_id: int) -> dict[str, object]:
+    return {
+        "GameID": game_id,
+        "Title": f"Game {game_id}",
+        "ImageIcon": "",
+        "ConsoleID": 1,
+        "ConsoleName": "Genesis/Mega Drive",
+        "MaxPossible": 10,
+        "NumAwarded": 1,
+        "NumAwardedHardcore": 0,
+        "MostRecentAwardedDate": "2026-01-01T00:00:00+00:00",
+        "HighestAwardKind": None,
+        "HighestAwardDate": None,
+    }
+
+
+@pytest_asyncio.fixture
+async def ra_server() -> AsyncIterator[tuple[ScriptedServer, RetroAchievementsService]]:
+    async with scripted_server("/API") as (fake, url):
+        yield fake, RetroAchievementsService(base_url=url)
+
+
+@pytest.fixture
+def no_backoff(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
+    sleep = AsyncMock()
+    # Swap only this module's reference, so the test server and aiohttp still sleep.
+    monkeypatch.setattr(
+        "adapters.services.provider_http.asyncio",
+        MagicMock(wraps=asyncio, sleep=sleep),
+    )
+    return sleep
+
+
+class TestAgainstAServer:
+    async def test_sends_the_api_key_and_a_romm_user_agent(
+        self,
+        ra_server: tuple[ScriptedServer, RetroAchievementsService],
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        fake, service = ra_server
+        monkeypatch.setattr(retroachievements, "RETROACHIEVEMENTS_API_KEY", "key")
+        fake.replies["API_GetGameList.php"] = [(200, [])]
+
+        assert await service.get_game_list(1, include_hashes=True) == []
+
+        [request] = fake.requests
+        assert dict(request.query) == {"i": "1", "h": "1", "y": "key"}
+        assert request.headers["User-Agent"].startswith("RomM/")
+
+    async def test_a_timed_out_request_is_retried_once(
+        self, ra_server: tuple[ScriptedServer, RetroAchievementsService]
+    ):
+        fake, service = ra_server
+        fake.replies["API_GetAchievementOfTheWeek.php"] = [5.0, (200, {"ok": 1})]
+
+        result = await service._request(
+            f"{service.url}/API_GetAchievementOfTheWeek.php",
+            dict[str, Any],
+            request_timeout=0.2,
+        )
+
+        assert result == {"ok": 1}
+        assert len(fake.requests) == 2
+
+    async def test_two_timeouts_are_unavailable(
+        self, ra_server: tuple[ScriptedServer, RetroAchievementsService]
+    ):
+        fake, service = ra_server
+        fake.replies["API_GetAchievementOfTheWeek.php"] = [5.0, 5.0]
+
+        with pytest.raises(HTTPException) as exc:
+            await service._request(
+                f"{service.url}/API_GetAchievementOfTheWeek.php",
+                dict[str, Any],
+                request_timeout=0.2,
+            )
+
+        assert exc.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+
+    async def test_a_rate_limited_request_backs_off_and_retries(
+        self,
+        ra_server: tuple[ScriptedServer, RetroAchievementsService],
+        no_backoff: AsyncMock,
+    ):
+        fake, service = ra_server
+        fake.replies["API_GetAchievementOfTheWeek.php"] = [
+            (429, {}),
+            (200, {"ok": 1}),
+        ]
+
+        assert await service.get_achievement_of_the_week() == {"ok": 1}
+        no_backoff.assert_awaited_once_with(2)
+
+    async def test_a_sync_request_rides_out_a_rate_limited_burst(
+        self,
+        ra_server: tuple[ScriptedServer, RetroAchievementsService],
+        no_backoff: AsyncMock,
+    ):
+        fake, service = ra_server
+        fake.replies["API_GetUserCompletionProgress.php"] = [
+            *[(429, {})] * (retroachievements.RA_SYNC_RATE_LIMIT_ATTEMPTS - 1),
+            (200, {"Count": 1, "Total": 1, "Results": [_progress(1)]}),
+        ]
+
+        page = await service.get_user_completion_progress("me")
+
+        assert page is not None and page["Total"] == 1
+        assert no_backoff.await_args_list == [call(2), call(4), call(8), call(16)]
+
+    async def test_other_requests_keep_the_default_rate_limit_attempts(
+        self,
+        ra_server: tuple[ScriptedServer, RetroAchievementsService],
+        no_backoff: AsyncMock,
+    ):
+        fake, service = ra_server
+        fake.replies["API_GetAchievementOfTheWeek.php"] = [
+            (429, {}),
+            (429, {}),
+            (200, {"ok": 1}),
+        ]
+
+        with pytest.raises(HTTPException):
+            await service.get_achievement_of_the_week()
+
+        assert len(fake.requests) == 2
+
+    @pytest.mark.parametrize(
+        ("reply", "rejected"),
+        [
+            ((500, {}), True),
+            ((404, {}), True),
+            ((200, b"<html>"), True),
+            ((502, {}), False),
+            ((429, {}), False),
+        ],
+        ids=["server_error", "not_found", "not_json", "bad_gateway", "throttled"],
+    )
+    async def test_only_a_refusal_of_the_request_itself_is_rejected(
+        self,
+        ra_server: tuple[ScriptedServer, RetroAchievementsService],
+        no_backoff: AsyncMock,
+        reply: Reply,
+        rejected: bool,
+    ):
+        fake, service = ra_server
+        fake.replies["API_GetAchievementOfTheWeek.php"] = [reply, reply]
+
+        with pytest.raises(HTTPException) as exc:
+            await service.get_achievement_of_the_week()
+
+        assert isinstance(exc.value, RARequestRejectedError) is rejected
+        assert exc.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+
+    async def test_a_rate_limit_holds_and_slows_every_request(
+        self,
+        ra_server: tuple[ScriptedServer, RetroAchievementsService],
+        no_backoff: AsyncMock,
+        fresh_rate_limiter: RateLimiter,
+        mocker,
+    ):
+        fake, service = ra_server
+        fake.replies["API_GetAchievementOfTheWeek.php"] = [
+            (429, {}),
+            (200, {"ok": 1}),
+        ]
+        hold = mocker.spy(fresh_rate_limiter, "hold")
+
+        await service.get_achievement_of_the_week()
+
+        hold.assert_called_once_with(2)
+        # Halved by the 429, then stepped back up by the retry that went through.
+        assert fresh_rate_limiter.requests_per_second == (
+            retroachievements.RA_MAX_REQUESTS_PER_SECOND / 2
+            + retroachievements.RA_RECOVERY_REQUESTS_PER_SECOND
+        )
+
+    async def test_a_failed_retry_is_unavailable(
+        self,
+        ra_server: tuple[ScriptedServer, RetroAchievementsService],
+        no_backoff: AsyncMock,
+    ):
+        fake, service = ra_server
+        fake.replies["API_GetAchievementOfTheWeek.php"] = [(429, {}), (500, {})]
+
+        with pytest.raises(HTTPException) as exc:
+            await service.get_achievement_of_the_week()
+
+        assert exc.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+
+    @pytest.mark.parametrize("first", [5.0, (429, {})], ids=["timeout", "rate_limited"])
+    async def test_a_dropped_retry_is_unavailable(
+        self,
+        ra_server: tuple[ScriptedServer, RetroAchievementsService],
+        no_backoff: AsyncMock,
+        first: Reply,
+    ):
+        fake, service = ra_server
+        # aiohttp itself resends an idempotent request once on a dropped connection.
+        fake.replies["API_GetAchievementOfTheWeek.php"] = [
+            first,
+            DISCONNECT,
+            DISCONNECT,
+        ]
+
+        with pytest.raises(HTTPException) as exc:
+            await service._request(
+                f"{service.url}/API_GetAchievementOfTheWeek.php",
+                dict[str, Any],
+                request_timeout=0.2,
+            )
+
+        assert exc.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+        assert "connect" in exc.value.detail
+        assert len(fake.requests) == 3
+
+    @pytest.mark.parametrize("retried", [False, True], ids=["first", "retry"])
+    async def test_a_reply_that_is_not_json_is_unavailable(
+        self,
+        ra_server: tuple[ScriptedServer, RetroAchievementsService],
+        no_backoff: AsyncMock,
+        retried: bool,
+    ):
+        fake, service = ra_server
+        fake.replies["API_GetAchievementOfTheWeek.php"] = (
+            [(429, {}), (200, b"<html>")] if retried else [(200, b"<html>")]
+        )
+
+        with pytest.raises(HTTPException) as exc:
+            await service.get_achievement_of_the_week()
+
+        assert exc.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+
+    async def test_completion_progress_is_read_page_by_page(
+        self, ra_server: tuple[ScriptedServer, RetroAchievementsService]
+    ):
+        fake, service = ra_server
+        first = [_progress(i) for i in range(500)]
+        fake.replies["API_GetUserCompletionProgress.php"] = [
+            (200, {"Count": 500, "Total": 501, "Results": first}),
+            (200, {"Count": 1, "Total": 501, "Results": [_progress(500)]}),
+        ]
+
+        games = [r["GameID"] async for r in service.iter_user_completion_progress("me")]
+
+        assert games == list(range(501))
+        assert [
+            {k: v for k, v in r.query.items() if k != "y"} for r in fake.requests
+        ] == [{"u": "me", "c": "500"}, {"u": "me", "c": "500", "o": "500"}]
+
+    async def test_an_unknown_user_ends_the_progress(
+        self, ra_server: tuple[ScriptedServer, RetroAchievementsService]
+    ):
+        fake, service = ra_server
+        fake.replies["API_GetUserCompletionProgress.php"] = [(200, b"[]")]
+
+        assert [r async for r in service.iter_user_completion_progress("nobody")] == []
+
+
+class TestThrottlePace:
+    async def test_throttling_stops_at_the_floor(self, fresh_rate_limiter: RateLimiter):
+        for _ in range(10):
+            retroachievements._throttle(0)
+
+        assert (
+            fresh_rate_limiter.requests_per_second
+            == retroachievements.RA_MIN_REQUESTS_PER_SECOND
+        )
+
+    async def test_recovery_stops_at_the_cap(self, fresh_rate_limiter: RateLimiter):
+        retroachievements._throttle(0)
+        for _ in range(100):
+            retroachievements._recover()
+
+        assert (
+            fresh_rate_limiter.requests_per_second
+            == retroachievements.RA_MAX_REQUESTS_PER_SECOND
+        )

@@ -17,10 +17,10 @@ from collections.abc import Sequence
 from datetime import datetime, timezone
 from typing import cast
 
-import sentry_sdk
-
-from config import ENABLE_SYNC_FOLDER_WATCHER, SENTRY_DSN
+from config import ENABLE_SYNC_FOLDER_WATCHER
+from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import (
+    db_deleted_asset_handler,
     db_device_handler,
     db_device_save_sync_handler,
     db_platform_handler,
@@ -28,17 +28,14 @@ from handler.database import (
     db_sync_session_handler,
 )
 from handler.filesystem import fs_asset_handler, get_fs_sync_handler
-from handler.sync.comparison import compare_save_state
+from handler.sync.comparison import compare_save_state, for_held_save
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.device import SyncMode
+from models.device import Device, SyncMode
 from models.sync_session import SyncSessionStatus
-from utils import get_version
+from utils.sentry import init_sentry
 
-sentry_sdk.init(
-    dsn=SENTRY_DSN,
-    release=f"romm@{get_version()}",
-)
+init_sentry()
 
 Change = tuple[str, str]
 
@@ -58,7 +55,7 @@ def _extract_device_and_platform(path: str) -> tuple[str, str, str] | None:
         platform_slug = parts[2]
         filename = parts[-1]
         return (device_id, platform_slug, filename)
-    except (ValueError, IndexError):
+    except ValueError, IndexError:
         return None
 
 
@@ -204,7 +201,11 @@ def _process_device_incoming(
 
 
 def _process_incoming_file(
-    device, session_id: int, platform_slug: str, filename: str, full_path: str
+    device: Device,
+    session_id: int,
+    platform_slug: str,
+    filename: str,
+    full_path: str,
 ) -> None:
     """Process a single incoming file from a device's sync folder."""
     from endpoints.sockets.sync import emit_sync_conflict
@@ -230,6 +231,7 @@ def _process_incoming_file(
         user_id=device.user_id,
         platform_id=platform.id,
         slot_not_null=True,
+        visibility=UNRESTRICTED,
     )
 
     matched_save = None
@@ -249,20 +251,40 @@ def _process_incoming_file(
             server_hash=matched_save.content_hash,
             server_updated_at=matched_save.updated_at,
             device_last_synced_at=device_sync.last_synced_at if device_sync else None,
+            device_last_sync_hash=device_sync.last_sync_hash if device_sync else None,
+            device_last_sync_server_hash=(
+                device_sync.last_sync_server_hash if device_sync else None
+            ),
+            # Identical content is a no_op, which never reads removals.
+            removed_at=(
+                db_deleted_asset_handler.removal_times(
+                    device.user_id, matched_save.attached_rom_id, matched_save.slot
+                )
+                if file_hash != matched_save.content_hash
+                else None
+            ),
         )
 
-        if result.action == "no_op":
+        result = for_held_save(result, matched_save.id)
+        action, reason = result.action, result.reason
+
+        if action == "no_op":
             log.debug(f"Sync watcher: {filename} is already in sync, skipping")
+            if file_hash == matched_save.content_hash:
+                db_device_save_sync_handler.record_identical_content(
+                    device.id, matched_save.id, file_hash
+                )
             fs_sync_handler.remove_incoming_file(full_path)
             return
 
-        if result.action == "upload":
+        if action == "upload":
             # Client file is newer - update server save
             log.info(
                 f"Sync watcher: updating save {hl(filename)} from device {device.id}"
             )
             with open(full_path, "rb") as f:
                 file_data = f.read()
+            replaced_hash = asyncio.run(fs_asset_handler.unrecorded_hash(matched_save))
             asyncio.run(
                 fs_asset_handler.write_file(
                     file=file_data,
@@ -276,18 +298,21 @@ def _process_incoming_file(
                     "file_size_bytes": file_size,
                     "content_hash": file_hash,
                 },
+                replaced_hash=replaced_hash,
             )
+            # This path hashes the device's file itself, so both sides hold file_hash.
             db_device_save_sync_handler.upsert_sync(
                 device_id=device.id,
                 save_id=matched_save.id,
-                synced_at=datetime.now(timezone.utc),
+                last_sync_hash=file_hash,
+                last_sync_server_hash=file_hash,
             )
             fs_sync_handler.remove_incoming_file(full_path)
 
-        elif result.action == "conflict":
+        elif action == "conflict":
             log.warning(
                 f"Sync watcher: conflict detected for {filename} "
-                f"on device {device.id}: {result.reason}"
+                f"on device {device.id}: {reason}"
             )
             # Move conflicting file to conflicts directory
             conflicts_dir = _ensure_conflicts_dir(device.id, platform_slug)
@@ -302,12 +327,14 @@ def _process_incoming_file(
                     device_id=device.id,
                     session_id=session_id,
                     file_name=filename,
-                    rom_id=matched_save.rom_id,
-                    reason=result.reason,
+                    rom_id=matched_save.attached_rom_id,
+                    rom_name=matched_save.attached_rom.name
+                    or matched_save.attached_rom.fs_name,
+                    reason=reason,
                 )
             )
 
-        elif result.action == "download":
+        elif action == "download":
             # Server is newer - write server save to device's outgoing directory
             log.info(
                 f"Sync watcher: server save is newer for {filename}, "
@@ -323,10 +350,11 @@ def _process_incoming_file(
                 file_name=filename,
                 data=server_data,
             )
+            # The device has no bytes yet, so only the server half is known.
             db_device_save_sync_handler.upsert_sync(
                 device_id=device.id,
                 save_id=matched_save.id,
-                synced_at=datetime.now(timezone.utc),
+                last_sync_server_hash=matched_save.content_hash,
             )
             fs_sync_handler.remove_incoming_file(full_path)
     else:

@@ -1,13 +1,14 @@
 import uuid
 from datetime import datetime, timezone
 from http.cookies import SimpleCookie
-from typing import Any
+from typing import Any, cast
 
-from fastapi import Request
+from fastapi import HTTPException, Request, status
+from starlette.requests import HTTPConnection
 from ua_parser import Result as UAResult
 from ua_parser import parse as parse_ua
 
-from handler.auth.constants import SESSION_COOKIE_NAME
+from handler.auth.constants import SESSION_COOKIE_NAME, Scope
 from handler.database import db_device_handler
 from handler.redis_handler import async_cache
 from logger.formatter import CYAN
@@ -16,6 +17,79 @@ from logger.logger import log
 from models.device import KNOWN_DEVICES, Device
 from models.user import User
 from utils import json_module
+
+
+def token_device_id(conn: HTTPConnection) -> str | None:
+    """The device the request's client token is bound to, if any."""
+    return getattr(conn.state, "device_id", None)
+
+
+def token_reaches_device(conn: HTTPConnection, device_id: str | None) -> bool:
+    """Whether the request's client token may act on this device; unbound ones reach all."""
+    return token_device_id(conn) in (None, device_id)
+
+
+def require_token_device(conn: HTTPConnection, device_id: str) -> None:
+    """Hide every other device from a client token bound to one, as a 404."""
+    if not token_reaches_device(conn, device_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Device with ID {device_id} not found",
+        )
+
+
+def require_device(
+    request: Request, device_id: str, device_only: bool = False
+) -> Device:
+    """The caller's device, 404 when not theirs and 403 under ``device_only`` for another caller."""
+    require_token_device(request, device_id)
+    device = db_device_handler.get_device(device_id=device_id, user_id=request.user.id)
+    if device is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Device with ID {device_id} not found",
+        )
+    if device_only and token_device_id(request) != device_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the device itself can do this",
+        )
+    return device
+
+
+def resolve_device(
+    request: Request,
+    device_id: str | None,
+    required_scope: Scope | None = None,
+) -> Device | None:
+    """The caller's device a sync request names, None when it names none."""
+    if not device_id:
+        return None
+
+    scopes = request.auth.scopes
+    if required_scope and scopes and required_scope not in scopes:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+    return require_device(request, device_id)
+
+
+# The 403 descriptions for a `device_id` that resolve_device refuses.
+DEVICE_READ_FORBIDDEN = (
+    f"The request sets `device_id` without the `{Scope.DEVICES_READ}` scope."
+)
+DEVICE_WRITE_FORBIDDEN = (
+    f"The request sets `device_id` without the `{Scope.DEVICES_WRITE}` scope."
+)
+
+
+def request_client_token_id(conn: HTTPConnection) -> int | None:
+    """The id of the client token that authenticated the request, if any."""
+    return getattr(conn.state, "client_token_id", None)
+
+
+def current_device_id(conn: HTTPConnection) -> str | None:
+    """The device a request comes from: its client token's, else its web session's."""
+    return token_device_id(conn) or (conn.scope.get("session") or {}).get("device_id")
 
 
 async def get_session_from_environ(environ: dict[str, Any]) -> dict[str, Any]:
@@ -29,7 +103,7 @@ async def get_session_from_environ(environ: dict[str, Any]) -> dict[str, Any]:
     scope = environ.get("asgi.scope", {})
     session = scope.get("session")
     if session:
-        return session
+        return cast(dict[str, Any], session)
 
     raw_cookie = environ.get("HTTP_COOKIE", "")
     if not raw_cookie:
@@ -45,9 +119,11 @@ async def get_session_from_environ(environ: dict[str, Any]) -> dict[str, Any]:
     if not session_data:
         return {}
     try:
-        return json_module.loads(session_data)
+        session = json_module.loads(session_data)
     except Exception:  # noqa: BLE001 - malformed session is "no session"
         return {}
+    # The middleware adds the same key on the scope path.
+    return {**session, "session_id": morsel.value}
 
 
 def _get_device_name(user_agent: UAResult) -> str | None:

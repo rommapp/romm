@@ -12,15 +12,34 @@ from typing import Final
 # manual viewer can render them; the browser renders PDFs in a sandboxed
 # viewer and Markdown is served as text/markdown (never sniffed to HTML).
 ALLOWED_IMAGE_EXTENSIONS = frozenset(
-    {".png", ".jpg", ".jpeg", ".webp", ".gif", ".tiff", ".tif", ".bmp", ".avif"}
+    {
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".webp",
+        ".gif",
+        ".tiff",
+        ".tif",
+        ".bmp",
+        ".avif",
+        ".jxl",
+    }
 )
+# Uploaded screenshots are served back as stored, so they keep to the formats
+# every browser renders; JPEG XL stays a library-file format.
+SCREENSHOT_UPLOAD_EXTENSIONS = ALLOWED_IMAGE_EXTENSIONS - {".jxl"}
 ALLOWED_VIDEO_EXTENSIONS = frozenset({".mp4", ".webm", ".ogv", ".mov", ".m4v"})
-ALLOWED_DOCUMENT_EXTENSIONS = frozenset({".pdf", ".md"})
+ALLOWED_DOCUMENT_EXTENSIONS = frozenset({".pdf", ".md", ".txt", ".html", ".htm"})
+
+# Document extensions that are HTML. Nothing sanitizes them on the way in, so
+# they require a sandboxing CSP when served inline.
+HTML_DOCUMENT_EXTENSIONS = frozenset({".html", ".htm"})
 
 # MIME types the stdlib mimetypes module guesses inconsistently (or not at
 # all) across platforms.
 MEDIA_MIME_OVERRIDES = {
     ".avif": "image/avif",
+    ".jxl": "image/jxl",
     ".webp": "image/webp",
     ".mp4": "video/mp4",
     ".m4v": "video/mp4",
@@ -29,7 +48,17 @@ MEDIA_MIME_OVERRIDES = {
     ".mov": "video/quicktime",
     ".pdf": "application/pdf",
     ".md": "text/markdown",
+    ".txt": "text/plain",
+    ".html": "text/html",
+    ".htm": "text/html",
 }
+
+
+def is_html_document_file(file_name: str) -> bool:
+    """Whether a document is HTML and needs CSP sandboxing when served inline."""
+    ext = os.path.splitext(file_name)[1].lower()
+    return ext in HTML_DOCUMENT_EXTENSIONS
+
 
 # Image MIME types we trust to (a) accept as avatar uploads and (b) serve
 # inline from the raw asset endpoint. Maps each trusted MIME type to its
@@ -42,11 +71,21 @@ IMAGE_EXT_BY_MIME_TYPE: Final[dict[str, str]] = {
     "image/gif": "gif",
 }
 
+# Artwork MIME types not every browser renders, mapped to the extension the
+# cover is re-encoded to on upload.
+CONVERTED_IMAGE_EXT_BY_MIME_TYPE: Final[dict[str, str]] = {"image/jxl": "png"}
+
 
 def is_allowed_image_file(file_name: str) -> bool:
     """Whether a library file is an image the browser can render inline."""
     ext = os.path.splitext(file_name)[1].lower()
     return ext in ALLOWED_IMAGE_EXTENSIONS
+
+
+def is_allowed_screenshot_upload(file_name: str) -> bool:
+    """Whether an uploaded screenshot has an extension every browser renders."""
+    ext = os.path.splitext(file_name)[1].lower()
+    return ext in SCREENSHOT_UPLOAD_EXTENSIONS
 
 
 def is_allowed_video_file(file_name: str) -> bool:

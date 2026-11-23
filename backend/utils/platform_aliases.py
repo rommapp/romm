@@ -1,0 +1,277 @@
+from __future__ import annotations
+
+import difflib
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, Final
+
+from adapters.services.igdb import IGDB_PLATFORM_VERSIONS
+from utils.platform_slugs import UniversalPlatformSlug as UPS
+
+if TYPE_CHECKING:
+    from config.config_manager import Config
+
+# Folder names used by Batocera, RetroBat and ES-DE that differ from RomM slugs.
+PLATFORM_FS_ALIASES: Final[dict[str, UPS]] = {
+    "adam": UPS.COLECOADAM,
+    "advision": UPS.ADVENTURE_VISION,
+    "amiga1200": UPS.AMIGA,
+    "amiga4000": UPS.AMIGA,
+    "amiga500": UPS.AMIGA,
+    "amiga600": UPS.AMIGA,
+    "amigacd32": UPS.AMIGA_CD32,
+    "amigacdtv": UPS.COMMODORE_CDTV,
+    "amstradcpc": UPS.ACPC,
+    "apfm1000": UPS.APF,
+    "apple2": UPS.APPLEII,
+    "apple2gs": UPS.APPLE_IIGS,
+    "arcadia": UPS.ARCADIA_2001,
+    "archimedes": UPS.ACORN_ARCHIMEDES,
+    "astrocde": UPS.ASTROCADE,
+    "atarijaguar": UPS.JAGUAR,
+    "atarijaguarcd": UPS.ATARI_JAGUAR_CD,
+    "atarilynx": UPS.LYNX,
+    "atarist": UPS.ATARI_ST,
+    "atarixe": UPS.ATARI_XEGS,
+    "bbc": UPS.BBCMICRO,
+    "c20": UPS.VIC_20,
+    "camplynx": UPS.CAMPUTERS_LYNX,
+    "cdi": UPS.PHILIPS_CD_I,
+    "cdimono1": UPS.PHILIPS_CD_I,
+    "cdtv": UPS.COMMODORE_CDTV,
+    "channelf": UPS.FAIRCHILD_CHANNEL_F,
+    "coco": UPS.TRS_80_COLOR_COMPUTER,
+    "consolearcade": UPS.ARCADE,
+    "cplus4": UPS.C_PLUS_4,
+    "cps": UPS.ARCADE,
+    "cps1": UPS.ARCADE,
+    "cps2": UPS.ARCADE,
+    "cps3": UPS.ARCADE,
+    "crvision": UPS.CREATIVISION,
+    "dragon32": UPS.DRAGON_32_SLASH_64,
+    "dreamcast": UPS.DC,
+    "easyrpg": UPS.RPG_MAKER,
+    "electron": UPS.ACORN_ELECTRON,
+    "flash": UPS.BROWSER,
+    "fm7": UPS.FM_7,
+    "fmtowns": UPS.FM_TOWNS,
+    "gameandwatch": UPS.G_AND_W,
+    "gamecom": UPS.GAME_DOT_COM,
+    "gamecube": UPS.NGC,
+    "gamepock": UPS.EPOCH_GAME_POCKET_COMPUTER,
+    "gb2players": UPS.GB,
+    "gba2players": UPS.GBA,
+    "gbc2players": UPS.GBC,
+    "gc": UPS.NGC,
+    "gmaster": UPS.HARTUNG,
+    "gx4000": UPS.AMSTRAD_GX4000,
+    "gzdoom": UPS.DOOM,
+    "jaguarcd": UPS.ATARI_JAGUAR_CD,
+    "laserdisc": UPS.DAPHNE,
+    "lcdgames": UPS.HANDHELD_ELECTRONIC_LCD,
+    "macintosh": UPS.MAC,
+    "mark3": UPS.SMS,
+    "mastersystem": UPS.SMS,
+    "megacd": UPS.SEGACD,
+    "megacdjp": UPS.SEGACD,
+    "megadrive": UPS.GENESIS,
+    "megadrive-msu": UPS.GENESIS,
+    "megadrivejp": UPS.GENESIS,
+    "megaduck": UPS.MEGA_DUCK_SLASH_COUGAR_BOY,
+    "model1": UPS.ARCADE,
+    "msu-md": UPS.GENESIS,
+    "msx1": UPS.MSX,
+    "msx2+": UPS.MSX2PLUS,
+    "msxturbor": UPS.MSX_TURBO,
+    "mz2500": UPS.SHARP_MZ_80B20002500,
+    "mz700": UPS.SHARP_MZ_80K7008001500,
+    "mz800": UPS.SHARP_MZ_80K7008001500,
+    "mz80k": UPS.SHARP_MZ_80K7008001500,
+    "n3ds": UPS.N3DS,
+    "n64dd": UPS.N64DD,
+    "namco22": UPS.ARCADE,
+    "neogeo": UPS.NEOGEOAES,
+    "neogeocd": UPS.NEO_GEO_CD,
+    "ngp": UPS.NEO_GEO_POCKET,
+    "ngpc": UPS.NEO_GEO_POCKET_COLOR,
+    "odyssey2": UPS.ODYSSEY_2,
+    "oricatmos": UPS.ATMOS,
+    "palm": UPS.PALM_OS,
+    "pc": UPS.WIN,
+    "pc88": UPS.PC_8800_SERIES,
+    "pc98": UPS.PC_9800_SERIES,
+    "pcengine": UPS.TG16,
+    "pcenginecd": UPS.TURBOGRAFX_CD,
+    "pcfx": UPS.PC_FX,
+    "pcw": UPS.AMSTRAD_PCW,
+    "pet": UPS.CPET,
+    "plugnplay": UPS.PLUG_AND_PLAY,
+    "pokemini": UPS.POKEMON_MINI,
+    "prboom": UPS.DOOM,
+    "ps": UPS.PSX,
+    "ps3-psn": UPS.PS3,
+    "pspminis": UPS.PSP_MINIS,
+    "pv1000": UPS.CASIO_PV_1000,
+    "samcoupe": UPS.SAM_COUPE,
+    "scv": UPS.EPOCH_SUPER_CASSETTE_VISION,
+    "sega32x": UPS.SEGA32,
+    "segastv": UPS.STV,
+    "sfc": UPS.SFAM,
+    "sg-1000": UPS.SG1000,
+    "snes-msu1": UPS.SNES,
+    "sufami": UPS.SUFAMI_TURBO,
+    "supracan": UPS.SUPER_ACAN,
+    "system-32": UPS.ARCADE,
+    "system16": UPS.ARCADE,
+    "system32": UPS.ARCADE,
+    "tg-cd": UPS.TURBOGRAFX_CD,
+    "thomson": UPS.THOMSON_MO5,
+    "ti99": UPS.TI_99,
+    "tic80": UPS.TIC_80,
+    "tutor": UPS.TOMY_TUTOR,
+    "typex": UPS.TYPE_X,
+    "vc4000": UPS.VC_4000,
+    "vic20": UPS.VIC_20,
+    "videopac": UPS.VIDEOPAC_G7400,
+    "videopacplus": UPS.VIDEOPAC_G7400,
+    "vpinball": UPS.PINBALL,
+    "wasm4": UPS.WASM_4,
+    "wiiware": UPS.WII,
+    "windows": UPS.WIN,
+    "windows3x": UPS.WIN3X,
+    "windows9x": UPS.WIN9X,
+    "wonderswancolor": UPS.WONDERSWAN_COLOR,
+    "wswan": UPS.WONDERSWAN,
+    "wswanc": UPS.WONDERSWAN_COLOR,
+    "x68000": UPS.SHARP_X68000,
+    "xegs": UPS.ATARI_XEGS,
+    "zc210": UPS.ZELDA_CLASSIC,
+    "zc250": UPS.ZELDA_CLASSIC,
+    "zmachine": UPS.Z_MACHINE,
+    "zxspectrum": UPS.ZXS,
+}
+
+
+def _unambiguous_folders() -> dict[str, str]:
+    folders_by_slug: dict[UPS, list[str]] = {}
+    for fs_slug, slug in PLATFORM_FS_ALIASES.items():
+        folders_by_slug.setdefault(slug, []).append(fs_slug)
+
+    return {
+        slug.value: folders[0]
+        for slug, folders in folders_by_slug.items()
+        if len(folders) == 1
+    }
+
+
+# Only a slug reached by exactly one folder name can be resolved back to it.
+PLATFORM_SLUG_FOLDERS: Final[dict[str, str]] = _unambiguous_folders()
+
+
+def _to_slug(name: str) -> str:
+    key = name.lower()
+    if key in UPS:
+        return key
+    alias = PLATFORM_FS_ALIASES.get(key)
+    return alias.value if alias else name
+
+
+def resolve_builtin_platform_slug(fs_slug: str) -> str | None:
+    """Resolve a folder name to a platform slug by its name or built-in alias.
+
+    Returns:
+        The platform slug, or None when the folder needs a config mapping.
+    """
+    slug = _to_slug(fs_slug)
+    return slug if slug in UPS else None
+
+
+def _platform_binding(key: str, config: Config) -> tuple[str, str] | None:
+    """Return the config key and name a folder is bound to, binding before version."""
+    if bound := config.PLATFORMS_BINDING.get(key):
+        return "system.platforms", bound
+    if bound := config.PLATFORMS_VERSIONS.get(key):
+        return "system.versions", bound
+    return None
+
+
+# The names suggested for an unknown binding: RomM slugs and their folder aliases.
+_KNOWN_PLATFORM_NAMES: Final[list[str]] = sorted({*UPS, *PLATFORM_FS_ALIASES})
+
+
+def unknown_binding_warning(fs_slug: str, config: Config) -> str | None:
+    """Build the warning for a folder bound in config.yml to an unknown name.
+
+    Returns:
+        A warning naming the binding and the closest known slugs, or None when
+        the folder is unbound or bound to a known slug, alias or IGDB version.
+    """
+    key = fs_slug.lower()
+    binding = _platform_binding(key, config)
+    if binding is None:
+        return None
+
+    config_key, bound = binding
+    if (
+        resolve_builtin_platform_slug(bound) is not None
+        or bound in IGDB_PLATFORM_VERSIONS
+    ):
+        return None
+
+    closest = difflib.get_close_matches(bound.lower(), _KNOWN_PLATFORM_NAMES)
+    suggestion = f" Did you mean {', '.join(closest)}?" if closest else ""
+    return (
+        f"config.yml {config_key}.{key} is {bound}, which is not a known "
+        f"platform slug or alias, so the folder becomes a custom platform."
+        f"{suggestion}"
+    )
+
+
+def unknown_binding_warnings(config: Config) -> list[str]:
+    """List the warning for every folder bound in config.yml to an unknown name."""
+    folders = sorted({*config.PLATFORMS_BINDING, *config.PLATFORMS_VERSIONS})
+    return [
+        warning
+        for folder in folders
+        if (warning := unknown_binding_warning(folder, config)) is not None
+    ]
+
+
+def resolve_platform_slug(fs_slug: str, config: Config) -> str:
+    """Resolve a platform folder name to a RomM platform slug."""
+    binding = _platform_binding(fs_slug.lower(), config)
+    # A bound name resolves like a folder name, so it may be an alias too.
+    return _to_slug(binding[1] if binding else fs_slug)
+
+
+def resolve_fs_slug(slug: str, config: Config) -> str | None:
+    """Resolve a RomM platform slug back to the folder name it came from.
+
+    Returns:
+        The folder name, or None when no folder maps to the slug or several
+        alias folders collapse onto it.
+    """
+    for mapping in (config.PLATFORMS_BINDING, config.PLATFORMS_VERSIONS):
+        for fs_slug, bound in mapping.items():
+            if _to_slug(bound) == slug:
+                return fs_slug
+    return PLATFORM_SLUG_FOLDERS.get(slug)
+
+
+def resolve_fs_folder(fs_slug: str, fs_platforms: Iterable[str]) -> str | None:
+    """Resolve a folder name to the one on disk it names, ignoring case.
+
+    Config keys are lowercased, but paths are built from the folder's own
+    casing. An exact match wins, so on a case-sensitive filesystem two folders
+    differing only by case each still resolve to themselves.
+
+    Returns:
+        The folder as it is spelled on disk, or None when none matches.
+    """
+    folded = fs_slug.lower()
+    fallback: str | None = None
+    for folder in fs_platforms:
+        if folder == fs_slug:
+            return folder
+        if fallback is None and folder.lower() == folded:
+            fallback = folder
+    return fallback

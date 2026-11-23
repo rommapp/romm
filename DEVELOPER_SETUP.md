@@ -2,6 +2,8 @@
 
 # Setting up RomM for development
 
+On Windows, develop inside [WSL](https://learn.microsoft.com/windows/wsl/install). The frontend dev dependencies include `@posthog/coherence`, which installs only on Linux and macOS, so `npm install` fails on native Windows.
+
 ## Option 1: Using Docker
 
 If you prefer to use Docker for development, you can set up RomM using the provided Docker Compose configuration. This method simplifies the setup process by encapsulating all dependencies within Docker containers.
@@ -36,6 +38,8 @@ DEV_MODE=true
 docker compose build  # or `docker compose build --no-cache` to rebuild from scratch
 ```
 
+The image builds on the same Alpine base as the production image. `frontend/node_modules` lives in an anonymous volume that outlives the container, so after a rebuild that changes dependencies or the base image, recreate it with `docker compose up -d --renew-anon-volumes`.
+
 #### Spin up the Docker containers
 
 ```sh
@@ -43,6 +47,17 @@ docker compose up -d
 ```
 
 And you're done! You can access the app at `http://localhost:3000`. Any changes made to the code will be automatically reflected in the app thanks to the volume mounts.
+
+#### Optional stacks
+
+Two extra stacks sit in their own files, since most work needs neither. Both join the dev stack's network, so bring `docker compose up -d` up first.
+
+```sh
+docker compose -f docker-compose.oidc.yml up -d       # Authentik, for OIDC work
+docker compose -f docker-compose.streaming.yml up -d  # webstation, for streaming work
+```
+
+Authentik listens on `http://localhost:9001`; point RomM at it with the `OIDC_*` variables in `.env`. The webstation image is amd64-only and several GB; it reads `romm_mock/webstation` for emulator configs and BIOS, and its `BROKER_SECRET` follows `STREAMING_BROKER_SECRET` from `.env`.
 
 ## Option 2: Manual setup
 
@@ -84,6 +99,8 @@ cp ./bin64/RAHasher /usr/bin/RAHasher
 
 #### - Install python dependencies
 
+`scripts/dev-setup.sh` installs the pinned uv, Python, and Node versions plus the backend and frontend dependencies in one step, and is safe to rerun. On systems without `apt-get`, install the MariaDB and PostgreSQL client headers yourself first. To do it by hand instead, follow the steps below.
+
 You'll need uv installed
 
 <https://docs.astral.sh/uv/getting-started/installation/>
@@ -115,6 +132,32 @@ cd backend
 uv run python3 main.py
 ```
 
+#### - Run the task workers
+
+A manual task run is refused, and a scheduled job stays queued, until an RQ worker listens on its queue; scans and streaming teardowns each have a worker of their own. Each command is a foreground process, so run them in separate terminals. `-c config` reads the Redis connection from the same `REDIS_*` settings in `.env` the backend uses.
+
+```sh
+cd backend
+uv run rq worker -c config --worker-class handler.rq_worker.RomMWorker --with-scheduler high default low
+```
+
+```sh
+cd backend
+uv run rq worker -c config --worker-class handler.rq_worker.RomMWorker --with-scheduler scans
+```
+
+```sh
+cd backend
+uv run rq worker -c config --worker-class handler.rq_worker.PreloadingWorker --with-scheduler streaming
+```
+
+`--with-scheduler` releases delayed jobs, such as the rescans the filesystem watcher waits out, so each worker needs it. The recurring schedule is registered by the RQ cron process, which the workers then execute:
+
+```sh
+cd backend
+uv run rq cron -c config tasks.cron_config
+```
+
 ### Setting up the frontend
 
 #### - Install node.js dependencies
@@ -125,12 +168,13 @@ cd frontend
 npm install
 ```
 
-#### - Create symlink to library and resources
+#### - Create symlink to resources
+
+Vite serves cover art, screenshots and manuals from `assets/romm/resources`. The link target resolves from the link's own folder, hence the three levels up:
 
 ```sh
-mkdir assets/romm
-ln -s ../romm_mock/resources assets/romm/resources
-ln -s ../romm_mock/assets assets/romm/assets
+mkdir -p assets/romm
+ln -s ../../../romm_mock/resources assets/romm/resources
 ```
 
 #### - Run the frontend
@@ -138,6 +182,46 @@ ln -s ../romm_mock/assets assets/romm/assets
 ```sh
 npm run dev
 ```
+
+#### - Storybook (v2 components)
+
+Component docs and visual QA for `frontend/src/` (port 6006):
+
+```sh
+npm run storybook
+npm run storybook:test   # play() + axe on every v2 story, in headless Chromium
+```
+
+`storybook:test` (and `npm run test`, which includes it) needs Playwright's Chromium: run `npx playwright install chromium` once.
+
+For responsive layouts, use the viewport toolbar presets from `.storybook/rommViewports.ts`.
+
+#### - Optional: local frontend against a remote RomM
+
+To run `npm run dev` or `npm run preview` against another RomM instance (for example a home server with a full library), set `DEV_PROXY_TARGET` in the repo-root `.env` to its origin, such as `https://romm.example.com`. Vite then proxies `/api`, `/ws` and `/assets/romm` there instead of the local backend. Leave it empty to keep the default `http://127.0.0.1:${DEV_PORT}`. The remote's TLS certificate must be valid. Sign in with a username and password: OIDC login does not work through the proxy, because the identity provider redirects to the remote's `OIDC_REDIRECT_URI`, so the session never reaches localhost.
+
+## Seeding a test library
+
+`backend/tools/generate_test_data.py` fills a database with a prod-like library (platforms, users, roms, files, saves, collections...) and draws cover art on disk. It writes to the database and `RESOURCES_BASE_PATH` from your `.env`, so point both at a throwaway database and folder, not a library you care about.
+
+```sh
+cd backend
+uv run tools/generate_test_data.py --roms 2000 --image-fidelity 2 --wipe
+```
+
+That seeds 2,000 roms in under a minute. It prints the seed it used and a login (every seeded user's password is `password`). Useful flags, all listed in `--help`:
+
+- `--wipe` deletes the rows the script populates before seeding.
+- `--seed N` reproduces the same rows and images (default `1337`).
+- `--image-fidelity` sets how real the covers are:
+  - `1` (default) draws one-size mosaics.
+  - `2` uses the real mix of cover sizes and shapes, drawn as debug art showing each rom's id, size and path.
+  - `3` also matches real file weights, and some `big.png` files hold JPEG data.
+- `--image-limit N` draws covers for the first N roms only, and `--no-images` skips them.
+- `--image-media` adds ScreenScraper media (box3d, fanart...).
+- `--dry-run` builds everything but writes nothing, image files included.
+
+The seeded roms have no files under `library/`, so a scan would mark them missing. The frontend's `assets/romm/resources` symlink should point at the same resources folder, so the UI shows the seeded covers.
 
 ## Setting up the linter
 
@@ -154,6 +238,13 @@ Alternative installation methods can be found [in their docs](https://docs.trunk
 ```sh
 trunk fmt
 trunk check
+```
+
+Type checking runs separately from Trunk, against the project's own environment. CI type-checks the whole backend on every backend change; to run it locally:
+
+```sh
+cd backend
+uv run mypy --config-file ../.trunk/configs/mypy.ini .
 ```
 
 **Failing to install and run the linter will result in a failed CI check, which won't allow us to merge your PR.**
@@ -174,7 +265,8 @@ _Migrations will be run automatically when running the tests._
 cd backend
 # path or test file can be passed as argument to test only a subset
 uv run pytest [path/file]
-# or run the following command to run all tests
-# the -vv switch increases the verbosity of the output, providing more detailed information during test execution.
-uv run pytest -vv
+# or run the following command to run all tests, one worker per CPU core
+uv run pytest -n auto
 ```
+
+_Each `-n` worker gets its own database (`romm_test_gw0`, `romm_test_gw1`, ...), created on demand; `setup.sql` grants the test user the rights to create them. On MariaDB, a new worker database is copied from `romm_test_template_<digest>`, which the run migrates once and keeps for later runs. The digest covers `alembic/`, `models/` and `utils/`, so editing any of them builds a new template. To migrate from scratch, drop both the worker databases and the template. On a machine with many cores, cap the workers with `--maxprocesses 4` (CI's count) to keep the load on the database down. A serial run of the whole suite takes 20+ minutes. Drop `-n auto` when debugging with `--pdb` or `-s`, which don't work under parallel workers._
