@@ -79,7 +79,8 @@ describe("PlayButton", () => {
     const button = render().find("button");
 
     expect(button.exists()).toBe(true);
-    expect(button.attributes("aria-label")).toBe("play.play");
+    expect(button.attributes("aria-label")).toBe("rom.play");
+    expect(button.classes()).toContain("r-game-btn--emphasized");
   });
 
   it("plays straight away when the plugin is the only target", async () => {

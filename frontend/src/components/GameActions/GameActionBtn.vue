@@ -114,6 +114,16 @@ interface Props {
    * are links themselves (the GameCard), where a nested anchor is invalid.
    */
   link?: boolean;
+  /**
+   * Hand the click to the parent (`activate`) instead of running the action,
+   * for a button whose destination is decided after it is pressed. Rendered as
+   * a button rather than an anchor, since what follows is not a document.
+   */
+  manual?: boolean;
+  /** Mark the button as opening a choice, with a chevron. */
+  chevron?: boolean;
+  /** Spoken and hovered name, when the button does more than its preset. */
+  label?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -123,7 +133,12 @@ const props = withDefaults(defineProps<Props>(), {
   orientation: "horizontal",
   withMetrics: false,
   link: false,
+  manual: false,
+  chevron: false,
+  label: undefined,
 });
+
+const emit = defineEmits<{ activate: [] }>();
 
 const { smAndDown } = useBreakpoint();
 
@@ -521,10 +536,10 @@ function onClick(e: MouseEvent) {
 
   <!-- Plain action: direct click, or a real anchor for a linked launch. -->
   <component
-    :is="linkHref ? 'a' : 'button'"
+    :is="linkHref && !manual ? 'a' : 'button'"
     v-else
-    :type="linkHref ? undefined : 'button'"
-    :href="linkHref ?? undefined"
+    :type="linkHref && !manual ? undefined : 'button'"
+    :href="manual ? undefined : (linkHref ?? undefined)"
     class="r-game-btn"
     :class="[
       `r-game-btn--${size}`,
@@ -537,8 +552,8 @@ function onClick(e: MouseEvent) {
         'r-game-btn--pinned': pinned,
       },
     ]"
-    :aria-label="preset.label"
-    @click="onClick"
+    :aria-label="label ?? preset.label"
+    @click="manual ? emit('activate') : onClick()"
   >
     <img
       v-if="preset.image"
@@ -550,6 +565,7 @@ function onClick(e: MouseEvent) {
     <span v-if="withLabel" class="r-game-btn__label">
       {{ preset.label }}
     </span>
+    <RIcon v-if="chevron" icon="mdi-chevron-down" class="r-game-btn__caret" />
     <RTooltip
       v-if="!withLabel"
       activator="parent"
@@ -560,6 +576,13 @@ function onClick(e: MouseEvent) {
 </template>
 
 <style scoped>
+/* The chevron a choice button carries so it reads as "there is more than one";
+   it sits inside the pill's own padding, so the button keeps its size. */
+.r-game-btn__caret {
+  margin-left: -2px;
+  opacity: 0.7;
+}
+
 .r-game-btn {
   appearance: none;
   box-sizing: border-box;

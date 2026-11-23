@@ -61,6 +61,11 @@ const only = computed<Target | null>(() =>
   targets.value.length === 1 ? targets.value[0]! : null,
 );
 
+/** RomM's own launch, with no plugin offering another. */
+const rommOnly = computed(
+  () => only.value !== null && only.value.action === undefined,
+);
+
 function run(target: Target): void {
   choosing.value = false;
   if (target.action) {
@@ -83,29 +88,21 @@ function onPlay(): void {
 <template>
   <span v-if="targets.length === 0" />
 
-  <!-- RomM's launch on its own: the anchor it has always been. -->
+  <!-- RomM's launch on its own is the anchor it has always been. Anything
+       else is the same button, opening the choice instead of the player. -->
   <GameActionBtn
-    v-else-if="only && only.action === undefined"
+    v-if="targets.length > 0"
     :rom="rom"
     action="play"
     :size="size"
     variant="emphasized"
     with-label
-    link
+    :link="rommOnly"
+    :manual="!rommOnly"
+    :chevron="targets.length > 1"
+    :label="targets.length > 1 ? t('play.play-with') : undefined"
+    @activate="onPlay"
   />
-
-  <button
-    v-else
-    type="button"
-    class="r-game-btn r-game-btn--emphasized r-game-btn--labelled r-game-btn--action-play"
-    :class="`r-game-btn--${size}`"
-    :aria-label="targets.length > 1 ? t('play.play-with') : t('play.play')"
-    @click="onPlay"
-  >
-    <RIcon icon="mdi-play" />
-    <span class="r-game-btn__label">{{ t("play.play") }}</span>
-    <RIcon v-if="targets.length > 1" icon="mdi-chevron-down" size="x-small" />
-  </button>
 
   <RDialog v-model="choosing" icon="mdi-play" width="420" cancelable>
     <template #header>
