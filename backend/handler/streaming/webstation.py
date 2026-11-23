@@ -34,6 +34,7 @@ from fastapi import HTTPException
 from redis.exceptions import RedisError
 
 from config import STREAMING_LAUNCH_TIMEOUT, STREAMING_SAVE_TIMEOUT
+from handler.database import db_firmware_handler
 from handler.redis_handler import sync_cache
 from handler.streaming import broker
 from handler.streaming.config import ResolvedContainer
@@ -342,6 +343,22 @@ def core_library_name(container: ResolvedContainer, core: str) -> str | None:
     return cached[1].library_names.get(core) if cached is not None else None
 
 
+def firmware_payload(platform_id: int, library_path: str) -> list[dict[str, Any]]:
+    """The platform's present firmware, as the broker's activate takes it."""
+    return [
+        {
+            "file_name": fw.file_name,
+            "path": f"{library_path}/{fw.full_path}",
+            "size": fw.file_size_bytes,
+            "md5": fw.md5_hash or None,
+            "sha1": fw.sha1_hash or None,
+        }
+        for fw in db_firmware_handler.list_firmware(
+            platform_ids=[platform_id], missing=False
+        )
+    ]
+
+
 def activate(
     container: ResolvedContainer,
     *,
@@ -354,11 +371,13 @@ def activate(
     resume_slot: int | None = None,
     memory_card_synced: bool = False,
     multiplayer: bool = False,
+    firmware: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """POST /activate. Raises HTTPException the same way commands.launch does.
 
     `rom` is omitted for emulators the broker registers with requires_rom
-    False, the desktop being the one that matters here.
+    False, the desktop being the one that matters here. `firmware` comes from
+    `firmware_payload`; a broker without firmware sync ignores it.
     """
     body: dict[str, Any] = {
         "session_id": session_id,
@@ -395,6 +414,8 @@ def activate(
         save["memory_card_synced"] = True
     if save:
         body["save"] = save
+    if firmware is not None:
+        body["firmware"] = firmware
 
     path = container.protocol.session_route("/activate")
     try:
