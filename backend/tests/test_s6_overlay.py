@@ -109,3 +109,26 @@ def test_dev_entrypoint_runs_the_same_rq_workers() -> None:
 def test_dev_entrypoint_runs_the_rq_cron_scheduler() -> None:
     assert "rq cron" in DEV_ENTRYPOINT.read_text()
     assert "tasks.cron_config" in (SERVICES_DIR / "romm-rq-cron" / "run").read_text()
+
+
+def _rq_flags(script: str, command: str) -> set[str]:
+    """The --flags of the first `rq <command>` call, across its continuation lines."""
+    match = re.search(rf"\brq {command} \\\n((?:.*\\\n)*.*)", script)
+    assert match, f"no `rq {command}` call found"
+    return set(re.findall(r"(--[\w-]+)", match.group(1)))
+
+
+# The dev image writes PID files for its own tooling; s6 supervises without them.
+DEV_ONLY_RQ_FLAGS = {"--pid"}
+
+
+@pytest.mark.parametrize(
+    ("command", "s6_script"),
+    [
+        ("worker", SCRIPTS_DIR / "lib.sh"),
+        ("cron", SERVICES_DIR / "romm-rq-cron" / "run"),
+    ],
+)
+def test_dev_entrypoint_passes_the_same_rq_flags(command: str, s6_script: Path) -> None:
+    dev_flags = _rq_flags(DEV_ENTRYPOINT.read_text(), command) - DEV_ONLY_RQ_FLAGS
+    assert dev_flags == _rq_flags(s6_script.read_text(), command)
