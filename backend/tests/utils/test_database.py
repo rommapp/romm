@@ -22,6 +22,7 @@ from sqlalchemy.dialects import mysql, postgresql
 from sqlalchemy.dialects.mysql.mariadb import MariaDBDialect
 
 from handler.database.base_handler import sync_engine
+from utils import get_nested
 from utils.database import (
     BINLOG_TRIGGER_DDL_ERRNO,
     EARLIEST_RELEASE_YEAR,
@@ -31,7 +32,6 @@ from utils.database import (
     MS_PER_DAY,
     alembic_command_runs_revisions,
     day_of_year_ranges,
-    get_nested,
     is_binlog_trigger_privilege_error,
     is_mariadb,
     is_mysql,

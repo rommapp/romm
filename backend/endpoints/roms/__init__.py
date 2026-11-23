@@ -167,7 +167,7 @@ from models.rom import (
     apply_file_stats,
     compute_name_sort_key,
 )
-from utils import switch
+from utils import safe_int, safe_str_to_bool, switch
 from utils.background_tasks import fire_and_forget
 from utils.conversion_cache import (
     RETRY_AFTER_SECONDS,
@@ -177,7 +177,6 @@ from utils.conversion_cache import (
     parse_formats,
     resolve_format_download,
 )
-from utils.database import safe_int, safe_str_to_bool
 from utils.filesystem import check_filename_length, sanitize_filename
 from utils.hashing import crc32_to_hex
 from utils.m3u import generate_m3u_content, needs_generated_playlist

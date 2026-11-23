@@ -1,6 +1,8 @@
 import contextlib
 import logging
+import os
 import sys
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Final, cast
 
 import rq.scheduler
@@ -26,6 +28,17 @@ _PERIODIC_NOISE: Final[tuple[str, ...]] = (
 # Looked up in sys.modules rather than imported, so a job that never loaded the
 # ORM does not load it just to clean it up.
 _DATABASE_MODULE: Final = "handler.database.base_handler"
+
+
+def _in_child(report: Callable[[], None]) -> None:
+    """Run report in a forked child and wait, so what it imports dies with the child."""
+    pid = os.fork()
+    if pid == 0:
+        try:
+            report()
+        finally:
+            os._exit(0)
+    os.waitpid(pid, 0)
 
 
 def _database_engine() -> "Engine | None":
@@ -122,8 +135,11 @@ class RomMWorker(Worker):
     ) -> None:
         # mypy's untyped_calls_exclude cannot name the receiver of a super() call.
         super().handle_work_horse_killed(job, retpid, ret_val, rusage)  # type: ignore[no-untyped-call]
-        # RQ runs neither the failure callback nor the exception handlers for a
-        # killed horse, only for a job whose whole worker died.
+        # RQ skips the failure callback and handlers for a killed horse. They import
+        # the job's code, so a child runs them and this long-lived process stays small.
+        _in_child(lambda: self._report_abandoned(job))
+
+    def _report_abandoned(self, job: Job) -> None:
         exc_info = (AbandonedJobError, AbandonedJobError(), None)
         # RQ logs a callback that raises.
         with contextlib.suppress(Exception):

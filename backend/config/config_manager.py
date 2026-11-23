@@ -8,13 +8,11 @@ import posixpath
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final, NotRequired, Self, TextIO, TypedDict
+from typing import TYPE_CHECKING, Any, Final, NotRequired, Self, TextIO, TypedDict
 
 import yaml
-from sqlalchemy import URL
 from yaml.loader import SafeLoader
 
-from adapters.services.rom_converto import normalize_platform_formats
 from config import (
     DB_HOST,
     DB_NAME,
@@ -31,7 +29,10 @@ from exceptions.config_exceptions import ConfigNotWritableException
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from utils.database import get_nested
+from utils import get_nested
+
+if TYPE_CHECKING:
+    from sqlalchemy import URL
 
 # Macros of a library structure template. `{platform}` is the platform folder and
 # `{game}` is the terminal, marking where the game itself begins.
@@ -689,7 +690,7 @@ class ConfigManager:
             )
 
     @staticmethod
-    def get_db_engine() -> URL:
+    def get_db_engine() -> "URL":
         """Builds the database connection string using environment variables
 
         Returns:
@@ -719,6 +720,9 @@ class ConfigManager:
             except ValueError as exc:
                 log.critical(f"Invalid JSON in DB_QUERY_JSON: {exc}")
                 sys.exit(3)
+
+        # Imported here so processes that only read the config skip SQLAlchemy.
+        from sqlalchemy import URL
 
         return URL.create(
             drivername=driver,
@@ -1446,12 +1450,17 @@ class ConfigManager:
                 sys.exit(3)
 
         try:
-            self.config.CONVERTO.platform_formats = normalize_platform_formats(
-                self._validated_platform_map(
-                    self.config.CONVERTO.platform_formats or {},
-                    "converto.platform_formats",
-                )
+            platform_formats = self._validated_platform_map(
+                self.config.CONVERTO.platform_formats or {},
+                "converto.platform_formats",
             )
+            if platform_formats:
+                # Imported only when set, so reading the config doesn't load the
+                # ROM model (and SQLAlchemy) through the rom-converto adapter.
+                from adapters.services.rom_converto import normalize_platform_formats
+
+                platform_formats = normalize_platform_formats(platform_formats)
+            self.config.CONVERTO.platform_formats = platform_formats
         except ValueError as exc:
             log.critical(f"Invalid config.yml: converto.platform_formats: {exc}")
             sys.exit(3)

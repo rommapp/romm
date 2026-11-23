@@ -1,5 +1,6 @@
 import contextlib
 import logging
+import os
 import sqlite3
 import sys
 from collections.abc import Iterator
@@ -10,11 +11,12 @@ from unittest.mock import MagicMock, call
 import pytest
 import rq.scheduler
 from fakeredis import FakeRedis
-from rq import Queue, Worker
+from rq import Callback, Queue, Worker
 from rq.exceptions import AbandonedJobError
 from rq.worker import WorkerStatus
 from rq.worker_registration import clean_worker_registry
 from sqlalchemy import create_engine, event
+from tests.handler import killed_horse_callback
 
 from handler.redis_handler import has_live_worker
 from handler.rq_worker import (
@@ -167,6 +169,7 @@ def test_cleanup_failure_does_not_replace_job_outcome(
 
 def test_a_killed_horse_is_reported_like_a_dead_worker(mocker) -> None:
     worker = RomMWorker(["default"], connection=FakeRedis(version=7))
+    mocker.patch("handler.rq_worker._in_child", side_effect=lambda report: report())
     handle_exception = mocker.patch.object(worker, "handle_exception")
     callback = mocker.patch("handler.rq_worker.execute_failure_callback")
     job = MagicMock()
@@ -183,6 +186,7 @@ def test_a_killed_horse_is_reported_like_a_dead_worker(mocker) -> None:
 
 def test_a_failing_callback_still_reaches_the_handlers(mocker) -> None:
     worker = RomMWorker(["default"], connection=FakeRedis(version=7))
+    mocker.patch("handler.rq_worker._in_child", side_effect=lambda report: report())
     handle_exception = mocker.patch.object(worker, "handle_exception")
     mocker.patch(
         "handler.rq_worker.execute_failure_callback",
@@ -192,6 +196,26 @@ def test_a_failing_callback_still_reaches_the_handlers(mocker) -> None:
     worker.handle_work_horse_killed(MagicMock(), 123, 9, None)
 
     handle_exception.assert_called_once()
+
+
+def test_a_killed_horse_is_reported_from_a_child_process(
+    mocker, monkeypatch, tmp_path
+) -> None:
+    marker = tmp_path / "callback-ran"
+    monkeypatch.setenv(killed_horse_callback.MARKER_ENV, str(marker))
+    connection = FakeRedis(version=7)
+    job = Queue("default", connection=connection).enqueue(
+        "os.getpid",
+        on_failure=Callback(f"{killed_horse_callback.__name__}.record"),
+    )
+    worker = RomMWorker(["default"], connection=connection)
+    mocker.patch.object(worker, "handle_exception")
+    monkeypatch.delitem(sys.modules, killed_horse_callback.__name__)
+
+    worker.handle_work_horse_killed(job, 123, 9, None)
+
+    assert int(marker.read_text()) != os.getpid()
+    assert killed_horse_callback.__name__ not in sys.modules
 
 
 class TestPreloadingWorker:

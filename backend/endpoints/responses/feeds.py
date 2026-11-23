@@ -3,8 +3,8 @@ from typing import Annotated, Any, Final, NotRequired, TypedDict
 from pydantic import BaseModel, BeforeValidator, Field, field_validator
 
 from tasks.scheduled.update_switch_titledb import TITLEDB_REGION_LIST
+from utils import safe_int
 from utils.arcade_platforms import PLAYABLE_ARCADE_SET_PLATFORMS
-from utils.database import safe_int
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 WEBRCADE_SUPPORTED_PLATFORM_SLUGS = PLAYABLE_ARCADE_SET_PLATFORMS | frozenset(

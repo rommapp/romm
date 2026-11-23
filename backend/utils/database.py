@@ -1,6 +1,4 @@
 from datetime import date
-from functools import reduce
-from operator import getitem
 from typing import Any, Sequence
 from uuid import uuid4
 
@@ -323,30 +321,6 @@ def epoch_ms_in_ranges(
     return sa.or_(
         *[sa.and_(column >= start, column < end) for start, end in sorted(ranges)]
     )
-
-
-def safe_str_to_bool(value: Any, default: bool = False) -> bool:
-    """Safely convert a value to bool, returning default if conversion fails."""
-    try:
-        return value.strip().lower() in ("1", "true", "yes", "on")
-    except ValueError, TypeError, AttributeError:
-        return default
-
-
-def safe_int(value: Any, default: int = 0) -> int:
-    """Safely convert a value to int, returning default if conversion fails."""
-    try:
-        return int(value)
-    except ValueError, TypeError:
-        return default
-
-
-def get_nested(obj: Any, path: str, default: Any = None) -> Any:
-    """Read a dot-separated key path from nested dicts, returning default if any step is missing."""
-    try:
-        return reduce(getitem, path.split("."), obj)
-    except KeyError, TypeError:
-        return default
 
 
 def is_non_blank(column: InstrumentedAttribute[Any]) -> ColumnElement[bool]:
