@@ -67,11 +67,15 @@ function initialState(src: string | undefined): LoadState {
 }
 
 const state = ref<LoadState>(initialState(props.src));
+// A cached src starts visually loaded, but each instance still owes its
+// parent one `load` per src.
+let emittedSrc: string | undefined;
 
 function markLoaded() {
-  if (state.value === "loaded") return;
   if (props.src) decodedSrcs.add(props.src);
   state.value = "loaded";
+  if (emittedSrc === props.src) return;
+  emittedSrc = props.src;
   emit("load");
 }
 
@@ -79,7 +83,7 @@ function markLoaded() {
 // report `complete` early, so `naturalWidth === 0` still means not decoded.
 function settleIfDecoded() {
   const el = imgEl.value;
-  if (!el || state.value !== "loading") return;
+  if (!el || state.value === "error" || emittedSrc === props.src) return;
   if (el.complete && el.naturalWidth > 0) markLoaded();
 }
 
