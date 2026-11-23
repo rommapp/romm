@@ -148,10 +148,10 @@ describe("GameActionsList: permission gating", () => {
 });
 
 describe("GameActionsList: playing", () => {
-  it("offers each way to play the caller is allowed", () => {
+  it("leaves Play to the button that already offers it", () => {
     const wrapper = mountList({ canPlayLocally: true, canPlayStream: true });
     const shown = labels(wrapper);
-    expect(shown).toContain("rom.play");
+    expect(shown).not.toContain("rom.play");
     expect(shown).toContain("rom.stream");
   });
 

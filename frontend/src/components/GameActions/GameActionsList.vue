@@ -33,13 +33,9 @@ function run(fn: () => void | Promise<void>) {
 </script>
 
 <template>
-  <!-- Primary actions -->
-  <RMenuItem
-    v-if="actions.canPlayLocally.value"
-    :label="t('rom.play')"
-    icon="mdi-play"
-    @click="run(() => actions.play('local'))"
-  />
+  <!-- Primary actions. Playing is not one of them: the Play button beside this
+       menu covers the browser, a plugin, or a choice between the two, so a row
+       here could only disagree with it. -->
   <RMenuItem
     v-if="actions.canPlayStream.value"
     :label="actions.streamActionLabel.value"
