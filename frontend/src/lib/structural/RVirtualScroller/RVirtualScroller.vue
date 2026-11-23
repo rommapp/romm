@@ -39,7 +39,7 @@
 //     the DOM at any time.
 //   * Computeds re-evaluate only on scrollTop / containerHeight / items
 //     changes. Binary searches make per-scroll work O(log n).
-import { useResizeObserver } from "@vueuse/core";
+import { useEventListener, useResizeObserver } from "@vueuse/core";
 import { computed, onMounted, ref, shallowRef, watch } from "vue";
 
 defineOptions({ inheritAttrs: false });
@@ -78,6 +78,10 @@ interface Props {
    *  `role="grid"` that must own a header row and the rows but not the
    *  `#prepend` band. */
   bodyAttrs?: Record<string, string | number | boolean | undefined> | undefined;
+  /** Follow the document's scroll instead of scrolling itself: the list
+   *  grows to its full height in the page flow, and `scrollTop`, `scrollTo`
+   *  and `scrollToIndex` speak in document offsets. */
+  pageScroll?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -87,6 +91,7 @@ const props = withDefaults(defineProps<Props>(), {
   getItemKey: undefined,
   minContentWidth: undefined,
   bodyAttrs: undefined,
+  pageScroll: false,
 });
 
 const emit = defineEmits<{
@@ -137,8 +142,8 @@ const totalHeight = computed(() => {
   return offsetAt(offs, offs.length - 1);
 });
 
-// `innerOffsetTop`: distance from the scroller's content top to the
-// virtualised inner's top edge. Captures any space taken by the
+// `innerOffsetTop`: distance from the scroller's content top (the document's,
+// in page-scroll mode) to the virtualised inner's top edge. Captures any space taken by the
 // `#prepend` and `#sticky` slots above the inner. Tracked via a
 // ResizeObserver and a one-shot read on each scroll so AlphaStrip /
 // `scrollToIndex` math stays correct as the prepend's height changes
@@ -176,8 +181,13 @@ const viewportRange = computed<{ first: number; last: number }>(() => {
   }
   // The viewport, in inner-relative coordinates: subtract whatever
   // space the prepend / sticky bands take above the inner.
-  const top = Math.max(0, scrollTop.value - innerOffsetTop.value);
-  const bottom = top + containerHeight.value;
+  const viewTop = scrollTop.value - innerOffsetTop.value;
+  const bottom = viewTop + containerHeight.value;
+  // The list starts below the viewport, or ends above it.
+  if (bottom <= 0 || viewTop >= totalHeight.value) {
+    return { first: 0, last: -1 };
+  }
+  const top = Math.max(0, viewTop);
   const first = findFirstVisible(offsets.value, top);
   const last = findLastVisible(offsets.value, bottom);
   return { first, last };
@@ -222,32 +232,62 @@ const renderedItems = computed<RenderedEntry[]>(() => {
 // Scroll handling: passive listener; reads scrollTop and lets Vue's
 // reactivity batch downstream computeds into the next microtask.
 function onScroll(e: Event) {
+  if (props.pageScroll) return;
   scrollTop.value = (e.target as HTMLElement).scrollTop;
+}
+
+function readScroll() {
+  if (props.pageScroll) {
+    scrollTop.value = window.scrollY;
+    containerHeight.value = window.innerHeight;
+    return;
+  }
+  const container = containerEl.value;
+  if (!container) return;
+  scrollTop.value = container.scrollTop;
+  containerHeight.value = container.clientHeight;
 }
 
 // Container size + inner offset tracking.
 function syncInnerOffset() {
   const inner = innerEl.value;
   if (!inner) return;
-  innerOffsetTop.value = inner.offsetTop;
+  innerOffsetTop.value = props.pageScroll
+    ? inner.getBoundingClientRect().top + window.scrollY
+    : inner.offsetTop;
 }
 
 useResizeObserver(containerEl, () => {
-  const container = containerEl.value;
-  if (!container) return;
-  containerHeight.value = container.clientHeight;
+  readScroll();
   syncInnerOffset();
 });
+
+// Page-scroll mode: content above the list (outside its bands) can move it too.
+useEventListener(
+  window,
+  "scroll",
+  () => {
+    if (props.pageScroll) scrollTop.value = window.scrollY;
+  },
+  { passive: true },
+);
+useEventListener(window, "resize", () => {
+  if (!props.pageScroll) return;
+  readScroll();
+  syncInnerOffset();
+});
+useResizeObserver(
+  computed(() => (props.pageScroll ? document.body : null)),
+  syncInnerOffset,
+);
 
 // The siblings above the inner and the body: their height shifts `innerOffsetTop`.
 const bandEls = shallowRef<HTMLElement[]>([]);
 useResizeObserver(bandEls, syncInnerOffset);
 
 onMounted(() => {
-  const container = containerEl.value;
-  if (!container) return;
-  containerHeight.value = container.clientHeight;
-  scrollTop.value = container.scrollTop;
+  if (!containerEl.value) return;
+  readScroll();
   syncInnerOffset();
 
   const bands: HTMLElement[] = [];
@@ -289,8 +329,7 @@ interface ScrollToIndexOptions {
 }
 
 function scrollToIndex(index: number, options: ScrollToIndexOptions = {}) {
-  const root = containerEl.value;
-  if (!root) return;
+  if (!containerEl.value) return;
   const offs = offsets.value;
   if (index < 0 || index >= offs.length - 1) return;
   const itemTop = offsetAt(offs, index);
@@ -300,7 +339,7 @@ function scrollToIndex(index: number, options: ScrollToIndexOptions = {}) {
   // Subtract the sticky band so the row lands below it.
   const target = Math.max(0, innerOffsetTop.value + itemTop - stickyOffset);
   if (options.smooth) {
-    root.scrollTo({ top: target, behavior: "smooth" });
+    scrollTarget()?.scrollTo({ top: target, behavior: "smooth" });
   } else {
     scrollTo(target);
   }
@@ -309,10 +348,19 @@ function scrollToIndex(index: number, options: ScrollToIndexOptions = {}) {
 /** Jumps to `top` and updates the rendered range in the same tick, without
  *  waiting for the scroll event. */
 function scrollTo(top: number) {
+  if (props.pageScroll) {
+    window.scrollTo({ top, behavior: "instant" });
+    scrollTop.value = window.scrollY;
+    return;
+  }
   const root = containerEl.value;
   if (!root) return;
   root.scrollTop = top;
   scrollTop.value = root.scrollTop;
+}
+
+function scrollTarget(): HTMLElement | Window | null {
+  return props.pageScroll ? window : containerEl.value;
 }
 
 defineExpose({
@@ -330,6 +378,13 @@ const minContentWidthCss = computed(() => {
 });
 
 const wrapperStyle = computed(() => {
+  // The document scrolls, so the list takes its full height. Wide rows widen
+  // it too, which keeps sticky content inside able to follow a sideways scroll.
+  if (props.pageScroll) {
+    return minContentWidthCss.value
+      ? { overflow: "visible", minWidth: "min-content" }
+      : { overflow: "visible" };
+  }
   const h = props.height;
   const height =
     h === undefined ? "100%" : typeof h === "number" ? `${h}px` : h;

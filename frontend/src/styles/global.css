@@ -30,6 +30,12 @@ html.r-app {
     var(--r-color-bg);
 }
 
+/* The top-nav pages keep a scrollbar's width free even when they fit, so a
+   short page lays out like a long one and switching between them holds still. */
+html.r-app:has(.r-home, .r-idx-shell, .r-shell, .gallery-tab-shell) {
+  scrollbar-gutter: stable;
+}
+
 /* Responsive page padding: `--r-row-pad` is consumed everywhere as the
    horizontal gutter for page rows / toolbars / nav / widgets. Shrinking
    it here tightens every consumer at once on narrower viewports, so
