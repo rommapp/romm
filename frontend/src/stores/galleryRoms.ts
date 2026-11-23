@@ -24,7 +24,9 @@ import {
   type SmartCollection,
   type VirtualCollection,
 } from "@/stores/collections";
-import storeGalleryFilter from "@/stores/galleryFilter";
+import storeGalleryFilter, {
+  type PlatformFilterLogic,
+} from "@/stores/galleryFilter";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import type { ExtractPiniaStoreType } from "@/types";
 import { playtimeHoursToSeconds } from "@/utils/time";
@@ -501,16 +503,20 @@ export default defineStore("v2GalleryRoms", {
       // Determine platform IDs from the gallery context, falling back to
       // the gallery-filter store's platform multi-select.
       let platformIds: number[] | null = null;
+      // Only the multi-select can exclude; a platform route always includes.
+      let platformsLogic: PlatformFilterLogic = "any";
       if (this.currentPlatform) {
         platformIds = [this.currentPlatform.id];
       } else if (galleryFilter.selectedPlatforms.length > 0) {
         platformIds = galleryFilter.selectedPlatforms.map((p) => p.id);
+        platformsLogic = galleryFilter.platformsLogic;
       } else if (galleryFilter.selectedPlatform) {
         platformIds = [galleryFilter.selectedPlatform.id];
       }
       return {
         searchTerm: galleryFilter.searchTerm,
         platformIds,
+        platformsLogic,
         collectionId: this.currentCollection?.id ?? null,
         virtualCollectionId: this.currentVirtualCollection?.id ?? null,
         smartCollectionId: this.currentSmartCollection?.id ?? null,

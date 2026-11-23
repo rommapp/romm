@@ -38,6 +38,7 @@ import {
 } from "@/lib";
 import storeGalleryFilter, {
   type FilterLogicOperator,
+  type PlatformFilterLogic,
 } from "@/stores/galleryFilter";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
@@ -77,6 +78,7 @@ const {
   filterStates,
   filterSoundtrack,
   selectedPlatforms,
+  platformsLogic,
   filterGenres,
   selectedGenres,
   genresLogic,
@@ -436,6 +438,13 @@ const LOGIC_ITEMS = computed(() => [
 ]);
 
 // ── Platform multi-select ──────────────────────────────────────
+const PLATFORM_LOGIC_ITEMS = computed(() =>
+  LOGIC_ITEMS.value.filter(
+    (item): item is typeof item & { id: PlatformFilterLogic } =>
+      item.id !== "all",
+  ),
+);
+
 const selectedPlatformIds = computed({
   get: () => selectedPlatforms.value.map((p) => p.id),
   set: (ids: number[]) => {
@@ -568,21 +577,33 @@ function saveAsSmartCollection() {
     <!-- ── Platforms (optional) ─────────────────────────────── -->
     <section v-if="showPlatformsFilter" class="r-fd__section">
       <h3 class="r-fd__heading">{{ t("common.platforms") }}</h3>
-      <PlatformSelect
-        v-model="selectedPlatformIds"
-        :items="allPlatforms"
-        multiple
-        clearable
-        hide-details
-        promote-filled
-        prefix-label="stacked"
-        :placeholder="t('common.all-platforms')"
-      >
-        <template #prefix-label>
-          <RIcon icon="mdi-monitor" size="14" />
-          {{ t("common.platforms") }}
-        </template>
-      </PlatformSelect>
+      <div class="r-fd__multi-row">
+        <PlatformSelect
+          v-model="selectedPlatformIds"
+          :items="allPlatforms"
+          multiple
+          clearable
+          hide-details
+          promote-filled
+          prefix-label="stacked"
+          :placeholder="t('common.all-platforms')"
+          class="r-fd__multi-select"
+        >
+          <template #prefix-label>
+            <RIcon icon="mdi-monitor" size="14" />
+            {{ t("common.platforms") }}
+          </template>
+        </PlatformSelect>
+        <RSegmentedControl
+          :model-value="platformsLogic"
+          :items="PLATFORM_LOGIC_ITEMS"
+          size="small"
+          class="r-fd__logic"
+          @update:model-value="
+            (v: PlatformFilterLogic) => filter.setPlatformsLogic(v)
+          "
+        />
+      </div>
     </section>
 
     <!-- ── Multi-select groups + logic toggle ──────────────── -->

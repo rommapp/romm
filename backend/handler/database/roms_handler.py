@@ -1140,9 +1140,10 @@ class DBRomsHandler(DBBaseHandler):
         return query.filter(Rom.platform_id == platform_id)
 
     def _filter_by_platform_ids[S: Select[*tuple[Any, ...]]](
-        self, query: S, platform_ids: Sequence[int]
+        self, query: S, platform_ids: Sequence[int], exclude: bool = False
     ) -> S:
-        return query.filter(Rom.platform_id.in_(platform_ids))
+        condition = Rom.platform_id.in_(platform_ids)
+        return query.filter(~condition if exclude else condition)
 
     def _filter_by_collection_id[S: Select[*tuple[Any, ...]]](
         self, query: S, collection_id: int, user_id: int | None
@@ -1597,9 +1598,13 @@ class DBRomsHandler(DBBaseHandler):
                 )
             )
 
-        # Handle platform filtering - platform filtering always uses OR logic since ROMs belong to only one platform
+        # A rom has one platform, so platforms match "any" or "none", never "all"
         if filters.platform_ids:
-            query = self._filter_by_platform_ids(query, filters.platform_ids)
+            query = self._filter_by_platform_ids(
+                query,
+                filters.platform_ids,
+                exclude=filters.platforms_logic == "none",
+            )
 
         if filters.collection_id:
             query = self._filter_by_collection_id(
