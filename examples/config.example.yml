@@ -194,7 +194,7 @@
 #   debug: true # Available options will be logged to the browser console
 #   cache_limit: null # Cache limit per ROM (in bytes)
 #   cache:
-#     enabled: true # Cache downloaded ROMs, BIOS files and cores in the browser (IndexedDB); states still use browser storage
+#     enabled: true # Cache ROMs, BIOS files and cores in IndexedDB (states are stored there regardless)
 #   disable_batch_bootup: false
 #   disable_auto_unload: false
 #   auto_save_sync: true # Upload the save to the server seconds after the game writes it, without Save & Quit
