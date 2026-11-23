@@ -331,13 +331,13 @@ async def test_overlapping_runs_tear_a_session_down_once():
 
 
 async def test_the_reaper_hands_a_teardown_to_the_lifecycle_code():
-    entry = {"platform": "psx"}
+    container = _resolved(PSX)
     teardown = AsyncMock(return_value=True)
 
     with patch("handler.streaming.lifecycle.teardown_abandoned_session", new=teardown):
         reaped = await reap_streaming_sessions.teardown_abandoned_session(
-            entry, "key", {"user_id": 1}, claimed_by=None
+            container, "key", {"user_id": 1}, claimed_by=None
         )
 
     assert reaped is True
-    teardown.assert_awaited_once_with(entry, "key", {"user_id": 1}, claimed_by=None)
+    teardown.assert_awaited_once_with(container, "key", {"user_id": 1}, claimed_by=None)
