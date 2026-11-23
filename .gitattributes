@@ -9,3 +9,4 @@
 # execute inside Linux containers with "no such file or directory".
 *.sh text eol=lf
 docker/init_scripts/init text eol=lf
+packaging/windows/rootfs/* text eol=lf
