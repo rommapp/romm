@@ -76,6 +76,7 @@ def test_config_loader():
     assert loader.config.PLATFORMS_VERSIONS == {"naomi": "arcade"}
     assert loader.config.SKIP_HASH_CALCULATION
     assert loader.config.EJS_DEBUG
+    assert not loader.config.EJS_CACHE_ENABLED
     assert loader.config.EJS_DISABLE_AUTO_UNLOAD
     assert loader.config.EJS_DISABLE_BATCH_BOOTUP
     assert not loader.config.EJS_ENABLE_AUTO_SAVE_SYNC
@@ -757,6 +758,18 @@ def _write_emulatorjs_config(tmp_path: Path, emulatorjs_block: str) -> ConfigMan
     config_file = tmp_path / "config.yml"
     config_file.write_text(f"emulatorjs:\n{emulatorjs_block}")
     return ConfigManager(str(config_file))
+
+
+def test_emulatorjs_cache_defaults_to_enabled(tmp_path):
+    loader = _write_emulatorjs_config(tmp_path, "  debug: false\n")
+    assert loader.config.EJS_CACHE_ENABLED
+
+
+@pytest.mark.parametrize("value", ['"false"', "1", "[]", "null"])
+def test_emulatorjs_cache_rejects_non_boolean(tmp_path, value):
+    with pytest.raises(SystemExit) as excinfo:
+        _write_emulatorjs_config(tmp_path, f"  cache:\n    enabled: {value}\n")
+    assert excinfo.value.code == 3
 
 
 def test_null_default_cores_block_means_empty(tmp_path):

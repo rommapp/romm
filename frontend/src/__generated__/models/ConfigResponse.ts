@@ -24,6 +24,7 @@ export type ConfigResponse = {
     PLATFORMS_VERSIONS: Record<string, string>;
     SKIP_HASH_CALCULATION: boolean;
     EJS_DEBUG: boolean;
+    EJS_CACHE_ENABLED: boolean;
     EJS_CACHE_LIMIT: (number | null);
     EJS_DISABLE_AUTO_UNLOAD: boolean;
     EJS_DISABLE_BATCH_BOOTUP: boolean;

@@ -533,6 +533,7 @@ class Config:
     SKIP_TITLE_ID_EXTRACTION: bool
     EMBED_SWITCH_TITLE_IDS: bool
     EJS_DEBUG: bool
+    EJS_CACHE_ENABLED: bool
     EJS_CACHE_LIMIT: int | None
     EJS_DISABLE_AUTO_UNLOAD: bool
     EJS_DISABLE_BATCH_BOOTUP: bool
@@ -815,6 +816,9 @@ class ConfigManager:
                 self._raw_config, "filesystem.embed_switch_title_ids", False
             ),
             EJS_DEBUG=get_nested(self._raw_config, "emulatorjs.debug", False),
+            EJS_CACHE_ENABLED=get_nested(
+                self._raw_config, "emulatorjs.cache.enabled", True
+            ),
             EJS_CACHE_LIMIT=get_nested(
                 self._raw_config, "emulatorjs.cache_limit", None
             ),
@@ -1170,6 +1174,10 @@ class ConfigManager:
             log.critical("Invalid config.yml: emulatorjs.debug must be a boolean")
             sys.exit(3)
 
+        if not isinstance(self.config.EJS_CACHE_ENABLED, bool):
+            log.critical("Invalid config.yml: emulatorjs.cache.enabled must be a boolean")
+            sys.exit(3)
+
         if not isinstance(self.config.EJS_NETPLAY_ENABLED, bool):
             log.critical(
                 "Invalid config.yml: emulatorjs.netplay.enabled must be a boolean"
@@ -1504,6 +1512,7 @@ class ConfigManager:
             },
             "emulatorjs": {
                 "debug": self.config.EJS_DEBUG,
+                "cache": {"enabled": self.config.EJS_CACHE_ENABLED},
                 "cache_limit": self.config.EJS_CACHE_LIMIT,
                 "disable_auto_unload": self.config.EJS_DISABLE_AUTO_UNLOAD,
                 "disable_batch_bootup": self.config.EJS_DISABLE_BATCH_BOOTUP,
