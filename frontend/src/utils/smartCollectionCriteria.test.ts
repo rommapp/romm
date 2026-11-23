@@ -160,7 +160,7 @@ describe("buildSmartFilterCriteria: platforms", () => {
 
   it("never excludes the platform of the route it was created on", () => {
     const out = buildSmartFilterCriteria(
-      { ...emptySnapshot(), platformsLogic: "none" },
+      { ...emptySnapshot(), selectedPlatforms: [gba], platformsLogic: "none" },
       { currentPlatform: snes },
     );
 

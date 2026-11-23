@@ -251,8 +251,12 @@ export function useGalleryFilterUrl() {
     } else if (selectedPlatforms.value.length > 0) {
       filter.setSelectedFilterPlatforms([]);
     }
-    if (url.platformsLogic && url.platformsLogic !== platformsLogic.value)
-      filter.setPlatformsLogic(url.platformsLogic);
+    // A link with platforms and no logic includes them. Without platforms the
+    // logic is never written, so a toggle picked ahead of a platform survives.
+    const nextPlatformsLogic =
+      url.platformsLogic ?? (url.platformIds.length > 0 ? "any" : null);
+    if (nextPlatformsLogic && nextPlatformsLogic !== platformsLogic.value)
+      filter.setPlatformsLogic(nextPlatformsLogic);
 
     // Multi-select string arrays.
     if (!eqStrArr(url.genres, selectedGenres.value))

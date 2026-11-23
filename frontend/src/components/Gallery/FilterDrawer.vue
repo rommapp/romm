@@ -506,6 +506,7 @@ function close() {
 function resetAll() {
   for (const f of boolFilters) f.value.value = null;
   filter.setSelectedFilterPlatforms([]);
+  filter.setPlatformsLogic("any");
   for (const s of multiSections.value) {
     s.selected.value = [];
     s.setLogic("any");

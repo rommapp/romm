@@ -150,11 +150,12 @@ export function buildSmartFilterCriteria(
 
   if (snap.searchTerm) out.search_term = snap.searchTerm;
 
-  if (snap.selectedPlatforms.length > 0) {
+  // The route's platform wins, matching what the gallery requests.
+  if (context.currentPlatform) {
+    out.platform_ids = [context.currentPlatform.id];
+  } else if (snap.selectedPlatforms.length > 0) {
     out.platform_ids = snap.selectedPlatforms.map((p) => p.id);
     if (snap.platformsLogic === "none") out.platforms_logic = "none";
-  } else if (context.currentPlatform) {
-    out.platform_ids = [context.currentPlatform.id];
   }
 
   if (context.currentCollectionId != null) {
