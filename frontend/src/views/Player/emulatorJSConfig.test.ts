@@ -57,7 +57,7 @@ describe("buildEjsConfig", () => {
       EJS_netplayServer: "",
       EJS_netplayICEServers: [],
       EJS_DEBUG_XX: false,
-      EJS_cacheConfig: { enabled: true },
+      EJS_cacheConfig: { enabled: true, cacheMaxSizeMB: 4096 },
       EJS_disableDatabases: false,
     });
     expect(config.EJS_Buttons).toMatchObject({
@@ -136,7 +136,7 @@ describe("buildEjsConfig", () => {
       EJS_netplayServer: "https://romm.example",
       EJS_netplayICEServers: [{ urls: "stun:stun.example:3478" }],
       EJS_DEBUG_XX: true,
-      EJS_cacheConfig: { enabled: false },
+      EJS_cacheConfig: { enabled: false, cacheMaxSizeMB: 4096 },
       EJS_disableDatabases: true,
       EJS_disableAutoUnload: true,
       EJS_disableBatchBootup: true,
