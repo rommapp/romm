@@ -111,15 +111,27 @@ def test_dev_entrypoint_runs_the_rq_cron_scheduler() -> None:
     assert "tasks.cron_config" in (SERVICES_DIR / "romm-rq-cron" / "run").read_text()
 
 
-def _rq_flags(script: str, command: str) -> set[str]:
-    """The --flags of the first `rq <command>` call, across its continuation lines."""
+def _rq_options(script: str, command: str) -> dict[str, str | None]:
+    """Each --flag of the first `rq <command>` call, mapped to its value."""
     match = re.search(rf"\brq {command} \\\n((?:.*\\\n)*.*)", script)
     assert match, f"no `rq {command}` call found"
-    return set(re.findall(r"(--[\w-]+)", match.group(1)))
+    return {
+        flag: value
+        for flag, value in re.findall(
+            r"^\s*(--[\w-]+)(?: (.+?))?\s*\\?$", match.group(1), re.M
+        )
+    }
 
 
 # The dev image writes PID files for its own tooling; s6 supervises without them.
 DEV_ONLY_RQ_FLAGS = {"--pid"}
+
+# The dev image runs from /app, and has no lib.sh to default LOGLEVEL to INFO.
+DEV_RQ_VALUES = {
+    "--path": ("/app/backend", "/backend"),
+    "--logging_level": ('"${LOGLEVEL:-INFO}"', '"${LOGLEVEL}"'),
+    "--logging-level": ('"${LOGLEVEL:-INFO}"', '"${LOGLEVEL}"'),
+}
 
 
 @pytest.mark.parametrize(
@@ -129,6 +141,14 @@ DEV_ONLY_RQ_FLAGS = {"--pid"}
         ("cron", SERVICES_DIR / "romm-rq-cron" / "run"),
     ],
 )
-def test_dev_entrypoint_passes_the_same_rq_flags(command: str, s6_script: Path) -> None:
-    dev_flags = _rq_flags(DEV_ENTRYPOINT.read_text(), command) - DEV_ONLY_RQ_FLAGS
-    assert dev_flags == _rq_flags(s6_script.read_text(), command)
+def test_dev_entrypoint_passes_the_same_rq_options(
+    command: str, s6_script: Path
+) -> None:
+    dev = _rq_options(DEV_ENTRYPOINT.read_text(), command)
+    s6 = _rq_options(s6_script.read_text(), command)
+    for flag in DEV_ONLY_RQ_FLAGS:
+        dev.pop(flag, None)
+    for flag, (dev_value, s6_value) in DEV_RQ_VALUES.items():
+        if flag in dev and dev[flag] == dev_value:
+            dev[flag] = s6_value
+    assert dev == s6

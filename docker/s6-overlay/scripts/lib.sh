@@ -34,9 +34,8 @@ warn_log() {
 	_log "${YELLOW}" "WARNING:  " "${@}"
 }
 
-# Fatal. A oneshot exiting non-zero fails the s6-rc transition, and
-# S6_BEHAVIOUR_IF_STAGE2_FAILS=2 turns that into a container exit, so the
-# restart policy can retry instead of leaving a half-started container up.
+# Fatal: S6_BEHAVIOUR_IF_STAGE2_FAILS=2 turns a failed oneshot into a container
+# exit, so the restart policy retries instead of leaving it half-started.
 error_log() {
 	_log "${RED}" "ERROR:    " "${@}"
 	exit 1
@@ -58,10 +57,8 @@ print_banner() {
 	info_log ""
 }
 
-# Populate a caller-provided array with the opentelemetry-instrument wrapper
-# argv tokens for service "$2", or leave it empty if OTEL is disabled or the
-# wrapper binary is missing. Use "${arr[@]}" to exec directly, or
-# "${arr[*]@Q}" to embed as a shell-quoted prefix string.
+# Fill array "$1" with the opentelemetry-instrument prefix for service "$2", or
+# leave it empty when OTEL is off. Embed it in a command string with "${arr[*]@Q}".
 otel_prefix() {
 	local -n out_arr="$1"
 	if [[ ${OTEL_SDK_DISABLED:-false} == "true" ]]; then return 0; fi
@@ -87,18 +84,15 @@ wait_for_tcp() {
 	return 1
 }
 
-# s6-supervise starts each service in its own session, so the service pid
-# doubles as its process group id. Record it while the cwd is still the
-# servicedir, so ./finish can sweep the group once the service dies. Call this
-# from a run script before it changes directory or execs.
+# s6-supervise gives each service its own session, so its pid is the group id
+# ./finish sweeps. Call before the run script changes directory or execs.
 record_process_group() {
 	mkdir -p /run/romm
 	echo "$$" >"/run/romm/$(basename "${PWD}").pgid"
 }
 
-# Leave this longrun down for the lifetime of the container. Used by services
-# that configuration switches off: s6 has no conditional services, so they
-# start, opt out, and tell the supervisor not to bring them back.
+# s6-rc has no conditional services, so one that configuration switches off
+# starts, then tells its supervisor not to bring it back.
 disable_service() {
 	s6-svc -O .
 	exit 0
@@ -127,10 +121,8 @@ build_redis_url() {
 	echo "${scheme}://${userinfo}${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
 }
 
-# Replace the run script with an RQ worker of class "$1" on the queues that
-# follow. The worker classes drop the noisy "cleaning registries" log line, and
-# --with-scheduler releases delayed jobs, which is how the watcher's rescans
-# wait out their delay.
+# Exec an RQ worker of class "$1" on the queues that follow. --with-scheduler
+# releases delayed jobs, which is how the watcher's rescans wait out their delay.
 exec_rq_worker() {
 	local worker_class="$1"
 	shift

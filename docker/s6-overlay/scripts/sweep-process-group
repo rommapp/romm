@@ -1,10 +1,6 @@
 #!/command/with-contenv bash
-# ./finish for every supervised longrun.
-#
-# Children of a service that died hard (OOM kill, SIGKILL, segfault) are
-# reparented to PID 1 but keep the dead parent's process group, and they keep
-# holding its listening sockets. The replacement nginx or gunicorn then fails to
-# bind and s6 restarts it forever. Sweep the group before the service comes back.
+# ./finish for every longrun. Children of a hard-killed service keep its process
+# group and its listening sockets, so the replacement could never bind.
 
 set -o nounset
 
