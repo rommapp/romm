@@ -1,4 +1,4 @@
-"""Whether this gunicorn worker serves requests, held in memory so a probe reads nothing."""
+"""Track whether this gunicorn worker serves requests, in memory so the probe reads nothing."""
 
 _ready = False
 
