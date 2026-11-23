@@ -110,6 +110,7 @@
     "vite": "^8.3.8",
     "vite-plugin-mkcert": "^2.0.0",
     "vite-plugin-pwa": "^2.0.0",
+    "vite-plugin-vue-devtools": "^8.2.1",
     "vitest": "^5.0.5",
     "vue-tsc": "^3.3.11"
   },

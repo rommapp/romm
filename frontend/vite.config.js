@@ -2,6 +2,7 @@ import vue from "@vitejs/plugin-vue";
 import { defineConfig, loadEnv } from "vite";
 import mkcert from "vite-plugin-mkcert";
 import { VitePWA } from "vite-plugin-pwa";
+import vueDevTools from "vite-plugin-vue-devtools";
 import { appAliases } from "./scripts/aliases";
 import { platformIconManifest } from "./scripts/platformIconManifest";
 import { playerIsolationHeaders } from "./scripts/playerIsolationHeaders";
@@ -77,6 +78,7 @@ export default defineConfig(({ mode }) => {
       previewAssets(),
       platformIconManifest(),
       trimMdiIcons(),
+      vueDevTools(),
       httpsMode &&
         mkcert({
           savePath: "/app/.vite-plugin-mkcert",
