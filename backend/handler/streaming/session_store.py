@@ -24,12 +24,9 @@ from typing import Any, NamedTuple, TypedDict, cast
 
 from redis.exceptions import WatchError
 
-from handler.notification_handler import notify
 from handler.redis_handler import as_text, async_cache
-from handler.socket_handler import socket_handler
 from handler.streaming.config import HOLD_CEILING_SECONDS
 from logger.logger import log
-from models.notification import NotificationKind, NotificationLevel
 
 # Sessions are stored in Redis so they are shared across uvicorn workers and
 # survive backend restarts (the emulator container keeps running either way).
@@ -731,6 +728,10 @@ async def record_termination(
     await push_to_user(user_id, "streaming:session-ended", notice)
 
     if ended_by_user_id is not None and ended_by_user_id != user_id:
+        # Imported here: these load the database, which the reaper's parent skips.
+        from handler.notification_handler import notify
+        from models.notification import NotificationKind, NotificationLevel
+
         await notify(
             user_id,
             NotificationKind.STREAMING_SESSION_ENDED,
@@ -752,6 +753,8 @@ async def push_to_user(user_id: Any, event: str, payload: dict[str, Any]) -> Non
     so a dropped socket costs latency rather than correctness.
     """
     if isinstance(user_id, int):
+        from handler.socket_handler import socket_handler
+
         await socket_handler.emit_to_user(user_id, event, payload)
 
 
