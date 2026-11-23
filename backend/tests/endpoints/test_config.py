@@ -37,6 +37,7 @@ def test_config(client):
     )
     assert config.get("PLATFORMS_BINDING") == {}
     assert config.get("EJS_DEFAULT_CORES") == {}
+    assert config.get("EJS_CACHE_ENABLED") is True
     assert not config.get("SKIP_HASH_CALCULATION")
     assert config.get("GAMELIST_MEDIA_THUMBNAIL") == "box2d"
     assert config.get("GAMELIST_MEDIA_IMAGE") == "screenshot"
