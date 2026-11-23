@@ -140,6 +140,14 @@ export function useEarnedAchievementsState() {
   };
 }
 
+// Drops a request that started before a sync finished, then reloads quietly.
+export function refreshEarnedAchievements(): Promise<void> {
+  earnedAchievementsGeneration += 1;
+  earnedAchievementsInFlight = null;
+  earnedAchievementsFetchedAt = 0;
+  return loadEarnedAchievements(true);
+}
+
 export async function loadEarnedAchievements(silent = false): Promise<void> {
   const generation = earnedAchievementsGeneration;
   if (earnedAchievementsInFlight) return earnedAchievementsInFlight;
@@ -164,10 +172,11 @@ export async function loadEarnedAchievements(silent = false): Promise<void> {
         earnedAchievementsPayload.value = null;
       }
     } finally {
-      if (generation !== earnedAchievementsGeneration) return;
-      earnedAchievementsLoading.value = false;
-      earnedAchievementsRefreshing.value = false;
-      earnedAchievementsInFlight = null;
+      if (generation === earnedAchievementsGeneration) {
+        earnedAchievementsLoading.value = false;
+        earnedAchievementsRefreshing.value = false;
+        earnedAchievementsInFlight = null;
+      }
     }
   })();
   return earnedAchievementsInFlight;

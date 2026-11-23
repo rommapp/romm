@@ -1381,3 +1381,40 @@ class TestRomUserStatusWrites:
         rom_user = db_rom_handler.add_rom_user(rom.id, admin_user.id)
 
         assert rom_user.id == existing.id
+
+
+class TestRetroAchievementsArt:
+    def test_icon_merge_keeps_the_achievement_catalog(self, platform: Platform):
+        catalog = [{"ra_id": 1, "badge_id": "100"}]
+        rom = make_rom(
+            platform, "ra_icon", ra_id=4242, ra_metadata={"achievements": catalog}
+        )
+
+        updated = db_rom_handler.set_ra_image_icons({4242: "/Images/047227.png"})
+
+        saved = db_rom_handler.get_rom(rom.id)
+        assert updated == 1
+        assert saved is not None
+        assert saved.ra_metadata == {
+            "achievements": catalog,
+            "image_icon": "/Images/047227.png",
+        }
+
+    def test_art_merge_keeps_the_achievement_catalog(self, platform: Platform):
+        catalog = [{"ra_id": 1, "badge_id": "100"}]
+        rom = make_rom(
+            platform, "ra_art", ra_id=4343, ra_metadata={"achievements": catalog}
+        )
+
+        updated = db_rom_handler.set_ra_game_art(
+            {4343: {"image_title": "/Images/026546.png", "image_box_art": ""}}
+        )
+
+        saved = db_rom_handler.get_rom(rom.id)
+        assert updated == 1
+        assert saved is not None
+        assert saved.ra_metadata == {
+            "achievements": catalog,
+            "image_title": "/Images/026546.png",
+            "image_box_art": "",
+        }

@@ -18,6 +18,7 @@
 // Fades in once loaded so the swap from placeholder → image doesn't
 // pop. Matches the motion vocabulary RSwitch / RIcon established.
 import { computed, nextTick, onMounted, ref, useSlots, watch } from "vue";
+import { decodedSrcs } from "./decodedSrcs";
 
 defineOptions({ inheritAttrs: false });
 
@@ -55,10 +56,6 @@ const emit = defineEmits<{
 const slots = useSlots();
 
 type LoadState = "loading" | "loaded" | "error";
-
-// URLs that already decoded this session. A remount would otherwise
-// paint the loading slot for a file the browser still has in memory.
-const decodedSrcs = new Set<string>();
 
 const imgEl = ref<HTMLImageElement | null>(null);
 

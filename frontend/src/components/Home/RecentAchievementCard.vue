@@ -65,11 +65,12 @@ function onHighlight() {
 }
 
 function open() {
-  const go = () =>
-    router.push({
+  const go = async () => {
+    await router.push({
       name: ROUTES.ACHIEVEMENTS,
       query: { rom: String(props.item.romId) },
     });
+  };
   const icon = gameIconEl.value;
   if (icon) {
     morphTransition({ el: icon, name: `ach-icon-${props.item.romId}` }, go);

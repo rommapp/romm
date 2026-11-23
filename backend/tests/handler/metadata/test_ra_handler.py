@@ -2,7 +2,7 @@
 
 import json
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import cast
@@ -715,7 +715,6 @@ class TestUserProgression:
 
         assert progression["results"][0]["earned_achievements"] == []
 
-
     async def test_a_refusal_keeps_what_was_read_and_defers_the_rest(
         self,
         handler: RAHandler,
@@ -816,180 +815,13 @@ class TestUserProgression:
 
         game_progress.assert_not_awaited()
 
-class TestImageIcons:
-    async def test_a_missing_icon_is_fetched_once_from_the_game(
-        self, handler: RAHandler, monkeypatch: pytest.MonkeyPatch
-    ):
-        saved: list[dict[int, str]] = []
-        get_game = AsyncMock(
-            return_value={"Title": "Yu-Gi-Oh", "ImageIcon": "/Images/047227.png"}
-        )
-        monkeypatch.setattr(ra_handler, "RETROACHIEVEMENTS_API_KEY", "present")
-        monkeypatch.setattr(handler.ra_service, "get_game", get_game)
-
-        icons = await handler.fill_image_icons(
-            [
-                {"ra_id": 42, "image_icon": "/Images/010000.png"},
-                {"ra_id": 99, "image_icon": None},
-                {"ra_id": 99, "image_icon": None},
-            ],
-            saved.append,
-            {7: "/Images/000007.png"},
-        )
-
-        get_game.assert_awaited_once_with(99)
-        assert icons[42] == "/Images/010000.png"
-        assert icons[99] == "/Images/047227.png"
-        assert saved == [
-            {42: "/Images/010000.png"},
-            {99: "/Images/047227.png"},
-        ]
-
-    async def test_a_cached_icon_is_not_downloaded(
-        self, handler: RAHandler, monkeypatch: pytest.MonkeyPatch
-    ):
-        get_game = AsyncMock()
-        monkeypatch.setattr(ra_handler, "RETROACHIEVEMENTS_API_KEY", "present")
-        monkeypatch.setattr(handler.ra_service, "get_game", get_game)
-
-        icons = await handler.fill_image_icons(
-            [{"ra_id": 42, "image_icon": None}],
-            lambda _icons: None,
-            {42: "/Images/047227.png"},
-        )
-
-        get_game.assert_not_awaited()
-        assert icons == {42: "/Images/047227.png"}
-
-    async def test_without_a_key_nothing_is_invented(
-        self, handler: RAHandler, monkeypatch: pytest.MonkeyPatch
-    ):
-        get_game = AsyncMock()
-        monkeypatch.setattr(ra_handler, "RETROACHIEVEMENTS_API_KEY", "")
-        monkeypatch.setattr(handler.ra_service, "get_game", get_game)
-
-        icons = await handler.fill_image_icons(
-            [{"ra_id": 42}],
-            lambda _icons: None,
-        )
-
-        get_game.assert_not_awaited()
-        assert icons == {}
-
-
-class TestGameArt:
-    async def test_missing_screen_art_is_fetched_once_from_the_game(
-        self, handler: RAHandler, monkeypatch: pytest.MonkeyPatch
-    ):
-        saved: list[dict[int, dict[str, str]]] = []
-        get_game = AsyncMock(
-            return_value={
-                "Title": "Yu-Gi-Oh! Forbidden Memories",
-                "ImageIcon": "/Images/027033.png",
-                "ImageTitle": "/Images/026546.png",
-                "ImageIngame": "/Images/026547.png",
-                "ImageBoxArt": "/Images/026548.png",
-            }
-        )
-        monkeypatch.setattr(ra_handler, "RETROACHIEVEMENTS_API_KEY", "present")
-        monkeypatch.setattr(handler.ra_service, "get_game", get_game)
-
-        arts = await handler.fill_game_art(
-            [
-                {
-                    "ra_id": 11246,
-                    "image_title": "/Images/054993.png",
-                    "image_ingame": "/Images/000010.png",
-                    "image_box_art": "/Images/112941.png",
-                },
-                {"ra_id": 99, "image_title": None},
-                {"ra_id": 99},
-            ],
-            saved.append,
-        )
-
-        get_game.assert_awaited_once_with(99)
-        assert arts[11246]["image_title"] == "/Images/054993.png"
-        assert arts[99] == {
-            "image_title": "/Images/026546.png",
-            "image_ingame": "/Images/026547.png",
-            "image_box_art": "/Images/026548.png",
-        }
-        assert f"/Images/{99:06d}.png" not in arts[99].values()
-        assert saved == [{99: arts[99]}]
-
-    async def test_a_stored_game_is_not_downloaded_again(
-        self, handler: RAHandler, monkeypatch: pytest.MonkeyPatch
-    ):
-        get_game = AsyncMock()
-        monkeypatch.setattr(ra_handler, "RETROACHIEVEMENTS_API_KEY", "present")
-        monkeypatch.setattr(handler.ra_service, "get_game", get_game)
-
-        arts = await handler.fill_game_art(
-            [
-                {
-                    "ra_id": 42,
-                    "image_title": "",
-                    "image_ingame": "/Images/026547.png",
-                    "image_box_art": "",
-                }
-            ],
-            lambda _arts: None,
-        )
-
-        get_game.assert_not_awaited()
-        assert arts[42]["image_ingame"] == "/Images/026547.png"
-        assert arts[42]["image_title"] == ""
-
-    async def test_a_failed_lookup_is_not_stored_as_empty(
-        self, handler: RAHandler, monkeypatch: pytest.MonkeyPatch
-    ):
-        saved: list[object] = []
-        get_game = AsyncMock(side_effect=HTTPException(status_code=503))
-        monkeypatch.setattr(ra_handler, "RETROACHIEVEMENTS_API_KEY", "present")
-        monkeypatch.setattr(handler.ra_service, "get_game", get_game)
-
-        arts = await handler.fill_game_art([{"ra_id": 99}], saved.append)
-
-        assert arts == {}
-        assert saved == []
-
-    async def test_an_unknown_game_is_recorded_so_it_is_not_asked_again(
-        self, handler: RAHandler, monkeypatch: pytest.MonkeyPatch
-    ):
-        saved: list[dict[int, dict[str, str]]] = []
-        get_game = AsyncMock(return_value=None)
-        monkeypatch.setattr(ra_handler, "RETROACHIEVEMENTS_API_KEY", "present")
-        monkeypatch.setattr(handler.ra_service, "get_game", get_game)
-
-        arts = await handler.fill_game_art([{"ra_id": 99}], saved.append)
-
-        assert arts[99] == {
-            "image_title": "",
-            "image_ingame": "",
-            "image_box_art": "",
-        }
-        assert saved == [{99: arts[99]}]
-
-    async def test_without_a_key_screen_art_is_not_invented(
-        self, handler: RAHandler, monkeypatch: pytest.MonkeyPatch
-    ):
-        get_game = AsyncMock()
-        monkeypatch.setattr(ra_handler, "RETROACHIEVEMENTS_API_KEY", "")
-        monkeypatch.setattr(handler.ra_service, "get_game", get_game)
-
-        arts = await handler.fill_game_art([{"ra_id": 11246}], lambda _arts: None)
-
-        get_game.assert_not_awaited()
-        assert arts == {}
-
 
 class TestMissingMedia:
     async def test_one_reply_stores_the_icon_and_the_screen_art(
         self, handler: RAHandler, monkeypatch: pytest.MonkeyPatch
     ):
-        saved_icons: list[dict[int, str]] = []
-        saved_arts: list[dict[int, dict[str, str]]] = []
+        saved_icons: list[Mapping[int, str]] = []
+        saved_arts: list[Mapping[int, Mapping[str, str]]] = []
         get_game = AsyncMock(
             return_value={
                 "ImageIcon": "/Images/027033.png",
@@ -1035,3 +867,100 @@ class TestMissingMedia:
         )
 
         get_game.assert_not_awaited()
+
+    async def test_duplicate_games_are_fetched_once(
+        self, handler: RAHandler, monkeypatch: pytest.MonkeyPatch
+    ):
+        get_game = AsyncMock(return_value={"ImageIcon": "/Images/047227.png"})
+        monkeypatch.setattr(ra_handler, "RETROACHIEVEMENTS_API_KEY", "present")
+        monkeypatch.setattr(handler.ra_service, "get_game", get_game)
+
+        icons = await handler.fill_missing_media(
+            [{"ra_id": 99}, {"ra_id": 99}],
+            lambda _icons: None,
+            lambda _arts: None,
+        )
+
+        get_game.assert_awaited_once_with(99)
+        assert icons == {99: "/Images/047227.png"}
+
+    async def test_a_cached_icon_with_stored_art_is_not_downloaded(
+        self, handler: RAHandler, monkeypatch: pytest.MonkeyPatch
+    ):
+        saved_icons: list[Mapping[int, str]] = []
+        get_game = AsyncMock()
+        monkeypatch.setattr(ra_handler, "RETROACHIEVEMENTS_API_KEY", "present")
+        monkeypatch.setattr(handler.ra_service, "get_game", get_game)
+
+        icons = await handler.fill_missing_media(
+            [
+                {
+                    "ra_id": 42,
+                    "image_icon": None,
+                    "image_title": "",
+                    "image_ingame": "/Images/026547.png",
+                    "image_box_art": "",
+                }
+            ],
+            saved_icons.append,
+            lambda _arts: None,
+            {42: "/Images/047227.png"},
+        )
+
+        get_game.assert_not_awaited()
+        assert icons == {42: "/Images/047227.png"}
+        assert saved_icons == [{42: "/Images/047227.png"}]
+
+    async def test_a_failed_lookup_is_not_stored_as_empty(
+        self, handler: RAHandler, monkeypatch: pytest.MonkeyPatch
+    ):
+        saved_icons: list[object] = []
+        saved_arts: list[object] = []
+        get_game = AsyncMock(side_effect=HTTPException(status_code=503))
+        monkeypatch.setattr(ra_handler, "RETROACHIEVEMENTS_API_KEY", "present")
+        monkeypatch.setattr(handler.ra_service, "get_game", get_game)
+
+        icons = await handler.fill_missing_media(
+            [{"ra_id": 99}], saved_icons.append, saved_arts.append
+        )
+
+        assert icons == {}
+        assert saved_icons == []
+        assert saved_arts == []
+
+    async def test_an_unknown_game_is_recorded_so_it_is_not_asked_again(
+        self, handler: RAHandler, monkeypatch: pytest.MonkeyPatch
+    ):
+        saved_icons: list[Mapping[int, str]] = []
+        saved_arts: list[Mapping[int, Mapping[str, str]]] = []
+        get_game = AsyncMock(return_value=None)
+        monkeypatch.setattr(ra_handler, "RETROACHIEVEMENTS_API_KEY", "present")
+        monkeypatch.setattr(handler.ra_service, "get_game", get_game)
+
+        icons = await handler.fill_missing_media(
+            [{"ra_id": 99}], saved_icons.append, saved_arts.append
+        )
+
+        assert icons == {}
+        assert saved_icons == [{99: ""}]
+        assert saved_arts == [
+            {99: {"image_title": "", "image_ingame": "", "image_box_art": ""}}
+        ]
+
+    async def test_without_a_key_nothing_is_invented(
+        self, handler: RAHandler, monkeypatch: pytest.MonkeyPatch
+    ):
+        saved_icons: list[object] = []
+        saved_arts: list[object] = []
+        get_game = AsyncMock()
+        monkeypatch.setattr(ra_handler, "RETROACHIEVEMENTS_API_KEY", "")
+        monkeypatch.setattr(handler.ra_service, "get_game", get_game)
+
+        icons = await handler.fill_missing_media(
+            [{"ra_id": 11246}], saved_icons.append, saved_arts.append
+        )
+
+        get_game.assert_not_awaited()
+        assert icons == {}
+        assert saved_icons == []
+        assert saved_arts == []

@@ -1,0 +1,20 @@
+{
+  "counter-total": "Усього",
+  "earned-on": "Отримано {date}",
+  "empty-earned-hint": "В іграх цієї бібліотеки ще немає отриманих досягнень. Коли ви розблокуєте досягнення і знову синхронізуєте профіль, воно з’явиться тут.",
+  "empty-earned-title": "Досягнень ще немає",
+  "empty-unlinked-hint": "Відкрийте профіль, у розділі RetroAchievements введіть ім’я користувача і натисніть «Зберегти». Збереження також запускає синхронізацію.",
+  "empty-unlinked-title": "Обліковий запис RetroAchievements не прив’язано",
+  "empty-unsynced-hint": "Відкрийте профіль і в розділі RetroAchievements натисніть «Синхронізувати».",
+  "empty-unsynced-title": "Ще нічого не синхронізовано",
+  "filter-all-games": "Усі ігри",
+  "filter-game": "Гра",
+  "game-achievements-n": "{n} досягнення | {n} досягнення | {n} досягнень",
+  "go-to-profile": "Відкрити профіль",
+  "load-error": "Не вдалося завантажити досягнення",
+  "open-game": "Відкрити {name}",
+  "points-label": "Очки",
+  "sort-catalog": "Порядок каталогу",
+  "sort-date": "Дата",
+  "sort-other": "Інше"
+}

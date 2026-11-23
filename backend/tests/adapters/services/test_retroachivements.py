@@ -1,6 +1,6 @@
 import asyncio
 import json
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
@@ -61,7 +61,7 @@ UNCREDITED_GAME = {
 }
 
 
-def _session_returning(body: dict[str, object]) -> MagicMock:
+def _session_returning(body: Mapping[str, object]) -> MagicMock:
     mock_response = MagicMock()
     mock_response.read = AsyncMock(return_value=json.dumps(body).encode())
     mock_response.raise_for_status.return_value = None

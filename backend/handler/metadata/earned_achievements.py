@@ -140,7 +140,7 @@ def build_earned_achievements(
 
     by_game = _roms_by_game(roms)
     items: list[EarnedAchievementItem] = []
-    seen: set[tuple[int, str]] = set()
+    seen: set[tuple[int, AchievementKey]] = set()
     results = progression.get("results")
     if not isinstance(results, list):
         results = []
@@ -155,17 +155,17 @@ def build_earned_achievements(
         for entry in earned:
             if not isinstance(entry, dict):
                 continue
-            badge_id = _text(entry.get("id"))
-            if badge_id is None or (rom_ra_id, badge_id) in seen:
+            keys = _earned_keys(entry)
+            if not keys or (rom_ra_id, keys[0]) in seen:
                 continue
-            match = _match(by_game.get(rom_ra_id, []), badge_id)
+            match = _match(by_game.get(rom_ra_id, []), keys[0])
             if match is None:
                 continue
             rom, achievement = match
-            seen.add((rom_ra_id, badge_id))
+            seen.add((rom_ra_id, keys[0]))
             items.append(
                 {
-                    "id": badge_id,
+                    "id": keys[0][1],
                     "title": _text(achievement.get("title")),
                     "description": _text(achievement.get("description")),
                     "points": _points(achievement.get("points")),
@@ -198,9 +198,10 @@ def _roms_by_game(
 
 
 def _match(
-    roms: Sequence[Mapping[str, Any]], badge_id: str
+    roms: Sequence[Mapping[str, Any]], key: AchievementKey
 ) -> tuple[Mapping[str, Any], dict[str, Any]] | None:
-    """Lowest ROM id whose catalog contains this badge."""
+    """Lowest ROM id whose catalog contains this achievement."""
+    field = "ra_id" if key[0] == "ra" else "badge_id"
     for rom in roms:
         achievements = rom.get("achievements")
         if not isinstance(achievements, list):
@@ -208,10 +209,29 @@ def _match(
         for achievement in achievements:
             if (
                 isinstance(achievement, dict)
-                and _text(achievement.get("badge_id")) == badge_id
+                and _text(achievement.get(field)) == key[1]
             ):
                 return rom, achievement
     return None
+
+
+AchievementKey = tuple[str, str]
+
+
+def _ra_key(value: object) -> AchievementKey | None:
+    ra_id = _points(value)
+    return ("ra", str(ra_id)) if ra_id is not None else None
+
+
+def _badge_key(value: object) -> AchievementKey | None:
+    badge_id = _text(value)
+    return ("badge", badge_id) if badge_id is not None else None
+
+
+def _earned_keys(entry: Mapping[str, Any]) -> list[AchievementKey]:
+    """Older progression records lack `ra_id`, so they fall back to the shared badge name."""
+    key = _ra_key(entry.get("ra_id")) or _badge_key(entry.get("id"))
+    return [key] if key else []
 
 
 def _earned_at(entry: dict[str, Any]) -> str | None:
@@ -388,9 +408,9 @@ def _group_covers(
 
 def _earned_index(
     ra_progression: dict[str, Any] | None,
-) -> dict[int, dict[str, str | None]]:
-    """badge id -> earned date, per RetroAchievements game id."""
-    indexed: dict[int, dict[str, str | None]] = {}
+) -> dict[int, dict[AchievementKey, str | None]]:
+    """Achievement key -> earned date, per RetroAchievements game id."""
+    indexed: dict[int, dict[AchievementKey, str | None]] = {}
     if not isinstance(ra_progression, dict):
         return indexed
     results = ra_progression.get("results")
@@ -407,10 +427,8 @@ def _earned_index(
         for entry in earned:
             if not isinstance(entry, dict):
                 continue
-            badge_id = _text(entry.get("id"))
-            if badge_id is None or badge_id in bucket:
-                continue
-            bucket[badge_id] = _earned_at(entry)
+            for key in _earned_keys(entry):
+                bucket.setdefault(key, _earned_at(entry))
     return indexed
 
 
@@ -469,7 +487,7 @@ def build_achievement_overview(
 
         items: list[CatalogAchievement] = []
         counts = _empty_counts()
-        seen: set[str] = set()
+        seen: set[AchievementKey] = set()
         earned_n = 0
         points_earned = 0
         points_total = 0
@@ -477,13 +495,20 @@ def build_achievement_overview(
             if not isinstance(achievement, dict):
                 continue
             badge_id = _text(achievement.get("badge_id"))
-            if badge_id is None or badge_id in seen:
+            ra_key = _ra_key(achievement.get("ra_id"))
+            badge_key = _badge_key(badge_id)
+            key = ra_key or badge_key
+            if key is None or badge_id is None or key in seen:
                 continue
-            seen.add(badge_id)
+            seen.add(key)
             points = _points(achievement.get("points"))
             if points is not None:
                 points_total += points
-            earned = badge_id in earned_map
+            earned_key = next(
+                (k for k in (ra_key, badge_key) if k is not None and k in earned_map),
+                None,
+            )
+            earned = earned_key is not None
             bucket = _type_bucket(_text(achievement.get("type")))
             if earned:
                 earned_n += 1
@@ -492,7 +517,7 @@ def build_achievement_overview(
                     points_earned += points
             items.append(
                 {
-                    "id": badge_id,
+                    "id": key[1],
                     "title": _text(achievement.get("title")),
                     "description": _text(achievement.get("description")),
                     "points": points,
@@ -505,7 +530,7 @@ def build_achievement_overview(
                     "type": _text(achievement.get("type")),
                     "display_order": _points(achievement.get("display_order")),
                     "earned": earned,
-                    "earned_at": earned_map.get(badge_id) if earned else None,
+                    "earned_at": earned_map[earned_key] if earned_key else None,
                 }
             )
         if not items:

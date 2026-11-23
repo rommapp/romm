@@ -35,7 +35,9 @@ def _rom(
     }
 
 
-def _badge(badge_id: str, *, title: str = "First steps", points: int = 5) -> dict:
+def _badge(
+    badge_id: str, *, title: str = "First steps", points: int = 5
+) -> dict[str, Any]:
     return {
         "badge_id": badge_id,
         "title": title,
@@ -117,6 +119,7 @@ def test_only_earned_badges_are_returned_with_rom_details():
     assert item["rom_ra_id"] == 42
     assert item["platform_name"] == "SNES"
     assert item["earned_at"] == "2024-03-02 10:00:00"
+    assert item["badge_url"] is not None
     assert item["badge_url"].endswith("/earned-badge.png")
     assert item["badge_path"] == f"{FRONTEND_RESOURCES_PATH}/roms/1/earned-badge.png"
 
@@ -246,6 +249,58 @@ def test_overview_includes_locked_badges_and_games_at_zero():
     assert payload["earned_by_type"]["win_condition"] == 0
 
 
+def test_overview_keeps_achievements_that_share_a_badge():
+    first = {**_badge("shared", title="Chapter 1"), "ra_id": 101}
+    second = {**_badge("shared", title="Chapter 2"), "ra_id": 102}
+
+    payload = build_achievement_overview(
+        ra_username="player",
+        ra_progression={
+            "results": [
+                {
+                    "rom_ra_id": 42,
+                    "earned_achievements": [
+                        {"id": "shared", "ra_id": 102, "date": "2024-03-02 10:00:00"}
+                    ],
+                }
+            ]
+        },
+        roms=[_rom(7, 42, [first, second])],
+    )
+
+    achievements = payload["games"][0]["achievements"]
+    assert [(a["title"], a["earned"]) for a in achievements] == [
+        ("Chapter 1", False),
+        ("Chapter 2", True),
+    ]
+    assert achievements[1]["earned_at"] == "2024-03-02 10:00:00"
+    assert payload["earned"] == 1
+    assert payload["total"] == 2
+
+
+def test_earned_list_matches_shared_badges_by_achievement_id():
+    first = {**_badge("shared", title="Chapter 1"), "ra_id": 101}
+    second = {**_badge("shared", title="Chapter 2"), "ra_id": 102}
+
+    payload = build_earned_achievements(
+        ra_username="player",
+        ra_progression={
+            "results": [
+                {
+                    "rom_ra_id": 42,
+                    "earned_achievements": [
+                        {"id": "shared", "ra_id": 101, "date": "2024-03-01 10:00:00"},
+                        {"id": "shared", "ra_id": 102, "date": "2024-03-02 10:00:00"},
+                    ],
+                }
+            ]
+        },
+        roms=[_rom(7, 42, [first, second])],
+    )
+
+    assert [item["title"] for item in payload["items"]] == ["Chapter 2", "Chapter 1"]
+
+
 def test_overview_uses_a_sibling_icon_when_the_catalog_rom_has_none():
     bare = dict(_rom(3, 42, [_badge("a")], name="USA"))
     bare["path_cover_s"] = "covers/usa.jpg"
@@ -270,9 +325,7 @@ def test_overview_uses_a_sibling_icon_when_the_catalog_rom_has_none():
 
 
 def test_overview_screen_art_uses_the_stored_api_paths():
-    rom = dict(
-        _rom(24, 11246, [_badge("a")], name="Yu-Gi-Oh! Forbidden Memories")
-    )
+    rom = dict(_rom(24, 11246, [_badge("a")], name="Yu-Gi-Oh! Forbidden Memories"))
     rom["image_icon"] = "/Images/027033.png"
     rom["image_title"] = "/Images/026546.png"
     rom["image_ingame"] = "/Images/026547.png"
@@ -300,9 +353,7 @@ def test_overview_screen_art_uses_the_stored_api_paths():
 
 
 def test_overview_background_uses_the_library_cover():
-    rom = dict(
-        _rom(24, 11246, [_badge("a")], name="Yu-Gi-Oh! Forbidden Memories")
-    )
+    rom = dict(_rom(24, 11246, [_badge("a")], name="Yu-Gi-Oh! Forbidden Memories"))
     rom["image_icon"] = "/Images/027033.png"
     rom["path_cover_l"] = "roms/1/24/cover/big.png"
     rom["path_cover_s"] = "roms/1/24/cover/small.png"
@@ -319,8 +370,11 @@ def test_overview_background_uses_the_library_cover():
     assert game["path_cover_large"] == (
         f"{FRONTEND_RESOURCES_PATH}/roms/1/24/cover/big.png?ts=9"
     )
+    assert game["path_cover_small"] is not None
     assert game["path_cover_small"].endswith("/roms/1/24/cover/small.png?ts=9")
+    assert game["url_cover"] is not None
     assert game["url_cover"].startswith("https://images.igdb.com/")
+    assert game["cover_url"] is not None
     assert game["cover_url"].endswith("/Images/027033.png")
 
 
@@ -358,7 +412,9 @@ def test_overview_uses_a_sibling_screen_when_the_catalog_rom_has_none():
     assert game["rom_id"] == 9
     assert game["title_url"] == "https://media.retroachievements.org/Images/010001.png"
     assert game["ingame_url"] is None
-    assert game["box_art_url"] == "https://media.retroachievements.org/Images/010003.png"
+    assert (
+        game["box_art_url"] == "https://media.retroachievements.org/Images/010003.png"
+    )
 
 
 def test_art_paths_keep_the_api_path_and_drop_anything_else():

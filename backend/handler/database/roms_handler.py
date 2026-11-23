@@ -1068,9 +1068,9 @@ class DBRomsHandler(DBBaseHandler):
                     "platform_id": row.platform_id,
                     "min_age": row.min_age,
                     "platform_name": row.platform_custom_name or row.platform_name,
-                    "achievements": achievements
-                    if isinstance(achievements, list)
-                    else [],
+                    "achievements": (
+                        achievements if isinstance(achievements, list) else []
+                    ),
                 }
             )
         return sources
@@ -1111,8 +1111,12 @@ class DBRomsHandler(DBBaseHandler):
             metadata = row.ra_metadata if isinstance(row.ra_metadata, dict) else {}
             achievements = metadata.get("achievements")
             name = (row.rom_name or row.fs_name_no_tags or "").strip() or f"#{row.id}"
-            small = row.path_cover_s.strip() if isinstance(row.path_cover_s, str) else ""
-            large = row.path_cover_l.strip() if isinstance(row.path_cover_l, str) else ""
+            small = (
+                row.path_cover_s.strip() if isinstance(row.path_cover_s, str) else ""
+            )
+            large = (
+                row.path_cover_l.strip() if isinstance(row.path_cover_l, str) else ""
+            )
             remote = row.url_cover.strip() if isinstance(row.url_cover, str) else ""
             sources.append(
                 {
@@ -1132,9 +1136,9 @@ class DBRomsHandler(DBBaseHandler):
                     "image_title": metadata.get("image_title"),
                     "image_ingame": metadata.get("image_ingame"),
                     "image_box_art": metadata.get("image_box_art"),
-                    "achievements": achievements
-                    if isinstance(achievements, list)
-                    else [],
+                    "achievements": (
+                        achievements if isinstance(achievements, list) else []
+                    ),
                 }
             )
         return sources
@@ -1150,10 +1154,11 @@ class DBRomsHandler(DBBaseHandler):
         if not icons:
             return 0
 
+        # The row lock keeps a concurrent scan from saving between this read and the write.
         rows = session.execute(
-            select(Rom.id, Rom.ra_id, Rom.ra_metadata).where(
-                Rom.ra_id.in_(list(icons))
-            )
+            select(Rom.id, Rom.ra_id, Rom.ra_metadata)
+            .where(Rom.ra_id.in_(list(icons)))
+            .with_for_update()
         ).all()
         updated = 0
         for row in rows:
@@ -1197,7 +1202,9 @@ class DBRomsHandler(DBBaseHandler):
         from handler.metadata.earned_achievements import RA_ART_KEYS, ra_image_icon_path
 
         rows = session.execute(
-            select(Rom.id, Rom.ra_id, Rom.ra_metadata).where(Rom.ra_id.in_(list(arts)))
+            select(Rom.id, Rom.ra_id, Rom.ra_metadata)
+            .where(Rom.ra_id.in_(list(arts)))
+            .with_for_update()
         ).all()
         updated = 0
         for row in rows:
@@ -1215,6 +1222,7 @@ class DBRomsHandler(DBBaseHandler):
                 if key not in incoming:
                     continue
                 raw = incoming[key]
+                path: str | None
                 if raw == "":
                     path = ""
                 elif isinstance(raw, str):

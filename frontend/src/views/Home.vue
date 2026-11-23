@@ -28,6 +28,7 @@ import PageHeader from "@/components/shared/PageHeader.vue";
 import RecommendationReason from "@/components/shared/RecommendationReason.vue";
 import { useGridNav } from "@/composables/useGridNav";
 import { useLoadingPhase } from "@/composables/useLoadingPhase";
+import { useSocketEvent } from "@/composables/useSocketEvent";
 import { useUISettings } from "@/composables/useUISettings";
 import { useVisiblePoll } from "@/composables/useVisiblePoll";
 import { useWebpSupport } from "@/composables/useWebpSupport";
@@ -39,7 +40,10 @@ import romApi, {
   RECOMMENDED_ROMS_LIMIT,
 } from "@/services/api/rom";
 import setupApi from "@/services/api/setup";
-import { useEarnedAchievementsState } from "@/services/api/user";
+import {
+  refreshEarnedAchievements,
+  useEarnedAchievementsState,
+} from "@/services/api/user";
 import storeCollections from "@/stores/collections";
 import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
@@ -80,6 +84,9 @@ const fetchingRecent = ref(false);
 const fetchingContinue = ref(false);
 const { payload: earnedAchievements, load: loadEarnedAchievements } =
   useEarnedAchievementsState();
+useSocketEvent<{ ok: boolean }>("ra:synced", ({ ok }) => {
+  if (ok) void refreshEarnedAchievements();
+});
 
 const RECENT_ACHIEVEMENTS_LIMIT = 15;
 
@@ -97,9 +104,9 @@ const recentAchievements = computed<RecentAchievementItem[]>(() => {
         romId: game.rom_id,
         romName: game.name,
         gameIconUrl: game.cover_url,
-        pathCoverLarge: game.path_cover_large,
-        pathCoverSmall: game.path_cover_small,
-        urlCover: game.url_cover,
+        pathCoverLarge: game.path_cover_large ?? null,
+        pathCoverSmall: game.path_cover_small ?? null,
+        urlCover: game.url_cover ?? null,
         earnedAt: achievement.earned_at,
       });
     }

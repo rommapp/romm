@@ -5,9 +5,12 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable
 from types import SimpleNamespace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from logger.logger import log
+
+if TYPE_CHECKING:
+    from handler.metadata.earned_achievements import AchievementOverview
 
 _media_task: asyncio.Task[None] | None = None
 
@@ -35,7 +38,7 @@ async def _fill_achievement_media() -> None:
 
 async def library_overview(
     user: Any, can_see_rom: Callable[[Any], bool]
-) -> dict[str, Any]:
+) -> AchievementOverview:
     """Visible RetroAchievements progress from data already stored on each ROM."""
     from handler.database import db_rom_handler
     from handler.metadata.earned_achievements import build_achievement_overview
