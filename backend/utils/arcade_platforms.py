@@ -13,6 +13,16 @@ ARCADE_SET_PLATFORMS: Final = frozenset(
 # Set platforms a browser emulator runs. None ships an AdvanceMAME core.
 PLAYABLE_ARCADE_SET_PLATFORMS: Final = ARCADE_SET_PLATFORMS - {UPS.MAME_ADVMAME}
 
+# Platforms RetroAchievements' Arcade has sets for: what FinalBurn Neo runs,
+# Gaelco included, and what Flycast runs.
+RA_ARCADE_PLATFORMS: Final = ARCADE_SET_PLATFORMS | {
+    UPS.ATOMISWAVE,
+    UPS.GAELCO,
+    UPS.NAOMI,
+    UPS.NAOMI2,
+    UPS.NAOMIGD,
+}
+
 # Every arcade platform. A provider without a platform of its own for one
 # uses its Arcade entry instead.
 ARCADE_PLATFORMS: Final = ARCADE_SET_PLATFORMS | {
