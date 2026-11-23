@@ -14,9 +14,13 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import threading
 from pathlib import Path
 from typing import Any, Final
+from urllib.parse import urlsplit
+
+import httpx
 
 from config import PLUGINS_BASE_PATH
 from endpoints.responses.plugin import PluginActionSchema, PluginSchema, PluginSlot
@@ -380,3 +384,148 @@ def _image(value: Any) -> str | None:
     if not value or len(value) > MAX_URL_LENGTH or WHITESPACE_PATTERN.search(value):
         return None
     return value if _is_web_url(value) else None
+
+
+class PluginRefused(Exception):
+    """A manifest the shelf will not take, with the reason to show the user."""
+
+
+def install_plugin(
+    manifest: dict[str, Any] | None = None,
+    url: str | None = None,
+) -> PluginSchema:
+    """Put a manifest on the shelf, either pasted or fetched from a URL.
+
+    The manifest is validated the same way a file on disk is, so an install can
+    never store something the reader would then refuse. Only http(s) is
+    fetched, and only up to the same size limit as a file on disk.
+
+    Args:
+        manifest: A manifest the caller already has, from a paste or upload.
+        url: A URL to a manifest, fetched by the server.
+
+    Returns:
+        PluginSchema: The plugin as the UI will read it.
+
+    Raises:
+        PluginRefused: The source cannot be fetched, is not a manifest, or is
+            already installed.
+    """
+    if manifest is None:
+        if not url:
+            raise PluginRefused("Name a URL or send a manifest")
+        manifest = _fetch_manifest(url)
+
+    folder_name = _slug(manifest.get("id"))
+    if not folder_name:
+        raise PluginRefused("The manifest needs an 'id'")
+
+    base = Path(PLUGINS_BASE_PATH)
+    plugin = _parse_plugin(manifest, base / folder_name)
+    if plugin is None:
+        raise PluginRefused("The manifest is not a usable plugin")
+
+    payload = json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8")
+    if len(payload) > MAX_MANIFEST_BYTES:
+        raise PluginRefused("The manifest is too large")
+
+    folder = base / folder_name
+    try:
+        base.mkdir(parents=True, exist_ok=True)
+        if folder.exists():
+            raise PluginRefused(f"{plugin.name} is already installed")
+        folder.mkdir()
+    except OSError as exc:
+        raise PluginRefused(f"Cannot write to the plugins folder: {exc}") from exc
+
+    # Written beside its final name and moved into place, so a reader never
+    # sees half a manifest.
+    staging = folder / f".{MANIFEST_NAME}.tmp"
+    try:
+        staging.write_bytes(payload)
+        staging.replace(folder / MANIFEST_NAME)
+    except OSError as exc:
+        shutil.rmtree(folder, ignore_errors=True)
+        raise PluginRefused(f"Cannot write the manifest: {exc}") from exc
+
+    _forget(base)
+    log.info(f"Plugins: installed {plugin.id} from {'a URL' if url else 'a manifest'}")
+    return plugin
+
+
+def remove_plugin(plugin_id: str) -> None:
+    """Delete a plugin's folder from the shelf.
+
+    Args:
+        plugin_id: The id the manifest declares.
+
+    Raises:
+        PluginRefused: The id is not a plugin folder, or cannot be removed.
+    """
+    folder_name = _slug(plugin_id)
+    if not folder_name or folder_name != plugin_id:
+        raise PluginRefused("That is not a plugin id")
+
+    base = Path(PLUGINS_BASE_PATH)
+    folder = base / folder_name
+    try:
+        resolved = folder.resolve(strict=True)
+    except (OSError, RuntimeError) as exc:
+        raise PluginRefused(f"{plugin_id} is not installed") from exc
+
+    if resolved.parent != base.resolve() or not resolved.is_dir():
+        raise PluginRefused(f"{plugin_id} is not a plugin folder")
+
+    try:
+        shutil.rmtree(resolved)
+    except OSError as exc:
+        raise PluginRefused(f"Cannot remove {plugin_id}: {exc}") from exc
+
+    _forget(base)
+    log.info(f"Plugins: removed {plugin_id}")
+
+
+def _fetch_manifest(url: str) -> dict[str, Any]:
+    """Read a manifest over the network, refusing anything but a small JSON page.
+
+    Args:
+        url: Where the manifest lives.
+
+    Returns:
+        dict[str, Any]: The manifest body.
+
+    Raises:
+        PluginRefused: The scheme, the status, the size or the JSON is not
+            acceptable.
+    """
+    parsed = urlsplit(url)
+    if parsed.scheme not in WEB_SCHEMES or not parsed.netloc:
+        raise PluginRefused("Only http and https URLs can be fetched")
+
+    try:
+        with httpx.stream("GET", url, timeout=10, follow_redirects=True) as response:
+            if response.status_code != 200:
+                raise PluginRefused(f"The URL answered {response.status_code}")
+            body = b""
+            for chunk in response.iter_bytes():
+                body += chunk
+                if len(body) > MAX_MANIFEST_BYTES:
+                    raise PluginRefused("The URL is larger than a manifest")
+    except PluginRefused:
+        raise
+    except httpx.HTTPError as exc:
+        raise PluginRefused(f"Cannot fetch that URL: {exc}") from exc
+
+    try:
+        raw = json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError) as exc:
+        raise PluginRefused("That URL is not JSON") from exc
+    if not isinstance(raw, dict):
+        raise PluginRefused("A manifest is a JSON object")
+    return raw
+
+
+def _forget(base: Path) -> None:
+    """Drop the parsed shelf so the next read sees the new state."""
+    with _CACHE_LOCK:
+        _CACHE.pop(str(base), None)

@@ -272,3 +272,65 @@ def test_a_manifest_in_place_is_read_again_once_it_changes(shelf):
     path.write_text(json.dumps(renamed), encoding="utf-8")
 
     assert list_plugins()[0].name == "RommDeck Two"
+
+
+def test_installing_from_a_manifest_writes_it_to_the_shelf(shelf):
+    installed = plugin_handler.install_plugin(manifest=manifest())
+
+    assert installed.id == "rommdeck"
+    assert (shelf / "rommdeck" / "plugin.json").is_file()
+    assert [plugin.id for plugin in list_plugins()] == ["rommdeck"]
+
+
+def test_installing_twice_is_refused(shelf):
+    plugin_handler.install_plugin(manifest=manifest())
+
+    with pytest.raises(plugin_handler.PluginRefused):
+        plugin_handler.install_plugin(manifest=manifest())
+
+
+def test_a_manifest_without_an_id_is_refused(shelf):
+    with pytest.raises(plugin_handler.PluginRefused):
+        plugin_handler.install_plugin(manifest={"name": "No id"})
+
+
+def test_a_manifest_the_reader_would_refuse_is_not_stored(shelf):
+    data = manifest()
+    data["actions"][0]["url"] = "javascript:alert(1)"
+
+    with pytest.raises(plugin_handler.PluginRefused):
+        plugin_handler.install_plugin(manifest=data)
+
+    assert list(shelf.iterdir()) == []
+
+
+def test_a_non_http_url_is_not_fetched(shelf):
+    with pytest.raises(plugin_handler.PluginRefused):
+        plugin_handler.install_plugin(url="file:///etc/passwd")
+
+    assert list(shelf.iterdir()) == []
+
+
+def test_removing_a_plugin_takes_its_folder(shelf):
+    plugin_handler.install_plugin(manifest=manifest())
+
+    plugin_handler.remove_plugin("rommdeck")
+
+    assert list_plugins() == []
+    assert not (shelf / "rommdeck").exists()
+
+
+def test_removing_something_that_is_not_there_is_refused(shelf):
+    with pytest.raises(plugin_handler.PluginRefused):
+        plugin_handler.remove_plugin("absent")
+
+
+def test_a_traversal_id_cannot_be_removed(shelf):
+    outside = shelf.parent / "elsewhere"
+    outside.mkdir()
+    (outside / "plugin.json").write_text(json.dumps(manifest()), encoding="utf-8")
+
+    with pytest.raises(plugin_handler.PluginRefused):
+        plugin_handler.remove_plugin("../elsewhere")
+
+    assert outside.exists()

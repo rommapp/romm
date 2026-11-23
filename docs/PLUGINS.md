@@ -4,6 +4,15 @@ A plugin adds actions to RomM's game screen: one more button next to Play and Do
 
 Plugins are declarative. A manifest describes buttons, and nothing in a plugin folder runs on the server, so installing one cannot reach your library, your database or your credentials. The button opens a URL in the browser, and the browser hands a custom scheme to whatever handles it on that machine.
 
+## Installing one
+
+Two ways, and neither involves editing RomM:
+
+- **Settings → Plugins → Add plugin.** Paste a URL to a `plugin.json` and the server fetches it, or paste the manifest body itself. The manifest is validated before it is written, so an install cannot store something the reader would then refuse, and a URL is only fetched over http(s) and only up to the manifest size limit.
+- **Drop it on the shelf.** Copy the folder into the plugins directory. This is the option for a manifest kept beside the library, and for a server with no browser session to spare.
+
+Removing one is the same page's Remove button, which deletes the plugin's folder. Only an administrator can install or remove: both routes need `users.write`, while reading the shelf needs only `roms.read`.
+
 ## Where plugins live
 
 Plugins are read from `PLUGINS_BASE_PATH`, which defaults to `$ROMM_BASE_PATH/plugins` (`/romm/plugins` in the container). Each plugin is one folder holding a `plugin.json`:
@@ -108,4 +117,4 @@ The UI reads the shelf when a game page opens and keeps it for the session, so a
 
 ## Example: RommDeck
 
-[RommDeck](https://github.com/s0liton/RommDeck) downloads and syncs your RomM library to a machine with the emulators, and keeps your saves in step. The manifest in `examples/plugins/rommdeck` adds an "Open in RommDeck" button that hands the game to a `rommdeck://` handler on the machine running RommDeck.
+[RommDeck](https://github.com/s0liton/RommDeck) downloads and syncs your RomM library to a machine with the emulators, and keeps your saves in step. Its plugin lives in its own repository, [rommdeck-plugin](https://github.com/jkoehler11/rommdeck-plugin), and adds a way to start a game from the Play chooser by handing it to a `rommdeck://` handler on the machine running RommDeck. A plugin is a manifest, so it is not part of RomM's source: install it from Settings, Plugins, or drop the folder on the shelf.
