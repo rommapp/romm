@@ -365,9 +365,9 @@ def _top_level_changed(
 def _arcade_set_archive(
     entries: Sequence[DirEntry], rom_dir: Path, set_name: str
 ) -> Path | None:
-    """Pick the top-level archive named after the set, or the largest one when none is.
+    """Return the top-level archive named after the set, or the largest archive if no name matches.
 
-    A BIOS or parent set kept beside the set's own archive can outweigh it.
+    The name comes first because a BIOS or parent set kept beside it can be larger.
     """
     archives = [
         (st.st_size, Path(f_path, file_name))
