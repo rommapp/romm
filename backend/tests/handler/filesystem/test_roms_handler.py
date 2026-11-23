@@ -1786,23 +1786,30 @@ class TestFSRomsHandler:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
-        ("slug", "file_names", "hashed"),
+        ("slug", "file_sizes", "hashed"),
         [
-            ("arcade", ["azumanga.zip", "gdl-0018.chd"], "*"),
-            ("arcade", ["azumanga.7z", "gdl-0018.chd"], "*"),
-            ("arcade", ["gdl-0018.chd"], "gdl-0018.chd"),
-            ("psx", ["bonus.zip", "game.chd"], "game.chd"),
+            ("arcade", {"azumanga.zip": 4, "gdl-0018.chd": 64}, "azumanga.zip"),
+            ("arcade", {"azumanga.7z": 4, "gdl-0018.chd": 64}, "azumanga.7z"),
+            (
+                "arcade",
+                {"azumanga.zip": 4, "naomi.zip": 32, "gdl-0018.chd": 64},
+                "azumanga.zip",
+            ),
+            ("arcade", {"azumanga.zip": 4, "naomi.zip": 32}, "azumanga.zip"),
+            ("arcade", {"gdl-0018.chd": 64}, "gdl-0018.chd"),
+            ("psx", {"bonus.zip": 4, "game.chd": 64}, "game.chd"),
         ],
     )
     async def test_get_rom_files_folder_ra_hash_is_the_arcade_sets(
-        self, tmp_path: Path, slug: str, file_names: list[str], hashed: str
+        self, tmp_path: Path, slug: str, file_sizes: dict[str, int], hashed: str
     ):
-        """An arcade set's RA hash comes from its archive, not the CHD beside it."""
+        """An arcade set's RA hash comes from its archive, not the CHD or BIOS beside it."""
         platform = Platform(name=slug, slug=slug, fs_slug=slug)
         game_dir = tmp_path / slug / "roms" / "azumanga"
         game_dir.mkdir(parents=True)
-        for file_name in file_names:
-            (game_dir / file_name).write_bytes(b"MComprHD")
+        for file_name, size in file_sizes.items():
+            magic = b"MComprHD" if file_name.endswith(".chd") else b""
+            (game_dir / file_name).write_bytes(magic.ljust(size, b"\0"))
 
         test_handler = FSRomsHandler()
         test_handler.base_path = tmp_path
