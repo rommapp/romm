@@ -544,3 +544,33 @@ def test_the_store_refuses_an_id_it_does_not_list(shelf, monkeypatch):
 
     with pytest.raises(plugin_handler.PluginRefused):
         plugin_handler.install_from_store("nowhere")
+
+
+def test_a_url_built_from_a_setting_is_judged_on_its_default(shelf):
+    data = with_settings()
+    data["actions"].append(
+        {
+            "id": "dashboard",
+            "label": "RommDeck",
+            "url": "{setting.bridge_url}/library",
+            "slot": "app.nav",
+        }
+    )
+    write_plugin(shelf, "rommdeck", data)
+
+    actions = {a.id: a for a in list_plugins()[0].actions}
+
+    assert actions["dashboard"].url == "{setting.bridge_url}/library"
+
+
+def test_a_url_built_from_a_setting_with_no_usable_default_is_dropped(shelf):
+    data = manifest()
+    data["settings"] = [
+        {"key": "web", "label": "Web", "type": "text", "default": "not a url"}
+    ]
+    data["actions"] = [
+        {"id": "open", "label": "Open", "url": "{setting.web}", "slot": "app.nav"}
+    ]
+    write_plugin(shelf, "rommdeck", data)
+
+    assert list_plugins() == []

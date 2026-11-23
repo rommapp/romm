@@ -15,6 +15,9 @@ export const usePluginStore = defineStore("plugins", () => {
   const loaded = ref(false);
   const store = ref<StorePluginSchema[]>([]);
   const storeLoaded = ref(false);
+  // Each plugin's saved values, keyed by plugin id. Actions are expanded from
+  // these, so they load with the shelf rather than when a form is opened.
+  const values = ref<Record<string, Record<string, unknown>>>({});
 
   async function load(): Promise<void> {
     if (loaded.value) return;
@@ -28,6 +31,28 @@ export const usePluginStore = defineStore("plugins", () => {
     } catch {
       plugins.value = [];
     }
+    await loadSettings();
+  }
+
+  /** Every plugin's values. A plugin with none gets its manifest's defaults,
+   *  which is what the server answers anyway; a failed read leaves it empty so
+   *  its gated actions stay hidden rather than appearing unconfigured. */
+  async function loadSettings(): Promise<void> {
+    const entries = await Promise.all(
+      plugins.value.map(async (plugin) => {
+        try {
+          const reply = await pluginApi.getSettings(plugin.id);
+          return [plugin.id, reply.data?.values ?? {}] as const;
+        } catch {
+          return [plugin.id, {}] as const;
+        }
+      }),
+    );
+    values.value = Object.fromEntries(entries);
+  }
+
+  function settingsFor(pluginId: string): Record<string, unknown> {
+    return values.value[pluginId] ?? {};
   }
 
   /** Install from a URL the server fetches, or a manifest the user pasted. The
@@ -87,7 +112,12 @@ export const usePluginStore = defineStore("plugins", () => {
     pluginId: string,
   ): Promise<Record<string, unknown> | null> {
     try {
-      return (await pluginApi.getSettings(pluginId)).data?.values ?? {};
+      const reply = await pluginApi.getSettings(pluginId);
+      values.value = {
+        ...values.value,
+        [pluginId]: reply.data?.values ?? {},
+      };
+      return reply.data?.values ?? {};
     } catch {
       return null;
     }
@@ -95,13 +125,14 @@ export const usePluginStore = defineStore("plugins", () => {
 
   async function saveSettings(
     pluginId: string,
-    values: Record<string, unknown>,
+    draftValues: Record<string, unknown>,
   ): Promise<{ ok: boolean; message?: string }> {
     try {
-      await pluginApi.saveSettings(pluginId, values);
+      await pluginApi.saveSettings(pluginId, draftValues);
     } catch (error) {
       return { ok: false, message: refusal(error) };
     }
+    values.value = { ...values.value, [pluginId]: { ...draftValues } };
     return { ok: true };
   }
 
@@ -110,6 +141,8 @@ export const usePluginStore = defineStore("plugins", () => {
     loaded,
     store,
     storeLoaded,
+    values,
+    settingsFor,
     load,
     reload,
     install,

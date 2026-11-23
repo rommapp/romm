@@ -30,6 +30,7 @@ export interface PluginAction extends PluginActionSchema {
 export function expandPluginUrl(
   template: string,
   rom: SimpleRom | null,
+  settings: Record<string, unknown> = {},
 ): string {
   const values: Record<string, string> = {
     rom_id: rom ? String(rom.id) : "",
@@ -38,9 +39,28 @@ export function expandPluginUrl(
     platform_name: rom?.platform_display_name ?? "",
     file_name: rom ? (getSoleRomFile(rom)?.file_name ?? "") : "",
   };
-  return template.replace(/\{([a-z_]+)\}/g, (_match, key: string) =>
-    encodeURIComponent(values[key] ?? ""),
+  // {setting.<key>} is what the plugin asked its user for. Whole-value use is
+  // left unencoded so a URL fragment or query a plugin stores stays as it was
+  // written; a placeholder inside a longer value is encoded like the rest.
+  return template.replace(
+    /\{(setting\.)?([a-z_]+)\}/g,
+    (match, isSetting: string | undefined, key: string) => {
+      if (!isSetting) return encodeURIComponent(values[key] ?? "");
+      const value = settings[key];
+      if (value === undefined || value === null) return "";
+      return String(value);
+    },
   );
+}
+
+/** Whether a setting that gates an action is switched on. An action with no
+ *  gate is always offered; one gated by a setting that doesn't exist is not. */
+export function gateOpen(
+  enabledBy: string | null | undefined,
+  settings: Record<string, unknown>,
+): boolean {
+  if (!enabledBy) return true;
+  return settings[enabledBy] === true;
 }
 
 /** Whether an action's platform list covers this rom. An empty list is every
@@ -81,17 +101,19 @@ export function usePluginActions(getRom: () => SimpleRom | null | undefined): {
 
   const actions = computed<PluginAction[]>(() => {
     const rom = getRom() ?? null;
-    return store.plugins.flatMap((plugin) =>
-      plugin.actions
+    return store.plugins.flatMap((plugin) => {
+      const settings = store.settingsFor(plugin.id);
+      return plugin.actions
         .filter((action) => offersPlatform(action.platforms ?? [], rom))
+        .filter((action) => gateOpen(action.enabled_by, settings))
         .map((action) => ({
           ...action,
           icon: action.icon ?? DEFAULT_PLUGIN_ICON,
           pluginId: plugin.id,
           pluginName: plugin.name,
-          href: expandPluginUrl(action.url, rom),
-        })),
-    );
+          href: expandPluginUrl(action.url, rom, settings),
+        }));
+    });
   });
 
   /** The actions for one surface: `game.details`, `game.play` and the rest. */

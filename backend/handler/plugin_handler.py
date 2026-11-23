@@ -67,6 +67,10 @@ SCHEME_PATTERN: Final[re.Pattern[str]] = re.compile(
     r"^(?P<scheme>[a-z][a-z0-9+.-]{1,31}):"
 )
 PLACEHOLDER_PATTERN: Final[re.Pattern[str]] = re.compile(r"\{([a-z_]+)\}")
+# What a plugin's own settings fill in. The browser does the same substitution
+# with the values the user saved; here the manifest's defaults stand in, which
+# is enough to know the URL is shippable at all.
+SETTING_PLACEHOLDER: Final[re.Pattern[str]] = re.compile(r"\{setting\.([a-z_]+)\}")
 WHITESPACE_PATTERN: Final[re.Pattern[str]] = re.compile(r"[\s\x00-\x1f]")
 ICON_PATTERN: Final[re.Pattern[str]] = re.compile(r"[A-Za-z0-9:_-]+")
 
@@ -216,6 +220,20 @@ def _parse_plugin(raw: dict[str, Any], folder: Path) -> PluginSchema | None:
         log.info(f"Plugins: {plugin_id} is parked with 'enabled': false")
         return None
 
+    # Settings first: an action's URL may be built out of them, and its defaults
+    # are what says whether that URL is shippable at all.
+    settings: list[PluginSettingSchema] = []
+    raw_settings = raw.get("settings")
+    if isinstance(raw_settings, list):
+        keys: set[str] = set()
+        for raw_setting in raw_settings[:MAX_SETTINGS]:
+            setting = _parse_setting(raw_setting, plugin_id)
+            if setting is None or setting.key in keys:
+                continue
+            keys.add(setting.key)
+            settings.append(setting)
+    defaults = {setting.key: setting.default for setting in settings}
+
     raw_actions = raw.get("actions")
     if not isinstance(raw_actions, list):
         raw_actions = []
@@ -225,7 +243,7 @@ def _parse_plugin(raw: dict[str, Any], folder: Path) -> PluginSchema | None:
     for raw_action in raw_actions:
         if not isinstance(raw_action, dict) or len(actions) >= MAX_ACTIONS:
             continue
-        action = _parse_action(raw_action, plugin_id)
+        action = _parse_action(raw_action, plugin_id, defaults)
         if action is None or action.id in action_ids:
             continue
         action_ids.add(action.id)
@@ -238,17 +256,6 @@ def _parse_plugin(raw: dict[str, Any], folder: Path) -> PluginSchema | None:
     homepage = _text(raw.get("homepage"), MAX_URL_LENGTH)
     if homepage and not _is_web_url(homepage):
         homepage = None
-
-    settings: list[PluginSettingSchema] = []
-    raw_settings = raw.get("settings")
-    if isinstance(raw_settings, list):
-        keys: set[str] = set()
-        for raw_setting in raw_settings[:MAX_SETTINGS]:
-            setting = _parse_setting(raw_setting, plugin_id)
-            if setting is None or setting.key in keys:
-                continue
-            keys.add(setting.key)
-            settings.append(setting)
 
     # An action switched off by a setting needs a boolean setting to switch.
     for action in actions:
@@ -275,7 +282,27 @@ def _parse_plugin(raw: dict[str, Any], folder: Path) -> PluginSchema | None:
     )
 
 
-def _parse_action(raw: dict[str, Any], plugin_id: str) -> PluginActionSchema | None:
+def _with_defaults(template: str, defaults: dict[str, Any]) -> str:
+    """A URL template with the plugin's own settings filled from their defaults.
+
+    Args:
+        template: The manifest's `url`.
+        defaults: One value per setting the manifest declares.
+
+    Returns:
+        str: The template with `{setting.key}` replaced, rom placeholders left.
+    """
+
+    def substitute(match: re.Match[str]) -> str:
+        value = defaults.get(match.group(1))
+        return "" if value is None else str(value)
+
+    return SETTING_PLACEHOLDER.sub(substitute, template)
+
+
+def _parse_action(
+    raw: dict[str, Any], plugin_id: str, defaults: dict[str, Any] | None = None
+) -> PluginActionSchema | None:
     action_id = _slug(raw.get("id"))
     label = _text(raw.get("label"), MAX_LABEL_LENGTH)
     url = _text(raw.get("url"), MAX_URL_LENGTH)
@@ -285,7 +312,9 @@ def _parse_action(raw: dict[str, Any], plugin_id: str) -> PluginActionSchema | N
         )
         return None
 
-    reason = _url_refusal(url)
+    # A URL built entirely from a setting has no scheme until one exists, so it
+    # is judged on what its defaults produce.
+    reason = _url_refusal(_with_defaults(url, defaults or {}))
     if reason:
         log.warning(f"Plugins: {plugin_id}.{action_id} has an unusable url: {reason}")
         return None
