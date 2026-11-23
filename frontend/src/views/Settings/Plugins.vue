@@ -291,18 +291,23 @@ onMounted(async () => {
                 :label="setting.label"
                 @update:model-value="setField(setting, $event)"
               />
+              <label
+                v-else
+                class="plugins-form__label"
+                :for="`plugin-setting-${setting.key}`"
+                >{{ setting.label }}</label
+              >
               <RSelect
-                v-else-if="setting.type === 'select'"
+                v-if="setting.type === 'select'"
                 :model-value="String(fieldValue(setting) ?? '')"
                 :items="selectItems(setting)"
-                :label="setting.label"
                 @update:model-value="setField(setting, $event)"
               />
               <RTextField
-                v-else
+                v-else-if="setting.type !== 'boolean'"
+                :id="`plugin-setting-${setting.key}`"
                 :model-value="String(fieldValue(setting) ?? '')"
-                :label="setting.label"
-                :placeholder="setting.placeholder ?? undefined"
+                :placeholder="setting.placeholder ?? setting.label"
                 :type="setting.type === 'number' ? 'number' : 'text'"
                 @update:model-value="setField(setting, $event)"
               />
@@ -574,6 +579,11 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.plugins-form__label {
+  font-size: 0.82rem;
+  font-weight: 600;
 }
 
 .plugins-form__help {
