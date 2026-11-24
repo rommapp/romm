@@ -151,6 +151,8 @@ describe("GameActionsList: permission gating", () => {
     const wrapper = mountList({
       canPlayLocally: false,
       canDownload: false,
+      canEdit: true,
+      canDelete: false,
     });
     expect(wrapper.find(".item, .divider").classes()).toContain("item");
     expect(wrapper.findAll(".divider")).toHaveLength(1);
