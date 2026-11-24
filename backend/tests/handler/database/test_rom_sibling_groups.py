@@ -127,6 +127,32 @@ class TestSiblingGroups:
 
         assert _groups() == {first.id: first.id, bridge.id: first.id, last.id: first.id}
 
+    def test_a_platform_rebuild_leaves_other_platforms_alone(
+        self, platform: Platform, other_platform: Platform
+    ):
+        first, bridge, last = _chain(platform)
+        usa = make_rom(other_platform, "Other (USA)", igdb_id=10)
+        japan = make_rom(other_platform, "Other (Japan)", igdb_id=10)
+        with sync_session.begin() as session:
+            session.execute(delete(RomSiblingGroup))
+
+        db_rom_handler.rebuild_sibling_groups([platform.id])
+
+        assert _groups() == {first.id: first.id, bridge.id: first.id, last.id: first.id}
+        assert usa.id not in _groups() and japan.id not in _groups()
+
+    def test_re_adding_a_rom_regroups_only_when_its_ids_change(
+        self, platform: Platform, mocker
+    ):
+        rom = make_rom(platform, "Readd (USA)", igdb_id=70)
+        regroup = mocker.spy(sibling_groups, "regroup")
+
+        make_rom(platform, "Readd (USA) Rev 1", id=rom.id, igdb_id=70)
+        assert regroup.call_count == 0
+
+        make_rom(platform, "Readd (USA)", id=rom.id, igdb_id=71)
+        assert regroup.call_count == 1
+
     def test_two_writers_grouping_one_rom_both_commit(self, platform: Platform):
         """The second writer reads before the first commits, then meets its row."""
         existing = make_rom(platform, "Raced (USA)", igdb_id=90)

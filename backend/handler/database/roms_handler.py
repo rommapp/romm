@@ -899,8 +899,14 @@ class DBRomsHandler(DBBaseHandler):
         session: Session = INJECTED_SESSION,
     ) -> Rom:
         rom = session.merge(rom)
+        state = sa_inspect(rom)
+        identity_changed = state.pending or any(
+            state.attrs[column].history.has_changes()
+            for column in IDENTITY_KEY_SOURCE_COLUMNS
+        )
         session.flush()
-        sibling_groups.regroup(session, [rom.id])
+        if identity_changed:
+            sibling_groups.regroup(session, [rom.id])
 
         return session.scalars(query.filter_by(id=rom.id).limit(1)).one()
 
@@ -4107,11 +4113,24 @@ class DBRomsHandler(DBBaseHandler):
     @begin_session
     def rebuild_sibling_groups(
         self,
+        platform_ids: Iterable[int] | None = None,
         *,
         session: Session = INJECTED_SESSION,
     ) -> None:
-        """Recompute every sibling group, repairing any a concurrent write raced."""
-        sibling_groups.rebuild(session)
+        """Recompute the sibling groups on `platform_ids`, or on every platform when None."""
+        sibling_groups.rebuild(
+            session, None if platform_ids is None else set(platform_ids)
+        )
+
+    @begin_session
+    def regroup_siblings(
+        self,
+        rom_ids: Iterable[int],
+        *,
+        session: Session = INJECTED_SESSION,
+    ) -> None:
+        """Recompute the sibling groups `rom_ids` belong to."""
+        sibling_groups.regroup(session, set(rom_ids))
 
     @staticmethod
     def invalidate_filter_values_cache() -> None:

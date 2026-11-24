@@ -89,10 +89,18 @@ def regroup(session: Session, rom_ids: Collection[int]) -> None:
     _write(session, sibling_groups(key_rows), scope=visited)
 
 
-def rebuild(session: Session) -> None:
-    """Recompute every group from scratch."""
-    rows = session.execute(select(RomIdentityKey.rom_id, *_KEY_COLUMNS)).all()
-    _write(session, sibling_groups(_as_key_rows(rows)), scope=None)
+def rebuild(session: Session, platform_ids: Collection[int] | None = None) -> None:
+    """Recompute the groups on `platform_ids` (every platform when None) from scratch."""
+    query = select(RomIdentityKey.rom_id, *_KEY_COLUMNS)
+    scope: Collection[int] | None = None
+    if platform_ids is not None:
+        # Keys carry their platform, so no group spans two platforms.
+        query = query.where(RomIdentityKey.platform_id.in_(platform_ids))
+        scope = session.scalars(
+            select(Rom.id).where(Rom.platform_id.in_(platform_ids))
+        ).all()
+    rows = session.execute(query).all()
+    _write(session, sibling_groups(_as_key_rows(rows)), scope=scope)
 
 
 def _key_rows(
