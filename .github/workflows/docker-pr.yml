@@ -60,11 +60,12 @@ jobs:
 
       # Host networking reaches the MariaDB service on localhost. The image
       # generates its own auth key and runs its own valkey when none is set.
-      # Both watchers are off by default; turning them on means every longrun
-      # in the s6 tree is expected up.
+      # The watchers and the streaming worker are off by default; turning them
+      # on means every longrun in the s6 tree is expected up.
       - name: Start the container
         run: |
-          mkdir -p "$RUNNER_TEMP/library"
+          mkdir -p "$RUNNER_TEMP/library" "$RUNNER_TEMP/config"
+          printf 'streaming:\n  enabled: true\n' >"$RUNNER_TEMP/config/config.yml"
           docker run -d --name romm --network host \
             -e DB_HOST=127.0.0.1 \
             -e DB_NAME=romm \
@@ -73,6 +74,7 @@ jobs:
             -e ENABLE_RESCAN_ON_FILESYSTEM_CHANGE=true \
             -e ENABLE_SYNC_FOLDER_WATCHER=true \
             -v "$RUNNER_TEMP/library:/romm/library" \
+            -v "$RUNNER_TEMP/config:/romm/config" \
             romm:pr
 
       # Startup runs the migrations first, so a green heartbeat also means the
