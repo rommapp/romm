@@ -3,12 +3,18 @@ import type { RomFileCategory } from "@/__generated__";
 import {
   ALL_DISCS,
   bootDiscId,
+  bootFileIds,
   bootableFiles,
   defaultDisc,
+  discNumber,
+  offersAllDiscs,
   rememberDisc,
   resolveRememberedDisc,
   resolveStoredDisc,
   selectableDiscFiles,
+  streamDiscFiles,
+  streamHasPlaylist,
+  streamSwapDiscFiles,
 } from "./playerDisc";
 
 // Only `id`, `file_name` and `category` are read off each file; minimal stubs
@@ -284,5 +290,228 @@ describe("resolveStoredDisc with a remembered playlist", () => {
     ]);
 
     expect(stored).toEqual({ disc: ALL_DISCS, stale: true });
+  });
+});
+
+// Issue #5462: variants in translations/ or hacks/ sit beside the base game.
+describe("a rom with translated or hacked variants", () => {
+  const disc1 = file(1, "Parasite Eve (USA) (Disc 1).chd");
+  const disc2 = file(2, "Parasite Eve (USA) (Disc 2).chd");
+  const playlist = file(3, "Parasite Eve (USA).m3u");
+  const tDisc1 = file(
+    4,
+    "Parasite Eve (USA) (Disc 1) (T-Es).chd",
+    "translation",
+  );
+  const tDisc2 = file(
+    5,
+    "Parasite Eve (USA) (Disc 2) (T-Es).chd",
+    "translation",
+  );
+  const tPlaylist = file(6, "Parasite Eve (USA) (T-Es).m3u", "translation");
+  const multiDisc = [tDisc1, tDisc2, tPlaylist, disc1, disc2, playlist];
+
+  const cartridge = file(10, "Mother 3 (Japan).gba");
+  const upsPatch = file(11, "Mother 3 (Japan) (T-Es).ups", "patch");
+  const bpsPatch = file(12, "Mother 3 (Japan) (T-Es).BPS", "patch");
+
+  const hacked = file(20, "Game (Hack).gba", "hack");
+  const plain = file(21, "Game.gba");
+
+  it("never boots a patch file", () => {
+    expect(bootableFiles([upsPatch, bpsPatch, cartridge])).toEqual([cartridge]);
+    expect(defaultDisc([upsPatch, bpsPatch, cartridge])).toBe(10);
+  });
+
+  it("defaults to the base game's set, not a variant's playlist", () => {
+    expect(defaultDisc(multiDisc)).toBe(ALL_DISCS);
+  });
+
+  it("defaults to the base file when a variant sorts before it", () => {
+    expect(defaultDisc([hacked, plain])).toBe(21);
+  });
+
+  it("lists the base game's discs before the variants", () => {
+    expect(selectableDiscFiles(multiDisc)).toEqual([
+      disc1,
+      disc2,
+      tDisc1,
+      tDisc2,
+    ]);
+  });
+
+  it("offers all discs only when the base game has several", () => {
+    expect(offersAllDiscs(multiDisc)).toBe(true);
+    expect(offersAllDiscs([hacked, plain])).toBe(false);
+  });
+
+  it("drops a stored all-discs choice once the base game is one file", () => {
+    expect(resolveStoredDisc(ALL_DISCS, [hacked, plain])).toEqual({
+      disc: 21,
+      stale: true,
+    });
+  });
+
+  it("boots all discs as the base set alone", () => {
+    expect(bootFileIds(ALL_DISCS, multiDisc)).toEqual([1, 2, 3]);
+  });
+});
+
+describe("bootFileIds", () => {
+  it("downloads a single file when one disc is selected", () => {
+    expect(bootFileIds(4, files(4, 5))).toEqual([4]);
+  });
+
+  it("downloads the rom whole when every file is the base game", () => {
+    expect(bootFileIds(ALL_DISCS, files(1, 2))).toEqual([]);
+    expect(bootFileIds(null, files(1, 2))).toEqual([]);
+  });
+
+  it("leaves media out of an all-discs boot", () => {
+    expect(
+      bootFileIds(ALL_DISCS, [...files(1, 2), file(3, "manual.pdf", "manual")]),
+    ).toEqual([1, 2]);
+  });
+
+  it("downloads the rom whole when it is nothing but variants", () => {
+    expect(
+      bootFileIds(ALL_DISCS, [
+        file(1, "Game (Disc 1).chd", "hack"),
+        file(2, "Game (Disc 2).chd", "hack"),
+      ]),
+    ).toEqual([]);
+  });
+});
+
+describe("streamDiscFiles", () => {
+  const PATCHES = [".ips", ".bps"];
+
+  it("keeps each disc sheet and drops the tracks it points at", () => {
+    const ids = streamDiscFiles(
+      [
+        file(1, "Game (Disc 1).gdi"),
+        file(2, "track01.bin"),
+        file(3, "Game (Disc 2).ccd"),
+        file(4, "Game (Disc 2).img"),
+        file(5, "Game (Disc 3).chd"),
+        file(6, "Game.m3u"),
+      ],
+      PATCHES,
+    ).map((f) => f.id);
+
+    expect(ids).toEqual([1, 3, 5]);
+  });
+
+  it("drops patches named by extension", () => {
+    const ids = streamDiscFiles(
+      [file(1, "Game.cue"), file(2, "Game.bin"), file(3, "Game.IPS")],
+      PATCHES,
+    ).map((f) => f.id);
+
+    expect(ids).toEqual([1]);
+  });
+
+  it("offers no disc when the rom holds only media", () => {
+    expect(
+      streamDiscFiles(
+        [file(1, "Manual.pdf", "manual"), file(2, "Theme.mp3", "soundtrack")],
+        PATCHES,
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe("streamDiscFiles order", () => {
+  it("sorts numbered discs by number, then the rest by name", () => {
+    const names = streamDiscFiles(
+      [
+        file(1, "Game (Disc 10).chd"),
+        file(2, "Extra.chd"),
+        file(3, "Game (Disc 2).chd"),
+        file(4, "Game (Disc B).chd"),
+        file(5, "Bonus.chd"),
+        file(6, "Game (Disc 1).chd"),
+      ],
+      [],
+    ).map((f) => f.file_name);
+
+    expect(names).toEqual([
+      "Game (Disc 1).chd",
+      "Game (Disc 2).chd",
+      "Game (Disc B).chd",
+      "Game (Disc 10).chd",
+      "Bonus.chd",
+      "Extra.chd",
+    ]);
+  });
+});
+
+describe("discNumber", () => {
+  it.each([
+    ["Game (Disc 2).cue", 2],
+    ["Game (CD 3).chd", 3],
+    ["Game (Disk 1 of 2).chd", 1],
+    ["Game (Disc 2A).cue", 2],
+    ["Game (disc c).cue", 3],
+    ["Game (CDi).chd", null],
+    ["Game.chd", null],
+  ])("reads %s as %s", (name, expected) => {
+    expect(discNumber(name)).toBe(expected);
+  });
+});
+
+describe("streamSwapDiscFiles", () => {
+  it("swaps between the base game's discs only", () => {
+    const ids = streamSwapDiscFiles(
+      [
+        file(1, "Game (Disc 1).cue"),
+        file(2, "Game (Disc 2).cue"),
+        file(3, "Game.m3u"),
+        file(4, "Game (Translated).chd", "translation"),
+      ],
+      [],
+    ).map((f) => f.id);
+
+    expect(ids).toEqual([1, 2]);
+  });
+
+  it("falls back to every disc when the base game has none", () => {
+    const ids = streamSwapDiscFiles(
+      [
+        file(1, "Game (Disc 1).chd", "hack"),
+        file(2, "Game (Disc 2).chd", "hack"),
+      ],
+      [],
+    ).map((f) => f.id);
+
+    expect(ids).toEqual([1, 2]);
+  });
+});
+
+describe("streamHasPlaylist", () => {
+  it("ignores a variant's playlist when the base game has discs", () => {
+    expect(
+      streamHasPlaylist(
+        [
+          file(1, "Game (Disc 1).chd"),
+          file(2, "Game (Disc 2).chd"),
+          file(3, "Hack.m3u", "hack"),
+        ],
+        [],
+      ),
+    ).toBe(false);
+  });
+
+  it("reads the variants' playlist when the base game has no disc", () => {
+    expect(
+      streamHasPlaylist(
+        [
+          file(1, "Hack (Disc 1).chd", "hack"),
+          file(2, "Hack (Disc 2).chd", "hack"),
+          file(3, "Hack.m3u", "hack"),
+        ],
+        [],
+      ),
+    ).toBe(true);
   });
 });

@@ -22,6 +22,7 @@ import type {
 import { type CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
 import api from "@/services/api";
 import socket from "@/services/socket";
+import type { PlatformFilterLogic } from "@/stores/galleryFilter";
 import storeUpload from "@/stores/upload";
 import { getDownloadPath } from "@/utils/downloadPath";
 import { buildFormInput, type FormInputField } from "@/utils/formData";
@@ -212,6 +213,7 @@ export interface GetRomsParams {
   hltbMainStoryMin?: number | null;
   hltbMainStoryMax?: number | null;
   // Logic operators for multi-value filters
+  platformsLogic?: PlatformFilterLogic | null;
   genresLogic?: string | null;
   franchisesLogic?: string | null;
   collectionsLogic?: string | null;
@@ -233,6 +235,9 @@ export interface GetRomsParams {
   withFilterValues?: boolean;
   withRomIdIndex?: boolean;
   withTotal?: boolean;
+  /** Load exactly these roms, in this order; the backend skips the filtered
+   * query, the sidecars and the total. */
+  romIds?: number[] | null;
   // Cancel an in-flight request
   signal?: AbortSignal;
 }
@@ -240,6 +245,7 @@ export interface GetRomsParams {
 /** The `/roms` query string for `params`, shared with the cached client. */
 export function buildGetRomsQuery({
   platformIds = null,
+  platformsLogic = null,
   collectionId = null,
   virtualCollectionId = null,
   smartCollectionId = null,
@@ -295,10 +301,15 @@ export function buildGetRomsQuery({
   withFilterValues = undefined,
   withRomIdIndex = undefined,
   withTotal = undefined,
+  romIds = null,
 }: Omit<GetRomsParams, "signal">) {
   return {
     platform_ids:
       platformIds && platformIds.length > 0 ? platformIds : undefined,
+    platforms_logic:
+      platformIds && platformIds.length > 0 && platformsLogic === "none"
+        ? platformsLogic
+        : undefined,
     collection_id: collectionId,
     virtual_collection_id: virtualCollectionId,
     smart_collection_id: smartCollectionId,
@@ -436,6 +447,7 @@ export function buildGetRomsQuery({
       ? { with_rom_id_index: withRomIdIndex }
       : {}),
     ...(withTotal !== undefined ? { with_total: withTotal } : {}),
+    rom_ids: romIds && romIds.length > 0 ? romIds : undefined,
   };
 }
 
@@ -478,9 +490,8 @@ async function getRecentPlayedRoms() {
   });
 }
 
-// Two rows of cards at typical widths, so the section doesn't push the rest
-// of the overview below the fold.
-export const SIMILAR_ROMS_LIMIT = 6;
+// IGDB's similar games list contains up to 10 entries.
+export const SIMILAR_ROMS_LIMIT = 10;
 export const RECOMMENDED_ROMS_LIMIT = 15;
 
 /** Library games similar to this one, from the precomputed similarity index. */

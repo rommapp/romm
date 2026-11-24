@@ -7,7 +7,7 @@ from fastapi import BackgroundTasks, Depends, HTTPException, Request, status
 from pydantic import Field
 
 from decorators.auth import protected_route
-from endpoints.play_sessions import PlaySessionEntry
+from endpoints.play_sessions import MAX_BATCH_SIZE, PlaySessionEntry, assert_batch_size
 from endpoints.responses.base import PAGE_QUERY, BaseModel, PageParams
 from endpoints.responses.play_session import (
     PlaySessionIngestResponse,
@@ -21,18 +21,23 @@ from endpoints.responses.sync import (
 )
 from endpoints.sockets.sync import emit_sync_conflict
 from handler.auth.constants import Scope
-from handler.auth.dependencies import get_permissions
+from handler.auth.dependencies import get_permissions, get_rom_visibility_filter
 from handler.database import (
     db_deleted_asset_handler,
     db_device_handler,
     db_device_save_sync_handler,
+    db_rom_handler,
     db_save_handler,
+    db_snapshot_handler,
     db_sync_session_handler,
 )
+from handler.database.snapshots_handler import SlotHead
 from handler.play_session_handler import ingest_play_sessions
 from handler.redis_handler import high_prio_queue
 from handler.sync.comparison import (
+    ChannelPosition,
     compare_missing_server_save,
+    compare_on_channel,
     compare_save_state,
     roms_to_check_for_removals,
 )
@@ -40,9 +45,14 @@ from logger.logger import log
 from models.assets import Save
 from models.deleted_asset import DeletedAsset
 from models.device import SyncMode
-from models.sync_session import SyncSessionStatus
+from models.sync_session import SyncSession, SyncSessionStatus
 from tasks.registry import SYNC_PUSH_PULL_SPEC
-from utils.auth import token_device_id
+from utils.auth import (
+    require_device,
+    require_token_device,
+    token_device_id,
+    token_reaches_device,
+)
 from utils.datetime import to_utc
 from utils.router import APIRouter
 from utils.validation import MAX_ROM_IDS_PER_QUERY, RomIdScope
@@ -57,48 +67,31 @@ router.include_router(retroarch_router)
 
 # A hung broker must not pin the background task forever.
 CONFLICT_NOTIFY_TIMEOUT_S = 2.0
+SYNC_SESSION_NOT_FOUND = "The caller has no sync session with this ID that it can see."
 
 
 class ClientSaveState(BaseModel):
-    rom_id: int = Field(description="ID of the ROM this save belongs to.")
-    file_name: str = Field(description="Name of the save file on the client.")
-    slot: str | None = Field(
-        default=None,
-        description=(
-            "Save slot name. Saves are paired between client and server on "
-            "(rom_id, slot), so provide a stable slot name (e.g. 'autosave') to "
-            "keep a save in sync across negotiations. A null slot is treated as "
-            "an archival, manual-upload save: it is never paired with slotted "
-            "server saves, so a null-slot client save always negotiates as an "
-            "'upload' even when an identical file already exists on the server "
-            "under a slot."
-        ),
-    )
-    emulator: str | None = Field(
-        default=None, description="Emulator that produced the save, if known."
-    )
-    content_hash: str | None = Field(
-        default=None,
-        description="Hash of the save contents, used to detect identical saves.",
-    )
-    updated_at: datetime = Field(
-        description="Last-modified timestamp of the save on the client."
-    )
-    file_size_bytes: int = Field(description="Size of the save file in bytes.")
+    rom_id: int
+    """ID of the ROM this save belongs to."""
+    file_name: str
+    """Name of the save file on the client."""
+    slot: str | None = None
+    """The save slot name. Client and server saves pair on (rom_id, slot), so a stable name such as `autosave` keeps a save in sync across negotiations. A null slot marks an archival, manual-upload save that never pairs with a slotted server save, so it always negotiates as an `upload`, even when the server holds an identical file in a slot."""
+    emulator: str | None = None
+    """Emulator that produced the save, if known."""
+    content_hash: str | None = None
+    """Hash of the save contents, used to detect identical saves."""
+    updated_at: datetime
+    """Last-modified timestamp of the save on the client."""
+    file_size_bytes: int
+    """Size of the save file in bytes."""
 
 
 class SyncNegotiatePayload(BaseModel):
-    device_id: str | None = Field(
-        default=None,
-        description=(
-            "ID of the syncing device. Optional when the request uses a "
-            "device-bound client token, in which case the device is inferred "
-            "from the token."
-        ),
-    )
-    saves: list[ClientSaveState] = Field(
-        description="Current save state on the client."
-    )
+    device_id: str | None = None
+    """ID of the syncing device. Optional when the request uses a device-bound client token, in which case the device is inferred from the token."""
+    saves: list[ClientSaveState]
+    """Current save state on the client."""
     rom_ids: RomIdScope = Field(
         default=None,
         description=(
@@ -109,23 +102,12 @@ class SyncNegotiatePayload(BaseModel):
             f"saves. At most {MAX_ROM_IDS_PER_QUERY} IDs per request."
         ),
     )
-    restore_unlisted: bool = Field(
-        default=False,
-        description=(
-            "Offer every current server save the client did not list as a "
-            "download, even one this device already synced. For clients that "
-            "never delete saves themselves (such as a browser, whose storage "
-            "can be evicted), so a missing save means lost rather than deleted."
-        ),
-    )
-    emulators: list[str] | None = Field(
-        default=None,
-        description=(
-            "Emulators whose saves this client can load. When provided, only "
-            "server saves written by one of them are paired or offered, so a "
-            "save from another emulator in the same slot is left alone."
-        ),
-    )
+    restore_unlisted: bool = False
+    """Whether to offer every current server save the client did not list as a download, even one this device already synced. Set it on a client that never deletes saves itself, such as a browser whose storage can be evicted, where a missing save was lost and not deleted."""
+    emulators: list[str] | None = None
+    """Emulators whose saves this client can load. When provided, only server saves written by one of them are paired or offered, so a save from another emulator in the same slot is left alone."""
+    cores: list[str] | None = None
+    """Libretro cores whose saves this client can load. A save from a snapshot client that recorded its core is only offered to clients that list that core. Other saves are matched by emulator."""
 
 
 # Its own class so the OpenAPI schema keeps the name clients generate from.
@@ -166,7 +148,54 @@ async def _notify_conflicts(
         )
 
 
-@protected_route(router.post, "/negotiate", [Scope.ASSETS_READ, Scope.DEVICES_READ])
+def _channel_positions(
+    device_id: str, heads: dict[tuple[int, str | None], SlotHead]
+) -> dict[tuple[int, str | None], ChannelPosition]:
+    """Each channel-backed slot's history and what this device holds in it."""
+    channel_ids = {head.channel_id for head in heads.values()}
+    versions = db_snapshot_handler.channel_versions(channel_ids)
+    bases = db_snapshot_handler.device_bases(device_id, channel_ids)
+    return {
+        key: ChannelPosition(
+            current_id=head.snapshot_id,
+            current_hash=head.save.content_hash,
+            current_hashes=frozenset(versions[head.channel_id].currents),
+            branch_hashes=frozenset(versions[head.channel_id].branches),
+            device_base_id=bases.get(head.channel_id),
+        )
+        for key, head in heads.items()
+    }
+
+
+def _require_sync_session(request: Request, session_id: int) -> SyncSession:
+    """The caller's sync session, a 404 when a bound token's other device ran it."""
+    sync_session = db_sync_session_handler.get_session(
+        session_id=session_id, user_id=request.user.id
+    )
+    if not sync_session or not token_reaches_device(request, sync_session.device_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Sync session with ID {session_id} not found",
+        )
+    return sync_session
+
+
+@protected_route(
+    router.post,
+    "/negotiate",
+    [Scope.ASSETS_READ, Scope.DEVICES_READ],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": (
+                "The payload has no `device_id` and the client token is not bound to"
+                " a device, or sync is disabled for the device."
+            )
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no device with this `device_id` that it can see."
+        },
+    },
+)
 def negotiate_sync(
     request: Request,
     payload: SyncNegotiatePayload,
@@ -201,12 +230,7 @@ def negotiate_sync(
             ),
         )
 
-    device = db_device_handler.get_device(device_id=device_id, user_id=request.user.id)
-    if not device:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Device with ID {device_id} not found",
-        )
+    device = require_device(request, device_id)
 
     if not device.sync_enabled:
         raise HTTPException(
@@ -232,17 +256,41 @@ def negotiate_sync(
     )
 
     # Pair on (rom_id, slot), keeping the newest row per slot: slot uploads are datetime-tagged (spec) so tagged filenames never equal the client's untagged name, and a slot accrues many rows over time. Null-slot rows stay archival-only.
+    # A save on a hidden ROM negotiates as if the ROM didn't exist.
+    visibility = get_rom_visibility_filter(request)
     server_saves = db_save_handler.get_saves(
-        user_id=request.user.id, slot_not_null=True, rom_ids=rom_id_scope
+        user_id=request.user.id,
+        slot_not_null=True,
+        rom_ids=rom_id_scope,
+        visibility=visibility,
     )
     if payload.emulators is not None:
         server_saves = [s for s in server_saves if s.emulator in payload.emulators]
+    hidden_rom_ids = db_rom_handler.get_hidden_rom_ids_among(
+        [s.rom_id for s in payload.saves], visibility
+    )
     server_save_map: dict[tuple[int, str | None], Save] = {}
     for save in server_saves:
-        key = (save.rom_id, save.slot)
+        key = (save.attached_rom_id, save.slot)
         current = server_save_map.get(key)
         if current is None or to_utc(save.updated_at) > to_utc(current.updated_at):
             server_save_map[key] = save
+    # Once a channel has a current, it is the slot's save, and its history decides.
+    slot_keys = {(rom_id, slot) for rom_id, slot in server_save_map if slot}
+    slot_keys |= {(s.rom_id, s.slot) for s in payload.saves if s.slot}
+    slot_keys |= db_snapshot_handler.channel_slots(request.user.id, rom_id_scope)
+    # A channel on a hidden ROM negotiates as if the ROM didn't exist.
+    hidden_slot_rom_ids = db_rom_handler.get_hidden_rom_ids_among(
+        [rom_id for rom_id, _ in slot_keys], visibility
+    )
+    slot_keys = {key for key in slot_keys if key[0] not in hidden_slot_rom_ids}
+    heads: dict[tuple[int, str | None], SlotHead] = dict(
+        db_snapshot_handler.slot_heads(
+            request.user.id, slot_keys, payload.emulators, payload.cores
+        ).items()
+    )
+    server_save_map.update({key: slot_head.save for key, slot_head in heads.items()})
+    positions = _channel_positions(device.id, heads)
 
     deleted_map: dict[tuple[int, str | None], DeletedAsset] = {
         (record.rom_id, record.slot): record
@@ -250,6 +298,7 @@ def negotiate_sync(
             user_id=request.user.id,
             rom_ids=roms_to_check_for_removals(payload.saves, server_save_map),
         )
+        if record.rom_id not in hidden_rom_ids
     }
 
     # Only the newest row per slot is ever looked up, so superseded rows stay out.
@@ -296,17 +345,29 @@ def negotiate_sync(
             operations.append(
                 SyncOperationSchema(
                     action="no_op",
-                    rom_id=server_save.rom_id,
+                    rom_id=server_save.attached_rom_id,
                     save_id=server_save.id,
                     file_name=server_save.file_name,
-                    slot=server_save.slot,
+                    slot=client_save.slot,
                     emulator=server_save.emulator,
                     reason="Save is untracked on this device",
                 )
             )
             continue
 
-        result = compare_save_state(
+        head = heads.get(key)
+        position = positions.get(key)
+        server_updated_at = head.current_since if head else server_save.updated_at
+        result = (
+            compare_on_channel(
+                client_hash=client_save.content_hash,
+                client_updated_at=client_save.updated_at,
+                position=position,
+                removed_at=removed_at,
+            )
+            if position
+            else None
+        ) or compare_save_state(
             client_hash=client_save.content_hash,
             client_updated_at=client_save.updated_at,
             server_hash=server_save.content_hash,
@@ -328,23 +389,27 @@ def negotiate_sync(
                 server_save.content_hash,
                 synced_at=server_save.updated_at,
             )
+            if head:
+                db_snapshot_handler.record_device_base(
+                    device.id, head.channel_id, head.snapshot_id
+                )
 
         operations.append(
             SyncOperationSchema(
                 action=result.action,
-                rom_id=server_save.rom_id,
+                rom_id=server_save.attached_rom_id,
                 save_id=server_save.id,
                 file_name=server_save.file_name,
-                slot=server_save.slot,
+                slot=client_save.slot,
                 emulator=server_save.emulator,
                 reason=result.reason,
-                server_updated_at=server_save.updated_at,
+                server_updated_at=server_updated_at,
                 server_content_hash=server_save.content_hash,
             )
         )
 
     # Check for current saves the client didn't mention (superseded older rows per slot are history, not downloads)
-    for save in server_save_map.values():
+    for key, save in server_save_map.items():
         if save.id in matched_server_save_ids:
             continue
 
@@ -354,44 +419,42 @@ def negotiate_sync(
         if device_sync and device_sync.is_untracked:
             continue
 
-        # If device has synced this save before and the save hasn't changed,
-        # the client intentionally deleted it - treat as no_op
-        if device_sync:
-            synced_ts = to_utc(device_sync.last_synced_at)
-            save_ts = to_utc(save.updated_at)
-            if save_ts <= synced_ts and not payload.restore_unlisted:
-                # Save hasn't changed since device last synced - client deleted it
+        head = heads.get(key)
+        position = positions.get(key)
+        if position and position.device_base_id is not None:
+            # The device held this current and no longer lists it: it deleted it.
+            if position.device_holds_current and not payload.restore_unlisted:
                 continue
-
-            # Save changed after device last synced - device should download
-            operations.append(
-                SyncOperationSchema(
-                    action="download",
-                    rom_id=save.rom_id,
-                    save_id=save.id,
-                    file_name=save.file_name,
-                    slot=save.slot,
-                    emulator=save.emulator,
-                    reason="Server save updated since last sync, not present on client",
-                    server_updated_at=save.updated_at,
-                    server_content_hash=save.content_hash,
-                )
+            reason = (
+                "Server save updated since last sync, not present on client"
+                if not position.device_holds_current
+                else "Save exists on server but not on client"
             )
+        elif device_sync:
+            # If device has synced this save before and the save hasn't changed,
+            # the client intentionally deleted it - treat as no_op
+            if (
+                to_utc(save.updated_at) <= to_utc(device_sync.last_synced_at)
+                and not payload.restore_unlisted
+            ):
+                continue
+            reason = "Server save updated since last sync, not present on client"
         else:
-            # Device has never synced this save - download it
-            operations.append(
-                SyncOperationSchema(
-                    action="download",
-                    rom_id=save.rom_id,
-                    save_id=save.id,
-                    file_name=save.file_name,
-                    slot=save.slot,
-                    emulator=save.emulator,
-                    reason="Save exists on server but not on client",
-                    server_updated_at=save.updated_at,
-                    server_content_hash=save.content_hash,
-                )
+            reason = "Save exists on server but not on client"
+
+        operations.append(
+            SyncOperationSchema(
+                action="download",
+                rom_id=save.attached_rom_id,
+                save_id=save.id,
+                file_name=save.file_name,
+                slot=key[1],
+                emulator=save.emulator,
+                reason=reason,
+                server_updated_at=head.current_since if head else save.updated_at,
+                server_content_hash=save.content_hash,
             )
+        )
 
     # Update session with operation counts
     counts = Counter(op.action for op in operations)
@@ -425,7 +488,8 @@ def negotiate_sync(
             session_id=sync_session.id,
             conflict_ops=conflict_ops,
             rom_names={
-                save.rom_id: save.rom.name or save.rom.fs_name
+                save.attached_rom_id: save.attached_rom.name
+                or save.attached_rom.fs_name
                 for save in server_save_map.values()
             },
         )
@@ -441,21 +505,40 @@ def negotiate_sync(
     )
 
 
-@protected_route(router.post, "/sessions/{session_id}/complete", [Scope.DEVICES_WRITE])
+@protected_route(
+    router.post,
+    "/sessions/{session_id}/complete",
+    [Scope.DEVICES_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": (
+                f"The payload has more than {MAX_BATCH_SIZE} play sessions, or the"
+                " sync session is already completed, cancelled or failed."
+            )
+        },
+        status.HTTP_403_FORBIDDEN: {
+            "description": (
+                "The payload has play sessions, and the caller lacks the"
+                " `roms.user.write` scope."
+            )
+        },
+        status.HTTP_404_NOT_FOUND: {"description": SYNC_SESSION_NOT_FOUND},
+    },
+)
 def complete_sync_session(
     request: Request,
     session_id: int,
     payload: SyncCompletePayload,
 ) -> SyncCompleteResponse:
     """Mark a sync session as completed, optionally ingesting play sessions."""
-    sync_session = db_sync_session_handler.get_session(
-        session_id=session_id, user_id=request.user.id
-    )
-    if not sync_session:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Sync session with ID {session_id} not found",
-        )
+    if payload.play_sessions:
+        if Scope.ROMS_USER_WRITE not in request.auth.scopes:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden"
+            )
+        assert_batch_size(len(payload.play_sessions))
+
+    sync_session = _require_sync_session(request, session_id)
 
     # A session the cleanup expired can still be completed: its counts and the
     # play sessions the client carries are worth more than the guess that
@@ -514,13 +597,24 @@ def complete_sync_session(
     )
 
 
-@protected_route(router.get, "/sessions", [Scope.DEVICES_READ])
+@protected_route(
+    router.get,
+    "/sessions",
+    [Scope.DEVICES_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The client token is bound to a device other than `device_id`."
+        }
+    },
+)
 def get_sync_sessions(
     request: Request,
     page: Annotated[PageParams, Depends(PAGE_QUERY)],
     device_id: str | None = None,
 ) -> list[SyncSessionSchema]:
     """List sync sessions for the current user."""
+    if device_id is not None:
+        require_token_device(request, device_id)
     sessions = db_sync_session_handler.get_sessions(
         user_id=request.user.id,
         device_id=device_id,
@@ -530,39 +624,45 @@ def get_sync_sessions(
     return [SyncSessionSchema.model_validate(s) for s in sessions]
 
 
-@protected_route(router.get, "/sessions/{session_id}", [Scope.DEVICES_READ])
+@protected_route(
+    router.get,
+    "/sessions/{session_id}",
+    [Scope.DEVICES_READ],
+    responses={status.HTTP_404_NOT_FOUND: {"description": SYNC_SESSION_NOT_FOUND}},
+)
 def get_sync_session(
     request: Request,
     session_id: int,
 ) -> SyncSessionSchema:
     """Get a specific sync session."""
-    sync_session = db_sync_session_handler.get_session(
-        session_id=session_id, user_id=request.user.id
-    )
-    if not sync_session:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Sync session with ID {session_id} not found",
-        )
-
-    return SyncSessionSchema.model_validate(sync_session)
+    return SyncSessionSchema.model_validate(_require_sync_session(request, session_id))
 
 
 # --- Push-Pull Mode Endpoints ---
 
 
-@protected_route(router.post, "/devices/{device_id}/push-pull", [Scope.DEVICES_WRITE])
+@protected_route(
+    router.post,
+    "/devices/{device_id}/push-pull",
+    [Scope.DEVICES_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": (
+                "The device is not in `push_pull` sync mode, or sync is disabled for"
+                " it."
+            )
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no device with this ID that it can see."
+        },
+    },
+)
 def trigger_push_pull(
     request: Request,
     device_id: str,
 ) -> SyncSessionSchema:
     """Manually trigger a push-pull sync for a specific device."""
-    device = db_device_handler.get_device(device_id=device_id, user_id=request.user.id)
-    if not device:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Device with ID {device_id} not found",
-        )
+    device = require_device(request, device_id)
 
     if device.sync_mode != SyncMode.PUSH_PULL:
         raise HTTPException(

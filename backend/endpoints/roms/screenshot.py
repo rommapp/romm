@@ -6,10 +6,9 @@ from fastapi import Request, status
 from fastapi.responses import Response
 
 from decorators.auth import protected_route
-from endpoints.roms.upload import receive_rom_file
-from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
+from endpoints.roms.upload import ROM_FILE_UPLOAD_RESPONSES, receive_rom_file
 from handler.auth.constants import Scope
-from handler.auth.dependencies import assert_rom_visible
+from handler.auth.dependencies import visible_rom_or_404
 from handler.database import db_rom_handler
 from handler.filesystem import fs_rom_handler
 from handler.rom_upload import CATEGORY_UPLOAD_FOLDERS
@@ -17,7 +16,7 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import RomFileCategory
-from utils.router import APIRouter
+from utils.router import APIRouter, RomIdPath
 
 router = APIRouter()
 
@@ -27,11 +26,16 @@ router = APIRouter()
     "/{id}/screenshots",
     [Scope.ROMS_WRITE],
     status_code=status.HTTP_201_CREATED,
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        **ROM_FILE_UPLOAD_RESPONSES,
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID."
+        },
+    },
 )
 async def add_rom_screenshots(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
     filename: Annotated[
         str,
         Header(
@@ -42,11 +46,7 @@ async def add_rom_screenshots(
 ) -> Response:
     """Upload a screenshot image into the ROM's screenshots/ subfolder."""
 
-    rom = db_rom_handler.get_rom(id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    assert_rom_visible(request, rom)
+    rom = visible_rom_or_404(request, db_rom_handler.get_rom(id), id)
 
     await receive_rom_file(
         request, rom, CATEGORY_UPLOAD_FOLDERS[RomFileCategory.SCREENSHOT], filename
@@ -59,20 +59,23 @@ async def add_rom_screenshots(
     router.delete,
     "/{id}/screenshots/{file_id}",
     [Scope.ROMS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID, or the rom has no screenshot with this file ID."
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "The screenshot could not be removed from disk."
+        },
+    },
 )
 async def delete_rom_screenshot(
     request: Request,
-    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    id: RomIdPath,
     file_id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
 ) -> Response:
     """Delete a single screenshot file from a ROM."""
 
-    rom = db_rom_handler.get_rom_visibility_label(id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(id)
-
-    assert_rom_visible(request, rom)
+    rom = visible_rom_or_404(request, db_rom_handler.get_rom_visibility_label(id), id)
 
     rom_file = db_rom_handler.get_rom_file_by_id(file_id)
     if (

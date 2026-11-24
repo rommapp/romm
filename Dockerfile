@@ -8,12 +8,12 @@
 # Same bases as docker/Dockerfile, so system tools (7zip, libmagic, libarchive)
 # match production. Keep these pins in sync with its ARGUMENT DECLARATIONS.
 ARG ALPINE_VERSION=3.24
-ARG ALPINE_SHA256=294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
+ARG ALPINE_DIGEST=sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
 # Pins the base image tag, so it cannot read .python-version; keep the two in sync.
 ARG PYTHON_VERSION=3.14
-ARG PYTHON_ALPINE_SHA256=9e9fde4d32eedce0b661d9ab91e826b62dddf28e928c230ec55f1866cac66b01
-ARG NODE_VERSION=24.22
-ARG NODE_ALPINE_SHA256=6a1c190e17215d844926b0677f4bf87273ff7d5e54db06d3b5b5863ab0b09a3d
+ARG PYTHON_ALPINE_DIGEST=sha256:5862d971d1f0ae26b258cefa4e893556b1d3aba81bd2ff30888704ad378bab67
+ARG NODE_VERSION=26.13
+ARG NODE_ALPINE_DIGEST=sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5
 ARG UV_VERSION=0.13.4
 ARG UV_SHA256=0cb69bb18ffcd57db04f045010b0234132a111da70dde5a393d26ad288d38e13
 ARG EMSDK_VERSION=4.0.12
@@ -36,7 +36,7 @@ COPY docker/gme /romm-gme
 RUN /romm-gme/build.sh /libgme /gme
 
 
-FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION}@sha256:${NODE_ALPINE_SHA256} AS node-stage
+FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION}@${NODE_ALPINE_DIGEST} AS node-stage
 
 
 # https://github.com/astral-sh/uv/pkgs/container/uv
@@ -44,7 +44,7 @@ FROM ghcr.io/astral-sh/uv:${UV_VERSION}-python${PYTHON_VERSION}-alpine@sha256:${
 
 
 # Tag 1.8.3. Keep the pin and the musl patches in sync with docker/Dockerfile.
-FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS rahasher-build
+FROM alpine:${ALPINE_VERSION}@${ALPINE_DIGEST} AS rahasher-build
 RUN apk add --no-cache \
     g++ \
     git \
@@ -68,14 +68,14 @@ RUN git clone --filter=blob:none https://github.com/RetroAchievements/RALibretro
 
 # Built on the Python image so the cffi extension matches the venv's CPython ABI.
 # Keep the pin in sync with docker/Dockerfile.
-FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA256} AS sigil-build
+FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@${PYTHON_ALPINE_DIGEST} AS sigil-build
 RUN apk add --no-cache \
     cmake \
     g++ \
     make \
     musl-dev
 
-ARG SIGIL_VERSION=8a3b0089676e07f74da2d9ad08979dedf5cae7c0
+ARG SIGIL_VERSION=85f88a85b7e8cfe5c685ec3cde100570c6ee6ed8
 ADD "https://github.com/rommapp/argosy-sigil.git#${SIGIL_VERSION}" /argosy-sigil
 WORKDIR /argosy-sigil
 RUN cmake -B ./build-python -S . -DSIGIL_BUILD_CLI=OFF -DSIGIL_BUILD_TESTS=OFF && \
@@ -88,7 +88,7 @@ RUN cmake -B ./build-python -S . -DSIGIL_BUILD_CLI=OFF -DSIGIL_BUILD_TESTS=OFF &
 
 
 # Keep the version and both sums in sync with docker/Dockerfile.
-FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS rom-converto-fetch
+FROM alpine:${ALPINE_VERSION}@${ALPINE_DIGEST} AS rom-converto-fetch
 ARG TARGETARCH
 ARG ROM_CONVERTO_VERSION=v0.24.0
 RUN case "${TARGETARCH}" in \
@@ -103,7 +103,7 @@ RUN case "${TARGETARCH}" in \
 
 
 # Browser player runtimes. Keep the pins in sync with the emulator stage of docker/Dockerfile.
-FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS emulator-download
+FROM alpine:${ALPINE_VERSION}@${ALPINE_DIGEST} AS emulator-download
 
 RUN apk add --no-cache \
     7zip
@@ -125,18 +125,18 @@ ADD --checksum=sha256:${RUFFLE_SHA256} \
     /downloads/ruffle.zip
 RUN 7zz x -y /downloads/ruffle.zip -o/emulators/ruffle
 
-ARG JSDOS_VERSION=8.4.1
-ARG JSDOS_SHA256=26118692bbb180aec78ec1697eb1ea6b28ff410101870cfa3e68309914c7eaa6
+ARG JSDOS_VERSION=8.5.4
+ARG JSDOS_SHA256=6cd8a379556ada7da8a6a49d3ba2fde1783ce3e481c1cd645e13ebc83419a5b8
 
 ADD --checksum=sha256:${JSDOS_SHA256} \
     "https://github.com/caiiiycuk/js-dos/releases/download/v${JSDOS_VERSION}/release.zip" \
     /downloads/jsdos.zip
-# The bundled index.html is a js-dos demo page that would be served unauthenticated;
-# source maps, Emscripten symbol files and type declarations are unused at runtime.
+# index.html is a demo page that would be served unauthenticated; source maps, symbols,
+# type declarations and the opt-in DOSBox-X debugger build are unused at runtime.
 RUN 7zz x -y /downloads/jsdos.zip -o/tmp/jsdos \
     && mv /tmp/jsdos/dist /emulators/jsdos \
     && rm -rf /emulators/jsdos/index.html /emulators/jsdos/emulators/types \
-    && find /emulators/jsdos \( -name '*.map' -o -name '*.symbols' \) -exec rm -f {} +
+    && find /emulators/jsdos \( -name '*.map' -o -name '*.symbols' -o -name '*-dbg.*' \) -exec rm -f {} +
 
 # FAKE-08 (MIT) publishes no web build, so these come from p3a (Apache-2.0),
 # which compiled them. Pinned by commit and checksum: that tree has no tags.
@@ -176,7 +176,7 @@ RUN mkdir /emulators/easyrpg/rtp && \
     find /emulators/easyrpg/rtp \( -name '.git*' -o -name Makefile \) -exec rm -f {} +
 
 
-FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA256}
+FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@${PYTHON_ALPINE_DIGEST}
 
 # Runtime packages match production-stage in docker/Dockerfile; the rest build
 # Python dependencies from source (memray has no arm64 musl wheel).

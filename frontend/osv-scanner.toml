@@ -1,6 +1,5 @@
-# Only reached through @vue/eslint-config-typescript > fast-glob > micromatch,
-# which globs fixed `**/*.vue` patterns at lint time. No patched braces exists.
+# Reached through workbox-build (glob ^11) and @vue/test-utils > js-beautify (glob ^13).
 [[IgnoredVulns]]
-id = "GHSA-vfj7-8cjw-p6xm"
-ignoreUntil = 2027-04-05
-reason = "Dev-only lint dependency with fixed glob patterns; no fixed braces release."
+id = "GHSA-3g3m-2fjr-6pw4"
+effectiveUntil = 2027-05-16
+reason = "Dev-only callers never pass an AbortSignal; glob 11 has no fix and the advisory does not list the 13.0.7 backport."

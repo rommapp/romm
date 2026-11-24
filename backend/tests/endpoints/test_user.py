@@ -1,23 +1,27 @@
 import base64
+import io
 from datetime import timedelta
+from pathlib import Path
 
+import pytest
 from fastapi import status
+from PIL import Image
+from tests.auth_helpers import bearer
 
+from endpoints import user as user_endpoints
 from exceptions.database_exceptions import LastAdminError
 from handler.auth.base_handler import auth_handler, oauth_handler
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
 from handler.database import db_permission_handler, db_user_handler
+from handler.filesystem import fs_asset_handler
+from handler.metadata import meta_ra_handler
 from models.permission import PermAction, PermEntity
 from models.user import Role, User
 
 
-def _bearer(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
-
-
 def test_an_unknown_user_is_not_found(client, access_token: str):
     response = client.put(
-        "/api/users/999999", data={"ra_username": "x"}, headers=_bearer(access_token)
+        "/api/users/999999", data={"ra_username": "x"}, headers=bearer(access_token)
     )
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -29,7 +33,7 @@ def test_non_admin_cannot_edit_another_user(
     response = client.put(
         f"/api/users/{admin_user.id}",
         data={"password": "hijacked_password"},
-        headers=_bearer(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
 
     assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -46,7 +50,7 @@ def test_non_admin_can_edit_themselves(
             "email": "Viewer@Example.com",
             "current_password": "test_viewer_password",
         },
-        headers=_bearer(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -59,7 +63,7 @@ def test_non_admin_cannot_promote_or_disable_themselves(
     client.put(
         f"/api/users/{viewer_user.id}",
         data={"role": "admin", "enabled": "false"},
-        headers=_bearer(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
 
     updated = db_user_handler.get_user(viewer_user.id)
@@ -72,7 +76,7 @@ def test_admin_cannot_demote_or_disable_themselves(
     client.put(
         f"/api/users/{admin_user.id}",
         data={"role": "user", "enabled": "false"},
-        headers=_bearer(access_token),
+        headers=bearer(access_token),
     )
 
     updated = db_user_handler.get_user(admin_user.id)
@@ -85,18 +89,31 @@ def test_admin_can_demote_another_admin(client, access_token: str, admin_user: U
     )
 
     response = client.put(
-        f"/api/users/{other.id}", data={"role": "user"}, headers=_bearer(access_token)
+        f"/api/users/{other.id}", data={"role": "user"}, headers=bearer(access_token)
     )
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["role"] == Role.USER
 
 
+def test_a_role_only_edit_keeps_the_account_enabled(
+    client, access_token: str, viewer_user: User
+):
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"role": "admin"},
+        headers=bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["enabled"] is True
+
+
 def test_rename_is_lowercased(client, access_token: str, viewer_user: User):
     response = client.put(
         f"/api/users/{viewer_user.id}",
         data={"username": "Renamed_Viewer"},
-        headers=_bearer(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -109,7 +126,7 @@ def test_rename_to_a_taken_username_is_rejected(
     response = client.put(
         f"/api/users/{viewer_user.id}",
         data={"username": admin_user.username},
-        headers=_bearer(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -123,10 +140,25 @@ def test_rename_to_an_invalid_username_is_rejected(
     response = client.put(
         f"/api/users/{viewer_user.id}",
         data={"username": "ab"},
-        headers=_bearer(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+@pytest.mark.parametrize("suffix", ["\n", "\r\n", "\t"])
+def test_rename_with_trailing_control_characters_is_rejected(
+    client, access_token: str, viewer_user: User, suffix: str
+):
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"username": f"renamed_viewer{suffix}"},
+        headers=bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    unchanged = db_user_handler.get_user(viewer_user.id)
+    assert unchanged and unchanged.username == "test_viewer"
 
 
 def test_update_to_a_taken_email_is_rejected(
@@ -137,10 +169,26 @@ def test_update_to_a_taken_email_is_rejected(
     response = client.put(
         f"/api/users/{viewer_user.id}",
         data={"email": "taken@example.com"},
-        headers=_bearer(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+@pytest.mark.parametrize("suffix", ["\n", "\r\n", "\t"])
+def test_update_email_with_trailing_control_characters_is_rejected(
+    client, access_token: str, viewer_user: User, suffix: str
+):
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"email": f"viewer@example.com{suffix}"},
+        headers=bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.json()["detail"] == "Invalid email format"
+    unchanged = db_user_handler.get_user(viewer_user.id)
+    assert unchanged and unchanged.email is None
 
 
 def test_update_with_an_empty_email_clears_it(
@@ -151,11 +199,100 @@ def test_update_with_an_empty_email_clears_it(
     response = client.put(
         f"/api/users/{viewer_user.id}",
         data={"email": ""},
-        headers=_bearer(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["email"] is None
+
+
+def test_an_empty_ra_username_unlinks_the_profile(
+    client, access_token: str, viewer_user: User
+):
+    db_user_handler.update_user(
+        viewer_user.id,
+        {"ra_username": "retro_viewer", "ra_progression": {"total": 3}},
+    )
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"ra_username": ""},
+        headers=bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["ra_username"] is None
+    unlinked = db_user_handler.get_user(viewer_user.id)
+    assert unlinked and unlinked.ra_progression == {}
+
+
+@pytest.mark.parametrize(
+    ("submitted", "kept"), [("other_profile", False), ("retro_viewer", True)]
+)
+def test_only_a_new_ra_username_drops_the_synced_progression(
+    client, access_token: str, viewer_user: User, submitted: str, kept: bool
+):
+    stored = {"total": 0, "results": []}
+    db_user_handler.update_user(
+        viewer_user.id, {"ra_username": "retro_viewer", "ra_progression": stored}
+    )
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"ra_username": submitted},
+        headers=bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    updated = db_user_handler.get_user(viewer_user.id)
+    assert updated and updated.ra_progression == (stored if kept else {})
+
+
+@pytest.mark.parametrize("incremental", [False, True])
+def test_a_refresh_queues_the_sync_in_the_background(
+    client, access_token: str, viewer_user: User, mocker, incremental: bool
+):
+    db_user_handler.update_user(viewer_user.id, {"ra_username": "retro_viewer"})
+    queue = mocker.patch.object(user_endpoints, "queue_ra_progress_sync")
+    fetch = mocker.patch.object(meta_ra_handler, "get_user_progression")
+
+    response = client.post(
+        f"/api/users/{viewer_user.id}/ra/refresh",
+        json={"incremental": incremental},
+        headers=bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_202_ACCEPTED
+    queue.assert_called_once_with(viewer_user.id, refresh_all=not incremental)
+    fetch.assert_not_called()
+
+
+def test_a_refresh_that_cannot_be_queued_is_unavailable(
+    client, access_token: str, viewer_user: User, mocker
+):
+    db_user_handler.update_user(viewer_user.id, {"ra_username": "retro_viewer"})
+    mocker.patch.object(user_endpoints, "queue_ra_progress_sync", return_value=False)
+
+    response = client.post(
+        f"/api/users/{viewer_user.id}/ra/refresh", headers=bearer(access_token)
+    )
+
+    assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+
+
+def test_an_omitted_ra_username_keeps_the_link(
+    client, access_token: str, viewer_user: User
+):
+    db_user_handler.update_user(viewer_user.id, {"ra_username": "retro_viewer"})
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        data={"ui_settings": "{}"},
+        headers=bearer(access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["ra_username"] == "retro_viewer"
 
 
 def test_update_to_a_short_password_is_rejected(
@@ -164,7 +301,7 @@ def test_update_to_a_short_password_is_rejected(
     response = client.put(
         f"/api/users/{viewer_user.id}",
         data={"password": "short"},
-        headers=_bearer(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -195,7 +332,7 @@ def test_a_delegated_user_manager_cannot_delete_an_admin(
     token = _delegated_user_manager_token(viewer_user)
 
     for target in (admin_user, other):
-        response = client.delete(f"/api/users/{target.id}", headers=_bearer(token))
+        response = client.delete(f"/api/users/{target.id}", headers=bearer(token))
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert db_user_handler.get_user(target.id) is not None
@@ -206,7 +343,7 @@ def test_a_delegated_user_manager_can_delete_a_non_admin(
 ):
     token = _delegated_user_manager_token(viewer_user)
 
-    response = client.delete(f"/api/users/{editor_user.id}", headers=_bearer(token))
+    response = client.delete(f"/api/users/{editor_user.id}", headers=bearer(token))
 
     assert response.status_code == status.HTTP_200_OK
     assert db_user_handler.get_user(editor_user.id) is None
@@ -220,7 +357,7 @@ def test_a_delegated_user_manager_can_edit_a_non_admin(
     response = client.put(
         f"/api/users/{editor_user.id}",
         data={"email": "editor@example.com"},
-        headers=_bearer(token),
+        headers=bearer(token),
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -235,7 +372,7 @@ def test_a_delegated_user_manager_cannot_edit_an_admin(
     response = client.put(
         f"/api/users/{admin_user.id}",
         data={"password": "hijacked_password"},
-        headers=_bearer(token),
+        headers=bearer(token),
     )
 
     assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -249,7 +386,7 @@ def test_a_delegated_user_manager_cannot_promote_to_admin(
     token = _delegated_user_manager_token(viewer_user)
 
     response = client.put(
-        f"/api/users/{editor_user.id}", data={"role": "admin"}, headers=_bearer(token)
+        f"/api/users/{editor_user.id}", data={"role": "admin"}, headers=bearer(token)
     )
 
     assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -270,7 +407,7 @@ def test_deleting_the_last_admin_is_refused(
         side_effect=LastAdminError(other.id),
     )
 
-    response = client.delete(f"/api/users/{other.id}", headers=_bearer(access_token))
+    response = client.delete(f"/api/users/{other.id}", headers=bearer(access_token))
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert response.json()["detail"] == "You cannot delete the last admin user"
@@ -288,7 +425,7 @@ def test_an_admin_token_without_users_write_cannot_edit_another_user(
     response = client.put(
         f"/api/users/{viewer_user.id}",
         data={"password": "hijacked_password"},
-        headers=_bearer(token),
+        headers=bearer(token),
     )
 
     assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -305,7 +442,7 @@ def test_an_admin_token_without_users_write_cannot_refresh_another_users_ra(
     )
 
     response = client.post(
-        f"/api/users/{viewer_user.id}/ra/refresh", headers=_bearer(token)
+        f"/api/users/{viewer_user.id}/ra/refresh", headers=bearer(token)
     )
 
     assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -325,7 +462,7 @@ def test_a_demotion_that_would_leave_no_admin_is_refused(
     )
 
     response = client.put(
-        f"/api/users/{other.id}", data={"role": "user"}, headers=_bearer(access_token)
+        f"/api/users/{other.id}", data={"role": "user"}, headers=bearer(access_token)
     )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -352,7 +489,7 @@ def test_a_refused_demotion_does_not_log_the_admin_out(
     response = client.put(
         f"/api/users/{other.id}",
         data={"role": "user", "password": "a_new_password"},
-        headers=_bearer(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -376,7 +513,7 @@ def test_own_password_change_with_the_current_password(
             "password": "a_new_password",
             "current_password": "test_viewer_password",
         },
-        headers=_bearer(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -389,7 +526,7 @@ def test_own_password_change_with_a_wrong_current_password_is_refused(
     response = client.put(
         f"/api/users/{viewer_user.id}",
         data={"password": "a_new_password", "current_password": "not_my_password"},
-        headers=_bearer(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
 
     assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -403,7 +540,7 @@ def test_own_password_change_without_the_current_password_is_refused(
     response = client.put(
         f"/api/users/{viewer_user.id}",
         data={"password": "a_new_password"},
-        headers=_bearer(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -416,7 +553,7 @@ def test_admin_changes_their_own_password_only_with_the_current_one(
     response = client.put(
         f"/api/users/{admin_user.id}",
         data={"password": "a_new_password"},
-        headers=_bearer(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -429,7 +566,7 @@ def test_admin_resets_another_users_password_without_theirs(
     response = client.put(
         f"/api/users/{viewer_user.id}",
         data={"password": "reset_by_admin"},
-        headers=_bearer(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -442,7 +579,7 @@ def test_own_email_change_without_the_current_password_is_refused(
     response = client.put(
         f"/api/users/{viewer_user.id}",
         data={"email": "attacker@example.com"},
-        headers=_bearer(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -458,7 +595,7 @@ def test_resending_the_unchanged_email_needs_no_current_password(
     response = client.put(
         f"/api/users/{viewer_user.id}",
         data={"email": "viewer@example.com", "ra_username": "retro_viewer"},
-        headers=_bearer(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -471,7 +608,7 @@ def test_own_username_change_needs_the_current_password(
     refused = client.put(
         f"/api/users/{viewer_user.id}",
         data={"username": "renamed_viewer"},
-        headers=_bearer(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
     assert refused.status_code == status.HTTP_400_BAD_REQUEST
     unchanged = db_user_handler.get_user(viewer_user.id)
@@ -483,7 +620,7 @@ def test_own_username_change_needs_the_current_password(
             "username": "renamed_viewer",
             "current_password": "test_viewer_password",
         },
-        headers=_bearer(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["username"] == "renamed_viewer"
@@ -495,7 +632,7 @@ def test_a_case_only_username_edit_is_no_change(
     response = client.put(
         f"/api/users/{viewer_user.id}",
         data={"username": viewer_user.username.upper()},
-        headers=_bearer(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -508,7 +645,7 @@ def test_admin_renames_another_user_without_their_password(
     response = client.put(
         f"/api/users/{viewer_user.id}",
         data={"username": "renamed_by_admin"},
-        headers=_bearer(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -523,7 +660,7 @@ def test_a_case_only_email_edit_is_no_change(
     response = client.put(
         f"/api/users/{viewer_user.id}",
         data={"email": "viewer@example.com"},
-        headers=_bearer(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -544,7 +681,7 @@ def test_an_oidc_linked_account_cannot_change_its_own_email(
             "email": "new@example.com",
             "current_password": "test_viewer_password",
         },
-        headers=_bearer(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
 
     assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -566,7 +703,7 @@ def test_admin_changes_an_oidc_linked_users_email(
     response = client.put(
         f"/api/users/{viewer_user.id}",
         data={"email": "fixed@example.com"},
-        headers=_bearer(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -581,7 +718,7 @@ def test_a_password_less_account_cannot_set_a_password_with_a_token(
     response = client.put(
         f"/api/users/{viewer_user.id}",
         data={"password": "a_first_password"},
-        headers=_bearer(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
 
     assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -611,3 +748,33 @@ async def test_a_password_less_account_sets_a_first_password_from_its_session(
     assert response.json()["has_password"] is True
     assert _password_matches(viewer_user.id, "a_first_password")
     await RedisSessionMiddleware.clear_user_sessions(viewer_user.username)
+
+
+def test_uploading_an_avatar_removes_the_synced_oidc_one(
+    client,
+    viewer_access_token: str,
+    viewer_user: User,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(fs_asset_handler, "base_path", tmp_path.resolve())
+    avatar_dir = fs_asset_handler.build_avatar_path(user=viewer_user)
+    synced = tmp_path / avatar_dir / "oidc-avatar.png"
+    synced.parent.mkdir(parents=True)
+    synced.write_bytes(b"synced")
+    db_user_handler.update_user(
+        viewer_user.id, {"avatar_path": f"{avatar_dir}/oidc-avatar.png"}
+    )
+    png = io.BytesIO()
+    Image.new("RGB", (4, 4)).save(png, format="PNG")
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        files={"avatar": ("me.png", png.getvalue(), "image/png")},
+        headers=bearer(viewer_access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["avatar_path"] == f"{avatar_dir}/avatar.png"
+    assert not synced.exists()
+    assert (tmp_path / avatar_dir / "avatar.png").exists()

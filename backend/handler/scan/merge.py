@@ -1,7 +1,7 @@
 """Merging the metadata sources' answers into a rom's columns."""
 
-from collections.abc import Awaitable, Callable
-from typing import Any
+from collections.abc import Awaitable, Callable, Mapping
+from typing import Any, Final
 
 from handler.filesystem import fs_rom_handler
 from handler.filesystem.roms_handler import FSRom
@@ -13,6 +13,7 @@ from handler.metadata.demozoo_handler import (
 from handler.metadata.hasheous_handler import HasheousRom
 from handler.metadata.sgdb_handler import SGDBRom
 from handler.scan.sources import (
+    CLAIMED_FIELDS,
     DUMP_TAG_KEYS,
     HASH_MATCHED_TAG_SOURCES,
     LOGGER_MODULE_NAME,
@@ -20,15 +21,19 @@ from handler.scan.sources import (
     PROVIDER_MERGED_TAG_FIELDS,
     PROVIDER_TAG_FIELDS,
     RESCAN_RULES,
+    SCAN_CLAIMS_KEY,
     SCENE_METADATA_SOURCES,
     MetadataSource,
     ScanType,
     get_priority_ordered_metadata_sources,
+    kept_claims,
 )
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.platform import Platform
 from models.rom import PROVIDER_METADATA_COLUMNS, Rom, RomIdentity
+
+ARTWORK_FIELDS: Final = ("url_cover", "url_screenshots", "url_manual")
 
 
 def hash_source_tags(
@@ -387,17 +392,95 @@ def record_dump_tags(metadata_handlers: dict[MetadataSource, dict[str, Any]]) ->
             fields["handler"] = {**handler, fields["metadata_field"]: blob}
 
 
+def record_scan_claims(metadata_handlers: dict[MetadataSource, dict[str, Any]]) -> None:
+    """Copy the base fields each answering source gave into every blob it fills."""
+    # The row can't say which source a base field came from, and a scan only hears
+    # from the sources it consults.
+    columns = [
+        (fields["id_field"], fields["metadata_field"])
+        for fields in metadata_handlers.values()
+        if fields["metadata_field"]
+    ]
+    for fields in metadata_handlers.values():
+        handler = fields["handler"]
+        claims = {
+            field: value for field in CLAIMED_FIELDS if (value := handler.get(field))
+        }
+        # Hasheous fills IGDB's columns too. A match without metadata stays one
+        # an unmatched scan retries, so it isn't handed a blob just for the claims.
+        stamped = {
+            metadata_field: {**blob, SCAN_CLAIMS_KEY: claims}
+            for id_field, metadata_field in columns
+            if handler.get(id_field)
+            and isinstance(blob := handler.get(metadata_field), dict)
+            and blob
+        }
+        if stamped:
+            fields["handler"] = {**handler, **stamped}
+
+
+def settle_claims(
+    rom_attrs: dict[str, Any],
+    rom: Rom,
+    metadata_handlers: dict[MetadataSource, dict[str, Any]],
+    orders: Mapping[str, list[MetadataSource]],
+    scene_locked: bool,
+) -> None:
+    """Set each claimed field from the highest-priority source that gave it.
+
+    Args:
+        orders: Every handler's source in each priority list's order, by list name.
+    """
+    claims: dict[MetadataSource, Mapping[str, Any] | None] = {}
+    for source, fields in metadata_handlers.items():
+        handler = fields["handler"]
+        metadata_field = fields["metadata_field"]
+        id_field = fields["id_field"]
+        if not metadata_field:
+            continue
+        if handler.get(id_field):
+            claims[source] = handler
+        # An id another source wrote this scan is that source's claim, not a
+        # match the row already held.
+        elif (matched_id := rom_attrs.get(id_field)) and matched_id == getattr(
+            rom, id_field, None
+        ):
+            claims[source] = kept_claims(rom_attrs.get(metadata_field))
+
+    allowed = set(scene_apply_sources(list(claims), scene_locked=scene_locked))
+    for field, priority in CLAIMED_FIELDS.items():
+        for source in orders[priority]:
+            if source not in allowed:
+                continue
+            given = claims[source]
+            # A matched source whose claims aren't on record holds the stored value.
+            value = getattr(rom, field, None) if given is None else given.get(field)
+            if value:
+                rom_attrs[field] = value
+                break
+
+
 def order_merge_sources(
     apply_sources: list[MetadataSource],
     scene_locked: bool,
     metadata_handlers: dict[MetadataSource, dict[str, Any]],
     rom_attrs: dict[str, Any],
-) -> tuple[list[MetadataSource], list[tuple[dict[str, list[str]], bool]]]:
-    """The sources to merge in priority order, and the hash-matched sources' tag claims."""
-    # One ordering pass for both lists, since each one rereads config.yml.
+) -> tuple[
+    list[MetadataSource],
+    list[tuple[dict[str, list[str]], bool]],
+    list[MetadataSource],
+]:
+    """Order the scan's sources by metadata priority.
+
+    Returns:
+        The sources to merge, the hash-matched sources' tag claims, and every
+        handler's source, each in priority order.
+    """
+    # One ordering pass for all three lists, since each one rereads config.yml.
     hash_sources = [] if scene_locked else list(HASH_MATCHED_TAG_SOURCES)
     ordered = get_priority_ordered_metadata_sources(
-        list(dict.fromkeys([*apply_sources, *hash_sources])), "metadata"
+        list(dict.fromkeys([*apply_sources, *hash_sources, *metadata_handlers])),
+        "metadata",
     )
     priority_ordered = [source for source in ordered if source in apply_sources]
     hash_claims = [
@@ -405,7 +488,7 @@ def order_merge_sources(
         for source in ordered
         if source in hash_sources
     ]
-    return priority_ordered, hash_claims
+    return priority_ordered, hash_claims, ordered
 
 
 def apply_metadata_priority(
@@ -471,17 +554,27 @@ def merge_tags(
         rom_attrs[field] = merged_tags
 
 
+def order_artwork_sources(
+    sources: list[MetadataSource],
+) -> dict[str, list[MetadataSource]]:
+    """Each artwork field's sources in the order its priority override gives."""
+    return {
+        field: get_priority_ordered_metadata_sources(sources, field)
+        for field in ARTWORK_FIELDS
+    }
+
+
 def apply_artwork_priority(
     rom_attrs: dict[str, Any],
     metadata_handlers: dict[MetadataSource, dict[str, Any]],
     apply_sources: list[MetadataSource],
+    artwork_orders: Mapping[str, list[MetadataSource]],
 ) -> None:
     """Write the artwork urls, each field under its own priority override."""
-    for field in ["url_cover", "url_screenshots", "url_manual"]:
-        priority_ordered_artwork = get_priority_ordered_metadata_sources(
-            apply_sources, field
-        )
-        for source_name in reversed(priority_ordered_artwork):
+    for field, ordered in artwork_orders.items():
+        for source_name in reversed(ordered):
+            if source_name not in apply_sources:
+                continue
             field_value = metadata_handlers[source_name]["handler"].get(field)
             if field_value:
                 rom_attrs[field] = field_value
@@ -489,16 +582,16 @@ def apply_artwork_priority(
 
 def keep_base_fields(rom_attrs: dict[str, Any], rom: Rom) -> None:
     """Hold the stored name, summary and locked artwork against a refresh."""
-    # A ROM's name defaults to a filename-derived placeholder when first
-    # created. Treat that placeholder as "no name" so a freshly matched provider
-    # name replaces it (while preserving user-edited names).
     fs_name_no_tags = fs_rom_handler.get_file_name_with_no_tags(rom_attrs["fs_name"])
-    # Both the existing name and the seeded rom_attrs name can hold the
-    # placeholder. Discard either when it's a placeholder so the parsed
-    # filename fallback can win.
-    # The stored no-tags name is the placeholder the ROM's name was seeded from.
+    # Filename placeholders and titles a source gave aren't the user's, so a
+    # matched or better-ranked title may replace them; any other name is kept.
     placeholders = (None, "", rom.fs_name, fs_name_no_tags, rom.fs_name_no_tags)
-    existing_name = None if rom.name in placeholders else rom.name
+    claimed = {
+        (kept_claims(blob) or {}).get("name")
+        for column in PROVIDER_METADATA_COLUMNS
+        for blob in (getattr(rom, column, None), rom_attrs.get(column))
+    }
+    existing_name = None if rom.name in (*placeholders, *claimed) else rom.name
     matched_name = rom_attrs.get("name")
     matched_name = None if matched_name in placeholders else matched_name
     rom_attrs.update(

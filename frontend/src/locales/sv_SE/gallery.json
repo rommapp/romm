@@ -7,6 +7,7 @@
   "firmware-selected-count": "{count} markerade",
   "jump-to": "Gå till {letter}",
   "jump-to-letter": "Gå till bokstav",
+  "results-of-total": "{count} av {total}",
   "selection-clear": "Rensa markering",
   "selection-collections": "Hantera samlingar",
   "selection-delete": "Ta bort",

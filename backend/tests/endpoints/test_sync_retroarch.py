@@ -3,6 +3,7 @@ import hashlib
 import itertools
 import os
 import re
+import uuid
 from collections.abc import Sequence
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -14,30 +15,40 @@ from fastapi import status
 from fastapi.testclient import TestClient
 from redis.exceptions import RedisError
 from tests import factories
-from tests.factories import make_rom, make_save, make_screenshot
+from tests.factories import make_platform, make_rom, make_save, make_screenshot
+from tests.handler.snapshots.pushes import SRAM, md5, part, push, save_entry
 
+from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import (
     db_deleted_asset_handler,
     db_device_handler,
     db_rom_handler,
     db_save_handler,
     db_screenshot_handler,
+    db_snapshot_handler,
     db_state_handler,
 )
+from handler.database.base_handler import sync_session
 from handler.filesystem import fs_asset_handler, fs_retroarch_sync_handler
 from handler.middleware.upload_size_middleware import UploadSizeLimitMiddleware
 from handler.redis_handler import async_cache
+from handler.snapshots.manifest import Manifest
+from handler.snapshots.write import SAVE_PART, WriteResult, write_snapshot
 from handler.sync.retroarch import psp, sync_handler
 from handler.sync.retroarch.device import CLIENT_DEVICE_IDENTIFIER
 from handler.sync.retroarch.emulator_names import (
+    RETROARCH_DIR_BY_ROMM_EMULATOR,
+    core_platforms,
     retroarch_aliases,
     to_retroarch_dir_name,
     to_romm_emulator,
 )
-from models.assets import Save, Screenshot, State
+from models.assets import Save, SaveFormat, Screenshot, State
+from models.channel import DEFAULT_CHANNEL_LABEL, Channel
 from models.device import SyncMode
 from models.platform import Platform
-from models.rom import Rom
+from models.rom import Rom, RomFile
+from models.snapshot import Snapshot, SnapshotKind, SnapshotState
 from models.user import User
 
 ADMIN_AUTH = ("test_admin", "test_admin_password")
@@ -160,6 +171,7 @@ class TestRetroArchSyncEmulatorNames:
         ("retroarch_dir_name", "romm_emulator"),
         [
             ("Snes9x", "snes9x"),
+            ("melonDS DS", "melondsds"),
             ("Genesis Plus GX", "genesis_plus_gx"),
             ("PCSX-ReARMed", "pcsx_rearmed"),
             # The web player stores the Beetle cores under their mednafen ids.
@@ -194,6 +206,8 @@ class TestRetroArchSyncEmulatorNames:
         ("romm_emulator", "retroarch_dir_name"),
         [
             ("snes9x", "Snes9x"),
+            ("melondsds", "melonDS DS"),
+            ("melonds_ds", "melonDS DS"),
             ("genesis_plus_gx", "Genesis Plus GX"),
             ("pcsx_rearmed", "PCSX-ReARMed"),
             # A core outside the table round-trips unchanged rather than
@@ -215,8 +229,35 @@ class TestRetroArchSyncEmulatorNames:
             "mednafen_psx_hw",
         )
 
+    @pytest.mark.parametrize("emulator", ["melondsds", "melonds_ds", "melonDS DS"])
+    def test_melonds_ds_aliases(self, emulator):
+        assert retroarch_aliases(emulator) == ("melonDS DS", "melonds_ds", "melondsds")
+
     def test_a_core_outside_the_table_is_its_only_alias(self):
         assert retroarch_aliases("retroarduous") == ("retroarduous",)
+
+    def test_every_core_folder_lists_its_platforms(self):
+        assert all(map(core_platforms, RETROARCH_DIR_BY_ROMM_EMULATOR))
+
+    @pytest.mark.parametrize(
+        ("emulator", "platforms"),
+        [
+            ("mednafen_psx_hw", {"psx"}),
+            ("Beetle PSX HW", {"psx"}),
+            ("FinalBurn Neo", core_platforms("fbneo")),
+            ("DOSBox-pure", {"dos"}),
+            ("stella2014", {"atari2600", "atari-2600-plus"}),
+            ("melonDS", {"nds", "nintendo-ds-lite", "nintendo-dsi", "nintendo-dsi-xl"}),
+            (
+                "melonDS DS",
+                {"nds", "nintendo-ds-lite", "nintendo-dsi", "nintendo-dsi-xl"},
+            ),
+            ("retroarduous", set()),
+            (None, set()),
+        ],
+    )
+    def test_core_platforms(self, emulator: str | None, platforms: set[str]):
+        assert core_platforms(emulator) == platforms
 
 
 class TestRetroArchSyncPathParsing:
@@ -466,7 +507,7 @@ class TestRetroArchSyncManifest:
 
         assert response.status_code == status.HTTP_200_OK
         assert response.json() == []
-        state = db_state_handler.get_state(user_id=admin_user.id, id=synced_state.id)
+        state = db_state_handler.get_state_by_id(synced_state.id)
         assert state is not None
         assert state.missing_from_fs
 
@@ -697,6 +738,228 @@ class TestRetroArchSyncStateScreenshots:
         )
 
 
+class TestRetroArchSyncCopy:
+    path = "/api/sync/retroarch/saves/Snes9x/test_rom.sav"
+    backup = "/api/sync/retroarch/deleted/saves/Snes9x/test_rom.sav-261118-120000"
+    config = "/api/sync/retroarch/config/retroarch.cfg"
+
+    def _put(self, client, path: str, content: bytes) -> None:
+        response = client.put(path, content=content, auth=ADMIN_AUTH)
+        assert response.status_code in (201, 204)
+
+    def _copy(self, client, path: str, destination: str, **headers: str) -> int:
+        response = client.request(
+            "COPY",
+            path,
+            headers={"Destination": destination, **headers},
+            auth=ADMIN_AUTH,
+        )
+        status_code: int = response.status_code
+        return status_code
+
+    def test_first_upload_can_follow_a_missing_source(self, client, admin_user, rom):
+        assert self._copy(client, self.path, self.backup) == 404
+        assert (
+            client.put(self.path, content=b"first", auth=ADMIN_AUTH).status_code == 201
+        )
+
+    def test_previous_bytes_can_be_restored_after_replacement(
+        self, client, admin_user, editor_user, rom
+    ):
+        self._put(client, self.path, b"first")
+        assert self._copy(client, self.path, self.backup, Overwrite="F") == 201
+        self._put(client, self.path, b"second")
+        assert self._copy(client, self.path, self.backup, Overwrite="F") == 412
+        backup = client.get(self.backup, auth=ADMIN_AUTH)
+        assert backup.status_code == 200 and backup.content == b"first"
+        assert client.get(self.backup, auth=EDITOR_AUTH).status_code == 404
+        manifest = client.get(
+            f"/api/sync/retroarch/{sync_handler.MANIFEST_FILE_NAME}", auth=ADMIN_AUTH
+        )
+        assert manifest.status_code == 200 and "deleted/" not in manifest.text
+        assert client.get(self.path, auth=ADMIN_AUTH).content == b"second"
+        self._put(client, self.path, backup.content)
+        assert client.get(self.path, auth=ADMIN_AUTH).content == b"first"
+
+    def test_versioned_save_has_nothing_to_back_up(self, client, admin_user, rom):
+        path = "/api/sync/retroarch/saves/Snes9x/test_rom.srm"
+        backup = "/api/sync/retroarch/deleted/saves/Snes9x/test_rom.srm-261118-120000"
+        self._put(client, path, b"first")
+        assert self._copy(client, path, backup) == 404
+
+    @pytest.mark.parametrize(
+        "retention, kept", [(2, [False, True, True]), (0, [True, True, True])]
+    )
+    def test_backup_retention_follows_age_not_name(
+        self, client, admin_user, monkeypatch, retention, kept
+    ):
+        monkeypatch.setattr(
+            "handler.sync.retroarch.sync_handler.MAX_SAVES_PER_SLOT", retention
+        )
+        # Stamped in each client's own time zone, so a newer one can sort first.
+        backups = [
+            f"/api/sync/retroarch/deleted/config/retroarch.cfg-{stamp}"
+            for stamp in ("261118-120002", "261118-120000", "261118-120001")
+        ]
+        for age, backup in enumerate(backups):
+            self._put(client, self.config, f"v{age}".encode())
+            stored = fs_retroarch_sync_handler.validate_path(
+                sync_handler.user_blob_path(admin_user, "config/retroarch.cfg")
+            )
+            os.utime(stored, ns=(age * 10**9, age * 10**9))
+            assert self._copy(client, self.config, backup) == 201
+
+        for age, (backup, is_kept) in enumerate(zip(backups, kept, strict=True)):
+            response = client.get(backup, auth=ADMIN_AUTH)
+            if is_kept:
+                assert response.content == f"v{age}".encode()
+            else:
+                assert response.status_code == 404
+
+    def test_state_missing_from_disk_is_a_missing_source(
+        self, client, synced_state: State
+    ):
+        assert not fs_asset_handler.validate_path(synced_state.full_path).exists()
+        path = "/api/sync/retroarch/states/Snes9x/test_rom.state"
+        backup = (
+            "/api/sync/retroarch/deleted/states/Snes9x/test_rom.state-261118-120000"
+        )
+        assert self._copy(client, path, backup) == 404
+
+    def test_vanished_source_does_not_authorize_a_replacement(
+        self, client, admin_user, rom, monkeypatch
+    ):
+        self._put(client, self.path, b"first")
+        monkeypatch.setattr(
+            fs_retroarch_sync_handler,
+            "publish_backup",
+            mock.AsyncMock(return_value=None),
+        )
+        assert self._copy(client, self.path, self.backup) == 409
+
+    @pytest.mark.parametrize(
+        "destination",
+        [
+            "/api/sync/retroarch/deleted/saves/Snes9x/%2e%2e/test_rom.sav-261118-120000",
+            "/api/sync/retroarch/deleted/saves/Snes9x/other.sav-261118-120000",
+            "/api/sync/retroarch/deleted/saves/Snes9x/test_rom.sav-261118",
+        ],
+    )
+    def test_rejects_unrelated_destinations(self, client, admin_user, rom, destination):
+        self._put(client, self.path, b"first")
+        assert self._copy(client, self.path, destination) == 400
+
+    def test_destination_behind_a_reverse_proxy(self, client, admin_user, rom):
+        self._put(client, self.path, b"first")
+        destination = f"https://romm.example:8443/romm{self.backup}"
+        assert self._copy(client, self.path, destination) == 201
+        assert client.get(self.backup, auth=ADMIN_AUTH).content == b"first"
+
+    def test_overwrite_header_is_case_insensitive(self, client, admin_user, rom):
+        self._put(client, self.path, b"first")
+        statuses = [
+            self._copy(client, self.path, self.backup, Overwrite="f") for _ in range(2)
+        ]
+        assert statuses == [201, 412]
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SYSTEM/CACHE/shader.bin",
+        ],
+    )
+    def test_psp_member_lets_the_upload_proceed(self, client, admin_user, path):
+        backup = path.replace("retroarch/", "retroarch/deleted/", 1)
+        assert self._copy(client, path, f"{backup}-261118-120000") == 404
+
+    def test_state_backup_keeps_the_bytes_an_upload_replaces(
+        self, client, admin_user: User, rom: Rom, states_path: str
+    ):
+        now = datetime.now(timezone.utc)
+        on_disk = fs_asset_handler.base_path / states_path
+        on_disk.mkdir(parents=True)
+        (on_disk / "test_rom.state").write_bytes(b"own")
+        capture_name = "test_rom.2026-10-08_12-00-00.state"
+        (on_disk / capture_name).write_bytes(b"capt")
+        factories.make_state(
+            rom,
+            admin_user,
+            "test_rom.state",
+            file_path=states_path,
+            file_size_bytes=3,
+            emulator="snes9x",
+            updated_at=now - timedelta(hours=2),
+        )
+        factories.make_state(
+            rom,
+            admin_user,
+            capture_name,
+            file_path=states_path,
+            file_size_bytes=4,
+            emulator="snes9x",
+            core="snes9x",
+            updated_at=now - timedelta(hours=1),
+        )
+        path = "/api/sync/retroarch/states/Snes9x/test_rom.state"
+        backup = (
+            "/api/sync/retroarch/deleted/states/Snes9x/test_rom.state-261118-120000"
+        )
+        assert client.get(path, auth=ADMIN_AUTH).content == b"capt"
+
+        assert self._copy(client, path, backup) == 201
+        assert client.get(backup, auth=ADMIN_AUTH).content == b"own"
+
+
+class TestRetroArchSyncMoveToDeleted:
+    config = "/api/sync/retroarch/config/retroarch.cfg"
+    config_backup = "/api/sync/retroarch/deleted/config/retroarch.cfg-261118-120000"
+
+    def test_config_is_backed_up_then_dropped(self, client, admin_user):
+        assert (
+            client.put(self.config, content=b"settings", auth=ADMIN_AUTH).status_code
+            == 201
+        )
+
+        response = client.request(
+            "MOVE",
+            self.config,
+            headers={"Destination": self.config_backup},
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert client.get(self.config, auth=ADMIN_AUTH).status_code == 404
+        assert client.get(self.config_backup, auth=ADMIN_AUTH).content == b"settings"
+
+    def test_versioned_save_keeps_the_served_bytes(self, client, admin_user, rom):
+        path = "/api/sync/retroarch/saves/Snes9x/test_rom.srm"
+        backup = "/api/sync/retroarch/deleted/saves/Snes9x/test_rom.srm-261118-120000"
+        assert client.put(path, content=b"progress", auth=ADMIN_AUTH).status_code == 201
+
+        response = client.request(
+            "MOVE", path, headers={"Destination": backup}, auth=ADMIN_AUTH
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert client.get(path, auth=ADMIN_AUTH).status_code == 404
+        assert client.get(backup, auth=ADMIN_AUTH).content == b"progress"
+
+    def test_existing_backup_without_overwrite_keeps_the_file(self, client, admin_user):
+        assert (
+            client.put(self.config, content=b"settings", auth=ADMIN_AUTH).status_code
+            == 201
+        )
+        headers = {"Destination": self.config_backup, "Overwrite": "F"}
+        copy = client.request("COPY", self.config, headers=headers, auth=ADMIN_AUTH)
+        assert copy.status_code == 201
+
+        response = client.request("MOVE", self.config, headers=headers, auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_412_PRECONDITION_FAILED
+        assert client.get(self.config, auth=ADMIN_AUTH).content == b"settings"
+
+
 class TestRetroArchSyncUpload:
     def test_rejects_a_name_sanitizing_would_change(
         self, client, admin_user: User, rom: Rom
@@ -764,7 +1027,9 @@ class TestRetroArchSyncUpload:
 
         assert response.status_code == status.HTTP_201_CREATED
 
-        states = db_state_handler.get_states(user_id=admin_user.id, rom_ids=[rom.id])
+        states = db_state_handler.get_states(
+            user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
         assert len(states) == 1
         assert states[0].file_name == "test_rom.state.auto"
 
@@ -817,7 +1082,12 @@ class TestRetroArchSyncUpload:
 
         assert response.status_code == status.HTTP_413_CONTENT_TOO_LARGE
         mock_write_file.assert_not_awaited()
-        assert db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id]) == []
+        assert (
+            db_save_handler.get_saves(
+                user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+            )
+            == []
+        )
 
     @mock.patch(
         "endpoints.sync.retroarch.fs_asset_handler.remove_file",
@@ -857,7 +1127,7 @@ class TestRetroArchSyncUpload:
         )
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
-        state = db_state_handler.get_state(user_id=admin_user.id, id=legacy_state.id)
+        state = db_state_handler.get_state_by_id(legacy_state.id)
         assert state is not None
         assert state.file_path == states_path
         mock_remove_file.assert_awaited_once_with(file_path=legacy_state.full_path)
@@ -905,7 +1175,7 @@ class TestRetroArchSyncStreamCaptures:
         )
 
         assert response.status_code == status.HTTP_201_CREATED
-        kept = db_state_handler.get_state(user_id=admin_user.id, id=capture.id)
+        kept = db_state_handler.get_state_by_id(capture.id)
         assert kept is not None
         assert (kept.file_name, kept.file_size_bytes, kept.core) == (
             capture.file_name,
@@ -915,7 +1185,7 @@ class TestRetroArchSyncStreamCaptures:
         added = [
             s
             for s in db_state_handler.get_states(
-                user_id=admin_user.id, rom_ids=[rom.id]
+                user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
             )
             if s.id != capture.id
         ]
@@ -941,7 +1211,7 @@ class TestRetroArchSyncStreamCaptures:
         states = {
             s.id: s
             for s in db_state_handler.get_states(
-                user_id=admin_user.id, rom_ids=[rom.id]
+                user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
             )
         }
         assert set(states) == {own.id, capture.id}
@@ -974,7 +1244,9 @@ class TestRetroArchSyncStreamCaptures:
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
         mock_write_file.assert_not_awaited()
-        states = db_state_handler.get_states(user_id=admin_user.id, rom_ids=[rom.id])
+        states = db_state_handler.get_states(
+            user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
         assert [s.id for s in states] == [capture.id]
 
     @mock.patch(
@@ -1046,7 +1318,7 @@ class TestRetroArchSyncStreamCaptures:
         uploaded = next(
             s
             for s in db_state_handler.get_states(
-                user_id=admin_user.id, rom_ids=[rom.id]
+                user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
             )
             if s.id != capture.id
         )
@@ -1124,7 +1396,9 @@ class TestRetroArchSyncStreamCaptures:
         )
 
         assert response.status_code == status.HTTP_201_CREATED
-        states = db_state_handler.get_states(user_id=admin_user.id, rom_ids=[rom.id])
+        states = db_state_handler.get_states(
+            user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
         assert sorted((s.id == capture.id, s.core) for s in states) == [
             (False, None),
             (True, "snes9x"),
@@ -1153,7 +1427,9 @@ class TestRetroArchSyncStreamCaptures:
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
         mock_remove_file.assert_awaited_once_with(file_path=own.full_path)
-        states = db_state_handler.get_states(user_id=admin_user.id, rom_ids=[rom.id])
+        states = db_state_handler.get_states(
+            user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
         assert [s.id for s in states] == [capture.id]
 
     @mock.patch(
@@ -1215,7 +1491,10 @@ class TestRetroArchSyncSaveSlots:
 
     def _versions(self, admin_user: User, rom: Rom) -> Sequence[Save]:
         return db_save_handler.get_saves(
-            user_id=admin_user.id, rom_ids=[rom.id], order_by="updated_at"
+            user_id=admin_user.id,
+            rom_ids=[rom.id],
+            order_by="updated_at",
+            visibility=UNRESTRICTED,
         )
 
     def _other_client_save(
@@ -1244,6 +1523,150 @@ class TestRetroArchSyncSaveSlots:
         assert re.fullmatch(r"test_rom \[2026-01-01_00-00-\d{2}\]\.srm", save.file_name)
         assert (save.slot, save.emulator) == ("autosave", "snes9x")
         assert self._get(client) == b"data"
+
+    @pytest.fixture
+    def sync_file(self, rom: Rom) -> RomFile:
+        return db_rom_handler.add_rom_file(
+            RomFile(
+                rom_id=rom.id,
+                file_name="test_rom.sfc",
+                file_path=rom.fs_path,
+                file_size_bytes=1024,
+                sha1_hash="d" * 40,
+            )
+        )
+
+    def _push_to_channel(
+        self,
+        admin_user: User,
+        rom: Rom,
+        rom_file: RomFile,
+        data: bytes,
+        channel_id: uuid.UUID | None = None,
+        fmt: SaveFormat = SaveFormat.NATIVE,
+        emulator: str = "snes9x",
+        with_part: bool = True,
+    ) -> WriteResult:
+        """Push `data` onto the default channel, starting it when `channel_id` is None."""
+        channel = db_snapshot_handler.get_channel(channel_id) if channel_id else None
+        return asyncio.run(
+            write_snapshot(
+                push(
+                    admin_user,
+                    rom,
+                    rom_file,
+                    Manifest(save=save_entry(data, fmt), emulator=emulator),
+                    expected=channel.current_snapshot_id if channel else None,
+                    channel_id=channel_id,
+                    parts={SAVE_PART: part(data)} if with_part else None,
+                )
+            )
+        )
+
+    def _manifest_save_hash(self, client: TestClient) -> str:
+        response = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
+        entries: list[dict[str, str]] = response.json()
+        [entry] = [e for e in entries if e["path"].startswith("saves/")]
+        assert entry["path"] == "saves/Snes9x/test_rom.srm"
+        return entry["hash"]
+
+    def test_upload_becomes_the_default_channels_next_snapshot(
+        self, client, admin_user: User, rom: Rom, sync_file: RomFile
+    ):
+        first = self._push_to_channel(admin_user, rom, sync_file, SRAM)
+
+        assert self._put(client, b"retroarch progress") == status.HTTP_201_CREATED
+
+        assert first.snapshot.channel_id is not None
+        channel = db_snapshot_handler.get_channel(first.snapshot.channel_id)
+        assert channel is not None and channel.label == DEFAULT_CHANNEL_LABEL
+        assert channel.current_snapshot_id is not None
+        current = db_snapshot_handler.get_snapshot(channel.current_snapshot_id)
+        assert current is not None and current.parent_snapshot_id == first.snapshot.id
+        held = db_snapshot_handler.get_stored_content(current).save
+        assert held is not None
+        assert held.content_hash == md5(b"retroarch progress")
+
+    def test_serves_newer_channel_progress_over_an_older_upload(
+        self, client, admin_user: User, rom: Rom, sync_file: RomFile
+    ):
+        first = self._push_to_channel(admin_user, rom, sync_file, SRAM)
+        self._put(client, b"retroarch progress")
+
+        self._push_to_channel(
+            admin_user, rom, sync_file, b"web progress", first.snapshot.channel_id
+        )
+
+        assert self._get(client) == b"web progress"
+        assert self._manifest_save_hash(client) == md5(b"web progress")
+        with mock.patch.object(fs_asset_handler, "write_file") as write_file:
+            assert self._put(client, b"web progress") == status.HTTP_204_NO_CONTENT
+        write_file.assert_not_called()
+
+    def test_restoring_an_older_snapshot_changes_what_it_serves(
+        self, client, admin_user: User, rom: Rom, sync_file: RomFile
+    ):
+        first = self._push_to_channel(admin_user, rom, sync_file, SRAM)
+        self._put(client, b"retroarch progress")
+
+        self._push_to_channel(
+            admin_user,
+            rom,
+            sync_file,
+            SRAM,
+            first.snapshot.channel_id,
+            with_part=False,
+        )
+
+        assert self._get(client) == SRAM
+        assert self._manifest_save_hash(client) == md5(SRAM)
+
+    @pytest.mark.parametrize(
+        ("fmt", "emulator"),
+        [(SaveFormat.NEUTRAL, "snes9x"), (SaveFormat.NATIVE, "mgba")],
+        ids=["neutral", "other_core"],
+    )
+    def test_an_unloadable_channel_current_falls_back_to_the_versions(
+        self,
+        client,
+        admin_user: User,
+        rom: Rom,
+        sync_file: RomFile,
+        fmt: SaveFormat,
+        emulator: str,
+    ):
+        first = self._push_to_channel(admin_user, rom, sync_file, SRAM)
+        self._put(client, b"retroarch progress")
+
+        self._push_to_channel(
+            admin_user,
+            rom,
+            sync_file,
+            b"elsewhere",
+            first.snapshot.channel_id,
+            fmt=fmt,
+            emulator=emulator,
+        )
+
+        assert self._get(client) == b"retroarch progress"
+        assert self._manifest_save_hash(client) == md5(b"retroarch progress")
+
+    def test_a_hardcore_channel_current_falls_back_to_the_versions(
+        self, client, admin_user: User, rom: Rom, sync_file: RomFile
+    ):
+        first = self._push_to_channel(admin_user, rom, sync_file, SRAM)
+        self._put(client, b"retroarch progress")
+        self._push_to_channel(
+            admin_user, rom, sync_file, b"hardcore run", first.snapshot.channel_id
+        )
+        assert first.snapshot.channel_id is not None
+        with sync_session.begin() as session:
+            channel = session.get(Channel, first.snapshot.channel_id)
+            assert channel is not None
+            channel.is_hardcore = True
+
+        assert self._get(client) == b"retroarch progress"
+        assert self._manifest_save_hash(client) == md5(b"retroarch progress")
 
     def test_upload_queries_and_writes_off_the_event_loop(
         self, client, rom: Rom, monkeypatch: pytest.MonkeyPatch
@@ -1468,6 +1891,385 @@ class TestRetroArchSyncSaveSlots:
         assert self._versions(admin_user, rom) == []
 
 
+@pytest.fixture
+def disc_folder_rom(admin_user: User, platform: Platform) -> Rom:
+    """A game folder whose disc files carry names the folder doesn't."""
+    rom = make_rom(platform, "Some Game", fs_extension="")
+    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
+    for file_name in ("Some Game (USA) (Disc 1).chd", "Some Game (USA) (Disc 2).chd"):
+        db_rom_handler.add_rom_file(
+            RomFile(
+                rom_id=rom.id,
+                file_name=file_name,
+                file_path=f"{rom.fs_path}/{rom.fs_name}",
+                file_size_bytes=1,
+            )
+        )
+    return rom
+
+
+@pytest.mark.usefixtures("version_names")
+class TestRetroArchSyncRomFileNames:
+    """Saves RetroArch names after one file of a multi-file ROM, such as a disc."""
+
+    DISC_1_URL = "/api/sync/retroarch/saves/Snes9x/Some%20Game%20(USA)%20(Disc%201).srm"
+    DISC_2_URL = "/api/sync/retroarch/saves/Snes9x/Some%20Game%20(USA)%20(Disc%202).srm"
+
+    def test_upload_files_an_unslotted_save_per_disc(
+        self, client, admin_user: User, disc_folder_rom: Rom
+    ):
+        for url, content in ((self.DISC_1_URL, b"one"), (self.DISC_2_URL, b"two")):
+            response = client.put(url, content=content, auth=ADMIN_AUTH)
+            assert response.status_code == status.HTTP_201_CREATED
+
+        saves = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_ids=[disc_folder_rom.id], visibility=UNRESTRICTED
+        )
+        assert sorted((save.file_name, save.slot) for save in saves) == [
+            ("Some Game (USA) (Disc 1).srm", None),
+            ("Some Game (USA) (Disc 2).srm", None),
+        ]
+        assert client.get(self.DISC_1_URL, auth=ADMIN_AUTH).content == b"one"
+        assert client.get(self.DISC_2_URL, auth=ADMIN_AUTH).content == b"two"
+
+    def test_matches_the_file_name_in_another_case(
+        self, client, admin_user: User, disc_folder_rom: Rom
+    ):
+        response = client.put(
+            "/api/sync/retroarch/saves/Snes9x/some%20game%20(usa)%20(disc%201).srm",
+            content=b"data",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+
+    def test_a_reupload_in_another_case_replaces_the_stored_bytes(
+        self, client, admin_user: User, disc_folder_rom: Rom
+    ):
+        client.put(self.DISC_1_URL, content=b"old", auth=ADMIN_AUTH)
+        response = client.put(
+            "/api/sync/retroarch/saves/Snes9x/some%20game%20(usa)%20(disc%201).srm",
+            content=b"new",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert client.get(self.DISC_1_URL, auth=ADMIN_AUTH).content == b"new"
+
+    @_mock_asset_md5()
+    def test_manifest_lists_each_disc_beside_the_folder_save(
+        self, _asset_md5: mock.AsyncMock, client, admin_user: User, disc_folder_rom: Rom
+    ):
+        client.put(self.DISC_1_URL, content=b"one", auth=ADMIN_AUTH)
+        client.put(self.DISC_2_URL, content=b"two", auth=ADMIN_AUTH)
+        client.put(
+            "/api/sync/retroarch/saves/Snes9x/Some%20Game.srm",
+            content=b"m3u",
+            auth=ADMIN_AUTH,
+        )
+
+        response = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
+
+        assert [entry["path"] for entry in response.json()] == [
+            "saves/Snes9x/Some Game (USA) (Disc 1).srm",
+            "saves/Snes9x/Some Game (USA) (Disc 2).srm",
+            "saves/Snes9x/Some Game.srm",
+        ]
+
+    def test_delete_removes_the_disc_save(
+        self, client, admin_user: User, disc_folder_rom: Rom
+    ):
+        client.put(self.DISC_1_URL, content=b"one", auth=ADMIN_AUTH)
+
+        response = client.request("DELETE", self.DISC_1_URL, auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert (
+            db_save_handler.get_saves(
+                user_id=admin_user.id,
+                rom_ids=[disc_folder_rom.id],
+                visibility=UNRESTRICTED,
+            )
+            == []
+        )
+
+    def test_a_rom_named_like_the_file_wins(
+        self,
+        client,
+        admin_user: User,
+        disc_folder_rom: Rom,
+        other_platform: Platform,
+    ):
+        disc_rom = make_rom(other_platform, "Some Game (USA) (Disc 1)")
+        db_rom_handler.add_rom_user(rom_id=disc_rom.id, user_id=admin_user.id)
+
+        response = client.put(self.DISC_1_URL, content=b"data", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_201_CREATED
+        [save] = db_save_handler.get_saves(
+            user_id=admin_user.id, visibility=UNRESTRICTED
+        )
+        assert save.rom_id == disc_rom.id
+
+    def test_a_longer_file_name_with_the_same_prefix_does_not_match(
+        self, client, admin_user: User, disc_folder_rom: Rom
+    ):
+        response = client.put(
+            "/api/sync/retroarch/saves/Snes9x/Some%20Game%20(USA).srm",
+            content=b"data",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+
+    @_mock_asset_md5()
+    def test_states_named_after_discs_keep_a_slot_per_disc(
+        self,
+        _asset_md5: mock.AsyncMock,
+        client,
+        admin_user: User,
+        disc_folder_rom: Rom,
+    ):
+        urls = [
+            f"/api/sync/retroarch/states/Snes9x/Some%20Game%20(USA)%20(Disc%20{disc}).state"
+            for disc in (1, 2)
+        ]
+        for url, content in zip(urls, (b"one", b"two"), strict=True):
+            response = client.put(url, content=content, auth=ADMIN_AUTH)
+            assert response.status_code == status.HTTP_201_CREATED
+
+        states = db_state_handler.get_states(
+            user_id=admin_user.id, visibility=UNRESTRICTED
+        )
+        assert {state.rom_id for state in states} == {disc_folder_rom.id}
+        assert [client.get(url, auth=ADMIN_AUTH).content for url in urls] == [
+            b"one",
+            b"two",
+        ]
+        manifest = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
+        assert sorted(asset["path"] for asset in manifest.json()) == [
+            "states/Snes9x/Some Game (USA) (Disc 1).state",
+            "states/Snes9x/Some Game (USA) (Disc 2).state",
+        ]
+
+
+@pytest.mark.usefixtures("version_names")
+class TestRetroArchSyncCorePlatforms:
+    """A game name several platforms share resolves to the core's platform."""
+
+    PSX_SAVE_URL = "/api/sync/retroarch/saves/Beetle%20PSX%20HW/Road%20Rash%20(USA).srm"
+
+    @pytest.fixture
+    def saturn_rom(self) -> Rom:
+        return make_rom(make_platform("saturn"), "Road Rash (USA)", fs_extension="7z")
+
+    @pytest.fixture
+    def psx_platform(self) -> Platform:
+        return make_platform("psx")
+
+    def _saves(self, user: User) -> list[Save]:
+        return list(db_save_handler.get_saves(user_id=user.id, visibility=UNRESTRICTED))
+
+    def test_upload_goes_to_the_rom_on_the_cores_platform(
+        self, client, admin_user: User, saturn_rom: Rom, psx_platform: Platform
+    ):
+        psx_rom = make_rom(psx_platform, "Road Rash (USA)")
+
+        response = client.put(self.PSX_SAVE_URL, content=b"data", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_201_CREATED
+        [save] = self._saves(admin_user)
+        assert save.rom_id == psx_rom.id
+        assert client.get(self.PSX_SAVE_URL, auth=ADMIN_AUTH).content == b"data"
+
+    def test_state_upload_goes_to_the_rom_on_the_cores_platform(
+        self, client, admin_user: User, saturn_rom: Rom, psx_platform: Platform
+    ):
+        psx_rom = make_rom(psx_platform, "Road Rash (USA)")
+
+        response = client.put(
+            "/api/sync/retroarch/states/Beetle%20PSX%20HW/Road%20Rash%20(USA).state",
+            content=b"data",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        [state] = db_state_handler.get_states(
+            user_id=admin_user.id, visibility=UNRESTRICTED
+        )
+        assert state.rom_id == psx_rom.id
+
+    def _disc_folder_rom(self, psx_platform: Platform) -> Rom:
+        """A PS1 folder game "Road Rash" holding "Road Rash (USA).cue"."""
+        psx_rom = make_rom(psx_platform, "Road Rash", fs_extension="")
+        db_rom_handler.add_rom_file(
+            RomFile(
+                rom_id=psx_rom.id,
+                file_name="Road Rash (USA).cue",
+                file_path=f"{psx_rom.fs_path}/{psx_rom.fs_name}",
+                file_size_bytes=1,
+            )
+        )
+        return psx_rom
+
+    def test_a_file_on_the_cores_platform_beats_a_rom_name_elsewhere(
+        self, client, admin_user: User, saturn_rom: Rom, psx_platform: Platform
+    ):
+        psx_rom = self._disc_folder_rom(psx_platform)
+
+        response = client.put(self.PSX_SAVE_URL, content=b"data", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_201_CREATED
+        [save] = self._saves(admin_user)
+        assert save.rom_id == psx_rom.id
+
+    def test_every_rom_a_core_runs_stays_in_id_order(self, client, admin_user: User):
+        mame_rom = make_rom(make_platform("mame"), "sf2")
+        make_rom(make_platform("neogeomvs"), "sf2")
+
+        response = client.put(
+            "/api/sync/retroarch/saves/MAME/sf2.srm", content=b"data", auth=ADMIN_AUTH
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        [save] = self._saves(admin_user)
+        assert save.rom_id == mame_rom.id
+
+    def test_an_unknown_core_keeps_the_first_rom_by_id(
+        self, client, admin_user: User, saturn_rom: Rom, psx_platform: Platform
+    ):
+        make_rom(psx_platform, "Road Rash (USA)")
+
+        response = client.put(
+            "/api/sync/retroarch/saves/Some%20Core/Road%20Rash%20(USA).srm",
+            content=b"data",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        [save] = self._saves(admin_user)
+        assert save.rom_id == saturn_rom.id
+
+    @_mock_asset_md5()
+    def test_manifest_lists_a_save_under_its_cores_platform(
+        self,
+        _asset_md5: mock.AsyncMock,
+        client,
+        admin_user: User,
+        saturn_rom: Rom,
+        psx_platform: Platform,
+    ):
+        psx_rom = make_rom(psx_platform, "Road Rash (USA)")
+        make_save(
+            psx_rom,
+            admin_user,
+            "Road Rash (USA).srm",
+            file_path=fs_asset_handler.build_saves_file_path(
+                user=admin_user,
+                platform_fs_slug=psx_platform.fs_slug,
+                rom_id=psx_rom.id,
+                emulator="mednafen_psx_hw",
+            ),
+            file_size_bytes=4,
+            emulator="mednafen_psx_hw",
+            slot=None,
+        )
+
+        response = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == [
+            {"path": "saves/Beetle PSX HW/Road Rash (USA).srm", "hash": EMPTY_MD5}
+        ]
+
+    @_mock_asset_md5()
+    def test_manifest_lists_each_cores_save_of_a_shared_name(
+        self,
+        _asset_md5: mock.AsyncMock,
+        client,
+        admin_user: User,
+        saturn_rom: Rom,
+        psx_platform: Platform,
+    ):
+        psx_rom = make_rom(psx_platform, "Road Rash (USA)")
+        for rom, emulator in (
+            (psx_rom, "mednafen_psx_hw"),
+            (saturn_rom, "beetle_saturn"),
+        ):
+            make_save(
+                rom,
+                admin_user,
+                "Road Rash (USA).srm",
+                file_path=fs_asset_handler.build_saves_file_path(
+                    user=admin_user,
+                    platform_fs_slug=rom.platform_fs_slug,
+                    rom_id=rom.id,
+                    emulator=emulator,
+                ),
+                file_size_bytes=4,
+                emulator=emulator,
+                slot=None,
+            )
+
+        response = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert sorted(asset["path"] for asset in response.json()) == [
+            "saves/Beetle PSX HW/Road Rash (USA).srm",
+            "saves/Beetle Saturn/Road Rash (USA).srm",
+        ]
+
+    @_mock_asset_md5()
+    def test_a_state_named_after_a_disc_file_follows_its_save(
+        self,
+        _asset_md5: mock.AsyncMock,
+        client,
+        admin_user: User,
+        saturn_rom: Rom,
+        psx_platform: Platform,
+    ):
+        psx_rom = self._disc_folder_rom(psx_platform)
+        state_url = (
+            "/api/sync/retroarch/states/Beetle%20PSX%20HW/Road%20Rash%20(USA).state"
+        )
+
+        client.put(self.PSX_SAVE_URL, content=b"save", auth=ADMIN_AUTH)
+        response = client.put(state_url, content=b"state", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_201_CREATED
+        [state] = db_state_handler.get_states(
+            user_id=admin_user.id, visibility=UNRESTRICTED
+        )
+        assert state.rom_id == psx_rom.id
+        [save] = self._saves(admin_user)
+        assert save.rom_id == psx_rom.id
+        assert client.get(state_url, auth=ADMIN_AUTH).content == b"state"
+        manifest = client.get("/api/sync/retroarch/manifest.server", auth=ADMIN_AUTH)
+        assert sorted(asset["path"] for asset in manifest.json()) == [
+            "saves/Beetle PSX HW/Road Rash (USA).srm",
+            "states/Beetle PSX HW/Road Rash (USA).state",
+        ]
+
+    def test_a_psp_serial_resolves_to_the_psp_rom(
+        self, monkeypatch: pytest.MonkeyPatch, client, admin_user: User
+    ):
+        make_rom(make_platform("psx"), "Ridge Racer (USA)")
+        psp_rom = make_rom(make_platform("psp"), "Ridge Racer (USA)")
+        monkeypatch.setattr(
+            psp, "SYNC_RETROARCH_PSP_SERIAL_MAP", {"TEST12345": "Ridge Racer (USA)"}
+        )
+
+        response = client.put(
+            "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
+            content=b"data",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        [save] = self._saves(admin_user)
+        assert save.rom_id == psp_rom.id
+
+
 def test_uploads_in_the_same_second_keep_both_versions(
     client, admin_user: User, rom: Rom
 ):
@@ -1482,7 +2284,11 @@ def test_uploads_in_the_same_second_keep_both_versions(
             )
 
     versions = db_save_handler.get_saves(
-        user_id=admin_user.id, rom_ids=[rom.id], order_by="updated_at", order_dir="asc"
+        user_id=admin_user.id,
+        rom_ids=[rom.id],
+        order_by="updated_at",
+        order_dir="asc",
+        visibility=UNRESTRICTED,
     )
     assert [save.file_size_bytes for save in versions] == [
         len(b"first"),
@@ -1594,7 +2400,14 @@ class TestRetroArchSyncCoreAliases:
         response = client.put(self.SAVE_URL, content=b"same", auth=ADMIN_AUTH)
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
-        assert len(db_save_handler.get_saves(user_id=admin_user.id)) == 1
+        assert (
+            len(
+                db_save_handler.get_saves(
+                    user_id=admin_user.id, visibility=UNRESTRICTED
+                )
+            )
+            == 1
+        )
 
     @mock.patch(
         "endpoints.sync.retroarch.fs_asset_handler.remove_file",
@@ -1615,7 +2428,10 @@ class TestRetroArchSyncCoreAliases:
         response = client.request("DELETE", self.SAVE_URL, auth=ADMIN_AUTH)
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
-        assert db_save_handler.get_saves(user_id=admin_user.id) == []
+        assert (
+            db_save_handler.get_saves(user_id=admin_user.id, visibility=UNRESTRICTED)
+            == []
+        )
 
     def test_an_unslotted_file_under_an_alias_is_served_and_updated_in_place(
         self, client, admin_user: User, rom: Rom
@@ -1629,7 +2445,9 @@ class TestRetroArchSyncCoreAliases:
         response = client.put(url, content=b"ticked", auth=ADMIN_AUTH)
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
-        [updated] = db_save_handler.get_saves(user_id=admin_user.id)
+        [updated] = db_save_handler.get_saves(
+            user_id=admin_user.id, visibility=UNRESTRICTED
+        )
         assert (updated.id, updated.file_path) == (save.id, save.file_path)
         assert client.get(url, auth=ADMIN_AUTH).content == b"ticked"
 
@@ -1661,7 +2479,9 @@ class TestRetroArchSyncCoreAliases:
         response = client.put(self.STATE_URL, content=b"retroarch", auth=ADMIN_AUTH)
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
-        [updated] = db_state_handler.get_states(user_id=admin_user.id)
+        [updated] = db_state_handler.get_states(
+            user_id=admin_user.id, visibility=UNRESTRICTED
+        )
         assert (updated.id, updated.file_path) == (state.id, state.file_path)
         assert client.get(self.STATE_URL, auth=ADMIN_AUTH).content == b"retroarch"
 
@@ -1717,7 +2537,7 @@ class TestRetroArchSyncCoreAliases:
         vanished = self._vanished_state(admin_user, rom, "mednafen_psx_hw")
 
         assert self._manifest_paths(client) == ["states/Beetle PSX HW/test_rom.state"]
-        state = db_state_handler.get_state(user_id=admin_user.id, id=vanished.id)
+        state = db_state_handler.get_state_by_id(vanished.id)
         assert state is not None and state.missing_from_fs
 
     def test_get_falls_back_when_the_newest_state_file_vanished(
@@ -1727,7 +2547,7 @@ class TestRetroArchSyncCoreAliases:
         vanished = self._vanished_state(admin_user, rom, "mednafen_psx_hw")
 
         assert client.get(self.STATE_URL, auth=ADMIN_AUTH).content == b"older"
-        state = db_state_handler.get_state(user_id=admin_user.id, id=vanished.id)
+        state = db_state_handler.get_state_by_id(vanished.id)
         assert state is not None and state.missing_from_fs
 
     def test_get_404s_when_every_state_file_in_the_slot_vanished(
@@ -1751,7 +2571,12 @@ class TestRetroArchSyncCoreAliases:
         response = client.put(self.STATE_URL, content=b"fresh", auth=ADMIN_AUTH)
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
-        states = {s.id: s for s in db_state_handler.get_states(user_id=admin_user.id)}
+        states = {
+            s.id: s
+            for s in db_state_handler.get_states(
+                user_id=admin_user.id, visibility=UNRESTRICTED
+            )
+        }
         assert states.keys() == {older.id, missing.id}
         assert not states[missing.id].missing_from_fs
         assert states[missing.id].file_size_bytes == len(b"fresh")
@@ -1767,7 +2592,10 @@ class TestRetroArchSyncCoreAliases:
         response = client.request("DELETE", self.STATE_URL, auth=ADMIN_AUTH)
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
-        assert db_state_handler.get_states(user_id=admin_user.id) == []
+        assert (
+            db_state_handler.get_states(user_id=admin_user.id, visibility=UNRESTRICTED)
+            == []
+        )
         assert self._manifest_paths(client) == []
 
     @_mock_asset_md5()
@@ -1795,6 +2623,194 @@ class TestRetroArchSyncDownload:
         assert response.content == b""
 
 
+def _hold(state: State) -> None:
+    """Hold `state` in a snapshot's bank, as a sync channel would."""
+    with sync_session.begin() as session:
+        snapshot = Snapshot(
+            user_id=state.user_id,
+            rom_id=state.rom_id,
+            kind=SnapshotKind.BRANCH,
+            digest="0" * 64,
+        )
+        snapshot.states = [SnapshotState(core="snes9x", slot="0", state_id=state.id)]
+        session.add(snapshot)
+
+
+def _hold_save(save: Save) -> None:
+    """Hold `save` in a snapshot, as a sync channel would."""
+    with sync_session.begin() as session:
+        session.add(
+            Snapshot(
+                user_id=save.user_id,
+                rom_id=save.rom_id,
+                kind=SnapshotKind.BRANCH,
+                digest="0" * 64,
+                save_id=save.id,
+            )
+        )
+
+
+class TestRetroArchSyncHeldState:
+    @mock.patch(
+        "endpoints.sync.retroarch.fs_asset_handler.write_file",
+        new_callable=mock.AsyncMock,
+    )
+    @mock.patch("endpoints.sync.retroarch.scan_state", new_callable=mock.AsyncMock)
+    def test_an_upload_files_a_new_state_beside_a_held_one(
+        self,
+        mock_scan_state: mock.AsyncMock,
+        mock_write_file: mock.AsyncMock,
+        client,
+        admin_user: User,
+        rom: Rom,
+        states_path: str,
+        make_state,
+    ):
+        held = make_state("test_rom [2026-07-24 12-04-52-733].state")
+        _hold(held)
+        mock_scan_state.return_value = State(
+            file_name="test_rom.state", file_path=states_path, file_size_bytes=8
+        )
+
+        response = client.put(
+            "/api/sync/retroarch/states/Snes9x/test_rom.state",
+            content=b"statedat",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        mock_write_file.assert_awaited_once()
+        assert mock_write_file.call_args.kwargs["filename"] == "test_rom.state"
+        kept = db_state_handler.get_state_by_id(held.id)
+        assert kept is not None and kept.file_size_bytes == 4
+
+    @mock.patch(
+        "endpoints.sync.retroarch.fs_asset_handler.write_file",
+        new_callable=mock.AsyncMock,
+    )
+    @mock.patch("endpoints.sync.retroarch.scan_state", new_callable=mock.AsyncMock)
+    def test_an_upload_onto_a_held_states_own_name_lands_beside_it(
+        self,
+        mock_scan_state: mock.AsyncMock,
+        mock_write_file: mock.AsyncMock,
+        client,
+        admin_user: User,
+        states_path: str,
+        make_state,
+    ):
+        held = make_state("test_rom.state")
+        _hold(held)
+        mock_scan_state.return_value = State(
+            file_name="test_rom [2026-07-24_12-04-52-733].state",
+            file_path=states_path,
+            file_size_bytes=8,
+        )
+
+        response = client.put(
+            "/api/sync/retroarch/states/Snes9x/test_rom.state",
+            content=b"statedat",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        written = mock_write_file.call_args.kwargs["filename"]
+        assert written != "test_rom.state"
+        assert written.startswith("test_rom [") and written.endswith("].state")
+
+    @mock.patch(
+        "endpoints.sync.retroarch.fs_asset_handler.write_file",
+        new_callable=mock.AsyncMock,
+    )
+    def test_an_upload_onto_a_held_unslotted_save_is_locked(
+        self,
+        mock_write_file: mock.AsyncMock,
+        client,
+        admin_user: User,
+        rom: Rom,
+        saves_path: str,
+    ):
+        held = make_save(
+            rom,
+            admin_user,
+            "test_rom.rtc",
+            file_path=saves_path,
+            emulator="snes9x",
+            slot=None,
+        )
+        _hold_save(held)
+
+        response = client.put(
+            "/api/sync/retroarch/saves/Snes9x/test_rom.rtc",
+            content=b"clock",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_423_LOCKED
+        mock_write_file.assert_not_awaited()
+
+    def test_an_upload_onto_a_held_save_ram_adds_a_version_beside_it(
+        self, client, admin_user: User, synced_save: Save
+    ):
+        _hold_save(synced_save)
+
+        response = client.put(
+            "/api/sync/retroarch/saves/Snes9x/test_rom.srm",
+            content=b"savedata",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        kept = db_save_handler.get_save(user_id=admin_user.id, id=synced_save.id)
+        assert kept is not None and kept.file_size_bytes == 4
+
+    @mock.patch(
+        "endpoints.sync.retroarch.fs_asset_handler.remove_file",
+        new_callable=mock.AsyncMock,
+    )
+    def test_a_delete_leaves_a_held_state(
+        self,
+        mock_remove_file: mock.AsyncMock,
+        client,
+        admin_user: User,
+        make_state,
+    ):
+        held = make_state("test_rom.state")
+        _hold(held)
+
+        response = client.request(
+            "DELETE",
+            "/api/sync/retroarch/states/Snes9x/test_rom.state",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_423_LOCKED
+        mock_remove_file.assert_not_awaited()
+        assert db_state_handler.get_state_by_id(held.id)
+
+    @mock.patch(
+        "handler.asset_store.fs_asset_handler.remove_file",
+        new_callable=mock.AsyncMock,
+    )
+    def test_a_delete_leaves_a_held_save(
+        self,
+        mock_remove_file: mock.AsyncMock,
+        client,
+        admin_user: User,
+        synced_save: Save,
+    ):
+        _hold_save(synced_save)
+
+        response = client.request(
+            "DELETE",
+            "/api/sync/retroarch/saves/Snes9x/test_rom.srm",
+            auth=ADMIN_AUTH,
+        )
+
+        assert response.status_code == status.HTTP_423_LOCKED
+        mock_remove_file.assert_not_awaited()
+        assert db_save_handler.get_save(user_id=admin_user.id, id=synced_save.id)
+
+
 class TestRetroArchSyncDelete:
     @mock.patch(
         "endpoints.sync.retroarch.fs_asset_handler.remove_file",
@@ -1816,7 +2832,12 @@ class TestRetroArchSyncDelete:
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
         mock_remove_file.assert_awaited_once()
-        assert db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id]) == []
+        assert (
+            db_save_handler.get_saves(
+                user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+            )
+            == []
+        )
 
     @mock.patch(
         "endpoints.sync.retroarch.fs_asset_handler.compute_content_hash",
@@ -1908,7 +2929,12 @@ class TestRetroArchSyncDelete:
         )
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
-        assert db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id]) == []
+        assert (
+            db_save_handler.get_saves(
+                user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+            )
+            == []
+        )
 
     def test_delete_of_unknown_file_is_not_found(self, client, admin_user: User):
         response = client.request(
@@ -1964,7 +2990,9 @@ class TestRetroArchSyncPsp:
         )
         assert put_data.status_code == status.HTTP_201_CREATED
 
-        saves = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+        saves = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
         assert len(saves) == 1
         assert saves[0].file_name == "PSP-TEST12345DATA0.zip"
 
@@ -1984,6 +3012,63 @@ class TestRetroArchSyncPsp:
         )
         assert get_data.status_code == status.HTTP_200_OK
         assert get_data.content == b"the actual save data"
+
+    def test_a_held_bundle_is_never_rewritten(self, client, admin_user: User, rom: Rom):
+        save_path = "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0"
+        client.put(f"{save_path}/PARAM.SFO", content=b"sfo", auth=ADMIN_AUTH)
+        client.put(f"{save_path}/SAVE.BIN", content=b"first", auth=ADMIN_AUTH)
+        (held,) = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
+        held_hash = held.content_hash
+
+        with mock.patch(
+            "handler.database.db_snapshot_handler.get_frozen_save_ids",
+            side_effect=lambda ids: set(ids) & {held.id},
+        ):
+            response = client.put(
+                f"{save_path}/SAVE.BIN", content=b"second", auth=ADMIN_AUTH
+            )
+        saves = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
+        get_data = client.get(f"{save_path}/SAVE.BIN", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert len(saves) == 2
+        kept = next(s for s in saves if s.id == held.id)
+        assert kept.content_hash == held_hash
+        assert fs_asset_handler.validate_path(kept.full_path).is_file()
+        assert get_data.content == b"second"
+
+    def test_emptying_a_bundle_a_backup_snapshot_holds_deletes_it(
+        self, client, admin_user: User, rom: Rom
+    ):
+        save_path = "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0"
+        client.put(f"{save_path}/SAVE.BIN", content=b"only", auth=ADMIN_AUTH)
+        (bundle,) = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
+        with sync_session.begin() as session:
+            session.add(
+                Snapshot(
+                    user_id=admin_user.id,
+                    rom_id=rom.id,
+                    kind=SnapshotKind.ARCHIVAL,
+                    digest="0" * 64,
+                    save_id=bundle.id,
+                )
+            )
+
+        response = client.request("DELETE", f"{save_path}/SAVE.BIN", auth=ADMIN_AUTH)
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert (
+            db_save_handler.get_saves(
+                user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+            )
+            == []
+        )
 
     def test_manifest_lists_each_bundle_member_separately(
         self, client, admin_user: User
@@ -2126,7 +3211,9 @@ class TestRetroArchSyncPsp:
         )
         assert response.status_code == status.HTTP_201_CREATED
 
-        saves = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+        saves = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
         assert [save.file_name for save in saves] == [tagged_name]
 
         get_data = client.get(
@@ -2173,7 +3260,9 @@ class TestRetroArchSyncPsp:
             "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/SAVE.BIN",
             auth=ADMIN_AUTH,
         )
-        saves = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+        saves = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
         assert [save.file_name for save in saves] == [slotted_name]
 
     def test_bundles_a_folder_synced_without_core_sorting(
@@ -2336,7 +3425,12 @@ class TestRetroArchSyncPsp:
             )
             assert response.status_code == status.HTTP_204_NO_CONTENT
 
-        assert db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id]) == []
+        assert (
+            db_save_handler.get_saves(
+                user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+            )
+            == []
+        )
 
         get_response = client.get(
             "/api/sync/retroarch/saves/PPSSPP/PSP/SAVEDATA/TEST12345DATA0/PARAM.SFO",
@@ -2375,7 +3469,9 @@ class TestRetroArchSyncPsp:
             content=b"sfo",
             auth=ADMIN_AUTH,
         )
-        [bundle] = db_save_handler.get_saves(user_id=admin_user.id, rom_ids=[rom.id])
+        [bundle] = db_save_handler.get_saves(
+            user_id=admin_user.id, rom_ids=[rom.id], visibility=UNRESTRICTED
+        )
         bundle_file = fs_asset_handler.validate_path(bundle.full_path)
         bundle_file.write_bytes(b"not a zip")
 

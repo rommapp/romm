@@ -14,6 +14,11 @@ TAG_GROUP_REGEX = re.compile(r"(?:\s*(?:\([^)]*\)|\[[^]]*\]))+\s*$")
 # Matches a trailing file extension, including multi-part ones like ".tar.gz".
 EXTENSION_REGEX = re.compile(r"\.(([a-z]+\.)*\w+)$")
 
+# No-Intro and Redump name a game released under several titles by all of them.
+TITLE_SEPARATOR = " ~ "
+# Each title costs a lookup per provider, so only this many are tried.
+MAX_TITLES = 4
+
 # PICO-8 carts are often saved as PNG images, so the `.p8` outlives the extension.
 PICO8_CARTRIDGE_EXTENSION = ".p8.png"
 
@@ -49,6 +54,24 @@ def compute_file_name_no_tags(file_name: str) -> str:
     if file_name.lower().endswith(PICO8_CARTRIDGE_EXTENSION):
         name = name[: -len(".p8")]
     return TAG_GROUP_REGEX.sub("", name).strip()
+
+
+def compute_titles(file_name: str) -> list[str]:
+    """Each title of a game named by several, else []."""
+    parts = compute_file_name_no_tags(file_name).split(TITLE_SEPARATOR)
+    if len(parts) < 2:
+        return []
+    titles = [title for title in dict.fromkeys(part.strip() for part in parts) if title]
+    return titles[:MAX_TITLES]
+
+
+def compute_title_file_names(file_name: str) -> list[str]:
+    """The file name once per title of a game named by several, else []."""
+    title = compute_file_name_no_tags(file_name)
+    if not file_name.startswith(title):
+        return []
+    tags_and_extension = file_name[len(title) :]
+    return [part + tags_and_extension for part in compute_titles(file_name)]
 
 
 def compute_file_extension(file_name: str) -> str:

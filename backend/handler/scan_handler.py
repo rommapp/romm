@@ -1,5 +1,5 @@
 import asyncio
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any, Final, NotRequired, TypedDict
 
 import socketio
@@ -58,11 +58,14 @@ from handler.scan.merge import (
     follow_demozoo_link,
     keep_base_fields,
     merge_tags,
+    order_artwork_sources,
     order_merge_sources,
     record_dump_tags,
+    record_scan_claims,
     reset_rematched_sources,
     resolve_scene_lock,
     seed_rom_attrs,
+    settle_claims,
     splice_scene_summaries,
 )
 from handler.scan.sources import LOGGER_MODULE_NAME, MetadataSource, ScanType
@@ -72,7 +75,13 @@ from logger.logger import log
 from models.assets import MemoryCardVersion, Save, Screenshot, State
 from models.firmware import Firmware
 from models.platform import Platform
-from models.rom import METADATA_SOURCE_COLUMNS, Rom, RomFile, RomFileCategory
+from models.rom import (
+    METADATA_SOURCE_COLUMNS,
+    Rom,
+    RomFile,
+    RomFileCategory,
+    apply_file_stats,
+)
 from models.user import User
 from utils import emoji
 from utils.audio_tags import persist_embedded_cover, remove_persisted_cover
@@ -82,6 +91,7 @@ from utils.platform_aliases import (
     resolve_fs_folder,
     resolve_fs_slug,
     resolve_platform_slug,
+    unknown_binding_warning,
 )
 
 # Sentinel folder for manually-added physical games; it never exists on disk.
@@ -166,16 +176,18 @@ async def scan_platform(
             extra=LOGGER_MODULE_NAME,
         )
         platform = db_platform_handler.get_platform_by_fs_slug(fs_slug)
-        if platform:
-            known_fs_slug = resolve_fs_slug(platform.slug, cnfg)
-            if known_fs_slug:
-                # `resolve_fs_slug` answers with a lowercased config key, but
-                # every path is built from the folder's own casing.
-                platform_attrs["fs_slug"] = (
-                    resolve_fs_folder(known_fs_slug, fs_platforms) or known_fs_slug
-                )
+        known_fs_slug = platform and resolve_fs_slug(platform.slug, cnfg)
+        # `resolve_fs_slug` answers with a lowercased config key, but every
+        # path is built from the folder's own casing. A folder that isn't on
+        # disk either would only overwrite the stored one.
+        known_folder = known_fs_slug and resolve_fs_folder(known_fs_slug, fs_platforms)
+        if known_folder:
+            platform_attrs["fs_slug"] = known_folder
 
     platform_attrs["slug"] = resolve_platform_slug(fs_slug, cnfg)
+    binding_warning = unknown_binding_warning(fs_slug, cnfg)
+    if binding_warning:
+        log.warning(binding_warning, extra=LOGGER_MODULE_NAME)
 
     igdb_platform = meta_igdb_handler.get_platform(platform_attrs["slug"])
     moby_platform = meta_moby_handler.get_platform(platform_attrs["slug"])
@@ -216,6 +228,9 @@ async def scan_platform(
         }
     )
 
+    platform_attrs.update(
+        await meta_igdb_handler.get_platform_discovery(platform_attrs["slug"])
+    )
     platform_attrs["missing_from_fs"] = False
     scanned_platform = Platform(**platform_attrs)
 
@@ -279,9 +294,19 @@ _SCANNING_ROM_EXCLUDE: Final = {
 
 
 async def emit_scanning_rom(
-    socket_manager: socketio.AsyncRedisManager, rom: Rom, *, is_new: bool
+    socket_manager: socketio.AsyncRedisManager,
+    rom: Rom,
+    *,
+    is_new: bool,
+    files: Sequence[RomFile] | None = None,
 ) -> None:
-    """Report a scanned rom; `is_new` lets clients count only roms the scan added."""
+    """Report a scanned rom; `is_new` lets clients count only roms the scan added.
+
+    Args:
+        files: The rom's scanned files, when its stored file rows are not written yet.
+    """
+    if files is not None:
+        apply_file_stats(rom, files)
     payload = SimpleRomSchema.from_orm_with_factory(rom).model_dump(
         exclude=_SCANNING_ROM_EXCLUDE
     )
@@ -332,6 +357,7 @@ async def scan_rom(
     newly_added: bool,
     launchbox_remote_enabled: bool = True,
     socket_manager: socketio.AsyncRedisManager | None = None,
+    scanned_files: Sequence[RomFile] | None = None,
 ) -> Rom:
     rom_attrs = seed_rom_attrs(scan_type, platform, rom, fs_rom, newly_added)
     is_complete_rescan = not newly_added and scan_type == ScanType.COMPLETE
@@ -353,7 +379,9 @@ async def scan_rom(
     scanning_rom.is_identifying = True
 
     if socket_manager:
-        await emit_scanning_rom(socket_manager, scanning_rom, is_new=newly_added)
+        await emit_scanning_rom(
+            socket_manager, scanning_rom, is_new=newly_added, files=scanned_files
+        )
 
     # Run hash fetches concurrently
     (
@@ -457,14 +485,16 @@ async def scan_rom(
         )
 
     record_dump_tags(metadata_handlers)
+    record_scan_claims(metadata_handlers)
 
-    priority_ordered, hash_claims = order_merge_sources(
+    priority_ordered, hash_claims, ordered = order_merge_sources(
         apply_sources, scene_locked, metadata_handlers, rom_attrs
     )
 
     apply_metadata_priority(rom_attrs, metadata_handlers, priority_ordered)
     merge_tags(rom_attrs, metadata_handlers, priority_ordered, hash_claims)
-    apply_artwork_priority(rom_attrs, metadata_handlers, apply_sources)
+    artwork_orders = order_artwork_sources(list(metadata_handlers))
+    apply_artwork_priority(rom_attrs, metadata_handlers, apply_sources, artwork_orders)
 
     # Don't overwrite existing base fields on update, unmatched and hashes scans
     if not newly_added and scan_type in (
@@ -472,6 +502,13 @@ async def scan_rom(
         ScanType.UPDATE,
         ScanType.HASHES,
     ):
+        settle_claims(
+            rom_attrs,
+            rom,
+            metadata_handlers,
+            {"metadata": ordered, **artwork_orders},
+            scene_locked,
+        )
         keep_base_fields(rom_attrs, rom)
 
     # Use PICO-8 cartridge PNG as cover art if no cover is set.

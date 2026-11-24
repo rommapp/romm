@@ -1,6 +1,10 @@
-from fastapi import Request
+from typing import Annotated
 
+from fastapi import Query, Request
+
+from decorators.auth import protected_route
 from endpoints.responses.stats import StatsReturn
+from handler.auth.constants import Scope
 from handler.auth.dependencies import get_rom_visibility_filter
 from handler.database import db_stats_handler
 from utils.router import APIRouter
@@ -11,22 +15,29 @@ router = APIRouter(
 )
 
 
-@router.get("")
-def stats(request: Request, include_platform_stats: bool = False) -> StatsReturn:
-    """Endpoint to return the current RomM stats
-
-    Returns:
-        dict: Dictionary with all the stats
-    """
+@protected_route(router.get, "", [Scope.ROMS_READ])
+def stats(
+    request: Request,
+    include_platform_stats: Annotated[
+        bool,
+        Query(
+            description=(
+                "Whether to add `METADATA_COVERAGE` and `REGION_BREAKDOWN`, each"
+                " broken down by platform."
+            )
+        ),
+    ] = False,
+) -> StatsReturn:
+    """Get library statistics, counting only what the caller can see."""
 
     visibility = get_rom_visibility_filter(request)
 
     result: StatsReturn = {
         "PLATFORMS": db_stats_handler.get_platforms_count(visibility),
         "ROMS": db_stats_handler.get_roms_count(visibility),
-        "SAVES": db_stats_handler.get_saves_count(),
-        "STATES": db_stats_handler.get_states_count(),
-        "SCREENSHOTS": db_stats_handler.get_screenshots_count(),
+        "SAVES": db_stats_handler.get_saves_count(visibility),
+        "STATES": db_stats_handler.get_states_count(visibility),
+        "SCREENSHOTS": db_stats_handler.get_screenshots_count(visibility),
         "TOTAL_FILESIZE_BYTES": db_stats_handler.get_total_filesize(visibility),
     }
 

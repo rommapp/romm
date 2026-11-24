@@ -10,6 +10,7 @@ from tests.factories import make_platform, make_rom
 from tests.handler.scan_stubs import add_n64_platform, add_rom
 
 from adapters.services.screenscraper import ScreenScraperRateLimitError
+from config.config_manager import Config, config_manager
 from handler.database import db_rom_handler
 from handler.filesystem.roms_handler import FSRom
 from handler.metadata import (
@@ -29,7 +30,10 @@ from handler.metadata.igdb_handler import IGDBRom
 from handler.metadata.libretro_handler import LibretroRom
 from handler.metadata.ra_handler import RAGameRom
 from handler.metadata.ss_handler import (
+    ScreenScraperExhaustedError,
     SSRom,
+    _scan_state,
+    get_exhausted_rom_paths,
     get_rate_limited_rom_names,
     reset_rate_limited_roms,
 )
@@ -48,14 +52,21 @@ from utils.context import initialize_context
 
 @pytest.mark.vcr
 async def test_scan_platform():
-    async with initialize_context():
-        platform = await scan_platform("n64", ["n64"])
+    with patch.object(
+        meta_igdb_handler,
+        "get_platform_discovery",
+        new_callable=AsyncMock,
+        return_value={"first_release_year": 1996},
+    ):
+        async with initialize_context():
+            platform = await scan_platform("n64", ["n64"])
 
     assert type(platform) is Platform
     assert platform.fs_slug == "n64"
     assert platform.slug == "n64"
     assert platform.name == "Nintendo 64"
     assert platform.igdb_id == 4
+    assert platform.first_release_year == 1996
     assert platform.hasheous_id == 64
     # Hasheous returns tgdb_id=None and Moby has no tgdb_id for n64, so
     # this value must come from the TGDB handler fallback.
@@ -70,6 +81,45 @@ async def test_scan_platform():
     assert platform.igdb_id is None
     assert platform.hasheous_id is None
     assert platform.tgdb_id is None
+
+
+@pytest.mark.parametrize(
+    ("fs_platforms", "expected_fs_slug"),
+    [([], "gbc"), (["gbc2players"], "gbc2players")],
+)
+async def test_scan_platform_keeps_missing_folder_unless_alias_exists(
+    fs_platforms: list[str], expected_fs_slug: str
+):
+    make_platform("gbc")
+    with patch.object(
+        meta_igdb_handler,
+        "get_platform_discovery",
+        new_callable=AsyncMock,
+        return_value={},
+    ):
+        async with initialize_context():
+            platform = await scan_platform("gbc", fs_platforms)
+
+    assert platform.fs_slug == expected_fs_slug
+
+
+async def test_scan_platform_warns_about_a_binding_to_an_unknown_name(caplog):
+    config = Config(PLATFORMS_BINDING={"snes-test": "snse"}, PLATFORMS_VERSIONS={})
+    with (
+        patch.object(config_manager, "get_config", return_value=config),
+        patch.object(
+            meta_igdb_handler,
+            "get_platform_discovery",
+            new_callable=AsyncMock,
+            return_value={},
+        ),
+        _capture_romm_logs(caplog),
+    ):
+        async with initialize_context():
+            platform = await scan_platform("snes-test", ["snes-test"])
+
+    assert platform.slug == "snse"
+    assert "system.platforms.snes-test is snse" in strip_ansi(caplog.text)
 
 
 @pytest.mark.vcr
@@ -1584,6 +1634,66 @@ async def test_scan_rom_ss_rate_limit_skips_the_rom_without_further_lookups(
     assert get_rate_limited_rom_names() == ["game.sfc"]
 
     reset_rate_limited_roms()
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_ss_handler, "get_rom", new_callable=AsyncMock)
+@patch.object(meta_ss_handler, "lookup_rom", new_callable=AsyncMock)
+async def test_scan_rom_records_a_rom_the_ss_breaker_answered_for(
+    mock_ss_lookup, mock_ss_get_rom, mock_playmatch_enabled
+):
+    _scan_state.reset()
+    mock_ss_lookup.side_effect = ScreenScraperExhaustedError(SSRom(ss_id=None))
+    mock_ss_get_rom.side_effect = ScreenScraperExhaustedError(SSRom(ss_id=None))
+
+    platform = make_platform("snes", id=1, name="SNES", ss_id=4)
+    rom = make_rom(platform, "game", fs_extension="sfc", fs_path="snes", tags=[])
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.QUICK,
+            rom=rom,
+            fs_rom=_ss_quota_fs_rom("game.sfc"),
+            metadata_sources=[MetadataSource.SS],
+            newly_added=True,
+        )
+
+    assert result.ss_id is None
+    assert get_exhausted_rom_paths() == ["snes/game.sfc"]
+
+    _scan_state.reset()
+
+
+@patch.object(meta_playmatch_handler, "is_enabled", return_value=False)
+@patch.object(meta_ss_handler, "get_rom", new_callable=AsyncMock)
+@patch.object(meta_ss_handler, "lookup_rom", new_callable=AsyncMock)
+async def test_scan_rom_does_not_record_a_rom_ss_answered_by_name(
+    mock_ss_lookup, mock_ss_get_rom, mock_playmatch_enabled
+):
+    """The breaker can clear between the hash and name lookups, and a ROM
+    ScreenScraper did answer for must not be listed as skipped."""
+    _scan_state.reset()
+    mock_ss_lookup.side_effect = ScreenScraperExhaustedError(SSRom(ss_id=None))
+    mock_ss_get_rom.return_value = SSRom(ss_id=321, name="Game")
+
+    platform = make_platform("snes", id=1, name="SNES", ss_id=4)
+    rom = make_rom(platform, "game", fs_extension="sfc", fs_path="snes", tags=[])
+
+    async with initialize_context():
+        result = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.QUICK,
+            rom=rom,
+            fs_rom=_ss_quota_fs_rom("game.sfc"),
+            metadata_sources=[MetadataSource.SS],
+            newly_added=True,
+        )
+
+    assert result.ss_id == 321
+    assert get_exhausted_rom_paths() == []
+
+    _scan_state.reset()
 
 
 def _amiga_platform() -> Platform:

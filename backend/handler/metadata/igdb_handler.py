@@ -3,7 +3,7 @@ from typing import Any, Final, NotRequired, TypedDict, cast
 
 import httpx2
 import pydash
-from fastapi import status
+from fastapi import HTTPException, status
 
 from adapters.services.igdb import (
     IGDB_PLATFORM_FAMILIES,
@@ -11,6 +11,7 @@ from adapters.services.igdb import (
     IGDB_PLATFORM_VERSIONS,
     IGDB_SIBLING_PLATFORMS,
     IGDBService,
+    PlatformDiscovery,
     SlugToIGDB,
 )
 from adapters.services.igdb_types import (
@@ -778,6 +779,35 @@ class IGDBHandler(MetadataHandler):
             platform["family_name"] = family["family_name"]
             platform["family_slug"] = family["family_slug"]
         return platform
+
+    async def get_platform_discovery(self, slug: str) -> PlatformDiscovery:
+        """Look up the exact revision when the folder represents a hardware variant."""
+        if not self.is_enabled():
+            return PlatformDiscovery()
+        version = IGDB_PLATFORM_VERSIONS.get(slug)
+        platform = (
+            IGDB_PLATFORM_LIST.get(UPS(slug)) if slug in IGDB_PLATFORM_LIST else None
+        )
+        if version is None and platform is None:
+            return PlatformDiscovery()
+        platform_id = version["id"] if version else platform["id"] if platform else None
+        if platform_id is None:
+            return PlatformDiscovery()
+        try:
+            details = await self.igdb_service.platform_discovery(
+                platform_id, version=version is not None
+            )
+            if logo := details.get("url_logo"):
+                logo = self.normalize_cover_url(logo).replace("/t_thumb/", "/t_720p/")
+                if logo.startswith("https://images.igdb.com/") and logo.endswith(
+                    ".jpg"
+                ):
+                    logo = logo.removesuffix(".jpg") + ".png"
+                details["url_logo"] = logo
+            return details
+        except HTTPException:
+            log.warning("IGDB platform discovery unavailable for %s", slug)
+            return PlatformDiscovery()
 
     def _base_platform(self, slug: str) -> IGDBPlatform:
         if slug in IGDB_PLATFORM_LIST:

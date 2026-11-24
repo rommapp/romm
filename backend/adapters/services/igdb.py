@@ -10,7 +10,7 @@ from aiohttp.client import ClientTimeout
 from fastapi import HTTPException, status
 from unidecode import unidecode
 
-from adapters.services.igdb_types import Game
+from adapters.services.igdb_types import Game, Platform, PlatformVersion
 from adapters.services.provider_http import send_with_retries
 from adapters.services.response_validation import parse_response
 from config import IGDB_CLIENT_ID
@@ -54,6 +54,11 @@ async def auth_middleware(
         }
     )
     return await handler(req)
+
+
+class PlatformDiscovery(TypedDict):
+    first_release_year: NotRequired[int]
+    url_logo: NotRequired[str]
 
 
 class IGDBService:
@@ -159,6 +164,58 @@ class IGDBService:
             limit=limit,
         )
         return games or []
+
+    async def platform_discovery(
+        self, platform_id: int, *, version: bool = False
+    ) -> PlatformDiscovery:
+        """Return current artwork and the earliest regional launch year."""
+        dates_field = "platform_version_release_dates"
+        field = f"{dates_field}.y" if version else f"versions.{dates_field}.y"
+        endpoint = "platform_versions" if version else "platforms"
+        if version:
+            versions = (
+                await self._request(
+                    str(self.url.joinpath(endpoint)),
+                    list[PlatformVersion],
+                    fields=["platform_logo.url", field],
+                    where=f"id={platform_id}",
+                    limit=1,
+                )
+                or []
+            )
+            logo = versions[0].get("platform_logo") if versions else None
+        else:
+            platforms = (
+                await self._request(
+                    str(self.url.joinpath(endpoint)),
+                    list[Platform],
+                    fields=["platform_logo.url", field],
+                    where=f"id={platform_id}",
+                    limit=1,
+                )
+                or []
+            )
+            logo = platforms[0].get("platform_logo") if platforms else None
+            versions = [
+                v
+                for p in platforms
+                for v in p.get("versions", [])
+                if isinstance(v, dict)
+            ]
+        years = [
+            year
+            for v in versions
+            for date in v.get("platform_version_release_dates", [])
+            if isinstance(date, dict)
+            and (year := date.get("y")) is not None
+            and 0 < year < 10000
+        ]
+        result = PlatformDiscovery()
+        if years:
+            result["first_release_year"] = min(years)
+        if isinstance(logo, dict) and (url := logo.get("url")):
+            result["url_logo"] = url
+        return result
 
     async def search(
         self,

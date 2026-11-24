@@ -8,8 +8,9 @@ from sqlalchemy.orm.interfaces import LoaderOption
 
 from decorators.database import INJECTED_SESSION, begin_session
 from handler.auth.rom_visibility import UNRESTRICTED, RomVisibilityFilter
-from models.audit_event import AuditCategory, AuditEvent, actions_in
+from models.audit_event import AuditCategory, AuditEvent, AuditTargetType, actions_in
 from models.device import Device
+from models.firmware import Firmware
 from models.rom import Rom
 from models.user import User
 
@@ -108,6 +109,14 @@ class DBAuditEventsHandler(DBBaseHandler):
         visibility = filters.visibility
         if visibility.hidden_platform_ids:
             clauses.append(_not_targeting("platform", visibility.hidden_platform_ids))
+            clauses.append(
+                _not_targeting(
+                    AuditTargetType.FIRMWARE,
+                    select(cast(Firmware.id, String)).where(
+                        Firmware.platform_id.in_(visibility.hidden_platform_ids)
+                    ),
+                )
+            )
         # A hide row outlives its ROM, so the ids also cover deleted ROMs.
         if visibility.hidden_rom_ids:
             clauses.append(_not_targeting("rom", visibility.hidden_rom_ids))

@@ -56,7 +56,7 @@ vi.mock("@/utils", () => ({
   isEasyRpgEmulationSupported: support.easyRpg,
   isEasyRpgGame: support.easyRpgGame,
   isRuffleEmulationSupported: support.ruffle,
-  isJsDosBundle: support.jsDosBundle,
+  hasJsDosBundle: support.jsDosBundle,
 }));
 
 function playableRom(overrides: Partial<SimpleRom> = {}): SimpleRom {

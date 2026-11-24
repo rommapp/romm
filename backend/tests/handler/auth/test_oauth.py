@@ -11,7 +11,7 @@ from exceptions.auth_exceptions import OAuthCredentialsException, UserDisabledEx
 from handler.auth.base_handler import oauth_handler, oct_key
 from handler.auth.constants import ALGORITHM
 from handler.database import db_user_handler
-from handler.redis_handler import redis_client
+from handler.redis_handler import redis_client, sync_cache
 from models.user import User
 from utils.router import APIRouter
 
@@ -168,3 +168,81 @@ def test_protected_route():
     req = Request({"type": "http", "method": "GET", "url": "/test"})
 
     assert test_route(req) == {"test": "test"}
+
+
+@pytest.fixture
+def clear_revocations():
+    yield
+    for key in sync_cache.scan_iter("oauth-revoked-before:*"):
+        sync_cache.delete(key)
+
+
+def _oauth_tokens(user: User) -> tuple[str, str]:
+    data = {"sub": user.username, "iss": "romm:oauth"}
+    return (
+        oauth_handler.create_access_token(data=data),
+        oauth_handler.create_refresh_token(
+            data=data, expires_delta=timedelta(minutes=5)
+        ),
+    )
+
+
+@pytest.mark.usefixtures("clear_revocations")
+async def test_revoked_tokens_are_rejected(admin_user: User):
+    access, refresh = _oauth_tokens(admin_user)
+
+    oauth_handler.revoke_user_tokens(admin_user.username)
+
+    with pytest.raises(HTTPException) as exc:
+        await oauth_handler.get_current_active_user_from_bearer_token(access)
+    assert exc.value is OAuthCredentialsException
+    with pytest.raises(HTTPException) as exc:
+        await oauth_handler.consume_refresh_token(refresh)
+    assert exc.value is OAuthCredentialsException
+
+
+@pytest.mark.usefixtures("clear_revocations")
+async def test_tokens_issued_right_after_a_revocation_work(admin_user: User):
+    oauth_handler.revoke_user_tokens(admin_user.username)
+
+    access, refresh = _oauth_tokens(admin_user)
+
+    user, _ = await oauth_handler.get_current_active_user_from_bearer_token(access)
+    assert user and user.id == admin_user.id
+    user, _ = await oauth_handler.consume_refresh_token(refresh)
+    assert user.id == admin_user.id
+
+
+@pytest.mark.usefixtures("clear_revocations")
+async def test_a_revocation_leaves_other_users_tokens_alone(
+    admin_user: User, editor_user: User
+):
+    access, refresh = _oauth_tokens(editor_user)
+
+    oauth_handler.revoke_user_tokens(admin_user.username)
+
+    user, _ = await oauth_handler.get_current_active_user_from_bearer_token(access)
+    assert user and user.id == editor_user.id
+    user, _ = await oauth_handler.consume_refresh_token(refresh)
+    assert user.id == editor_user.id
+
+
+@pytest.mark.usefixtures("clear_revocations")
+async def test_a_revocation_rejects_a_token_without_iat(admin_user: User):
+    expire = int((datetime.now(timezone.utc) + timedelta(minutes=5)).timestamp())
+    token = jwt.encode(
+        {"alg": ALGORITHM},
+        {
+            "sub": admin_user.username,
+            "iss": "romm:oauth",
+            "type": "access",
+            "exp": expire,
+        },
+        oct_key,
+    )
+
+    oauth_handler.revoke_user_tokens(admin_user.username)
+
+    with pytest.raises(HTTPException) as exc:
+        await oauth_handler.get_current_active_user_from_bearer_token(token)
+    assert exc.value is OAuthCredentialsException

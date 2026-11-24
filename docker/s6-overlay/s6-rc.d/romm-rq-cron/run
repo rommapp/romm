@@ -1,0 +1,26 @@
+#!/command/with-contenv bash
+
+set -o errexit
+set -o nounset
+set -o pipefail
+shopt -s inherit_errexit
+
+ROMM_LOG_TAG="rq-cron"
+# shellcheck source=SCRIPTDIR/../../scripts/lib.sh
+source /etc/s6-overlay/scripts/lib.sh
+
+record_process_group
+
+# Runs the periodic tasks listed in the cron config. Delayed jobs are released
+# by the workers themselves.
+info_log "Starting RQ cron scheduler"
+
+RQ_REDIS_URL="$(build_redis_url)"
+export RQ_REDIS_URL
+export PYTHONPATH="/backend:${PYTHONPATH-}"
+
+exec rq cron \
+	--path /backend \
+	--connection-class handler.redis_handler.RomMRedis \
+	--logging-level "${LOGLEVEL}" \
+	tasks.cron_config

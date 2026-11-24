@@ -7,6 +7,7 @@
 #   - sigil-build: Build sigil Python bindings (title ID extraction)
 #   - gme-build: Build libgme to WebAssembly (chiptune soundtracks)
 #   - rom-converto-fetch: Fetch the rom-converto CLI (ROM conversion and metadata)
+#   - s6-overlay-fetch: Fetch the s6-overlay process supervisor
 #   - emulator-stage: Fetch and extract emulators
 #   - nginx-build: Build nginx modules
 #   - production-stage: Setup frontend and backend
@@ -16,16 +17,16 @@
 
 # ARGUMENT DECLARATIONS
 ARG ALPINE_VERSION=3.24
-ARG ALPINE_SHA256=294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
+ARG ALPINE_DIGEST=sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
 # Pins the base image tag, so it cannot read ../.python-version; keep the two in sync.
 ARG PYTHON_VERSION=3.14
-ARG PYTHON_ALPINE_SHA256=9e9fde4d32eedce0b661d9ab91e826b62dddf28e928c230ec55f1866cac66b01
+ARG PYTHON_ALPINE_DIGEST=sha256:5862d971d1f0ae26b258cefa4e893556b1d3aba81bd2ff30888704ad378bab67
 # Build stages get pip from CPython's bundled ensurepip, which lags pip's security releases.
 ARG PIP_VERSION=26.2.2
-ARG NODE_VERSION=24.22
-ARG NODE_ALPINE_SHA256=6a1c190e17215d844926b0677f4bf87273ff7d5e54db06d3b5b5863ab0b09a3d
-ARG NGINX_VERSION=1.30.6
-ARG NGINX_SHA256=47928bf67eb62a1863cb08d9ecb52d3e704304ba614eaee17884204677702951
+ARG NODE_VERSION=26.13
+ARG NODE_ALPINE_DIGEST=sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5
+ARG NGINX_VERSION=1.30.7
+ARG NGINX_SHA256=bef154735288bc38d99fac41ae63730684bcc661503673a04a0f9bc526ba8598
 ARG UV_VERSION=0.13.4
 ARG UV_SHA256=0cb69bb18ffcd57db04f045010b0234132a111da70dde5a393d26ad288d38e13
 ARG EMSDK_VERSION=4.0.12
@@ -33,9 +34,13 @@ ARG EMSDK_AMD64_SHA256=744fb6a68941970951bacf9d6632041a0398260492232691ef22bbf54
 ARG EMSDK_ARM64_SHA256=369a4cb655aa1066e6e450dde774243c502d999b1d93fb4890a9d1428daa9280
 ARG GME_VERSION=0.6.5
 ARG GME_COMMIT=9e23d10f9fd2a6a2f33b10912dd8dc7153258995
+ARG S6_OVERLAY_VERSION=3.2.3.2
+ARG S6_OVERLAY_NOARCH_SHA256=5379750ed30a84bbd2e2dd74847ba6b5bd29cd0b2e3ea2ec58049b57eb2eda12
+ARG S6_OVERLAY_X86_64_SHA256=e6befcc96a437a3831386ecfc51808c5d3e939dc5fe3c02ae9284599e8aa2408
+ARG S6_OVERLAY_AARCH64_SHA256=b17f17a82e7a515c682a91edaf2ffdabb73f891981b6c1fd712115693a2f8b4c
 
 
-FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@sha256:${PYTHON_ALPINE_SHA256} AS python-alias
+FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@${PYTHON_ALPINE_DIGEST} AS python-alias
 ARG PIP_VERSION
 RUN pip install --no-cache-dir --upgrade pip==${PIP_VERSION}
 
@@ -55,7 +60,7 @@ RUN apk upgrade --no-cache && \
 # FRONTEND BUILD
 # Built on the native build platform: the output (/front/dist) is static JS/CSS,
 # fully architecture-independent, so there is no need to emulate the target arch.
-FROM --platform=$BUILDPLATFORM node:${NODE_VERSION}-alpine${ALPINE_VERSION}@sha256:${NODE_ALPINE_SHA256} AS frontend-build
+FROM --platform=$BUILDPLATFORM node:${NODE_VERSION}-alpine${ALPINE_VERSION}@${NODE_ALPINE_DIGEST} AS frontend-build
 WORKDIR /front
 
 COPY ./frontend/package*.json ./
@@ -66,7 +71,7 @@ RUN npm run build
 
 
 # BACKEND NODE HELPERS BUILD (server-side ROM patching via RomPatcher.js)
-FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION}@sha256:${NODE_ALPINE_SHA256} AS backend-node-build
+FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION}@${NODE_ALPINE_DIGEST} AS backend-node-build
 WORKDIR /backend-node/rom_patcher
 COPY ./backend/utils/rom_patcher/package*.json ./
 RUN npm ci --ignore-scripts --no-audit --no-fund
@@ -98,7 +103,7 @@ RUN uv sync --frozen --no-cache
 
 
 # CUSTOM RAHASHER FOR RETROACHIEVEMENTS
-FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS rahasher-build
+FROM alpine:${ALPINE_VERSION}@${ALPINE_DIGEST} AS rahasher-build
 RUN apk add --no-cache \
     g++ \
     git \
@@ -134,7 +139,7 @@ RUN apk add --no-cache \
     musl-dev
 
 # Keep this pin in sync with the dev image's SIGIL_VERSION in ../Dockerfile.
-ARG SIGIL_VERSION=8a3b0089676e07f74da2d9ad08979dedf5cae7c0
+ARG SIGIL_VERSION=85f88a85b7e8cfe5c685ec3cde100570c6ee6ed8
 
 # checkov:skip=CKV_DOCKER_4:the ADD below is a Git URL pinned to a commit
 ADD "https://github.com/rommapp/argosy-sigil.git#${SIGIL_VERSION}" /argosy-sigil
@@ -172,7 +177,7 @@ RUN /romm-gme/build.sh /libgme /gme
 
 # ROM-CONVERTO CLI
 # Keep the version and both sums in sync with the dev image's copy in ../Dockerfile.
-FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS rom-converto-fetch
+FROM alpine:${ALPINE_VERSION}@${ALPINE_DIGEST} AS rom-converto-fetch
 ARG TARGETARCH
 ARG ROM_CONVERTO_VERSION=v0.24.0
 RUN case "${TARGETARCH}" in \
@@ -186,10 +191,33 @@ RUN case "${TARGETARCH}" in \
     chmod 0755 /rom-converto
 
 
+# S6-OVERLAY
+FROM alpine:${ALPINE_VERSION}@${ALPINE_DIGEST} AS s6-overlay-fetch
+ARG TARGETARCH
+ARG S6_OVERLAY_VERSION
+ARG S6_OVERLAY_NOARCH_SHA256
+ARG S6_OVERLAY_X86_64_SHA256
+ARG S6_OVERLAY_AARCH64_SHA256
+RUN apk add --no-cache xz && \
+    case "${TARGETARCH}" in \
+        amd64) s6_arch="x86_64"; s6_sha="${S6_OVERLAY_X86_64_SHA256}" ;; \
+        arm64) s6_arch="aarch64"; s6_sha="${S6_OVERLAY_AARCH64_SHA256}" ;; \
+        *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac && \
+    s6_url="https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}" && \
+    wget -qO /tmp/s6-noarch.tar.xz "${s6_url}/s6-overlay-noarch.tar.xz" && \
+    echo "${S6_OVERLAY_NOARCH_SHA256}  /tmp/s6-noarch.tar.xz" | sha256sum -c - && \
+    wget -qO /tmp/s6-arch.tar.xz "${s6_url}/s6-overlay-${s6_arch}.tar.xz" && \
+    echo "${s6_sha}  /tmp/s6-arch.tar.xz" | sha256sum -c - && \
+    mkdir /s6-overlay && \
+    tar -C /s6-overlay -Jxpf /tmp/s6-noarch.tar.xz && \
+    tar -C /s6-overlay -Jxpf /tmp/s6-arch.tar.xz
+
+
 # FETCH EMULATORJS, RUFFLE, JS-DOS, FAKE-08 AND EASYRPG
 # Keep the pins below in sync with the dev image's copies in ../Dockerfile.
 # checkov:skip=CKV_DOCKER_4:every ADD below is a remote URL pinned by --checksum
-FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS emulator-stage
+FROM alpine:${ALPINE_VERSION}@${ALPINE_DIGEST} AS emulator-stage
 
 RUN apk add --no-cache \
     7zip
@@ -211,17 +239,17 @@ ADD --checksum=sha256:${RUFFLE_SHA256} \
     /downloads/ruffle.zip
 RUN unzip -o /downloads/ruffle.zip -d /ruffle
 
-ARG JSDOS_VERSION=8.4.1
-ARG JSDOS_SHA256=26118692bbb180aec78ec1697eb1ea6b28ff410101870cfa3e68309914c7eaa6
+ARG JSDOS_VERSION=8.5.4
+ARG JSDOS_SHA256=6cd8a379556ada7da8a6a49d3ba2fde1783ce3e481c1cd645e13ebc83419a5b8
 
 ADD --checksum=sha256:${JSDOS_SHA256} \
     "https://github.com/caiiiycuk/js-dos/releases/download/v${JSDOS_VERSION}/release.zip" \
     /downloads/jsdos.zip
-# The bundled index.html is a js-dos demo page that would be served unauthenticated;
-# source maps, Emscripten symbol files and type declarations are unused at runtime.
+# index.html is a demo page that would be served unauthenticated; source maps, symbols,
+# type declarations and the opt-in DOSBox-X debugger build are unused at runtime.
 RUN unzip -o /downloads/jsdos.zip -d /jsdos && \
     rm -rf /jsdos/dist/index.html /jsdos/dist/emulators/types && \
-    find /jsdos/dist \( -name '*.map' -o -name '*.symbols' \) -exec rm -f {} +
+    find /jsdos/dist \( -name '*.map' -o -name '*.symbols' -o -name '*-dbg.*' \) -exec rm -f {} +
 
 # FAKE-08 (MIT) publishes no web build, so these come from p3a (Apache-2.0),
 # which compiled them. Pinned by commit and checksum: that tree has no tags.
@@ -262,7 +290,7 @@ RUN mkdir /easyrpg/rtp && \
 
 
 # BUILD NGINX MODULE WITH MOD_ZIP
-FROM alpine:${ALPINE_VERSION}@sha256:${ALPINE_SHA256} AS nginx-build
+FROM alpine:${ALPINE_VERSION}@${ALPINE_DIGEST} AS nginx-build
 
 RUN apk add --no-cache \
     gcc \
@@ -328,8 +356,14 @@ RUN mkdir -p /var/www/html/assets/romm && \
 COPY ./backend /backend
 RUN python3 -m compileall -q /backend
 
-# Setup init script and config files
-COPY ./docker/init_scripts/* /
+# s6-overlay supervises every process in the container: ordered startup with
+# readiness gates, restart of anything that dies, and a bounded SIGTERM/SIGKILL
+# shutdown so a process that refuses to exit cannot strand PID 1.
+COPY --from=s6-overlay-fetch /s6-overlay/ /
+
+# Setup entrypoint, service definitions and config files
+COPY ./docker/init_scripts/docker-entrypoint.sh /docker-entrypoint.sh
+COPY ./docker/s6-overlay/ /etc/s6-overlay/
 COPY ./docker/nginx/js/ /etc/nginx/js/
 COPY ./docker/nginx/templates/ /etc/nginx/templates/
 COPY ./docker/nginx/default.conf /etc/nginx/nginx.conf
@@ -370,6 +404,14 @@ ENV SCREENSCRAPER_DEV_PASSWORD=${SCREENSCRAPER_DEV_PASSWORD}
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/backend
+
+# Exit the container when a startup step fails, instead of leaving it up and
+# serving nothing, so the restart policy can retry.
+ENV S6_BEHAVIOUR_IF_STAGE2_FAILS=2
+# Upper bounds on shutdown: how long a service gets after SIGTERM before s6
+# stops waiting, and how long anything still alive gets before SIGKILL.
+ENV S6_SERVICES_GRACETIME=10000
+ENV S6_KILL_GRACETIME=5000
 
 # Declare only the parent `/romm`, not its subdirs, so Docker keeps them 
 # on one mount (`st_dev`) and cross-directory `os.link()` hardlinks don't fail.

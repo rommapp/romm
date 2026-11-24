@@ -5,13 +5,17 @@
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
+import { prettifyPlatformCategory } from "@/components/Platforms/platformListColumns";
 import PlatformIcon from "@/components/shared/PlatformIcon.vue";
 import Tile from "@/components/shared/Tile.vue";
+import { useBreakpoint } from "@/composables/useBreakpoint";
 import { usePlatformPlayable } from "@/composables/usePlatformPlayable";
 import {
   pendingMorphName,
   useViewTransition,
 } from "@/composables/useViewTransition";
+import { RImage } from "@/lib";
+import { shippedPlatformIconUrl } from "@/utils/platformIcons";
 import PlayModeBadge from "./PlayModeBadge.vue";
 
 defineOptions({ inheritAttrs: false });
@@ -25,6 +29,9 @@ interface Props {
   fsSlug?: string | undefined;
   displayName: string;
   romCount?: number | null;
+  artworkUrl?: string | null | undefined;
+  category?: string | null | undefined;
+  firstReleaseYear?: number | null | undefined;
   /** Override destination; otherwise derived from `id`. */
   to?: string | object | undefined;
   id?: number | string | undefined;
@@ -34,12 +41,33 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   fsSlug: undefined,
   romCount: null,
+  artworkUrl: null,
+  category: null,
+  firstReleaseYear: null,
   to: undefined,
   id: undefined,
   variant: "row",
 });
 
+const useProviderArtwork = computed(
+  () =>
+    props.variant === "grid" &&
+    props.artworkUrl &&
+    !shippedPlatformIconUrl(props.slug) &&
+    !(props.fsSlug && shippedPlatformIconUrl(props.fsSlug)),
+);
+
 const href = computed(() => props.to ?? `/platform/${props.id ?? ""}`);
+const { xs } = useBreakpoint();
+const artworkSize = computed(() => (xs.value ? 88 : 120));
+const discoveryMetadata = computed(() =>
+  [
+    props.firstReleaseYear,
+    props.category && prettifyPlatformCategory(props.category),
+  ]
+    .filter(Boolean)
+    .join(" · "),
+);
 
 const { t } = useI18n();
 
@@ -81,17 +109,46 @@ const { emulator, mode, streamLabel } = usePlatformPlayable(() => props.slug);
     :to="href"
     v-bind="$attrs"
     class="plat-tile"
+    :class="{ 'plat-tile--discovery': variant === 'grid' }"
     :row="variant === 'row'"
     :focus-key="id != null ? `platform-${id}` : undefined"
     @click="onTileClick"
   >
     <template #icon>
       <div ref="iconEl" class="plat-tile__icon-inner" :style="morphStyle">
+        <RImage
+          v-if="useProviderArtwork"
+          :src="artworkUrl ?? undefined"
+          :alt="displayName"
+          :width="artworkSize"
+          :height="artworkSize"
+          contain
+        >
+          <template #loading>
+            <PlatformIcon
+              :slug="slug"
+              :fs-slug="fsSlug"
+              :alt="displayName"
+              :size="72"
+              :show-tooltip="false"
+            />
+          </template>
+          <template #error>
+            <PlatformIcon
+              :slug="slug"
+              :fs-slug="fsSlug"
+              :alt="displayName"
+              :size="72"
+              :show-tooltip="false"
+            />
+          </template>
+        </RImage>
         <PlatformIcon
+          v-else
           :slug="slug"
           :fs-slug="fsSlug"
           :alt="displayName"
-          size="100%"
+          :size="variant === 'grid' ? artworkSize : '100%'"
           :show-tooltip="false"
         />
       </div>
@@ -106,16 +163,55 @@ const { emulator, mode, streamLabel } = usePlatformPlayable(() => props.slug);
       />
     </template>
     {{ displayName }}
-    <template v-if="romCount != null" #count>
-      {{ t("collection.games-count", romCount, { named: { n: romCount } }) }}
+    <template
+      v-if="romCount != null || (variant === 'grid' && discoveryMetadata)"
+      #count
+    >
+      <span
+        v-if="variant === 'grid' && discoveryMetadata"
+        class="plat-tile__metadata"
+        >{{ discoveryMetadata }}</span
+      >
+      <span v-if="romCount != null">{{
+        t("collection.games-count", romCount, { named: { n: romCount } })
+      }}</span>
     </template>
   </Tile>
 </template>
 
 <style scoped>
+.plat-tile--discovery :deep(.r-tile__icon) {
+  width: 100%;
+  height: 120px;
+  overflow: hidden;
+}
+
+.plat-tile--discovery .plat-tile__icon-inner {
+  height: 120px;
+}
+
+.plat-tile--discovery :deep(.r-tile__count) {
+  display: grid;
+  gap: var(--r-space-2);
+  margin-top: auto;
+  text-align: center;
+}
+
+.plat-tile__metadata {
+  color: var(--r-color-fg-secondary);
+}
+
+html[data-bp~="xs"] .plat-tile--discovery :deep(.r-tile__icon),
+html[data-bp~="xs"] .plat-tile--discovery .plat-tile__icon-inner {
+  width: 100%;
+  height: 88px;
+}
+
 .plat-tile__icon-inner {
   width: 100%;
   height: 100%;
+  min-width: 0;
+  min-height: 0;
   display: grid;
   place-items: center;
 }

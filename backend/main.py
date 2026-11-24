@@ -31,6 +31,7 @@ from config import (
 from endpoints.activity import router as activity_router
 from endpoints.audit_events import router as audit_events_router
 from endpoints.auth import router as auth_router
+from endpoints.channels import router as channels_router
 from endpoints.client_tokens import router as client_tokens_router
 from endpoints.collections import router as collections_router
 from endpoints.configs import router as configs_router
@@ -56,6 +57,7 @@ from endpoints.roms import router as rom_router
 from endpoints.saves import router as saves_router
 from endpoints.screenshots import router as screenshots_router
 from endpoints.search import router as search_router
+from endpoints.snapshots import router as snapshots_router
 from endpoints.states import router as states_router
 from endpoints.stats import router as stats_router
 from endpoints.streaming import router as streaming_router
@@ -113,8 +115,23 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
 init_sentry()
 
+API_DESCRIPTION = """\
+Each route lists the errors it can return. A few come from middleware that runs
+before any route, so the routes don't list them:
+
+- **403**: a request that changes data does not send the token from the
+  `romm_csrftoken` cookie in the `x-csrftoken` header. A request that signs in
+  with a Bearer or Basic `Authorization` header and has no signed-in session is
+  exempt, and so are the token routes such as `/api/token`.
+- **400** or **413**: an upload to `/api/saves`, `/api/states`, `/api/screenshots`,
+  `/api/snapshots`, `/api/sync/retroarch` or `/api/memory-cards` has a
+  `Content-Length` header that is not a number (400), or a body larger than the
+  server allows (413).
+"""
+
 app = FastAPI(
     title="RomM API",
+    description=API_DESCRIPTION,
     version=get_version(),
     lifespan=lifespan,
     docs_url="/api/docs",
@@ -137,6 +154,7 @@ app.add_middleware(
         re.compile(r"^/api/saves"),
         re.compile(r"^/api/states"),
         re.compile(r"^/api/screenshots"),
+        re.compile(r"^/api/snapshots"),
         re.compile(r"^/api/sync/retroarch"),
     ],
 )
@@ -204,6 +222,8 @@ app.include_router(music_playlists_router, prefix="/api")
 app.include_router(search_router, prefix="/api")
 app.include_router(saves_router, prefix="/api")
 app.include_router(states_router, prefix="/api")
+app.include_router(snapshots_router, prefix="/api")
+app.include_router(channels_router, prefix="/api")
 app.include_router(sync_router, prefix="/api")
 app.include_router(tasks_router, prefix="/api")
 app.include_router(feeds_router, prefix="/api")

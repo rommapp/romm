@@ -1,41 +1,20 @@
 """The netplay room listing must not reveal rooms for a hidden rom."""
 
-from datetime import timedelta
 from typing import cast
 from unittest.mock import AsyncMock, Mock
 
 import pytest
+from tests.auth_helpers import hide, user_headers
 
-from config import OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS
-from handler.auth.base_handler import oauth_handler
 from handler.auth.constants import Scope
 from handler.database.base_handler import sync_session
 from handler.netplay_handler import NetplayPlayerInfo, NetplayRoom, netplay_handler
 from models.permission import (
-    HiddenEntity,
     PermAction,
     PermEntity,
     UserPermissionOverride,
 )
 from models.user import User
-
-
-def _auth(user: User, scopes: list[Scope] | None = None) -> dict[str, str]:
-    # Re-reads the user's current (projected) scopes each call.
-    token = oauth_handler.create_access_token(
-        data={
-            "sub": user.username,
-            "iss": "romm:oauth",
-            "scopes": " ".join(scopes if scopes is not None else user.oauth_scopes),
-        },
-        expires_delta=timedelta(seconds=OAUTH_ACCESS_TOKEN_EXPIRE_SECONDS),
-    )
-    return {"Authorization": f"Bearer {token}"}
-
-
-def _hide(entity: PermEntity, entity_id: int, user_id: int) -> None:
-    with sync_session.begin() as s:
-        s.add(HiddenEntity(entity=entity, entity_id=entity_id, user_id=user_id))
 
 
 def _room(rom_id: int) -> NetplayRoom:
@@ -69,24 +48,30 @@ def rooms(mocker) -> Mock:
 def test_listing_shows_rooms_for_a_visible_rom(client, viewer_user, rom, rooms):
     rooms.return_value = {"room-1": _room(rom.id)}
 
-    resp = client.get(f"/api/netplay/list?game_id={rom.id}", headers=_auth(viewer_user))
+    resp = client.get(
+        f"/api/netplay/list?game_id={rom.id}", headers=user_headers(viewer_user)
+    )
 
     assert resp.status_code == 200
     assert "room-1" in resp.json()
 
 
 def test_listing_hides_rooms_for_a_hidden_rom(client, viewer_user, rom, rooms):
-    _hide(PermEntity.ROMS, rom.id, viewer_user.id)
+    hide(PermEntity.ROMS, rom.id, user_id=viewer_user.id)
     rooms.return_value = {"room-1": _room(rom.id)}
 
-    resp = client.get(f"/api/netplay/list?game_id={rom.id}", headers=_auth(viewer_user))
+    resp = client.get(
+        f"/api/netplay/list?game_id={rom.id}", headers=user_headers(viewer_user)
+    )
 
     assert resp.status_code == 404
     rooms.assert_not_awaited()
 
 
 def test_listing_of_a_missing_rom_is_not_found(client, viewer_user, rooms):
-    resp = client.get("/api/netplay/list?game_id=999999", headers=_auth(viewer_user))
+    resp = client.get(
+        "/api/netplay/list?game_id=999999", headers=user_headers(viewer_user)
+    )
 
     assert resp.status_code == 404
     rooms.assert_not_awaited()
@@ -94,7 +79,7 @@ def test_listing_of_a_missing_rom_is_not_found(client, viewer_user, rooms):
 
 def test_listing_needs_the_rom_read_scope(client, viewer_user, rooms):
     """The listing answers about a rom, so asset access alone is not enough."""
-    headers = _auth(viewer_user, scopes=[Scope.ASSETS_READ])
+    headers = user_headers(viewer_user, scopes=[Scope.ASSETS_READ])
 
     resp = client.get("/api/netplay/list?game_id=1", headers=headers)
 
@@ -123,7 +108,9 @@ def test_listing_is_empty_without_a_full_emulation_read(
     _override_emulation_read(viewer_user, own_only=own_only)
     rooms.return_value = {"room-1": _room(rom.id)}
 
-    resp = client.get(f"/api/netplay/list?game_id={rom.id}", headers=_auth(viewer_user))
+    resp = client.get(
+        f"/api/netplay/list?game_id={rom.id}", headers=user_headers(viewer_user)
+    )
 
     assert resp.status_code == 200
     assert resp.json() == {}

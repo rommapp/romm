@@ -196,6 +196,15 @@ describe("resolveRomArtwork — library media files", () => {
     expect(resolveRomArtwork(rom)).toHaveLength(0);
   });
 
+  // Chrome and Firefox render no JPEG XL, and the probe has not decoded here.
+  it("leaves out JPEG XL images until the browser shows it can render them", () => {
+    const rom = romWithFiles([
+      makeFile({ id: 1, file_name: "cover.jxl" }),
+      makeFile({ id: 2, file_name: "back.png" }),
+    ]);
+    expect(resolveRomArtwork(rom).map((i) => i.label)).toEqual(["back"]);
+  });
+
   it("skips categories that have their own surface", () => {
     const rom = romWithFiles([
       makeFile({ id: 1, file_name: "shot.png", category: "screenshot" }),

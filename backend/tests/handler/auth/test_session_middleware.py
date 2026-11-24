@@ -201,6 +201,7 @@ class TestSessionMiddleware:
 
         # Tamper with the cookie (simulate bad signature)
         tampered_cookie = response.cookies["session"][:-10] + "tampereddata"
+        client.cookies.clear()
         client.cookies.set("session", tampered_cookie)
         response = client.get("/get")
         assert response.status_code == 200

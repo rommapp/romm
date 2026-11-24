@@ -32,7 +32,7 @@ class TestImageConverter:
         with Image.open(tmp_path / "big.webp") as img:
             assert img.format == "WEBP"
 
-    @pytest.mark.parametrize("fmt", ["GIF", "PNG"])
+    @pytest.mark.parametrize("fmt", ["GIF", "PNG", "AVIF"])
     def test_keeps_animation(self, converter: ImageConverter, tmp_path: Path, fmt: str):
         source = tmp_path / f"big.{fmt.lower()}"
         source.write_bytes(animated_image_bytes(fmt))

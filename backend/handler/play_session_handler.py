@@ -71,12 +71,16 @@ def _apply_play_to_rom_user(
 RA_PROGRESS_SYNC_FAILURE_TTL_SECONDS = 300
 
 
-def _queue_ra_progress_sync(user_id: int) -> None:
-    """Refresh the user's RetroAchievements progress, at most one job at a time."""
+def queue_ra_progress_sync(user_id: int, *, refresh_all: bool = False) -> bool:
+    """Refresh the user's RetroAchievements progress, at most one job at a time.
+
+    Returns:
+        Whether a sync is queued, including one queued before this call.
+    """
     try:
         low_prio_queue.enqueue(
             "tasks.scheduled.sync_retroachievements_progress.sync_user_progress_job",
-            kwargs={"user_id": user_id},
+            kwargs={"user_id": user_id, "refresh_all": refresh_all},
             job_id=f"ra_progress_sync_{user_id}",
             unique=True,
             job_timeout=SYNC_RETROACHIEVEMENTS_PROGRESS_SPEC.timeout,
@@ -90,6 +94,8 @@ def _queue_ra_progress_sync(user_id: int) -> None:
         pass
     except Exception:  # noqa: BLE001 - the nightly sync catches up
         log.exception("Failed to queue a RetroAchievements progress sync")
+        return False
+    return True
 
 
 def ingest_play_sessions(
@@ -192,7 +198,7 @@ def ingest_play_sessions(
     if meta_ra_handler.is_enabled() and any(
         found_roms[rom_id].ra_id for rom_id in rom_user_updates
     ):
-        _queue_ra_progress_sync(user_id)
+        queue_ra_progress_sync(user_id)
 
     actor = AuditActor(
         AuditActorKind.USER,

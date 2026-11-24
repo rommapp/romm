@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import status
+from tests.auth_helpers import bearer
 
 from handler.auth.base_handler import oauth_handler
 from handler.database import db_notification_handler
@@ -32,10 +33,6 @@ def _add(user: User, minutes_ago: int = 0, **overrides) -> Notification:
     return stored
 
 
-def _auth(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
-
-
 @pytest.fixture
 def emit(mocker):
     return mocker.patch.object(socket_handler, "emit_to_user", AsyncMock())
@@ -49,7 +46,7 @@ class TestListNotifications:
         newer = _add(admin_user, minutes_ago=1, actor_id=viewer_user.id)
         _add(viewer_user)
 
-        response = client.get("/api/notifications", headers=_auth(access_token))
+        response = client.get("/api/notifications", headers=bearer(access_token))
 
         assert response.status_code == status.HTTP_200_OK
         body = response.json()
@@ -68,7 +65,7 @@ class TestMarkRead:
         response = client.post(
             "/api/notifications/read",
             json={"ids": [first.id]},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         assert response.status_code == status.HTTP_200_OK
@@ -87,7 +84,7 @@ class TestMarkRead:
         _add(admin_user)
 
         client.post(
-            "/api/notifications/read", json={"ids": None}, headers=_auth(access_token)
+            "/api/notifications/read", json={"ids": None}, headers=bearer(access_token)
         )
 
         assert all(
@@ -102,7 +99,7 @@ class TestMarkRead:
         client.post(
             "/api/notifications/read",
             json={"ids": [theirs.id]},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         [unchanged] = db_notification_handler.get_notifications(viewer_user.id)
@@ -115,7 +112,7 @@ class TestDismiss:
         kept = _add(admin_user)
 
         response = client.delete(
-            f"/api/notifications/{gone.id}", headers=_auth(access_token)
+            f"/api/notifications/{gone.id}", headers=bearer(access_token)
         )
 
         assert response.status_code == status.HTTP_200_OK
@@ -129,7 +126,7 @@ class TestDismiss:
         theirs = _add(viewer_user)
 
         response = client.delete(
-            f"/api/notifications/{theirs.id}", headers=_auth(access_token)
+            f"/api/notifications/{theirs.id}", headers=bearer(access_token)
         )
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -143,7 +140,7 @@ class TestDismiss:
         _add(admin_user)
         _add(viewer_user)
 
-        response = client.delete("/api/notifications", headers=_auth(access_token))
+        response = client.delete("/api/notifications", headers=bearer(access_token))
 
         assert response.status_code == status.HTTP_200_OK
         assert db_notification_handler.get_notifications(admin_user.id) == []
@@ -179,7 +176,7 @@ class TestCreateNotification:
                 "icon": "mdi-sync",
                 "data": {"device": "deck"},
             },
-            headers=_auth(viewer_access_token),
+            headers=bearer(viewer_access_token),
         )
 
         assert response.status_code == status.HTTP_201_CREATED
@@ -197,7 +194,7 @@ class TestCreateNotification:
         response = client.post(
             "/api/notifications",
             json={"title": "Hello", "recipients": [admin_user.id]},
-            headers=_auth(viewer_access_token),
+            headers=bearer(viewer_access_token),
         )
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -213,7 +210,7 @@ class TestCreateNotification:
                 "level": "warning",
                 "recipients": "all",
             },
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         assert response.status_code == status.HTTP_201_CREATED
@@ -229,7 +226,7 @@ class TestCreateNotification:
         client.post(
             "/api/notifications",
             json={"title": "Disk almost full", "recipients": "admins"},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         assert len(db_notification_handler.get_notifications(admin_user.id)) == 1
@@ -241,7 +238,7 @@ class TestCreateNotification:
         response = client.post(
             "/api/notifications",
             json={"title": "Hello", "recipients": [viewer_user.id, 999_999]},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -267,7 +264,7 @@ class TestCreateNotification:
         response = client.post(
             "/api/notifications",
             json={"title": "Hello", **field},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
@@ -289,7 +286,7 @@ def test_an_admin_token_without_users_write_notifies_only_itself(
     response = client.post(
         "/api/notifications",
         json={"title": "Hello", "recipients": "all"},
-        headers=_auth(token),
+        headers=bearer(token),
     )
 
     assert response.status_code == status.HTTP_403_FORBIDDEN

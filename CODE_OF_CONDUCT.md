@@ -33,10 +33,21 @@ Examples of unacceptable behavior include:
 - Public or private harassment
 - Publishing others' private information, such as a physical or email
   address, without their explicit permission
-- Sharing copyrighted ROM files, discussing how to pirate ROMs, posting links
-  to file downloads, or any other discussions about copyrighted ROMs
+- Piracy of any kind (see [Piracy](#piracy) below)
 - Other conduct which could reasonably be considered inappropriate in a
   professional setting
+
+### Piracy
+
+We have zero tolerance for piracy. In any community space, you may not:
+
+- Request, share, or link to copyrighted ROMs, BIOS, firmware, or decryption
+  keys
+- Explain or hint at how or where to obtain them
+- Post screenshots, logs, or file listings that show or name pirated sources
+
+Moderators remove these posts and may ban the author on the first offense,
+skipping the steps in the Enforcement Guidelines below.
 
 ## Enforcement Responsibilities
 
@@ -52,8 +63,10 @@ decisions when appropriate.
 
 ## Scope
 
-This Code of Conduct applies within all community spaces, and also applies when
-an individual is officially representing the community in public spaces.
+This Code of Conduct applies within all community spaces, including GitHub
+issues, pull requests, and discussions, the Discord server, the subreddit, and
+any other channel run by the project. It also applies when an individual is
+officially representing the community in public spaces.
 Examples of representing our community include using an official e-mail address,
 posting via an official social media account, or acting as an appointed
 representative at an online or offline event.

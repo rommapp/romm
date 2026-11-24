@@ -3,6 +3,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi import status
+from tests.auth_helpers import bearer
 
 from endpoints.logs import MAX_LOG_LIMIT
 from endpoints.sockets.logs import (
@@ -15,10 +16,6 @@ from utils import json_module
 SAMPLE_ENTRY = {"ts": 1, "level": "INFO", "module": "startup", "message": "hello"}
 
 
-def _auth(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
-
-
 def test_get_logs_requires_auth(client):
     response = client.get("/api/logs")
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -26,7 +23,7 @@ def test_get_logs_requires_auth(client):
 
 def test_get_logs_forbidden_without_logs_read(client, viewer_access_token):
     # Viewers lack the `logs.read` (admin-only) scope the endpoint requires.
-    response = client.get("/api/logs", headers=_auth(viewer_access_token))
+    response = client.get("/api/logs", headers=bearer(viewer_access_token))
     assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
@@ -36,7 +33,7 @@ def test_get_logs_returns_entries_for_admin(client, access_token):
         new_callable=AsyncMock,
         return_value=[SAMPLE_ENTRY],
     ):
-        response = client.get("/api/logs", headers=_auth(access_token))
+        response = client.get("/api/logs", headers=bearer(access_token))
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json() == [SAMPLE_ENTRY]
@@ -45,7 +42,7 @@ def test_get_logs_returns_entries_for_admin(client, access_token):
 def test_get_logs_disabled_returns_not_found(client, access_token):
     # When DISABLE_LOGS_VIEWER is set, the endpoint is gone even for admins.
     with patch("endpoints.logs.DISABLE_LOGS_VIEWER", True):
-        response = client.get("/api/logs", headers=_auth(access_token))
+        response = client.get("/api/logs", headers=bearer(access_token))
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
@@ -57,18 +54,18 @@ def test_get_logs_clamps_limit(client, access_token):
     ) as mock_recent:
         # Above the cap → clamped down to MAX_LOG_LIMIT.
         client.get(
-            f"/api/logs?limit={MAX_LOG_LIMIT + 5000}", headers=_auth(access_token)
+            f"/api/logs?limit={MAX_LOG_LIMIT + 5000}", headers=bearer(access_token)
         )
         mock_recent.assert_awaited_with(MAX_LOG_LIMIT)
 
         # Below 1 → clamped up to 1.
         mock_recent.reset_mock()
-        client.get("/api/logs?limit=0", headers=_auth(access_token))
+        client.get("/api/logs?limit=0", headers=bearer(access_token))
         mock_recent.assert_awaited_with(1)
 
         # In range → passed through unchanged.
         mock_recent.reset_mock()
-        client.get("/api/logs?limit=25", headers=_auth(access_token))
+        client.get("/api/logs?limit=25", headers=bearer(access_token))
         mock_recent.assert_awaited_with(25)
 
 

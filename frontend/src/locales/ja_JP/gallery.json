@@ -7,6 +7,7 @@
   "firmware-selected-count": "{count}件選択中",
   "jump-to": "{letter}へジャンプ",
   "jump-to-letter": "文字へジャンプ",
+  "results-of-total": "{count} / {total}",
   "selection-clear": "選択をクリア",
   "selection-collections": "コレクションを管理",
   "selection-delete": "削除",

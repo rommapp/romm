@@ -214,3 +214,43 @@ describe("getRoms game-length range", () => {
     expect(params.hltb_main_story_max).toBe(36000);
   });
 });
+
+describe("getRoms platform logic", () => {
+  beforeEach(() => {
+    get.mockReset();
+    get.mockResolvedValue({ data: {} });
+  });
+
+  it("sends an exclusion with its platforms", async () => {
+    await romApi.getRoms({ platformIds: [2], platformsLogic: "none" });
+
+    expect(get.mock.calls[0]![1].params.platforms_logic).toBe("none");
+  });
+
+  it("leaves the logic out without platforms or for an inclusion", async () => {
+    await romApi.getRoms({ platformsLogic: "none" });
+    await romApi.getRoms({ platformIds: [2], platformsLogic: "any" });
+
+    expect(get.mock.calls[0]![1].params.platforms_logic).toBeUndefined();
+    expect(get.mock.calls[1]![1].params.platforms_logic).toBeUndefined();
+  });
+});
+
+describe("getRoms by id", () => {
+  beforeEach(() => {
+    get.mockReset();
+    get.mockResolvedValue({ data: {} });
+  });
+
+  it("sends the ids in order", async () => {
+    await romApi.getRoms({ romIds: [5, 3, 9] });
+
+    expect(get.mock.calls[0]![1].params.rom_ids).toEqual([5, 3, 9]);
+  });
+
+  it("leaves rom_ids out of a paged request", async () => {
+    await romApi.getRoms({ offset: 72 });
+
+    expect(get.mock.calls[0]![1].params.rom_ids).toBeUndefined();
+  });
+});

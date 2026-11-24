@@ -11,6 +11,8 @@ export interface LaunchSelection {
   firmware: FirmwareSchema | null;
   slot: SlotChoice;
   customSlot: string;
+  /** The snapshot the resume came from, which the session's writes build on. */
+  snapshotId: number | null;
 }
 
 /** That selection as ids, which is all a stored intent can hold. */
@@ -20,6 +22,7 @@ export interface LaunchIntent {
   firmwareId: number | null;
   slot: SlotChoice;
   customSlot: string;
+  snapshotId: number | null;
 }
 
 /** What the view offers to pick from, on the other side of the reload. */
@@ -36,6 +39,7 @@ export function launchIntentFor(selection: LaunchSelection): LaunchIntent {
     firmwareId: selection.firmware?.id ?? null,
     slot: selection.slot,
     customSlot: selection.customSlot,
+    snapshotId: selection.snapshotId,
   };
 }
 
@@ -52,6 +56,7 @@ export function resolveLaunchIntent(
     firmware: byId(options.firmware, intent.firmwareId),
     slot: intent.slot,
     customSlot: intent.customSlot,
+    snapshotId: intent.snapshotId,
   };
 }
 
@@ -62,7 +67,7 @@ function byId<T extends { id: number }>(
   return items.find((item) => item.id === id) ?? null;
 }
 
-const ID_KEYS = ["saveId", "stateId", "firmwareId"] as const;
+const ID_KEYS = ["saveId", "stateId", "firmwareId", "snapshotId"] as const;
 
 function hasOptionalId(value: object, key: string): boolean {
   if (!(key in value)) return false;

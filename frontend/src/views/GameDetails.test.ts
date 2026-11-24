@@ -4,7 +4,9 @@ import { defineComponent, type Ref, ref } from "vue";
 import type { EarnedAchievement, RAGameRomAchievement } from "@/__generated__";
 import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
+import { saveFixture, stateFixture } from "@/utils/assets.fixtures";
 import { detailedRomFixture } from "@/utils/rom.fixtures";
+import { channelFixture } from "@/utils/snapshots.fixtures";
 import { userFixture } from "@/utils/user.fixtures";
 import GameDetails from "./GameDetails.vue";
 
@@ -133,6 +135,34 @@ async function mountDetails(rom: DetailedRom, tab?: string) {
 
 const tabIds = (wrapper: Awaited<ReturnType<typeof mountDetails>>) =>
   wrapper.findAll('[data-test="tab"]').map((tab) => tab.text());
+
+describe("GameDetails save data badge", () => {
+  it("counts backups and own channels, not the rows channels hold", async () => {
+    const wrapper = await mountDetails(
+      detailedRomFixture({
+        user_saves: [
+          saveFixture({ id: 1 }),
+          saveFixture({ id: 2, channel_id: "c1", slot: "autosave" }),
+          saveFixture({ id: 3, channel_id: "c1" }),
+        ],
+        user_states: [
+          stateFixture({ id: 4 }),
+          stateFixture({ id: 5, channel_id: "c1" }),
+        ],
+        user_channels: [
+          channelFixture({ id: "c1" }),
+          channelFixture({ id: "c2", is_own: false }),
+        ],
+      }),
+    );
+
+    const badge = wrapper
+      .findAll('[data-test="tab"]')
+      .find((tab) => tab.text() === "save-data")
+      ?.attributes("data-badge");
+    expect(badge).toBe("3");
+  });
+});
 
 describe("GameDetails achievements tab", () => {
   it("offers the tab when the ROM has achievements", async () => {

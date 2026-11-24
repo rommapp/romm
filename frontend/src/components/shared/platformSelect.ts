@@ -1,4 +1,3 @@
-import { sortBy, partition } from "lodash";
 import type { Platform } from "@/stores/platforms";
 
 /** `rom_count > 0` first, then empty; each block sorted by `display_name`. */
@@ -7,11 +6,17 @@ export const promotePlatformsWithGamesFirst = <
 >(
   platforms: T[],
 ): { promoted: T[]; remaining: T[] } => {
-  const [promoted, remaining] = partition(
-    sortBy(platforms, (p) => p.display_name),
-    (p) => p.rom_count > 0,
+  const sorted = [...platforms].sort((a, b) =>
+    a.display_name < b.display_name
+      ? -1
+      : a.display_name > b.display_name
+        ? 1
+        : 0,
   );
-  return { promoted, remaining };
+  return {
+    promoted: sorted.filter((p) => p.rom_count > 0),
+    remaining: sorted.filter((p) => p.rom_count <= 0),
+  };
 };
 
 export const PLATFORM_ROM_COUNT_CAP = 9999;

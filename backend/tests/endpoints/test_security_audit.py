@@ -7,16 +7,13 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 from tests.audit_events import recorded_events
+from tests.auth_helpers import bearer
 
 from endpoints import auth as auth_endpoints
 from endpoints import permissions as permission_endpoints
 from handler.auth.base_handler import auth_handler
 from models.user import User
 from tasks.tasks import TaskSpec, TaskType
-
-
-def _auth(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
 
 
 def _basic(username: str, password: str) -> dict[str, str]:
@@ -57,6 +54,72 @@ class TestLogin:
         [event] = recorded_events()
         assert event.actor_kind == "anonymous"
         assert event.data["username"] is None
+
+    def test_every_failure_logs_the_account_name(
+        self, client: TestClient, admin_user: User, mocker
+    ):
+        log = mocker.patch.object(auth_endpoints, "log")
+
+        for _ in range(3):
+            client.post("/api/login", headers=_basic("test_admin", "s3cret-guess"))
+
+        lines = [c.args[0] for c in log.warning.call_args_list]
+        assert (
+            lines
+            == [
+                "auth.login_failed method=password reason=credentials "
+                "username=test_admin ip=testclient"
+            ]
+            * 3
+        )
+
+    def test_a_disabled_account_logs_its_reason(
+        self, client: TestClient, admin_user: User, mocker
+    ):
+        log = mocker.patch.object(auth_endpoints, "log")
+        mocker.patch.object(
+            auth_handler, "authenticate_user", return_value=Mock(enabled=False)
+        )
+
+        client.post("/api/login", headers=_basic("test_admin", "test_admin_password"))
+
+        [line] = [c.args[0] for c in log.warning.call_args_list]
+        assert "reason=disabled username=test_admin " in line
+
+    def test_an_unknown_name_is_logged_as_a_stable_hash(
+        self, client: TestClient, mocker
+    ):
+        log = mocker.patch.object(auth_endpoints, "log")
+
+        client.post("/api/login", headers=_basic("hunter2", "wrong"))
+        client.post("/api/login", headers=_basic("hunter2", "wrong"))
+        client.post("/api/login", headers=_basic("hunter3", "wrong"))
+
+        lines = [c.args[0] for c in log.warning.call_args_list]
+        assert not any("hunter" in line for line in lines)
+        names = [line.split("username=")[1].split()[0] for line in lines]
+        assert names[0] == names[1] != names[2]
+        assert names[0].startswith("unknown:")
+
+    def test_a_token_grant_failure_logs_its_method(
+        self, client: TestClient, admin_user: User, mocker
+    ):
+        log = mocker.patch.object(auth_endpoints, "log")
+
+        client.post(
+            "/api/token",
+            data={
+                "grant_type": "password",
+                "username": "test_admin",
+                "password": "wrong",
+            },
+        )
+
+        [line] = [c.args[0] for c in log.warning.call_args_list]
+        assert line.startswith("auth.login_failed method=token reason=credentials ")
+
+    def test_log_safe_keeps_a_name_on_one_token(self):
+        assert auth_endpoints._log_safe("a b\nc\x1bd") == "a\\x20b\\x0ac\\x1bd"
 
     def test_one_address_cycling_usernames_is_capped(self, client: TestClient, mocker):
         mocker.patch.object(auth_endpoints, "LOGIN_FAILURES_PER_ADDRESS", 3)
@@ -113,7 +176,7 @@ class TestUsers:
         client.put(
             f"/api/users/{viewer_user.id}",
             data={"role": "admin"},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         [event] = recorded_events()
@@ -128,7 +191,7 @@ class TestUsers:
         client.put(
             f"/api/users/{admin_user.id}",
             data={"ui_settings": '{"theme": "dark"}'},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
 
         assert recorded_events() == []
@@ -136,7 +199,7 @@ class TestUsers:
     def test_a_deleted_user_keeps_their_name(
         self, client: TestClient, access_token: str, viewer_user: User
     ):
-        client.delete(f"/api/users/{viewer_user.id}", headers=_auth(access_token))
+        client.delete(f"/api/users/{viewer_user.id}", headers=bearer(access_token))
 
         [event] = recorded_events()
         assert (event.action, event.target_name) == ("user.delete", "test_viewer")
@@ -161,7 +224,7 @@ def test_a_manual_task_run_is_recorded(
     task.can_run_manually = True
     task.single_instance = False
     with patch("endpoints.tasks.RUNNABLE_TASKS", {"cleanup": task}):
-        client.post("/api/tasks/run/cleanup", headers=_auth(access_token))
+        client.post("/api/tasks/run/cleanup", headers=bearer(access_token))
 
     [event] = recorded_events()
     assert event.action == "task.run"
@@ -175,14 +238,14 @@ class TestClientTokens:
         response = client.post(
             "/api/client-tokens",
             json={"name": "Argosy", "scopes": ["roms.read"]},
-            headers=_auth(access_token),
+            headers=bearer(access_token),
         )
         return cast(int, response.json()["id"])
 
     def test_creating_and_revoking_are_recorded(
         self, client: TestClient, access_token: str, token_id: int
     ):
-        client.delete(f"/api/client-tokens/{token_id}", headers=_auth(access_token))
+        client.delete(f"/api/client-tokens/{token_id}", headers=bearer(access_token))
 
         revoke, create = recorded_events()
         assert create.action == "client_token.create"
@@ -200,7 +263,7 @@ def test_a_hide_succeeds_when_naming_it_for_the_log_fails(
 
     response = client.post(
         "/api/permissions/hidden",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
         json={"entity": "roms", "entity_id": rom.id, "user_id": viewer_user.id},
     )
 
@@ -214,7 +277,7 @@ def test_a_new_permission_group_is_recorded(client: TestClient, access_token: st
     client.post(
         "/api/permissions/groups",
         json={"name": name, "grants": []},
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     [event] = recorded_events()

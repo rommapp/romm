@@ -368,6 +368,12 @@ export const motion = {
   easeBack: "cubic-bezier(0.34, 1.56, 0.64, 1)",
 } as const;
 
+// Dims something that is present but not in effect: a disabled control,
+// an unlinked provider, a locked achievement, an unmatched hash source.
+export const opacity = {
+  inactive: "0.55",
+} as const;
+
 export const focus = {
   ringWidthMouse: "2px",
   ringWidthKey: "2.5px",
@@ -399,11 +405,9 @@ export const layout = {
   // Pills in the top bar's right cluster (scan indicator, mini player, user
   // menu) share one height so they line up.
   navPillHeight: "38px",
-  // Fixed bottom tab bar shown on phones (xs). Mirrors navHeight so the
-  // top and bottom chrome read as a matched pair. Consumed as
-  // `--r-bottom-nav-h` to reserve space in AppLayout and offset the
-  // gallery scroll height on mobile.
-  bottomNavHeight: "58px",
+  // Bottom tab bar on sm-and-down: the 64px pill plus 8px gutters above and
+  // below. Layouts reserve it as `--r-bottom-nav-h` (safe-area inset excluded).
+  bottomNavHeight: "80px",
   // Cap for the bottom tab bar pill so it stays thumb-sized on large
   // tablets (the sm range reaches 959px) instead of stretching the four
   // destinations edge-to-edge. Below this width the pill just fills the
@@ -495,6 +499,7 @@ export const tokens = {
   radius,
   elevation,
   motion,
+  opacity,
   focus,
   layout,
   zIndex,

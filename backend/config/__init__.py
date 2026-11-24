@@ -173,8 +173,10 @@ FLASHPOINT_API_ENABLED: Final[bool] = safe_str_to_bool(
 # HOWLONGTOBEAT
 HLTB_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("HLTB_API_ENABLED"))
 
-# DEMOZOO / POUET (public JSON, no API key)
-DEMOZOO_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("DEMOZOO_API_ENABLED"))
+# DEMOZOO
+DEMOZOO_API_KEY: Final[str | None] = _get_env("DEMOZOO_API_KEY")
+
+# POUET (public JSON, no API key)
 POUET_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("POUET_API_ENABLED"))
 # CSDb XML webservice, C64 stills
 CSDB_API_ENABLED: Final[bool] = safe_str_to_bool(_get_env("CSDB_API_ENABLED"))
@@ -395,6 +397,13 @@ SCHEDULED_CLEANUP_SYNC_SESSIONS_CRON: Final[str] = _get_env(
     "SCHEDULED_CLEANUP_SYNC_SESSIONS_CRON",
     "23 * * * *",  # Hourly, off the hour
 )
+ENABLE_SCHEDULED_PRUNE_SNAPSHOTS: Final[bool] = safe_str_to_bool(
+    _get_env("ENABLE_SCHEDULED_PRUNE_SNAPSHOTS", "true")
+)
+SCHEDULED_PRUNE_SNAPSHOTS_CRON: Final[str] = _get_env(
+    "SCHEDULED_PRUNE_SNAPSHOTS_CRON",
+    "41 * * * *",  # Hourly, off the hour
+)
 ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES: Final[bool] = safe_str_to_bool(
     _get_env("ENABLE_SCHEDULED_CLEANUP_ORPHANED_RESOURCES")
 )
@@ -486,6 +495,12 @@ MAX_AUTOCLEANUP_LIMIT: Final[int] = max(
 )
 # Versions the server keeps per save slot whatever the client asks; 0 disables.
 MAX_SAVES_PER_SLOT: Final[int] = max(0, safe_int(_get_env("MAX_SAVES_PER_SLOT"), 50))
+# Snapshots each save channel keeps, current included and pinned ones uncounted.
+SNAPSHOT_RETENTION: Final[int] = max(1, safe_int(_get_env("SNAPSHOT_RETENTION"), 10))
+# Days a branch a stale push left behind is kept, pinned ones excepted.
+SNAPSHOT_BRANCH_LIFETIME_DAYS: Final[int] = max(
+    1, safe_int(_get_env("SNAPSHOT_BRANCH_LIFETIME_DAYS"), 30)
+)
 
 # LOGGING
 LOGLEVEL: Final[str] = _get_env("LOGLEVEL", "INFO").upper()

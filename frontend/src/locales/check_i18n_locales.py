@@ -6,6 +6,13 @@ import sys
 from typing import Any
 
 PLACEHOLDER = re.compile(r"\{\s*([\w-]+)\s*\}")
+LATIN = "A-Za-zÀ-ɏ"
+CYRILLIC = "Ѐ-ӿ"
+# Machine translation leaves glosses glued to a word ("ХешісCity in Germany").
+MIXED_SCRIPT_WORD = re.compile(
+    rf"[{LATIN}{CYRILLIC}]*(?:[{LATIN}][{CYRILLIC}]|[{CYRILLIC}][{LATIN}])"
+    rf"[{LATIN}{CYRILLIC}]*"
+)
 
 
 def flatten(data: dict[str, Any], prefix: str = "") -> dict[str, str]:
@@ -39,6 +46,19 @@ def placeholder_mismatches(
                 (key, sorted(expected - actual), sorted(actual - expected))
             )
     return mismatches
+
+
+def mixed_script_words(lang_data: dict[str, Any]) -> list[tuple[str, str]]:
+    """Words that run Latin and Cyrillic letters together.
+
+    Returns:
+        (key, word) tuples in key order.
+    """
+    found: list[tuple[str, str]] = []
+    for key, value in flatten(lang_data).items():
+        text = PLACEHOLDER.sub(" ", value)
+        found.extend((key, word) for word in MIXED_SCRIPT_WORD.findall(text))
+    return found
 
 
 def main() -> None:
@@ -108,6 +128,13 @@ def main() -> None:
                 print(
                     f"  In {filename}, {key} placeholders differ:"
                     f" missing {missing}, extra {extra}"
+                )
+                has_errors = True
+
+            for key, word in mixed_script_words(lang_data):
+                print(
+                    f"  In {filename}, {key} mixes Latin and Cyrillic"
+                    f" letters in one word: {word!r}"
                 )
                 has_errors = True
 

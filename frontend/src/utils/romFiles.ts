@@ -1,6 +1,12 @@
 import type { RomFileSchema } from "@/__generated__";
 import { FRONTEND_RESOURCES_PATH } from "@/utils";
 
+/** A file name's last extension, lowercased and without the dot ("" when it has none). */
+export function fileExtension(name: string): string {
+  const dot = name.lastIndexOf(".");
+  return dot === -1 ? "" : name.slice(dot + 1).toLowerCase();
+}
+
 export function romFileUrl(fileId: number, fileName: string): string {
   return `/api/roms/${fileId}/files/content/${encodeURIComponent(fileName)}`;
 }

@@ -4,6 +4,7 @@
 /* eslint-disable */
 export type SetupExistingPlatform = {
     fs_slug: string;
+    slug: string;
     rom_count: number;
 };
 

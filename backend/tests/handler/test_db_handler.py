@@ -14,6 +14,7 @@ from tests.factories import (
 )
 
 from handler.auth.base_handler import auth_handler
+from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import (
     db_platform_handler,
     db_rom_handler,
@@ -1160,7 +1161,7 @@ def test_saves(save: Save, rom: Rom, platform: Platform, admin_user: User):
         file_size_bytes=1.0,
     )
 
-    refreshed = db_rom_handler.get_rom(save.rom_id)
+    refreshed = db_rom_handler.get_rom(save.attached_rom_id)
     assert refreshed is not None
     assert len(refreshed.saves) == 2
 
@@ -1175,7 +1176,7 @@ def test_saves(save: Save, rom: Rom, platform: Platform, admin_user: User):
 
     db_save_handler.delete_save(new_save.id)
 
-    refreshed = db_rom_handler.get_rom(save.rom_id)
+    refreshed = db_rom_handler.get_rom(save.attached_rom_id)
     assert refreshed is not None
     assert len(refreshed.saves) == 1
 
@@ -1183,22 +1184,22 @@ def test_saves(save: Save, rom: Rom, platform: Platform, admin_user: User):
 def test_states(state: State, rom: Rom, admin_user: User):
     make_state(rom, admin_user, "test_state_2.state", file_size_bytes=1.0)
 
-    refreshed = db_rom_handler.get_rom(id=state.rom_id)
+    refreshed = db_rom_handler.get_rom(id=state.attached_rom_id)
     assert refreshed is not None
     assert len(refreshed.states) == 2
 
-    new_state = db_state_handler.get_state(user_id=admin_user.id, id=state.id)
+    new_state = db_state_handler.get_state_by_id(state.id)
     assert new_state is not None
     assert new_state.file_name == "test_state.state"
 
     db_state_handler.update_state(new_state.id, {"file_name": "test_state_2.state"})
-    new_state = db_state_handler.get_state(user_id=admin_user.id, id=new_state.id)
+    new_state = db_state_handler.get_state_by_id(new_state.id)
     assert new_state is not None
     assert new_state.file_name == "test_state_2.state"
 
     db_state_handler.delete_state(id=new_state.id)
 
-    refreshed = db_rom_handler.get_rom(id=state.rom_id)
+    refreshed = db_rom_handler.get_rom(id=state.attached_rom_id)
     assert refreshed is not None
     assert len(refreshed.states) == 1
 
@@ -1311,5 +1312,5 @@ def test_get_rom_filters_includes_tags(rom: Rom, platform: Platform):
     make_rom(platform, "rom_proto", tags=["Proto"])
     make_rom(platform, "rom_beta", tags=["Beta", "Demo"])
 
-    filters = db_rom_handler.get_rom_filters()
+    filters = db_rom_handler.get_rom_filters(UNRESTRICTED)
     assert filters["tags"] == ["Beta", "Demo", "Proto"]

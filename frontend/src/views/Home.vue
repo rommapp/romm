@@ -20,6 +20,8 @@ import LiveSessionCard from "@/components/Home/LiveSessionCard.vue";
 import WidgetBar from "@/components/Home/Widgets/WidgetBar.vue";
 import PlatformTile from "@/components/Platforms/PlatformTile.vue";
 import CardRow from "@/components/shared/CardRow.vue";
+import PageHeadBand from "@/components/shared/PageHeadBand.vue";
+import PageHeader from "@/components/shared/PageHeader.vue";
 import RecommendationReason from "@/components/shared/RecommendationReason.vue";
 import { useGridNav } from "@/composables/useGridNav";
 import { useLoadingPhase } from "@/composables/useLoadingPhase";
@@ -276,360 +278,379 @@ function collectionCovers(c: {
 </script>
 
 <template>
-  <div ref="gridRoot" class="r-home">
-    <!-- Empty library state, shown when nothing has been ingested
-         yet. Hides every section underneath so the user lands on a
-         decision (upload vs scan), not on a row of skeletons. -->
-    <section v-if="phase === 'empty'" class="r-home-empty r-asset-fade">
-      <div class="r-home-empty__hero">
-        <RIcon
-          icon="mdi-controller-classic-outline"
-          size="72"
-          class="r-home-empty__hero-icon"
-        />
-        <h2 class="r-home-empty__title">
-          {{ t("home.empty-headline") }}
-        </h2>
-        <p class="r-home-empty__hint">{{ t("home.empty-hint") }}</p>
+  <div class="r-home">
+    <PageHeadBand class="r-home__head">
+      <PageHeader :title="t('common.home')" />
+    </PageHeadBand>
 
-        <!-- Filesystem snapshot, only rendered once /setup/library
-             has resolved. Mirrors the chip pair from setup wizard
-             step 1 so the user sees the same "RomM detected this on
-             disk" telemetry from both entry points. -->
-        <div
-          v-if="libraryInfo && detectedPlatformCount + detectedGameCount > 0"
-          class="r-home-empty__detected r-asset-fade"
-        >
-          <RChip
-            size="small"
-            variant="translucent"
-            color="primary"
-            prepend-icon="mdi-gamepad-variant-outline"
-          >
-            {{
-              t(
-                "home.empty-detected-platforms",
-                { count: detectedPlatformCount },
-                detectedPlatformCount,
-              )
-            }}
-          </RChip>
-          <RChip size="small" variant="translucent" prepend-icon="mdi-disc">
-            {{
-              t(
-                "home.empty-detected-games",
-                { count: detectedGameCount },
-                detectedGameCount,
-              )
-            }}
-          </RChip>
-        </div>
-      </div>
-
-      <div class="r-home-empty__choices">
-        <router-link :to="{ name: ROUTES.UPLOAD }" class="r-home-empty__choice">
-          <div class="r-home-empty__choice-icon">
-            <RIcon icon="mdi-cloud-upload-outline" size="40" />
-          </div>
-          <h3 class="r-home-empty__choice-title">
-            {{ t("home.empty-upload-title") }}
-          </h3>
-          <p class="r-home-empty__choice-desc">
-            {{ t("home.empty-upload-desc") }}
-          </p>
-          <span class="r-home-empty__choice-cta">
-            {{ t("home.empty-upload-cta") }}
-            <RIcon icon="mdi-arrow-right" size="16" />
-          </span>
-        </router-link>
-
-        <RDivider vertical class="r-home-empty__divider" />
-
-        <router-link :to="{ name: ROUTES.SCAN }" class="r-home-empty__choice">
-          <div class="r-home-empty__choice-icon">
-            <RIcon icon="mdi-folder-search-outline" size="40" />
-          </div>
-          <h3 class="r-home-empty__choice-title">
-            {{ t("home.empty-scan-title") }}
-          </h3>
-          <p class="r-home-empty__choice-desc">
-            {{ t("home.empty-scan-desc") }}
-          </p>
-          <span class="r-home-empty__choice-cta">
-            {{ t("home.empty-scan-cta") }}
-            <RIcon icon="mdi-arrow-right" size="16" />
-          </span>
-        </router-link>
-      </div>
-    </section>
-
-    <template v-else-if="phase !== 'idle'">
-      <!-- Widget bar: random pick, library snapshot, future RA widgets.
-           Hidden when the master toggle is off; the bar itself also
-           drops out when every individual widget is disabled. -->
-      <WidgetBar v-if="showHomeWidgets" />
-
-      <!-- Live now: multiplayer streams open to a second player -->
-      <CardRow
-        v-if="liveSessions.length"
-        :title="t('home.live-sessions')"
-        :count="liveSessions.length"
-      >
-        <template #icon>
-          <RIcon icon="mdi-access-point" size="20" />
-        </template>
-        <LiveSessionCard
-          v-for="(session, i) in liveSessions"
-          :key="`live-${session.container}`"
-          class="r-card-fade"
-          :style="{ '--card-fade-i': i }"
-          :session="session"
-          :webp="supportsWebp"
-        />
-      </CardRow>
-
-      <!-- Continue playing -->
-      <CardRow
-        v-if="
-          showContinuePlaying &&
-          (continuePlayingRoms.length || fetchingContinue)
-        "
-        :title="t('home.continue-playing')"
-        :count="knownCount(fetchingContinue, continuePlayingRoms)"
-      >
-        <template #icon>
-          <RIcon icon="mdi-play" size="20" />
-        </template>
-        <template v-if="fetchingContinue && !continuePlayingRoms.length">
-          <GameCardSkeleton
-            v-for="n in RECENT_PLAYED_ROMS_LIMIT"
-            :key="`cs-${n}`"
+    <div ref="gridRoot" class="r-home__sections">
+      <!-- Empty library state, shown when nothing has been ingested
+           yet. Hides every section underneath so the user lands on a
+           decision (upload vs scan), not on a row of skeletons. -->
+      <section v-if="phase === 'empty'" class="r-home-empty r-asset-fade">
+        <div class="r-home-empty__hero">
+          <RIcon
+            icon="mdi-controller-classic-outline"
+            size="72"
+            class="r-home-empty__hero-icon"
           />
-        </template>
-        <template v-else>
-          <GameCard
-            v-for="(rom, i) in continuePlayingRoms"
-            :key="`cont-${rom.id}`"
+          <h2 class="r-home-empty__title">
+            {{ t("home.empty-headline") }}
+          </h2>
+          <p class="r-home-empty__hint">{{ t("home.empty-hint") }}</p>
+
+          <!-- Filesystem snapshot, only rendered once /setup/library
+               has resolved. Mirrors the chip pair from setup wizard
+               step 1 so the user sees the same "RomM detected this on
+               disk" telemetry from both entry points. -->
+          <div
+            v-if="libraryInfo && detectedPlatformCount + detectedGameCount > 0"
+            class="r-home-empty__detected r-asset-fade"
+          >
+            <RChip
+              size="small"
+              variant="translucent"
+              color="primary"
+              prepend-icon="mdi-gamepad-variant-outline"
+            >
+              {{
+                t(
+                  "home.empty-detected-platforms",
+                  { count: detectedPlatformCount },
+                  detectedPlatformCount,
+                )
+              }}
+            </RChip>
+            <RChip size="small" variant="translucent" prepend-icon="mdi-disc">
+              {{
+                t(
+                  "home.empty-detected-games",
+                  { count: detectedGameCount },
+                  detectedGameCount,
+                )
+              }}
+            </RChip>
+          </div>
+        </div>
+
+        <div class="r-home-empty__choices">
+          <router-link
+            :to="{ name: ROUTES.UPLOAD }"
+            class="r-home-empty__choice"
+          >
+            <div class="r-home-empty__choice-icon">
+              <RIcon icon="mdi-cloud-upload-outline" size="40" />
+            </div>
+            <h3 class="r-home-empty__choice-title">
+              {{ t("home.empty-upload-title") }}
+            </h3>
+            <p class="r-home-empty__choice-desc">
+              {{ t("home.empty-upload-desc") }}
+            </p>
+            <span class="r-home-empty__choice-cta">
+              {{ t("home.empty-upload-cta") }}
+              <RIcon icon="mdi-arrow-right" size="16" />
+            </span>
+          </router-link>
+
+          <RDivider vertical class="r-home-empty__divider" />
+
+          <router-link :to="{ name: ROUTES.SCAN }" class="r-home-empty__choice">
+            <div class="r-home-empty__choice-icon">
+              <RIcon icon="mdi-folder-search-outline" size="40" />
+            </div>
+            <h3 class="r-home-empty__choice-title">
+              {{ t("home.empty-scan-title") }}
+            </h3>
+            <p class="r-home-empty__choice-desc">
+              {{ t("home.empty-scan-desc") }}
+            </p>
+            <span class="r-home-empty__choice-cta">
+              {{ t("home.empty-scan-cta") }}
+              <RIcon icon="mdi-arrow-right" size="16" />
+            </span>
+          </router-link>
+        </div>
+      </section>
+
+      <template v-else-if="phase !== 'idle'">
+        <!-- Widget bar: random pick, library snapshot, future RA widgets.
+             Hidden when the master toggle is off; the bar itself also
+             drops out when every individual widget is disabled. -->
+        <WidgetBar v-if="showHomeWidgets" />
+
+        <!-- Live now: multiplayer streams open to a second player -->
+        <CardRow
+          v-if="liveSessions.length"
+          :title="t('home.live-sessions')"
+          :count="liveSessions.length"
+        >
+          <template #icon>
+            <RIcon icon="mdi-access-point" size="20" />
+          </template>
+          <LiveSessionCard
+            v-for="(session, i) in liveSessions"
+            :key="`live-${session.container}`"
             class="r-card-fade"
             :style="{ '--card-fade-i': i }"
-            :rom="rom"
+            :session="session"
             :webp="supportsWebp"
-            :cover-src="rom.screenshot_path"
-            cover-pip
           />
-        </template>
-      </CardRow>
+        </CardRow>
 
-      <!-- Recommended for you -->
-      <CardRow
-        v-if="
-          showRecommendations &&
-          (recommendedRoms.length || fetchingRecommendations)
-        "
-        :title="t('recommendations.for-you')"
-        :count="knownCount(fetchingRecommendations, recommendedRoms)"
-      >
-        <template #icon>
-          <RIcon icon="mdi-lightbulb-on-outline" size="20" />
-        </template>
-        <template v-if="fetchingRecommendations && !recommendedRoms.length">
-          <div
-            v-for="n in RECOMMENDED_ROMS_LIMIT"
-            :key="`fys-${n}`"
-            class="r-home__rec"
-          >
-            <GameCardSkeleton />
-            <span class="r-home__rec-caption">
-              <RSkeletonBlock width="60%" :height="10" />
-            </span>
-          </div>
-        </template>
-        <template v-else>
-          <div
-            v-for="(item, i) in recommendedRoms"
-            :key="`fy-${item.rom.id}`"
-            class="r-home__rec"
-          >
+        <!-- Continue playing -->
+        <CardRow
+          v-if="
+            showContinuePlaying &&
+            (continuePlayingRoms.length || fetchingContinue)
+          "
+          :title="t('home.continue-playing')"
+          :count="knownCount(fetchingContinue, continuePlayingRoms)"
+        >
+          <template #icon>
+            <RIcon icon="mdi-play" size="20" />
+          </template>
+          <template v-if="fetchingContinue && !continuePlayingRoms.length">
+            <GameCardSkeleton
+              v-for="n in RECENT_PLAYED_ROMS_LIMIT"
+              :key="`cs-${n}`"
+            />
+          </template>
+          <template v-else>
             <GameCard
+              v-for="(rom, i) in continuePlayingRoms"
+              :key="`cont-${rom.id}`"
               class="r-card-fade"
               :style="{ '--card-fade-i': i }"
-              :rom="item.rom"
+              :rom="rom"
+              :webp="supportsWebp"
+              :cover-src="rom.screenshot_path"
+              cover-pip
+            />
+          </template>
+        </CardRow>
+
+        <!-- Recommended for you -->
+        <CardRow
+          v-if="
+            showRecommendations &&
+            (recommendedRoms.length || fetchingRecommendations)
+          "
+          :title="t('recommendations.for-you')"
+          :count="knownCount(fetchingRecommendations, recommendedRoms)"
+        >
+          <template #icon>
+            <RIcon icon="mdi-lightbulb-on-outline" size="20" />
+          </template>
+          <template v-if="fetchingRecommendations && !recommendedRoms.length">
+            <div
+              v-for="n in RECOMMENDED_ROMS_LIMIT"
+              :key="`fys-${n}`"
+              class="r-home__rec"
+            >
+              <GameCardSkeleton />
+              <span class="r-home__rec-caption">
+                <RSkeletonBlock width="60%" :height="10" />
+              </span>
+            </div>
+          </template>
+          <template v-else>
+            <div
+              v-for="(item, i) in recommendedRoms"
+              :key="`fy-${item.rom.id}`"
+              class="r-home__rec"
+            >
+              <GameCard
+                class="r-card-fade"
+                :style="{ '--card-fade-i': i }"
+                :rom="item.rom"
+                :webp="supportsWebp"
+              />
+              <RecommendationReason
+                :reasons="item.reasons"
+                :seed-rom-name="item.seed_rom_name"
+              />
+            </div>
+          </template>
+        </CardRow>
+
+        <!-- Recently added -->
+        <CardRow
+          v-if="showRecentRoms"
+          :title="t('home.recently-added')"
+          :count="knownCount(fetchingRecent, recentRoms)"
+        >
+          <template #icon>
+            <RIcon icon="mdi-shimmer" size="20" />
+          </template>
+          <template v-if="fetchingRecent && !recentRoms.length">
+            <GameCardSkeleton v-for="n in RECENT_ROMS_LIMIT" :key="`rs-${n}`" />
+          </template>
+          <div v-else-if="!recentRoms.length" class="r-home__empty">
+            {{ t("home.no-games-yet") }}
+          </div>
+          <template v-else>
+            <GameCard
+              v-for="(rom, i) in recentRoms"
+              :key="`rec-${rom.id}`"
+              class="r-card-fade"
+              :style="{ '--card-fade-i': i }"
+              :rom="rom"
               :webp="supportsWebp"
             />
-            <RecommendationReason
-              :reasons="item.reasons"
-              :seed-rom-name="item.seed_rom_name"
-            />
-          </div>
-        </template>
-      </CardRow>
+          </template>
+        </CardRow>
 
-      <!-- Recently added -->
-      <CardRow
-        v-if="showRecentRoms"
-        :title="t('home.recently-added')"
-        :count="knownCount(fetchingRecent, recentRoms)"
+        <!-- Favorites -->
+        <!-- <CardRow
+        v-if="favoriteRoms.length"
+        title="Favorites"
+        :count="favoriteRoms.length"
       >
         <template #icon>
-          <RIcon icon="mdi-shimmer" size="20" />
+          <RIcon icon="mdi-heart" size="20" />
         </template>
-        <template v-if="fetchingRecent && !recentRoms.length">
-          <GameCardSkeleton v-for="n in RECENT_ROMS_LIMIT" :key="`rs-${n}`" />
-        </template>
-        <div v-else-if="!recentRoms.length" class="r-home__empty">
-          {{ t("home.no-games-yet") }}
-        </div>
-        <template v-else>
-          <GameCard
-            v-for="(rom, i) in recentRoms"
-            :key="`rec-${rom.id}`"
+        <GameCard
+          v-for="rom in favoriteRoms"
+          :key="`fav-${rom.id}`"
+          :rom="rom"
+          :webp="supportsWebp"
+        />
+      </CardRow> -->
+
+        <!-- Platforms -->
+        <CardRow
+          v-if="showPlatforms"
+          :title="t('common.platforms')"
+          :count="knownCount(fetchingPlatforms, filledPlatforms)"
+          gap="16px"
+        >
+          <template #icon>
+            <RIcon icon="mdi-controller" size="20" />
+          </template>
+          <template v-if="fetchingPlatforms && !filledPlatforms.length">
+            <RSkeletonBlock
+              v-for="n in 8"
+              :key="`ps-${n}`"
+              width="150px"
+              height="140px"
+              rounded="card"
+            />
+          </template>
+          <PlatformTile
+            v-for="(p, i) in filledPlatforms"
+            v-else
+            :id="p.id"
+            :key="`plat-${p.id}`"
             class="r-card-fade"
             :style="{ '--card-fade-i': i }"
-            :rom="rom"
-            :webp="supportsWebp"
+            :slug="p.slug"
+            :fs-slug="p.fs_slug"
+            :display-name="p.display_name"
+            :rom-count="p.rom_count"
+            variant="row"
           />
-        </template>
-      </CardRow>
+        </CardRow>
 
-      <!-- Favorites -->
-      <!-- <CardRow
-      v-if="favoriteRoms.length"
-      title="Favorites"
-      :count="favoriteRoms.length"
-    >
-      <template #icon>
-        <RIcon icon="mdi-heart" size="20" />
+        <!-- Collections -->
+        <CardRow
+          v-if="
+            showCollections && (allCollections.length || fetchingCollections)
+          "
+          :title="t('common.collections')"
+          :count="knownCount(fetchingCollections, allCollections)"
+          gap="16px"
+        >
+          <template #icon>
+            <RIcon icon="mdi-bookmark-outline" size="20" />
+          </template>
+          <CollectionTile
+            v-for="(c, i) in allCollections"
+            :id="c.id"
+            :key="`coll-${c.id}`"
+            class="r-card-fade"
+            :style="{ '--card-fade-i': i }"
+            :to="`/collection/${c.id}`"
+            :name="c.name"
+            :rom-count="c.rom_count"
+            :covers="collectionCovers(c)"
+            :is-public="c.is_public ?? false"
+            variant="row"
+          />
+        </CardRow>
+
+        <!-- Smart collections -->
+        <CardRow
+          v-if="
+            showSmartCollections &&
+            (smartCollections.length || fetchingSmartCollections)
+          "
+          :title="t('common.smart-collections')"
+          :count="knownCount(fetchingSmartCollections, smartCollections)"
+          gap="16px"
+        >
+          <template #icon>
+            <RIcon icon="mdi-flash" size="20" />
+          </template>
+          <CollectionTile
+            v-for="(c, i) in smartCollections"
+            :id="c.id"
+            :key="`smart-${c.id}`"
+            class="r-card-fade"
+            :style="{ '--card-fade-i': i }"
+            :to="`/collection/smart/${c.id}`"
+            :name="c.name"
+            :rom-count="c.rom_count"
+            :covers="collectionCovers(c)"
+            kind="smart"
+            :is-public="c.is_public ?? false"
+            variant="row"
+          />
+        </CardRow>
+
+        <!-- Virtual (autogenerated) collections -->
+        <CardRow
+          v-if="
+            showVirtualCollections &&
+            (virtualCollections.length || fetchingVirtualCollections)
+          "
+          :title="t('common.virtual-collections')"
+          :count="knownCount(fetchingVirtualCollections, virtualCollections)"
+          gap="16px"
+        >
+          <template #icon>
+            <RIcon icon="mdi-bookmark-box" size="20" />
+          </template>
+          <CollectionTile
+            v-for="(c, i) in virtualCollections"
+            :id="c.id"
+            :key="`virtual-${c.id}`"
+            class="r-card-fade"
+            :style="{ '--card-fade-i': i }"
+            :to="`/collection/virtual/${c.id}`"
+            :name="c.name"
+            :rom-count="c.rom_count"
+            :covers="collectionCovers(c)"
+            kind="virtual"
+            variant="row"
+          />
+        </CardRow>
       </template>
-      <GameCard
-        v-for="rom in favoriteRoms"
-        :key="`fav-${rom.id}`"
-        :rom="rom"
-        :webp="supportsWebp"
-      />
-    </CardRow> -->
-
-      <!-- Platforms -->
-      <CardRow
-        v-if="showPlatforms"
-        :title="t('common.platforms')"
-        :count="knownCount(fetchingPlatforms, filledPlatforms)"
-        gap="16px"
-      >
-        <template #icon>
-          <RIcon icon="mdi-controller" size="20" />
-        </template>
-        <template v-if="fetchingPlatforms && !filledPlatforms.length">
-          <RSkeletonBlock
-            v-for="n in 8"
-            :key="`ps-${n}`"
-            width="150px"
-            height="140px"
-            rounded="card"
-          />
-        </template>
-        <PlatformTile
-          v-for="(p, i) in filledPlatforms"
-          v-else
-          :id="p.id"
-          :key="`plat-${p.id}`"
-          class="r-card-fade"
-          :style="{ '--card-fade-i': i }"
-          :slug="p.slug"
-          :fs-slug="p.fs_slug"
-          :display-name="p.display_name"
-          :rom-count="p.rom_count"
-          variant="row"
-        />
-      </CardRow>
-
-      <!-- Collections -->
-      <CardRow
-        v-if="showCollections && (allCollections.length || fetchingCollections)"
-        :title="t('common.collections')"
-        :count="knownCount(fetchingCollections, allCollections)"
-        gap="16px"
-      >
-        <template #icon>
-          <RIcon icon="mdi-bookmark-outline" size="20" />
-        </template>
-        <CollectionTile
-          v-for="(c, i) in allCollections"
-          :id="c.id"
-          :key="`coll-${c.id}`"
-          class="r-card-fade"
-          :style="{ '--card-fade-i': i }"
-          :to="`/collection/${c.id}`"
-          :name="c.name"
-          :rom-count="c.rom_count"
-          :covers="collectionCovers(c)"
-          :is-public="c.is_public ?? false"
-          variant="row"
-        />
-      </CardRow>
-
-      <!-- Smart collections -->
-      <CardRow
-        v-if="
-          showSmartCollections &&
-          (smartCollections.length || fetchingSmartCollections)
-        "
-        :title="t('common.smart-collections')"
-        :count="knownCount(fetchingSmartCollections, smartCollections)"
-        gap="16px"
-      >
-        <template #icon>
-          <RIcon icon="mdi-flash" size="20" />
-        </template>
-        <CollectionTile
-          v-for="(c, i) in smartCollections"
-          :id="c.id"
-          :key="`smart-${c.id}`"
-          class="r-card-fade"
-          :style="{ '--card-fade-i': i }"
-          :to="`/collection/smart/${c.id}`"
-          :name="c.name"
-          :rom-count="c.rom_count"
-          :covers="collectionCovers(c)"
-          kind="smart"
-          :is-public="c.is_public ?? false"
-          variant="row"
-        />
-      </CardRow>
-
-      <!-- Virtual (autogenerated) collections -->
-      <CardRow
-        v-if="
-          showVirtualCollections &&
-          (virtualCollections.length || fetchingVirtualCollections)
-        "
-        :title="t('common.virtual-collections')"
-        :count="knownCount(fetchingVirtualCollections, virtualCollections)"
-        gap="16px"
-      >
-        <template #icon>
-          <RIcon icon="mdi-bookmark-box" size="20" />
-        </template>
-        <CollectionTile
-          v-for="(c, i) in virtualCollections"
-          :id="c.id"
-          :key="`virtual-${c.id}`"
-          class="r-card-fade"
-          :style="{ '--card-fade-i': i }"
-          :to="`/collection/virtual/${c.id}`"
-          :name="c.name"
-          :rom-count="c.rom_count"
-          :covers="collectionCovers(c)"
-          kind="virtual"
-          variant="row"
-        />
-      </CardRow>
-    </template>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .r-home {
-  padding: 16px 0 48px;
+  padding-bottom: 48px;
+}
+
+/* The sections run to the screen edges, so only the head takes the gutter. */
+.r-home__head {
+  padding-inline: var(--r-row-pad);
+}
+
+.r-home__sections {
   display: flex;
   flex-direction: column;
   gap: 6px;

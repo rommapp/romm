@@ -42,6 +42,7 @@ def test_rescan_preserves_user_authored_fields(platform):
         {
             "custom_name": "Sega - Genesis/ Mega Drive (Unofficial)",
             "description": "Aftermarket only",
+            "first_release_year": 1996,
         },
     )
 
@@ -58,6 +59,7 @@ def test_rescan_preserves_user_authored_fields(platform):
 
     assert merged.custom_name == "Sega - Genesis/ Mega Drive (Unofficial)"
     assert merged.description == "Aftermarket only"
+    assert merged.first_release_year == 1996
 
 
 def _pegi(rating: str) -> dict[str, list[dict[str, str]]]:

@@ -136,3 +136,29 @@ class TestUpdateLastActive:
         user.set_last_active()
 
         assert executed_statements == []
+
+
+class TestReplaceAvatarPath:
+    def test_sets_the_path_while_it_is_still_the_expected_one(self, admin_user: User):
+        db_user_handler.update_user(admin_user.id, {"avatar_path": "old.png"})
+
+        replaced = db_user_handler.replace_avatar_path(
+            admin_user.id, "old.png", "new.png"
+        )
+
+        current = db_user_handler.get_user(admin_user.id)
+        assert replaced
+        assert current is not None
+        assert current.avatar_path == "new.png"
+
+    def test_leaves_a_path_that_changed_meanwhile(self, admin_user: User):
+        db_user_handler.update_user(admin_user.id, {"avatar_path": "uploaded.png"})
+
+        replaced = db_user_handler.replace_avatar_path(
+            admin_user.id, "old.png", "new.png"
+        )
+
+        current = db_user_handler.get_user(admin_user.id)
+        assert not replaced
+        assert current is not None
+        assert current.avatar_path == "uploaded.png"

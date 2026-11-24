@@ -2,28 +2,49 @@ from __future__ import annotations
 
 import os
 import re
+from collections.abc import Iterable
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+from models.rom import RomFileCategory
+from utils.rom_patcher import is_patch_file_name
 
 if TYPE_CHECKING:
     from models.rom import RomFile
 
+# Files that ride along with a game but never boot as a disc.
+NON_DISC_CATEGORIES = frozenset(
+    {
+        RomFileCategory.MANUAL,
+        RomFileCategory.WALKTHROUGH,
+        RomFileCategory.SCREENSHOT,
+        RomFileCategory.SOUNDTRACK,
+        RomFileCategory.CHEAT,
+        RomFileCategory.PATCH,
+    }
+)
+
+# Files outside any category folder carry no category.
+BASE_GAME_CATEGORIES = frozenset({None, RomFileCategory.GAME})
+
 # Sheet formats that describe a disc by pointing at raw track files: .cue for
 # BIN/CUE, .gdi for Dreamcast, .ccd for CloneCD and .mds for Alcohol. No one
-# format is privileged over the others.
+# format is privileged over the others. Mirrored in frontend/src/utils/playerDisc.ts.
 DESCRIPTOR_EXTENSIONS = frozenset({"cue", "gdi", "ccd", "mds"})
 
 # The raw tracks those sheets point at, data and CDDA audio alike. None of them
 # is loadable on its own, so a sheet in the set means its tracks are data rather
 # than discs -- but only those tracks. Anything else present stays a disc in its
-# own right. Kept in step with the shell's own list in src/main/discs/m3u.ts.
+# own right. Kept in step with the shell's own list in src/main/discs/m3u.ts
+# and with frontend/src/utils/playerDisc.ts.
 COMPANION_EXTENSIONS = frozenset(
     {"bin", "raw", "img", "sub", "mdf", "wav", "ogg", "flac", "mp3"}
 )
 
 
 # "(Disc 2)", "(CD 2)", TOSEC's "(Disk 1 of 2)", split "(Disc 2A)", lettered
-# "(Disc B)". A letter needs a space, so "(CDi)" isn't disc 9.
+# "(Disc B)". A letter needs a space, so "(CDi)" isn't disc 9. Mirrored in
+# frontend/src/utils/playerDisc.ts.
 DISC_TAG_REGEX = re.compile(
     r"\((?:disc|disk|cd|disque)(?:\s*([0-9]+)[a-z]?|\s+((?a:[a-z])))"
     r"(?:\s+of\s+[0-9]+)?\)",
@@ -81,6 +102,15 @@ def first_playlist_entry(m3u_path: Path) -> Path | None:
     if not entries:
         return None
     return next((path for path in entries[0] if path.is_file()), None)
+
+
+def playlist_discs(m3u_path: Path) -> list[Path]:
+    """Every disc file a playlist lists, in its order, skipping entries not on disk."""
+    return [
+        disc
+        for candidates in _playlist_entries(m3u_path) or []
+        if (disc := next((path for path in candidates if path.is_file()), None))
+    ]
 
 
 def _path_key(path: Path) -> str:
@@ -144,22 +174,50 @@ def listing_playlist(disc: Path) -> str | None:
     return None
 
 
-def playlist_files(files: list[RomFile]) -> list[RomFile]:
-    """The files of a multi-file ROM that name a playable disc.
+def has_playlist(files: Iterable[RomFile]) -> bool:
+    """Whether any of the files is an .m3u playlist."""
+    return any(f.file_extension.lower() == "m3u" for f in files)
 
-    The .m3u itself is never one. Where a descriptor is present the raw tracks
-    it references are not discs either, since they are not loadable alone --
-    but a set is not required to be all one format, so a disc that stands on
-    its own (a .chd beside a .gdi) is kept. One home for the rule: the
-    playlist, the download endpoint and the disc swapper all have to agree on
-    which files are discs.
+
+def _never_a_disc(file: RomFile) -> bool:
+    return (
+        file.file_extension.lower() == "m3u"
+        or file.category in NON_DISC_CATEGORIES
+        or is_patch_file_name(file.file_name)
+    )
+
+
+def disc_files(files: list[RomFile]) -> list[RomFile]:
+    """The files of a multi-file ROM that boot as a disc, variants included.
+
+    Where a descriptor is present the raw tracks it references are not discs,
+    since they are not loadable alone. A set need not be all one format, so a
+    disc that stands on its own (a .chd beside a .gdi) is kept. The playlist, the download endpoint and the disc swapper all share
+    this rule.
     """
-    discs = [f for f in files if f.file_extension.lower() != "m3u"]
+    discs = [f for f in files if not _never_a_disc(f)]
     if any(f.file_extension.lower() in DESCRIPTOR_EXTENSIONS for f in discs):
         discs = [
             f for f in discs if f.file_extension.lower() not in COMPANION_EXTENSIONS
         ]
     return sorted(discs, key=_disc_order)
+
+
+def playlist_set(files: list[RomFile]) -> list[RomFile]:
+    """The files a playlist covers: the base game's, or all of them when it has no disc."""
+    base = [f for f in files if f.category in BASE_GAME_CATEGORIES]
+    return base if disc_files(base) else files
+
+
+def playlist_files(files: list[RomFile]) -> list[RomFile]:
+    """The discs a playlist lists, leaving out translated, hacked and other variants."""
+    return disc_files(playlist_set(files))
+
+
+def needs_generated_playlist(files: list[RomFile]) -> bool:
+    """Whether a download of these files should carry a generated .m3u."""
+    covered = playlist_set(files)
+    return bool(disc_files(covered)) and not has_playlist(covered)
 
 
 def generate_m3u_content(

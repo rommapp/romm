@@ -10,8 +10,9 @@ from unittest import mock
 
 import pytest
 from fastapi import status
-from tests.factories import make_save
+from tests.factories import make_device_token, make_save
 
+from endpoints.play_sessions import MAX_BATCH_SIZE
 from handler.database import (
     db_deleted_asset_handler,
     db_device_handler,
@@ -676,6 +677,93 @@ class TestSyncUserIsolation:
         assert admin_resp.json()[0]["device_id"] == admin_dev.id
         assert len(editor_resp.json()) == 1
         assert editor_resp.json()[0]["device_id"] == editor_dev.id
+
+
+class TestSyncDeviceTokenBinding:
+    @pytest.fixture
+    def other_device(self, admin_user: User) -> Device:
+        return db_device_handler.add_device(
+            Device(
+                id="other-sync-dev",
+                user_id=admin_user.id,
+                sync_mode=SyncMode.PUSH_PULL,
+                sync_enabled=True,
+            )
+        )
+
+    @pytest.fixture
+    def bound_headers(self, admin_user: User) -> dict[str, str]:
+        db_device_handler.add_device(
+            Device(id="bound-sync-dev", user_id=admin_user.id, sync_enabled=True)
+        )
+        _, raw_token = make_device_token(
+            admin_user,
+            "bound-sync-dev",
+            scopes="assets.read devices.read devices.write",
+        )
+        return {"Authorization": f"Bearer {raw_token}"}
+
+    def test_negotiates_for_its_own_device(self, client, bound_headers):
+        response = client.post(
+            "/api/sync/negotiate", json={"saves": []}, headers=bound_headers
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_cannot_negotiate_as_another_device(
+        self, client, bound_headers, other_device: Device
+    ):
+        response = client.post(
+            "/api/sync/negotiate",
+            json={"device_id": other_device.id, "saves": []},
+            headers=bound_headers,
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_cannot_complete_another_devices_session(
+        self, client, bound_headers, admin_user: User, other_device: Device
+    ):
+        sync_session = db_sync_session_handler.create_session(
+            device_id=other_device.id, user_id=admin_user.id
+        )
+
+        response = client.post(
+            f"/api/sync/sessions/{sync_session.id}/complete",
+            json={"operations_completed": 0, "operations_failed": 0},
+            headers=bound_headers,
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_cannot_read_another_devices_sessions(
+        self, client, bound_headers, admin_user: User, other_device: Device
+    ):
+        sync_session = db_sync_session_handler.create_session(
+            device_id=other_device.id, user_id=admin_user.id
+        )
+
+        by_id = client.get(
+            f"/api/sync/sessions/{sync_session.id}", headers=bound_headers
+        )
+        by_device = client.get(
+            f"/api/sync/sessions?device_id={other_device.id}", headers=bound_headers
+        )
+
+        assert by_id.status_code == status.HTTP_404_NOT_FOUND
+        assert by_device.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_cannot_trigger_another_devices_push_pull(
+        self, client, bound_headers, other_device: Device
+    ):
+        with mock.patch("endpoints.sync.high_prio_queue") as mock_queue:
+            response = client.post(
+                f"/api/sync/devices/{other_device.id}/push-pull",
+                headers=bound_headers,
+            )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        mock_queue.enqueue.assert_not_called()
 
 
 class TestPushPullTrigger:
@@ -1396,6 +1484,61 @@ class TestSyncCompleteWithPlaySessions:
         assert len(sessions) >= 1
         assert sessions[0].device_id == device.id
 
+    def test_play_sessions_need_roms_user_write(
+        self, client, admin_user: User, rom: Rom
+    ):
+        device = db_device_handler.add_device(
+            Device(id="sync-ps-dev-scope", user_id=admin_user.id)
+        )
+        sync_session = db_sync_session_handler.create_session(
+            device_id=device.id, user_id=admin_user.id
+        )
+        _, raw_token = make_device_token(
+            admin_user, device.id, scopes="devices.read devices.write"
+        )
+
+        response = client.post(
+            f"/api/sync/sessions/{sync_session.id}/complete",
+            json={
+                "operations_completed": 0,
+                "operations_failed": 0,
+                "play_sessions": [_play_session(rom_id=rom.id)],
+            },
+            headers={"Authorization": f"Bearer {raw_token}"},
+        )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert db_play_session_handler.get_sessions(user_id=admin_user.id) == []
+        unchanged = db_sync_session_handler.get_session(sync_session.id, admin_user.id)
+        assert unchanged is not None
+        assert unchanged.status == SyncSessionStatus.PENDING
+
+    def test_play_sessions_batch_size_is_capped(
+        self, client, access_token: str, admin_user: User, rom: Rom
+    ):
+        device = db_device_handler.add_device(
+            Device(id="sync-ps-dev-cap", user_id=admin_user.id)
+        )
+        sync_session = db_sync_session_handler.create_session(
+            device_id=device.id, user_id=admin_user.id
+        )
+
+        response = client.post(
+            f"/api/sync/sessions/{sync_session.id}/complete",
+            json={
+                "operations_completed": 0,
+                "operations_failed": 0,
+                "play_sessions": [
+                    _play_session(rom_id=rom.id, start_offset_hours=-(i + 1))
+                    for i in range(MAX_BATCH_SIZE + 1)
+                ],
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert db_play_session_handler.get_sessions(user_id=admin_user.id) == []
+
     def test_complete_without_play_sessions_backward_compatible(
         self, client, access_token: str, admin_user: User
     ):
@@ -1734,12 +1877,12 @@ class TestNegotiateBaseline:
         assert upload.status_code == status.HTTP_200_OK
 
         # The server moves on after the boundary the upload recorded.
+        later = (datetime.now(timezone.utc) + timedelta(days=365)).replace(
+            microsecond=0
+        )
         db_save_handler.update_save(
             upload.json()["id"],
-            {
-                "content_hash": "server_new",
-                "updated_at": datetime(2099, 1, 1, tzinfo=timezone.utc),
-            },
+            {"content_hash": "server_new", "updated_at": later},
         )
 
         with mock.patch(
@@ -1755,7 +1898,7 @@ class TestNegotiateBaseline:
                             "file_name": "chain.sav",
                             "slot": "autosave",
                             "content_hash": "client_hash",
-                            "updated_at": "2099-01-01T00:00:00Z",
+                            "updated_at": later.isoformat(),
                             "file_size_bytes": 100,
                         }
                     ],

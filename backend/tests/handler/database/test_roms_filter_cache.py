@@ -21,7 +21,7 @@ import pytest
 from sqlalchemy import select
 from tests.conftest import session as session_factory
 
-from handler.database import db_rom_handler
+from handler.database import db_platform_handler, db_rom_handler
 from handler.database.roms_handler import (
     ROM_FILTERS_CACHE_VERSION_KEY,
     _char_index_redis_key,
@@ -30,6 +30,7 @@ from handler.database.roms_handler import (
     _filter_values_redis_key,
     _rom_id_index_redis_key,
     _store_versioned_cache,
+    _store_versioned_id_list,
     user_sibling_cache_version,
     user_sort_cache_version,
 )
@@ -193,7 +194,7 @@ class TestCacheHitMatchesMiss:
 
         version = _filter_values_cache_version()
         redis_key = _rom_id_index_redis_key(cache_key, version)
-        assert sync_cache.get(redis_key) is not None
+        assert sync_cache.exists(redis_key)
         assert miss == [rom.id]
 
         # Add a ROM; a cache hit must ignore it until the version bumps.
@@ -213,6 +214,42 @@ class TestCacheHitMatchesMiss:
 
         hit = db_rom_handler.get_rom_id_index(query=query, cache_key=cache_key)
         assert hit == miss == [rom.id]
+
+    def test_cached_rom_id_page_reads_a_window_without_writing(self, rom: Rom):
+        cache_key = "all:test-idpage"
+
+        assert db_rom_handler.get_cached_rom_id_page(cache_key, 0, 10) is None
+        version = _filter_values_cache_version()
+        assert not sync_cache.exists(_rom_id_index_redis_key(cache_key, version))
+
+        _store_versioned_id_list(
+            _rom_id_index_redis_key(cache_key, version), version, [5, 4, 3, 2]
+        )
+
+        assert db_rom_handler.get_cached_rom_id_page(cache_key, 1, 2) == ([4, 3], 4)
+        assert db_rom_handler.get_cached_rom_id_page(cache_key, 9, 2) == ([], 4)
+
+    def test_an_empty_id_index_is_not_cached(self):
+        cache_key = "all:test-idempty"
+
+        ids = db_rom_handler.get_rom_id_index(
+            query=select(Rom).where(Rom.id == -1), cache_key=cache_key
+        )
+
+        assert ids == []
+        version = _filter_values_cache_version()
+        assert not sync_cache.exists(_rom_id_index_redis_key(cache_key, version))
+
+    @pytest.mark.parametrize("target", ["rom", "platform"])
+    def test_a_delete_bumps_the_version_after_commit(self, rom: Rom, target: str):
+        old_version = _filter_values_cache_version()
+
+        if target == "rom":
+            db_rom_handler.delete_rom(rom.id)
+        else:
+            db_platform_handler.delete_platform(rom.platform_id)
+
+        assert int(_filter_values_cache_version()) == int(old_version) + 1
 
 
 class TestFilterValuesSchemaDrift:

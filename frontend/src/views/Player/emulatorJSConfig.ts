@@ -10,6 +10,7 @@ import {
   getControlSchemeForPlatform,
   getDownloadPath,
   getSupportedEJSCores,
+  type EJSCoresMaps,
 } from "@/utils";
 import { firmwareExternalFiles } from "@/utils/playerFirmware";
 
@@ -46,6 +47,7 @@ declare global {
     EJS_disableAutoLang: boolean;
     EJS_DEBUG_XX: boolean;
     EJS_CacheLimit: number;
+    EJS_cacheConfig: { enabled: boolean; cacheMaxSizeMB: number };
     EJS_Buttons: Record<string, boolean | { displayName: string }>;
     EJS_VirtualGamepadSettings: Record<string, unknown>;
     EJS_volume: number;
@@ -89,6 +91,8 @@ declare global {
 }
 
 const INVALID_CHARS_REGEX = /[#<$+%>!`&*'|{}/\\?"=@:^\r\n]/gi;
+// EmulatorJS nightly's own default total cache size.
+const NIGHTLY_CACHE_MAX_SIZE_MB = 4096;
 
 type EjsControls = Record<number, Record<number, EjsControlsButton>>;
 
@@ -115,6 +119,8 @@ export type EjsConfig = Pick<
   | "EJS_netplayServer"
   | "EJS_netplayICEServers"
   | "EJS_DEBUG_XX"
+  | "EJS_cacheConfig"
+  | "EJS_disableDatabases"
   | "EJS_disableAutoUnload"
   | "EJS_disableBatchBootup"
 > &
@@ -124,13 +130,17 @@ export interface EjsConfigInput {
   rom: DetailedRom;
   /** The core the player picked, if any; an unsupported one falls back. */
   core: string | null;
-  disc: number | null;
+  /** The files to boot, or none for the whole rom. */
+  fileIds: number[];
   bios: FirmwareSchema | null;
   firmware: FirmwareSchema[];
   loadStateLabel?: string | undefined;
+  /** The heartbeat's `EMULATION`, which carries the core maps. */
+  emulation: EJSCoresMaps;
   config: Pick<
     ConfigResponse,
     | "EJS_DEBUG"
+    | "EJS_CACHE_ENABLED"
     | "EJS_CACHE_LIMIT"
     | "EJS_DISABLE_AUTO_UNLOAD"
     | "EJS_DISABLE_BATCH_BOOTUP"
@@ -152,6 +162,7 @@ export function buildEjsConfig(input: EjsConfigInput): EjsConfig {
   const { rom, config, t } = input;
   const supportedCores = getSupportedEJSCores(
     rom.platform_slug,
+    input.emulation,
     config.EJS_NETPLAY_ENABLED,
   );
   const core =
@@ -165,7 +176,7 @@ export function buildEjsConfig(input: EjsConfigInput): EjsConfig {
     EJS_gameID: rom.id,
     EJS_gameUrl: getDownloadPath({
       rom,
-      fileIDs: input.disc ? [input.disc] : [],
+      fileIDs: input.fileIds,
       purpose: "play",
     }),
     EJS_biosUrl: input.bios
@@ -217,6 +228,13 @@ export function buildEjsConfig(input: EjsConfigInput): EjsConfig {
       ? config.EJS_NETPLAY_ICE_SERVERS
       : [],
     EJS_DEBUG_XX: config.EJS_DEBUG,
+    // Nightly reads the cache switch from EJS_cacheConfig, 4.2.3 only from EJS_disableDatabases.
+    // An explicit size stops nightly reading EJS_CacheLimit, a per-file cap, as its total size.
+    EJS_cacheConfig: {
+      enabled: config.EJS_CACHE_ENABLED,
+      cacheMaxSizeMB: NIGHTLY_CACHE_MAX_SIZE_MB,
+    },
+    EJS_disableDatabases: !config.EJS_CACHE_ENABLED,
     EJS_disableAutoUnload: config.EJS_DISABLE_AUTO_UNLOAD,
     EJS_disableBatchBootup: config.EJS_DISABLE_BATCH_BOOTUP,
     ...(config.EJS_CACHE_LIMIT !== null

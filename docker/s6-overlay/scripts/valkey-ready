@@ -1,0 +1,21 @@
+#!/command/with-contenv bash
+# Gate everything that needs a cache on the internal valkey accepting connections.
+
+set -o errexit
+set -o nounset
+set -o pipefail
+shopt -s inherit_errexit
+
+ROMM_LOG_TAG="valkey"
+# shellcheck source=SCRIPTDIR/lib.sh
+source /etc/s6-overlay/scripts/lib.sh
+
+if [[ -n ${REDIS_HOST:-} ]]; then
+	exit 0
+fi
+
+debug_log "Waiting for internal valkey to be ready..."
+if ! wait_for_tcp 127.0.0.1 6379 60; then
+	error_log "Internal valkey did not become ready after 60s"
+fi
+debug_log "Internal valkey is ready and accepting connections"

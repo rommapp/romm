@@ -5,6 +5,7 @@ from typing import Final
 from fastapi import Request
 
 from config.config_manager import PLATFORM_MEDIA_DIRS
+from handler.auth.rom_visibility import UNRESTRICTED
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_platform_handler, fs_resource_handler
 from logger.logger import log
@@ -13,6 +14,7 @@ from models.rom import HAS_FILE_ON_DISK_FILTERS, Rom
 from utils.datetime import format_utc
 from utils.filesystem import join_rel_path, place_export_asset, rel_platform_folder
 from utils.platform_slugs import UniversalPlatformSlug as UPS
+from utils.urls import rom_content_url, rom_id_from_content_url
 
 # Map RomM platform slugs to canonical Pegasus (collection name, shortname) pairs.
 # Source: https://www.pegasus-frontend.org/docs/user-guide/meta-files/
@@ -209,6 +211,13 @@ class PegasusBlock:
     def lines(self, skip: frozenset[str] | set[str] = frozenset()) -> list[str]:
         return [line for key, lines in self.fields if key not in skip for line in lines]
 
+    def content_url_rom_id(self) -> int | None:
+        """The ROM id in the block's `file:` when that is a RomM content URL."""
+        for key, lines in self.fields:
+            if key == "file":
+                return rom_id_from_content_url(lines[0].partition(":")[2].strip())
+        return None
+
     def file_paths(self) -> set[str]:
         """Each listed path, plus the folders holding it.
 
@@ -233,6 +242,11 @@ class PegasusBlock:
                     parent.as_posix() for parent in path.parents if parent.name
                 )
         return paths
+
+
+def single_line(value: object) -> str:
+    """Fold line breaks into spaces so a value cannot start a new Pegasus field."""
+    return " ".join(str(value).splitlines()).strip()
 
 
 def parse_pegasus(content: str) -> list[PegasusBlock]:
@@ -385,45 +399,43 @@ class PegasusExporter:
         lines: list[str] = []
 
         # Game title (required)
-        lines.append(f"game: {rom.name or rom.fs_name}")
+        lines.append(f"game: {single_line(rom.name or rom.fs_name)}")
 
         # File path
         if self.local_export:
-            lines.append(f"file: {join_rel_path(rel_folder, rom.fs_name)}")
+            lines.append(f"file: {single_line(join_rel_path(rel_folder, rom.fs_name))}")
         else:
             if request is None:
                 raise ValueError(
                     "Request object must be provided for non-local exports"
                 )
-            lines.append(
-                f"file: {request.url_for('get_rom_content', id=rom.id, file_name=rom.fs_name)}"
-            )
+            lines.append(f"file: {rom_content_url(request, rom)}")
 
         # Sort title (use fs_name_no_tags if different from name)
         if rom.name and rom.fs_name_no_tags and rom.name != rom.fs_name_no_tags:
-            lines.append(f"sort-by: {rom.fs_name_no_tags}")
+            lines.append(f"sort-by: {single_line(rom.fs_name_no_tags)}")
 
         if rom.metadatum:
             developer = rom.metadatum.primary_developer
             publisher = rom.metadatum.primary_publisher
             if developer:
-                lines.append(f"developer: {developer}")
+                lines.append(f"developer: {single_line(developer)}")
             if publisher:
-                lines.append(f"publisher: {publisher}")
+                lines.append(f"publisher: {single_line(publisher)}")
 
         # Genres
         if rom.metadatum and rom.metadatum.genres:
             for genre in rom.metadatum.genres:
-                lines.append(f"genre: {genre}")
+                lines.append(f"genre: {single_line(genre)}")
 
         # Tags (rom tags like region, language info)
         if rom.tags:
             for tag in rom.tags:
-                lines.append(f"tag: {tag}")
+                lines.append(f"tag: {single_line(tag)}")
 
         # Player count
         if rom.metadatum and rom.metadatum.player_count:
-            lines.append(f"players: {rom.metadatum.player_count}")
+            lines.append(f"players: {single_line(rom.metadatum.player_count)}")
 
         # Summary / description
         if rom.summary:
@@ -442,14 +454,14 @@ class PegasusExporter:
         # Asset references (relative paths to asset files)
         if exported_assets:
             for asset_key, rel_path in exported_assets.items():
-                lines.append(f"assets.{asset_key}: {rel_path}")
+                lines.append(f"assets.{asset_key}: {single_line(rel_path)}")
 
         # RomM-specific extensions (x-* fields)
         if rom.regions:
-            lines.append(f"x-region: {', '.join(rom.regions)}")
+            lines.append(f"x-region: {single_line(', '.join(rom.regions))}")
 
         if rom.languages:
-            lines.append(f"x-language: {', '.join(rom.languages)}")
+            lines.append(f"x-language: {single_line(', '.join(rom.languages))}")
 
         lines.append(f"x-romm-id: {rom.id}")
 
@@ -472,7 +484,9 @@ class PegasusExporter:
             raise ValueError(f"Platform with ID {platform_id} not found")
 
         roms = db_rom_handler.get_roms_scalar(
-            platform_ids=[platform_id], **HAS_FILE_ON_DISK_FILTERS
+            platform_ids=[platform_id],
+            visibility=UNRESTRICTED,
+            **HAS_FILE_ON_DISK_FILTERS,
         )
 
         existing = existing or ExistingPegasus()
@@ -482,14 +496,19 @@ class PegasusExporter:
             for index, game in enumerate(existing.games)
             for path in game.file_paths()
         }
+        game_index_by_rom_id: dict[int, int] = {}
+        for index, game in enumerate(existing.games):
+            rom_id = game.content_url_rom_id()
+            if rom_id is not None:
+                game_index_by_rom_id.setdefault(rom_id, index)
         platform_fs_path = fs_platform_handler.get_platform_fs_structure(
             platform.fs_slug
         )
 
         lines: list[str] = list(existing.preamble)
         collection_name, shortname = self._resolve_collection(platform)
-        lines.append(f"collection: {collection_name}")
-        lines.append(f"shortname: {shortname}")
+        lines.append(f"collection: {single_line(collection_name)}")
+        lines.append(f"shortname: {single_line(shortname)}")
         if existing.header is not None:
             lines.extend(existing.header.lines(skip=COLLECTION_HEADER_KEYS))
         lines.append("")
@@ -530,9 +549,13 @@ class PegasusExporter:
             entry_lines = entry.splitlines()
 
             existing_game = unmatched_games.pop(
-                game_index_by_path.get(join_rel_path(rel_folder, rom.fs_name), -1),
-                None,
+                game_index_by_rom_id.get(rom.id, -1), None
             )
+            if existing_game is None:
+                existing_game = unmatched_games.pop(
+                    game_index_by_path.get(join_rel_path(rel_folder, rom.fs_name), -1),
+                    None,
+                )
             if existing_game is not None:
                 emitted_keys = parse_pegasus(entry)[-1].keys()
                 entry_lines.extend(existing_game.lines(skip=emitted_keys))

@@ -1,0 +1,20 @@
+#!/command/with-contenv bash
+# Bring the schema up to date once per container start.
+
+set -o errexit
+set -o nounset
+set -o pipefail
+shopt -s inherit_errexit
+
+ROMM_LOG_TAG="migrations"
+# shellcheck source=SCRIPTDIR/lib.sh
+source /etc/s6-overlay/scripts/lib.sh
+
+cd /backend || error_log "/backend directory doesn't seem to exist"
+
+info_log "Running database migrations"
+if alembic upgrade head; then
+	info_log "Database migrations succeeded"
+else
+	error_log "Failed to run database migrations"
+fi

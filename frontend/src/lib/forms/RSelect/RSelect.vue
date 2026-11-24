@@ -1721,7 +1721,7 @@ const describedBy = computed(() => {
 
 /* ── Disabled ──────────────────────────────────────────────────── */
 .r-select--disabled {
-  opacity: 0.55;
+  opacity: var(--r-opacity-inactive);
 }
 .r-select--disabled .r-select__field {
   cursor: not-allowed;

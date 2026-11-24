@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { ejsCoresFixture } from "@/utils/ejsCores.fixtures";
 import { firmwareFixture } from "@/utils/firmware.fixtures";
 import { detailedRomFixture } from "@/utils/rom.fixtures";
 import {
@@ -21,11 +22,13 @@ function input(overrides: Partial<EjsConfigInput> = {}): EjsConfigInput {
   return {
     rom,
     core: null,
-    disc: null,
+    fileIds: [],
     bios: null,
     firmware: [],
+    emulation: ejsCoresFixture(),
     config: {
       EJS_DEBUG: false,
+      EJS_CACHE_ENABLED: true,
       EJS_CACHE_LIMIT: null,
       EJS_DISABLE_AUTO_UNLOAD: false,
       EJS_DISABLE_BATCH_BOOTUP: false,
@@ -54,6 +57,8 @@ describe("buildEjsConfig", () => {
       EJS_netplayServer: "",
       EJS_netplayICEServers: [],
       EJS_DEBUG_XX: false,
+      EJS_cacheConfig: { enabled: true, cacheMaxSizeMB: 4096 },
+      EJS_disableDatabases: false,
     });
     expect(config.EJS_Buttons).toMatchObject({
       saveSavFiles: { displayName: "t(play.sync-save)" },
@@ -67,12 +72,13 @@ describe("buildEjsConfig", () => {
       buildEjsConfig(
         input({
           core: "mednafen_psx_hw",
-          disc: 42,
+          fileIds: [42],
           bios,
           loadStateLabel: "Load from RomM",
           controls: { 0: { 0: { value: "x" } } },
           config: {
             EJS_DEBUG: true,
+            EJS_CACHE_ENABLED: false,
             EJS_CACHE_LIMIT: 1024,
             EJS_DISABLE_AUTO_UNLOAD: true,
             EJS_DISABLE_BATCH_BOOTUP: true,
@@ -130,6 +136,8 @@ describe("buildEjsConfig", () => {
       EJS_netplayServer: "https://romm.example",
       EJS_netplayICEServers: [{ urls: "stun:stun.example:3478" }],
       EJS_DEBUG_XX: true,
+      EJS_cacheConfig: { enabled: false, cacheMaxSizeMB: 4096 },
+      EJS_disableDatabases: true,
       EJS_disableAutoUnload: true,
       EJS_disableBatchBootup: true,
       EJS_CacheLimit: 1024,

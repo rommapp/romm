@@ -349,7 +349,7 @@ function achievementTypeLabel(type: string | null | undefined): string {
   border-radius: var(--r-radius-md);
 }
 .r-det-ach__row--locked {
-  opacity: 0.55;
+  opacity: var(--r-opacity-inactive);
 }
 
 .r-det-ach__badge {

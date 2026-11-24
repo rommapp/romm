@@ -18,7 +18,7 @@ from handler.filesystem.base_handler import (
 from logger.logger import log
 from models.rom import RomFile
 from utils import get_version
-from utils.arcade_platforms import ARCADE_SET_PLATFORMS, arcade_fallbacks
+from utils.arcade_platforms import RA_ARCADE_PLATFORMS, arcade_fallbacks
 from utils.context import ctx_httpx_client
 from utils.datetime import parse_utc_timestamp
 from utils.platform_slugs import UniversalPlatformSlug as UPS
@@ -557,6 +557,14 @@ HASHEOUS_PLATFORM_LIST: dict[UPS, SlugToHasheousId] = {
         "igdb_id": 416,
         "igdb_slug": "64dd",
         "name": "Nintendo 64DD",
+        "ra_id": None,
+        "tgdb_id": None,
+    },
+    UPS.ABC_800: {
+        "id": 278114,
+        "igdb_id": None,
+        "igdb_slug": "",
+        "name": "Luxor ABC 800",
         "ra_id": None,
         "tgdb_id": None,
     },
@@ -1160,6 +1168,14 @@ HASHEOUS_PLATFORM_LIST: dict[UPS, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
+    UPS.NEOGEOMVS: {
+        "id": 96,
+        "igdb_id": 79,
+        "igdb_slug": "neogeomvs",
+        "name": "Neo Geo MVS",
+        "ra_id": 27,
+        "tgdb_id": None,
+    },
     UPS.NES: {
         "id": 68,
         "igdb_id": 18,
@@ -1317,6 +1333,14 @@ HASHEOUS_PLATFORM_LIST: dict[UPS, SlugToHasheousId] = {
         "igdb_id": 46,
         "igdb_slug": "psvita",
         "name": "Sony PlayStation Vita",
+        "ra_id": None,
+        "tgdb_id": None,
+    },
+    UPS.PLAYSTATION_MOBILE: {
+        "id": 314213,
+        "igdb_id": None,
+        "igdb_slug": "",
+        "name": "Sony PlayStation Mobile",
         "ra_id": None,
         "tgdb_id": None,
     },
@@ -1633,10 +1657,10 @@ HASHEOUS_PLATFORM_LIST: dict[UPS, SlugToHasheousId] = {
         "tgdb_id": None,
     },
 }
-# Hasheous's Arcade carries RetroAchievements' Arcade, which only hashes MAME
-# and FinalBurn sets.
+# Hasheous's Arcade carries RetroAchievements' Arcade, which only some arcade
+# platforms have sets in.
 HASHEOUS_PLATFORM_LIST |= {
-    slug: platform if slug in ARCADE_SET_PLATFORMS else {**platform, "ra_id": None}
+    slug: platform if slug in RA_ARCADE_PLATFORMS else {**platform, "ra_id": None}
     for slug, platform in arcade_fallbacks(HASHEOUS_PLATFORM_LIST).items()
 }
 

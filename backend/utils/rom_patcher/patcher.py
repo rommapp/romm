@@ -27,7 +27,6 @@ from utils.archives import (
     read_zip_archive_files,
 )
 from utils.filesystem import COMPRESSED_FILE_EXTENSIONS
-from utils.zip_cache import ensure_zipfile_writable
 
 PATCHER_SCRIPT = Path(__file__).parent / "patcher.js"
 
@@ -45,6 +44,28 @@ SUPPORTED_PATCH_EXTENSIONS = frozenset(
         ".xdelta",
     )
 )
+
+
+def is_patch_file_name(file_name: str) -> bool:
+    """Whether a file name carries a supported patch format's extension."""
+    return Path(file_name).suffix.lower() in SUPPORTED_PATCH_EXTENSIONS
+
+
+# Hacks may double a ROM or expand a small one to its console's largest
+# cartridge, but never further; the patch's own declared size is not trusted.
+MIN_PATCH_OUTPUT_GROWTH_BYTES = 64 * 1024 * 1024
+
+# Exit code patcher.js uses when the patch declares too large an output.
+_OUTPUT_TOO_LARGE_EXIT_CODE = 3
+
+
+def max_patch_output_size(rom_size: int) -> int:
+    """Largest patched ROM accepted for a source ROM of ``rom_size`` bytes."""
+    return min(
+        ROM_PATCHER_MAX_FILE_SIZE_BYTES,
+        rom_size + max(rom_size, MIN_PATCH_OUTPUT_GROWTH_BYTES),
+    )
+
 
 # Bound concurrent operations because each Node subprocess loads a full ROM.
 _patch_semaphore = asyncio.Semaphore(ROM_PATCHER_MAX_CONCURRENCY)
@@ -167,7 +188,6 @@ def _rebuild_zip(
     except (EOFError, OSError, RuntimeError, zipfile.BadZipFile, zlib.error) as e:
         raise PatcherInputError("The ROM archive could not be read") from e
 
-    ensure_zipfile_writable()
     try:
         with (
             source_archive,
@@ -211,14 +231,17 @@ async def _apply_binary_patch(
     regardless; the result lets callers warn on a likely ROM/patch mismatch.
 
     Raises :class:`PatcherError` if the subprocess fails, times out, or the
-    output file is missing.
+    output file is missing, and :class:`PatcherInputError` if the patch
+    declares an output larger than :func:`max_patch_output_size` allows.
     """
+    rom_size = (await AnyioPath(rom_path).stat()).st_size
     proc = await asyncio.create_subprocess_exec(
         "node",
         str(PATCHER_SCRIPT),
         str(rom_path),
         str(patch_path),
         str(output_path),
+        str(max_patch_output_size(rom_size)),
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
@@ -231,6 +254,8 @@ async def _apply_binary_patch(
         await proc.wait()
         raise PatcherError(f"Patching timed out after {ROM_PATCHER_TIMEOUT}s") from e
 
+    if proc.returncode == _OUTPUT_TOO_LARGE_EXIT_CODE:
+        raise PatcherInputError("The patch would produce a ROM that is too large")
     if proc.returncode != 0:
         error = _last_json_object(stderr).get("error")
         if isinstance(error, str) and error:

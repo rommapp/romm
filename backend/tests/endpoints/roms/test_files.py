@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from tests.auth_helpers import bearer
 from tests.factories import make_rom
 
 from handler.database import db_permission_handler, db_rom_handler
@@ -12,10 +13,6 @@ from models.permission import PermAction, PermEntity
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
 from models.user import User
-
-
-def _auth(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
 
 
 def _add_file(rom: Rom, name: str, category: RomFileCategory | None) -> RomFile:
@@ -44,7 +41,7 @@ def test_image_file_served_inline(
 
     r = client.get(
         f"/api/roms/{file.id}/files/content/trailer_thumb.png",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert r.status_code == status.HTTP_200_OK
@@ -60,7 +57,7 @@ def test_video_file_served_inline(
 
     r = client.get(
         f"/api/roms/{file.id}/files/content/trailer.mp4",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert r.status_code == status.HTTP_200_OK
@@ -76,7 +73,7 @@ def test_pdf_manual_served_inline(
 
     r = client.get(
         f"/api/roms/{file.id}/files/content/manual.pdf",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert r.status_code == status.HTTP_200_OK
@@ -93,7 +90,7 @@ def test_markdown_manual_served_inline(
 
     r = client.get(
         f"/api/roms/{file.id}/files/content/manual.md",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert r.status_code == status.HTTP_200_OK
@@ -113,7 +110,7 @@ def test_html_manual_served_under_a_sandboxing_csp(
 
     r = client.get(
         f"/api/roms/{file.id}/files/content/manual.html",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert r.status_code == status.HTTP_200_OK
@@ -131,7 +128,7 @@ def test_non_manual_document_served_as_attachment(
 
     r = client.get(
         f"/api/roms/{file.id}/files/content/readme.pdf",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert r.status_code == status.HTTP_200_OK
@@ -147,7 +144,7 @@ def test_rom_file_served_as_attachment(
 
     r = client.get(
         f"/api/roms/{file.id}/files/content/game.bin",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert r.status_code == status.HTTP_200_OK
@@ -165,7 +162,7 @@ def test_content_type_derived_from_db_not_path_param(
 
     r = client.get(
         f"/api/roms/{file.id}/files/content/game.bin.png",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert r.status_code == status.HTTP_200_OK
@@ -214,7 +211,7 @@ def test_delete_rom_file_success(
 
     response = client.delete(
         f"/api/roms/{rom.id}/files/{rom_file.id}",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -236,7 +233,7 @@ def test_delete_rom_file_shrinks_rom_size(
 
     response = client.delete(
         f"/api/roms/{rom.id}/files/{rom_file.id}",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -261,7 +258,7 @@ def test_delete_rom_file_wrong_rom_returns_404(
 
     response = client.delete(
         f"/api/roms/{rom_b.id}/files/{rom_file.id}",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -280,7 +277,7 @@ def test_delete_rom_file_unknown_file_returns_404(
 
     response = client.delete(
         f"/api/roms/{rom.id}/files/999999",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -299,7 +296,7 @@ def test_delete_rom_file_tolerates_missing_disk_file(
 
     response = client.delete(
         f"/api/roms/{rom.id}/files/{rom_file.id}",
-        headers=_auth(access_token),
+        headers=bearer(access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -318,7 +315,7 @@ def test_delete_rom_file_forbidden_viewer(
 
     response = client.delete(
         f"/api/roms/{rom.id}/files/{rom_file.id}",
-        headers=_auth(viewer_access_token),
+        headers=bearer(viewer_access_token),
     )
 
     assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -349,7 +346,7 @@ def test_delete_rom_file_forbidden_without_delete_grant(
 
     response = client.delete(
         f"/api/roms/{rom.id}/files/{rom_file.id}",
-        headers=_auth(editor_access_token),
+        headers=bearer(editor_access_token),
     )
 
     assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -371,7 +368,7 @@ def test_delete_rom_file_allowed_for_editor(
 
     response = client.delete(
         f"/api/roms/{rom.id}/files/{rom_file.id}",
-        headers=_auth(editor_access_token),
+        headers=bearer(editor_access_token),
     )
 
     assert response.status_code == status.HTTP_200_OK

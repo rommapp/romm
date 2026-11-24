@@ -37,17 +37,25 @@ _UPLOAD_CHUNK_SIZE = 1024 * 1024
 
 @protected_route(
     router.post,
-    "/{id}/patch",
+    "/{file_id}/patch",
     [Scope.ROMS_READ],
     responses={
-        status.HTTP_400_BAD_REQUEST: {},
-        status.HTTP_404_NOT_FOUND: {},
-        status.HTTP_500_INTERNAL_SERVER_ERROR: {},
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The request does not give exactly one patch source, the patch format is not supported, the patch is empty, the rom file or the patch is too large, or the patch does not apply."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom file or patch file the caller can see has this ID, or either file is missing from disk."
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "The patcher failed on the server."
+        },
     },
 )
 async def patch_rom(
     request: Request,
-    id: Annotated[int, PathVar(description="ROM file ID (the base game file).", ge=1)],
+    file_id: Annotated[
+        int, PathVar(description="ROM file ID (the base game file).", ge=1)
+    ],
     patch_file_id: Annotated[
         int | None,
         Form(description="ID of a library patch file (RomFile) to apply."),
@@ -71,10 +79,9 @@ async def patch_rom(
 ) -> FileResponse:
     """Apply a patch to a ROM file server-side and return the patched file.
 
-    The base ROM file must exist in the library. The patch is supplied either
-    as ``patch_file_id`` (a patch already in the library) or as an uploaded
-    ``patch_file`` (never stored in the library). Exactly one must be provided.
-    The patched ROM is streamed back as a download.
+    Pass the patch as `patch_file_id`, a patch already in the library, or as an
+    uploaded `patch_file`, which is not stored. The patched ROM is streamed back
+    as a download.
     """
 
     current_username = (
@@ -89,18 +96,18 @@ async def patch_rom(
 
     perms = get_permissions(request)
 
-    rom_file = db_rom_handler.get_rom_file_by_id(id)
+    rom_file = db_rom_handler.get_rom_file_by_id(file_id)
     if not rom_file:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"ROM file with id {id} not found",
+            detail=f"ROM file with id {file_id} not found",
         )
     # 404-mask file bytes of roms hidden from the caller.
     base_rom = db_rom_handler.get_rom(rom_file.rom_id)
     if not base_rom or not perms.can_see_rom(base_rom):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"ROM file with id {id} not found",
+            detail=f"ROM file with id {file_id} not found",
         )
     if rom_file.missing_from_fs:
         raise HTTPException(

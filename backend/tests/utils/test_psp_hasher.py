@@ -1,5 +1,6 @@
 import hashlib
 import struct
+import time
 import zlib
 
 import pytest
@@ -276,6 +277,40 @@ class TestLz4DecompressBlock:
         block.append(remaining)
 
         assert _lz4_decompress_block(bytes(block), 2048) == b"\x41" * 2048
+
+    @pytest.mark.parametrize("offset", [1, 2, 3, 5, 7, 8])
+    def test_overlapping_match_repeats_the_pattern(self, offset: int):
+        literals = b"ABCDEFGH"[:offset]
+        block = bytearray([(len(literals) << 4) | 0x0F])
+        block += literals
+        block += struct.pack("<H", offset)
+        block.append(20 - 4 - 15)  # match length 20
+        expected = bytearray(literals)
+        for _ in range(20):
+            expected.append(expected[-offset])
+
+        assert _lz4_decompress_block(bytes(block), 64) == bytes(expected)
+
+    def test_huge_match_length_stops_at_max_size(self):
+        block = bytearray([(1 << 4) | 0x0F, 0x41])
+        block += struct.pack("<H", 1)
+        block += b"\xff" * (1024 * 1024)  # match length past 250 MiB
+        block.append(0)
+
+        start = time.monotonic()
+        result = _lz4_decompress_block(bytes(block), 2048)
+
+        assert result == b"\x41" * 2048
+        assert time.monotonic() - start < 5
+
+    def test_huge_literal_length_stops_at_max_size(self):
+        data = bytes(range(256)) * 64
+        block = _lz4_literal_block(data)
+
+        assert _lz4_decompress_block(block, 100) == data[:100]
+
+    def test_truncated_match_offset_ends_the_block(self):
+        assert _lz4_decompress_block(bytes([0x10, 0x41, 0x01]), 16) == b"\x41"
 
 
 class TestIsPspNativeHashFile:
