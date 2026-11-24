@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// RBtn: the workhorse of the v2 library.
+// RButton: the workhorse of the v2 library.
 //
 // Polymorphic root via `<component :is>`:
 //   • `to` set → renders RouterLink
@@ -98,7 +98,7 @@ interface Props {
   href?: string | undefined;
   /** Target for `<a>` mode. */
   target?: string | undefined;
-  /** Native tooltip: when set, RBtn mounts an RTooltip anchored to
+  /** Native tooltip: when set, RButton mounts an RTooltip anchored to
    *  itself that reveals this text on hover / focus. Skips the
    *  `<RTooltip><template #activator>…` wrapping ceremony for the
    *  common case of "icon-only button needs a label on hover". */
@@ -230,7 +230,7 @@ function spawnRipple(originX?: number, originY?: number) {
   const dy = Math.max(cy - rect.top, rect.bottom - cy);
   const size = Math.hypot(dx, dy) * 2;
   const ripple = document.createElement("span");
-  ripple.className = "r-btn__ripple";
+  ripple.className = "r-button__ripple";
   ripple.style.width = `${size}px`;
   ripple.style.height = `${size}px`;
   ripple.style.left = `${cx - rect.left - size / 2}px`;
@@ -271,33 +271,33 @@ const spinnerSize = computed(() => {
   <component
     :is="elementType"
     v-bind="{ ...$attrs, ...dynamicAttrs }"
-    class="r-btn"
+    class="r-button"
     :class="[
-      `r-btn--${resolvedVariant}`,
-      `r-btn--${size}`,
-      density ? `r-btn--density-${density}` : null,
+      `r-button--${resolvedVariant}`,
+      `r-button--${size}`,
+      density ? `r-button--density-${density}` : null,
       {
-        'r-btn--has-color': !!resolvedColor,
-        'r-btn--icon': isIconBtn,
-        'r-btn--block': block,
-        'r-btn--loading': debouncedLoading,
-        'r-btn--disabled': disabled,
-        'r-btn--border': border,
-        'r-btn--surface': surface,
+        'r-button--has-color': !!resolvedColor,
+        'r-button--icon': isIconBtn,
+        'r-button--block': block,
+        'r-button--loading': debouncedLoading,
+        'r-button--disabled': disabled,
+        'r-button--border': border,
+        'r-button--surface': surface,
       },
     ]"
     :style="{
       borderRadius: resolvedRounded,
-      '--r-btn-color': resolvedColor,
-      '--r-btn-solid': resolvedColor && solidFill(resolvedColor),
+      '--r-button-color': resolvedColor,
+      '--r-button-solid': resolvedColor && solidFill(resolvedColor),
     }"
     @pointerdown="onPointerDown"
     @keydown="onKeyDown"
   >
     <!-- Ripple wave container: overflow-hidden + border-radius:inherit
          keeps ripples inside the rounded silhouette without clipping
-         the button's elevation shadow (which lives on .r-btn). -->
-    <span ref="rippleContainer" class="r-btn__ripples" aria-hidden="true" />
+         the button's elevation shadow (which lives on .r-button). -->
+    <span ref="rippleContainer" class="r-button__ripples" aria-hidden="true" />
 
     <!-- Loading spinner: overlays content while debouncedLoading is on.
          Lives in absolute positioning so the button's intrinsic width
@@ -306,18 +306,18 @@ const spinnerSize = computed(() => {
          brand-primary default; the disabled-colour overrides below
          mute the background so the arc reads clearly against a neutral
          surface during a disabled-loading state. -->
-    <span v-if="debouncedLoading" class="r-btn__loader" aria-hidden="true">
+    <span v-if="debouncedLoading" class="r-button__loader" aria-hidden="true">
       <RProgressCircular indeterminate :size="spinnerSize" :width="2" />
     </span>
 
     <span
-      class="r-btn__content"
-      :class="{ 'r-btn__content--hidden': debouncedLoading }"
+      class="r-button__content"
+      :class="{ 'r-button__content--hidden': debouncedLoading }"
     >
       <!-- Prepend zone: slot wins over prop. -->
       <span
         v-if="slots.prepend || (prependIcon && !isIconBtn)"
-        class="r-btn__prepend"
+        class="r-button__prepend"
       >
         <slot name="prepend">
           <RIcon v-if="prependIcon" :icon="prependIcon" />
@@ -333,24 +333,24 @@ const spinnerSize = computed(() => {
       <RIcon
         v-if="isIconBtn && iconString"
         :icon="iconString"
-        class="r-btn__icon"
+        class="r-button__icon"
       />
-      <span v-else-if="isIconBtn && slots.default" class="r-btn__icon-slot">
+      <span v-else-if="isIconBtn && slots.default" class="r-button__icon-slot">
         <slot />
       </span>
 
       <!-- Default label slot: used when the button isn't icon-only.
-           `.r-btn__label` carries `gap: inherit` so compound content
+           `.r-button__label` carries `gap: inherit` so compound content
            (avatar + text + chevron in UserMenu, etc.) spaces correctly
-           without each consumer having to override `:deep(.r-btn__label)`. -->
-      <span v-if="!isIconBtn && slots.default" class="r-btn__label">
+           without each consumer having to override `:deep(.r-button__label)`. -->
+      <span v-if="!isIconBtn && slots.default" class="r-button__label">
         <slot />
       </span>
 
       <!-- Append zone. -->
       <span
         v-if="slots.append || (appendIcon && !isIconBtn)"
-        class="r-btn__append"
+        class="r-button__append"
       >
         <slot name="append">
           <RIcon v-if="appendIcon" :icon="appendIcon" />
@@ -375,7 +375,7 @@ const spinnerSize = computed(() => {
 
 <style scoped>
 /* ── Base ──────────────────────────────────────────────────────── */
-.r-btn {
+.r-button {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -409,7 +409,7 @@ const spinnerSize = computed(() => {
 /* Hover / active overlay: single `::before` painted in currentColor
    so it composes cleanly with any variant. No per-variant :hover
    rules; the overlay does the work. */
-.r-btn::before {
+.r-button::before {
   content: "";
   position: absolute;
   /* -1px reaches over the 1px border, so the hover area matches the full
@@ -424,15 +424,15 @@ const spinnerSize = computed(() => {
 /* Mouse-only: a touch browser keeps `:hover` on the last tapped element, so a
    button that stays mounted would keep the overlay after a tap. */
 :where(html[data-input="mouse"])
-  .r-btn:hover:not(.r-btn--disabled, :disabled)::before {
+  .r-button:hover:not(.r-button--disabled, :disabled)::before {
   opacity: 0.1;
 }
-.r-btn:active:not(.r-btn--disabled, :disabled)::before {
+.r-button:active:not(.r-button--disabled, :disabled)::before {
   opacity: 0.18;
 }
 /* Filled colours carry white text, which a lightening overlay would wash out. */
-.r-btn--flat.r-btn--has-color::before,
-.r-btn--elevated.r-btn--has-color::before {
+.r-button--flat.r-button--has-color::before,
+.r-button--elevated.r-button--has-color::before {
   background: black;
 }
 
@@ -442,12 +442,12 @@ const spinnerSize = computed(() => {
    We only need to clear the native UA outline for a pointer focus that
    isn't `:focus-visible` (a mouse click), so it doesn't leak a grey
    rectangle on press. */
-.r-btn:focus:not(:focus-visible) {
+.r-button:focus:not(:focus-visible) {
   outline: none;
 }
 
 /* ── Ripple: circular wave from the activation point ─────────── */
-.r-btn__ripples {
+.r-button__ripples {
   position: absolute;
   inset: -1px;
   overflow: hidden;
@@ -457,16 +457,16 @@ const spinnerSize = computed(() => {
      so the wave grazes the label without burying it. */
   z-index: 0;
 }
-.r-btn__ripples :deep(.r-btn__ripple) {
+.r-button__ripples :deep(.r-button__ripple) {
   position: absolute;
   border-radius: 50%;
   background: currentColor;
   opacity: 0.28;
   transform: scale(0);
   pointer-events: none;
-  animation: r-btn-ripple 550ms var(--r-motion-ease-out) forwards;
+  animation: r-button-ripple 550ms var(--r-motion-ease-out) forwards;
 }
-@keyframes r-btn-ripple {
+@keyframes r-button-ripple {
   to {
     transform: scale(1);
     opacity: 0;
@@ -474,7 +474,7 @@ const spinnerSize = computed(() => {
 }
 
 /* ── Content / loader layout ──────────────────────────────────── */
-.r-btn__content {
+.r-button__content {
   display: inline-flex;
   align-items: center;
   gap: inherit;
@@ -483,11 +483,11 @@ const spinnerSize = computed(() => {
   position: relative;
   z-index: 1;
 }
-.r-btn__content--hidden {
+.r-button__content--hidden {
   /* Keep layout, hide visually so spinner can overlay without shift. */
   visibility: hidden;
 }
-.r-btn__loader {
+.r-button__loader {
   position: absolute;
   inset: 0;
   display: flex;
@@ -497,11 +497,11 @@ const spinnerSize = computed(() => {
   z-index: 2;
 }
 
-.r-btn__label {
+.r-button__label {
   /* Flex so compound slot content (avatar + text + icon, etc.) aligns
      on the same vertical centerline instead of sitting on the text
      baseline like inline boxes would. `gap: inherit` pulls the gap
-     from `.r-btn__content` (which itself inherits from `.r-btn`'s
+     from `.r-button__content` (which itself inherits from `.r-button`'s
      `gap: 8px`) so callers like UserMenu, avatar + name + chevron in
      one default slot, get correct spacing without a `:deep()`
      override at the consumer. */
@@ -511,11 +511,11 @@ const spinnerSize = computed(() => {
   min-width: 0;
 }
 
-/* Slot-driven icon-only content (e.g. `<RBtn icon><PlatformIcon /></RBtn>`).
-   Separate class from `.r-btn__icon` so the icon-font sizing rule
-   (`--r-btn-icon-size`) doesn't bleed into image-based
+/* Slot-driven icon-only content (e.g. `<RButton icon><PlatformIcon /></RButton>`).
+   Separate class from `.r-button__icon` so the icon-font sizing rule
+   (`--r-button-icon-size`) doesn't bleed into image-based
    slot content. Just a centered inline-flex shell. */
-.r-btn__icon-slot {
+.r-button__icon-slot {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -523,9 +523,9 @@ const spinnerSize = computed(() => {
   line-height: 0;
 }
 
-.r-btn__prepend,
-.r-btn__append,
-.r-btn__icon {
+.r-button__prepend,
+.r-button__append,
+.r-button__icon {
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
@@ -534,7 +534,7 @@ const spinnerSize = computed(() => {
 
 /* ── Size ladder ───────────────────────────────────────────────────
    Heights align with the form primitives' density scale so a
-   `<RBtn>` placed next to a `<RTextField>` / `<RSelect>` reads as a
+   `<RButton>` placed next to a `<RTextField>` / `<RSelect>` reads as a
    visual peer at every step:
      small   = RTextField density="compact"     = 32px
      default = RTextField density="comfortable" = 40px (the form default)
@@ -542,44 +542,44 @@ const spinnerSize = computed(() => {
    x-small and x-large extend the ladder beyond the form scale for
    chip-sized and CTA buttons. Padding / font-size / gap scale with
    size so the proportions stay readable at every step. Height is
-   driven by `--r-btn-rest-h` so icon-mode width can follow it (square
+   driven by `--r-button-rest-h` so icon-mode width can follow it (square
    hit target) and the density override below can swap in a different
    value without touching `height` directly. */
-.r-btn {
-  height: var(--r-btn-rest-h);
+.r-button {
+  height: var(--r-button-rest-h);
 }
 
-.r-btn--x-small {
-  --r-btn-rest-h: 24px;
-  --r-btn-icon-size: 13px;
+.r-button--x-small {
+  --r-button-rest-h: 24px;
+  --r-button-icon-size: 13px;
   padding: 0 8px;
   font-size: 11px;
   gap: 4px;
 }
-.r-btn--small {
-  --r-btn-rest-h: 32px;
-  --r-btn-icon-size: 16px;
+.r-button--small {
+  --r-button-rest-h: 32px;
+  --r-button-icon-size: 16px;
   padding: 0 12px;
   font-size: 13px;
   gap: 6px;
 }
-.r-btn--default {
-  --r-btn-rest-h: 40px;
-  --r-btn-icon-size: 18px;
+.r-button--default {
+  --r-button-rest-h: 40px;
+  --r-button-icon-size: 18px;
   padding: 0 16px;
   font-size: 14px;
   gap: 8px;
 }
-.r-btn--large {
-  --r-btn-rest-h: 48px;
-  --r-btn-icon-size: 20px;
+.r-button--large {
+  --r-button-rest-h: 48px;
+  --r-button-icon-size: 20px;
   padding: 0 20px;
   font-size: 15px;
   gap: 10px;
 }
-.r-btn--x-large {
-  --r-btn-rest-h: 56px;
-  --r-btn-icon-size: 22px;
+.r-button--x-large {
+  --r-button-rest-h: 56px;
+  --r-button-icon-size: 22px;
   padding: 0 24px;
   font-size: 16px;
   gap: 12px;
@@ -587,113 +587,113 @@ const spinnerSize = computed(() => {
 
 /* Whole-pixel icon sizes: a fractional size (1.25em of 11px is 13.75px)
    puts the MDI glyph up to 1px off centre once the baseline snaps. */
-.r-btn .r-btn__prepend > .r-icon,
-.r-btn .r-btn__append > .r-icon,
-.r-btn .r-btn__icon {
-  font-size: var(--r-btn-icon-size);
+.r-button .r-button__prepend > .r-icon,
+.r-button .r-button__append > .r-icon,
+.r-button .r-button__icon {
+  font-size: var(--r-button-icon-size);
 }
 
 /* ── Density: absolute height override ───────────────────────────
    Mirrors RTextField / RSelect's density scale exactly so primitives
-   share the same vocabulary: `<RBtn density="comfortable">` and
+   share the same vocabulary: `<RButton density="comfortable">` and
    `<RTextField density="comfortable">` produce the same height. When
    density is set it overrides the size's natural height; size still
    drives padding / font / gap, so a small-font dense button reads as
    "shorter version of small" rather than "different scale entirely". */
-.r-btn--density-compact {
-  --r-btn-rest-h: 32px;
+.r-button--density-compact {
+  --r-button-rest-h: 32px;
 }
-.r-btn--density-comfortable {
-  --r-btn-rest-h: 40px;
+.r-button--density-comfortable {
+  --r-button-rest-h: 40px;
 }
-.r-btn--density-default {
-  --r-btn-rest-h: 48px;
+.r-button--density-default {
+  --r-button-rest-h: 48px;
 }
 
 /* ── Icon-only: square hit area ──────────────────────────────── */
-.r-btn--icon {
+.r-button--icon {
   padding: 0;
-  width: var(--r-btn-rest-h);
+  width: var(--r-button-rest-h);
 }
 
 /* ── Block: full width ────────────────────────────────────────── */
-.r-btn--block {
+.r-button--block {
   width: 100%;
   display: flex;
 }
 
 /* ── Variant: flat, solid fill ────────────────────────────────── */
-.r-btn--flat.r-btn--has-color {
-  background: var(--r-btn-solid);
+.r-button--flat.r-button--has-color {
+  background: var(--r-button-solid);
   color: white;
 }
-.r-btn--flat:not(.r-btn--has-color) {
+.r-button--flat:not(.r-button--has-color) {
   background: var(--r-color-surface);
   color: var(--r-color-fg);
 }
 
 /* ── Variant: elevated, solid + shadow ────────────────────────── */
-.r-btn--elevated.r-btn--has-color {
-  background: var(--r-btn-solid);
+.r-button--elevated.r-button--has-color {
+  background: var(--r-button-solid);
   color: white;
   box-shadow: 0 2px 6px color-mix(in srgb, black 22%, transparent);
 }
-.r-btn--elevated:not(.r-btn--has-color) {
+.r-button--elevated:not(.r-button--has-color) {
   background: var(--r-color-surface);
   color: var(--r-color-fg);
   box-shadow: 0 2px 6px color-mix(in srgb, black 18%, transparent);
 }
 :where(html[data-input="mouse"])
-  .r-btn--elevated:hover:not(.r-btn--disabled, :disabled) {
+  .r-button--elevated:hover:not(.r-button--disabled, :disabled) {
   box-shadow: 0 4px 10px color-mix(in srgb, black 26%, transparent);
 }
 
 /* ── Variant: translucent, color-mix bg, coloured text ────────── */
-.r-btn--translucent.r-btn--has-color {
-  background: color-mix(in srgb, var(--r-btn-color) 16%, transparent);
-  color: var(--r-btn-color);
+.r-button--translucent.r-button--has-color {
+  background: color-mix(in srgb, var(--r-button-color) 16%, transparent);
+  color: var(--r-button-color);
 }
-.r-btn--translucent:not(.r-btn--has-color) {
+.r-button--translucent:not(.r-button--has-color) {
   background: var(--r-color-surface);
   color: var(--r-color-fg);
 }
 
 /* ── Variant: outlined, border + text in tone ─────────────────── */
-.r-btn--outlined {
+.r-button--outlined {
   background: transparent;
 }
-.r-btn--outlined.r-btn--has-color {
-  color: var(--r-btn-color);
-  border-color: color-mix(in srgb, var(--r-btn-color) 50%, transparent);
+.r-button--outlined.r-button--has-color {
+  color: var(--r-button-color);
+  border-color: color-mix(in srgb, var(--r-button-color) 50%, transparent);
 }
-.r-btn--outlined:not(.r-btn--has-color) {
+.r-button--outlined:not(.r-button--has-color) {
   color: var(--r-color-fg);
   border-color: var(--r-color-border);
 }
 
 /* ── Variant: text, transparent, coloured text only ───────────── */
-.r-btn--text {
+.r-button--text {
   background: transparent;
 }
-.r-btn--text.r-btn--has-color {
-  color: var(--r-btn-color);
+.r-button--text.r-button--has-color {
+  color: var(--r-button-color);
 }
-.r-btn--text:not(.r-btn--has-color) {
+.r-button--text:not(.r-button--has-color) {
   color: var(--r-color-fg);
 }
 
 /* ── Variant: plain, zero chrome, inherit ─────────────────────── */
-.r-btn--plain {
+.r-button--plain {
   background: transparent;
   color: inherit;
 }
 
 /* ── `border` modifier: translucent currentColor border ───────── */
-.r-btn--border {
+.r-button--border {
   border-color: color-mix(in srgb, currentColor 40%, transparent);
 }
 :where(html[data-input="mouse"])
-  .r-btn--border:hover:not(.r-btn--disabled, :disabled) {
+  .r-button--border:hover:not(.r-button--disabled, :disabled) {
   border-color: color-mix(in srgb, currentColor 65%, transparent);
 }
 
@@ -702,7 +702,7 @@ const spinnerSize = computed(() => {
    specificity wins on source order regardless of which variant the
    button uses (otherwise variants that set `background: transparent`
    would override). */
-.r-btn--surface {
+.r-button--surface {
   background: var(--r-color-bg-elevated);
 }
 
@@ -718,46 +718,46 @@ const spinnerSize = computed(() => {
    other hand, only applies when NOT loading: fading a disabled-only
    button reads as "off-limits", while a disabled-loading button needs
    its spinner at full brightness to signal "action in flight". */
-.r-btn:disabled,
-.r-btn--disabled {
+.r-button:disabled,
+.r-button--disabled {
   cursor: not-allowed;
   pointer-events: none;
 }
-.r-btn--disabled:not(.r-btn--loading),
-.r-btn:disabled:not(.r-btn--loading) {
+.r-button--disabled:not(.r-button--loading),
+.r-button:disabled:not(.r-button--loading) {
   opacity: var(--r-opacity-inactive);
 }
 
-.r-btn--flat.r-btn--has-color.r-btn--disabled,
-.r-btn--flat.r-btn--has-color:disabled,
-.r-btn--elevated.r-btn--has-color.r-btn--disabled,
-.r-btn--elevated.r-btn--has-color:disabled {
+.r-button--flat.r-button--has-color.r-button--disabled,
+.r-button--flat.r-button--has-color:disabled,
+.r-button--elevated.r-button--has-color.r-button--disabled,
+.r-button--elevated.r-button--has-color:disabled {
   background: var(--r-color-surface);
   color: var(--r-color-fg-muted);
   box-shadow: none;
 }
-.r-btn--translucent.r-btn--has-color.r-btn--disabled,
-.r-btn--translucent.r-btn--has-color:disabled {
+.r-button--translucent.r-button--has-color.r-button--disabled,
+.r-button--translucent.r-button--has-color:disabled {
   background: var(--r-color-surface);
   color: var(--r-color-fg-muted);
 }
-.r-btn--outlined.r-btn--has-color.r-btn--disabled,
-.r-btn--outlined.r-btn--has-color:disabled {
+.r-button--outlined.r-button--has-color.r-button--disabled,
+.r-button--outlined.r-button--has-color:disabled {
   color: var(--r-color-fg-muted);
   border-color: var(--r-color-border);
 }
-.r-btn--text.r-btn--has-color.r-btn--disabled,
-.r-btn--text.r-btn--has-color:disabled {
+.r-button--text.r-button--has-color.r-button--disabled,
+.r-button--text.r-button--has-color:disabled {
   color: var(--r-color-fg-muted);
 }
 
 /* ── Reduced motion: drop hover overlay fade + ripple animation ── */
 @media (prefers-reduced-motion: reduce) {
-  .r-btn,
-  .r-btn::before {
+  .r-button,
+  .r-button::before {
     transition: none;
   }
-  .r-btn__ripples :deep(.r-btn__ripple) {
+  .r-button__ripples :deep(.r-button__ripple) {
     animation: none;
     display: none;
   }

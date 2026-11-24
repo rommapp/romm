@@ -12,7 +12,7 @@
 import type { Emitter } from "mitt";
 import { computed, inject, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { RBtn, RTextField } from "@/lib";
+import { RButton, RTextField } from "@/lib";
 import type { UpdateRom } from "@/services/api/rom";
 import type { Events } from "@/types/emitter";
 
@@ -109,7 +109,7 @@ const ariaLabel = computed(() => `${props.label} ${t("rom.metadata")} JSON`);
       spellcheck="false"
     />
     <div class="r-raw-meta__actions">
-      <RBtn
+      <RButton
         v-if="!isEditing"
         variant="text"
         color="primary"
@@ -117,19 +117,19 @@ const ariaLabel = computed(() => `${props.label} ${t("rom.metadata")} JSON`);
         @click="startEdit"
       >
         {{ t("common.edit") }}
-      </RBtn>
+      </RButton>
       <template v-else>
-        <RBtn variant="outlined" color="danger" @click="cancelEdit">
+        <RButton variant="outlined" color="danger" @click="cancelEdit">
           {{ t("common.cancel") }}
-        </RBtn>
-        <RBtn
+        </RButton>
+        <RButton
           variant="translucent"
           color="success"
           prepend-icon="mdi-check"
           @click="saveMetadata"
         >
           {{ t("common.save") }}
-        </RBtn>
+        </RButton>
       </template>
     </div>
   </div>

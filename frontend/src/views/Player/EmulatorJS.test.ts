@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import type { SnapshotSchema } from "@/__generated__";
 import AssetPreview from "@/components/Player/AssetPreview.vue";
-import { RAlert, RBtn, RSelect, RSegmentedControl } from "@/lib";
+import { RAlert, RButton, RSelect, RSegmentedControl } from "@/lib";
 import type { DetailedRom } from "@/stores/roms";
 import { propOf } from "@/test-utils/propOf";
 import type { Events } from "@/types/emitter";
@@ -253,20 +253,20 @@ function playLabels(wrapper: VueWrapper): string[] {
 
 function playDisabled(wrapper: VueWrapper): unknown[] {
   return wrapper
-    .findAllComponents(RBtn)
+    .findAllComponents(RButton)
     .filter((btn) => btn.classes().includes("r-ejs__play"))
     .map((btn) => btn.props("disabled"));
 }
 
 function cancelBtn(wrapper: VueWrapper) {
   return wrapper
-    .findAllComponents(RBtn)
+    .findAllComponents(RButton)
     .find((btn) => btn.classes().includes("r-ejs__native-cancel"));
 }
 
 function playIcons(wrapper: VueWrapper): unknown[] {
   return wrapper
-    .findAllComponents(RBtn)
+    .findAllComponents(RButton)
     .filter((btn) => btn.classes().includes("r-ejs__play"))
     .map((btn) => btn.props("prependIcon"));
 }

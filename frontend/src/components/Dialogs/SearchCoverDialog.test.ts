@@ -93,7 +93,7 @@ async function openDialog(withRom = false) {
         RTextField: true,
         RSelect: true,
         RSwitch: true,
-        RBtn: true,
+        RButton: true,
         RIcon: true,
         RSpinner: true,
         REmptyState: true,

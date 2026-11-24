@@ -141,7 +141,7 @@ async function mountAndPlay(): Promise<VueWrapper> {
     attachTo: document.body,
     global: {
       stubs: {
-        RBtn: {
+        RButton: {
           emits: ["click"],
           template: "<button @click=\"$emit('click')\"><slot /></button>",
         },

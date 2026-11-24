@@ -151,7 +151,7 @@ export function useGameActions(
 
   // A session someone else opened to other players on this exact ROM. Read
   // from the store, never fetched here: this composable is instantiated once
-  // per GameActionBtn, and a fetch per instance would be a request storm.
+  // per GameActionButton, and a fetch per instance would be a request storm.
   const joinableSession = computed(() => {
     const rom = getRom();
     if (!rom) return null;
@@ -684,7 +684,7 @@ export function useGameActions(
 export type GameActions = ReturnType<typeof useGameActions>;
 
 /** Injection key for sharing one `useGameActions` instance down a subtree.
- *  A GameCard hosts ~6 GameActionBtn children (play / download / collection /
+ *  A GameCard hosts ~6 GameActionButton children (play / download / collection /
  *  favorite / status / more); each one re-instantiating the full composable
  *  (i18n + router + emitter + two stores + `useCan`×2 + favorite/can-play
  *  computeds) is what made a virtualised grid of cards thousands of live

@@ -2,7 +2,7 @@
 // The select-all row above an owned save or state list. Always rendered so the
 // checkbox stays put; only the actions appear once something is checked.
 import { useI18n } from "vue-i18n";
-import { RBtn, RCheckbox } from "@/lib";
+import { RButton, RCheckbox } from "@/lib";
 
 defineOptions({ inheritAttrs: false });
 
@@ -43,7 +43,7 @@ const { t } = useI18n();
     />
 
     <div v-if="count > 0" class="r-asset-select__actions">
-      <RBtn
+      <RButton
         :icon="allFavorite ? 'mdi-heart' : 'mdi-heart-outline'"
         variant="text"
         size="small"
@@ -60,7 +60,7 @@ const { t } = useI18n();
         "
         @click="emit('toggleFavorite')"
       />
-      <RBtn
+      <RButton
         icon="mdi-label-outline"
         variant="text"
         size="small"
@@ -68,7 +68,7 @@ const { t } = useI18n();
         :aria-label="t('rom.add-labels')"
         @click="emit('editLabels')"
       />
-      <RBtn
+      <RButton
         icon="mdi-delete-outline"
         variant="text"
         color="romm-red"
@@ -77,7 +77,7 @@ const { t } = useI18n();
         :aria-label="t('common.delete')"
         @click="emit('delete')"
       />
-      <RBtn
+      <RButton
         icon="mdi-close"
         variant="text"
         size="small"

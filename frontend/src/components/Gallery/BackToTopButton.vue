@@ -5,7 +5,7 @@ import { useEventListener, useWindowSize } from "@vueuse/core";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useReducedMotion } from "@/composables/useReducedMotion";
-import { RBtn } from "@/lib";
+import { RButton } from "@/lib";
 import { focusFromInput } from "@/utils/autofocus";
 import { FOCUSABLE_SELECTOR } from "@/utils/spatialNav";
 
@@ -67,7 +67,7 @@ function scrollToTop(event: MouseEvent) {
 
 <template>
   <Transition name="back-to-top">
-    <RBtn
+    <RButton
       v-if="visible"
       class="back-to-top"
       variant="elevated"

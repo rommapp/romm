@@ -25,7 +25,7 @@ import VisibilitySwitch from "@/components/shared/VisibilitySwitch.vue";
 import { useBreakpoint } from "@/composables/useBreakpoint";
 import { useEmitterEvent } from "@/composables/useEmitterEvent";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { RBtn, RChip, RDialog, RForm, RIcon, RTextField, RTag } from "@/lib";
+import { RButton, RChip, RDialog, RForm, RIcon, RTextField, RTag } from "@/lib";
 import { ROUTES } from "@/plugins/router";
 import collectionApi from "@/services/api/collection";
 import storeCollections from "@/stores/collections";
@@ -313,7 +313,7 @@ async function submit() {
     </template>
 
     <template #footer>
-      <RBtn
+      <RButton
         variant="flat"
         color="primary"
         prepend-icon="mdi-playlist-plus"
@@ -322,7 +322,7 @@ async function submit() {
         @click="submit"
       >
         {{ t("common.create") }}
-      </RBtn>
+      </RButton>
     </template>
   </RDialog>
 </template>

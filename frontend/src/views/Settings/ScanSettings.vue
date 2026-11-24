@@ -20,7 +20,7 @@ import { useConfirm } from "@/composables/useConfirm";
 import { useFetchState } from "@/composables/useFetchState";
 import { useSnackbar } from "@/composables/useSnackbar";
 import { useUnloadGuard } from "@/composables/useUnloadGuard";
-import { RAlert, RSelect, RBtn, RSpinner } from "@/lib";
+import { RAlert, RSelect, RButton, RSpinner } from "@/lib";
 import configApi from "@/services/api/config";
 import storeAuth from "@/stores/auth";
 import storeConfig, { type Config } from "@/stores/config";
@@ -339,9 +339,9 @@ useUnloadGuard(hasPendingEdits);
       </template>
       {{ t("settings.scan-settings-load-error-desc") }}
       <template #actions>
-        <RBtn variant="text" :loading="loading" @click="loadConfig">
+        <RButton variant="text" :loading="loading" @click="loadConfig">
           {{ t("common.try-again") }}
-        </RBtn>
+        </RButton>
       </template>
     </RAlert>
   </div>

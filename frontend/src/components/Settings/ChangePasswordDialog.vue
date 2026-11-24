@@ -8,7 +8,7 @@ import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import PasswordField from "@/components/shared/PasswordField.vue";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { RBtn, RIcon } from "@/lib";
+import { RButton, RIcon } from "@/lib";
 import RDialog from "@/lib/overlays/RDialog/RDialog.vue";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
@@ -181,7 +181,7 @@ async function submit() {
       </p>
     </template>
     <template #footer>
-      <RBtn
+      <RButton
         variant="flat"
         color="primary"
         :loading="submitting"
@@ -190,7 +190,7 @@ async function submit() {
         @click="submit"
       >
         {{ t("common.confirm") }}
-      </RBtn>
+      </RButton>
     </template>
   </RDialog>
 </template>

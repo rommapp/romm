@@ -47,7 +47,7 @@ const RSwitch = {
     @change="$emit('update:modelValue', $event.target.checked)"
   />`,
 };
-const RBtn = {
+const RButton = {
   props: { disabled: { type: Boolean, default: false } },
   emits: ["click"],
   template: `<button class="save" :disabled="disabled" @click="$emit('click')"><slot /></button>`,
@@ -65,7 +65,7 @@ function mountDialog(props: Record<string, unknown> = {}) {
     },
     attachTo: document.body,
     global: {
-      stubs: { RDialog, RForm, RTextField, RComboboxField, RSwitch, RBtn },
+      stubs: { RDialog, RForm, RTextField, RComboboxField, RSwitch, RButton },
     },
   });
 }

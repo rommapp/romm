@@ -11,7 +11,7 @@ import { useEmitterEvent } from "@/composables/useEmitterEvent";
 import { useRomSync } from "@/composables/useRomSync";
 import { romIdFromRoute } from "@/composables/useRouteRom";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { RBtn, RCheckbox, RDialog, RIcon, RVirtualScroller } from "@/lib";
+import { RButton, RCheckbox, RDialog, RIcon, RVirtualScroller } from "@/lib";
 import { ROUTES } from "@/plugins/router";
 import configApi from "@/services/api/config";
 import romApi from "@/services/api/rom";
@@ -293,7 +293,7 @@ function closeDialog() {
       </div>
     </template>
     <template #footer>
-      <RBtn
+      <RButton
         variant="translucent"
         color="error"
         prepend-icon="mdi-delete"
@@ -302,7 +302,7 @@ function closeDialog() {
         @click="deleteRoms"
       >
         {{ t("common.confirm") }}
-      </RBtn>
+      </RButton>
     </template>
   </RDialog>
 </template>

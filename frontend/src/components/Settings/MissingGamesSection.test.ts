@@ -49,7 +49,7 @@ function mountSection() {
         GameListHeader: true,
         GameListRow: true,
         GameListSkeletonRow: true,
-        RBtn: true,
+        RButton: true,
         RIcon: true,
         RMenu: RMenuStub,
         RMenuItem: true,

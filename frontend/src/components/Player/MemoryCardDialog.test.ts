@@ -22,7 +22,7 @@ const RSwitch = {
   emits: ["update:modelValue"],
   template: `<input class="public" type="checkbox" :checked="modelValue" @change="$emit('update:modelValue', $event.target.checked)" />`,
 };
-const RBtn = {
+const RButton = {
   props: { disabled: { type: Boolean, default: false } },
   emits: ["click"],
   template: `<button class="confirm" :disabled="disabled" @click="$emit('click')"><slot /></button>`,
@@ -36,7 +36,7 @@ function mountDialog(props: Record<string, unknown> = {}) {
       confirmLabel: "Save",
       ...props,
     },
-    global: { stubs: { RDialog, RForm, RTextField, RSwitch, RBtn } },
+    global: { stubs: { RDialog, RForm, RTextField, RSwitch, RButton } },
   });
 }
 

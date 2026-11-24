@@ -10,7 +10,7 @@ import type {
 import AssetPreview from "@/components/Player/AssetPreview.vue";
 import SaveDataPanel from "@/components/Player/SaveDataPanel.vue";
 import AssetList from "@/components/shared/AssetList.vue";
-import { RBtn, RSelect, RSlider } from "@/lib";
+import { RButton, RSelect, RSlider } from "@/lib";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { DetailedRom } from "@/stores/roms";
 import { propOf } from "@/test-utils/propOf";
@@ -1206,7 +1206,7 @@ describe("Stream state controls", () => {
     await vmOf(wrapper).onPlay();
     await launchReady();
     await flushPromises();
-    return wrapper.findAllComponents(RBtn).map((b) => b.props("icon"));
+    return wrapper.findAllComponents(RButton).map((b) => b.props("icon"));
   }
 
   it("offers Save and Load where the broker takes a state mid-game", async () => {
@@ -1222,7 +1222,9 @@ describe("Stream state controls", () => {
     mocks.streamingOff.value = true;
     await flushPromises();
 
-    const icons = wrapper.findAllComponents(RBtn).map((b) => b.props("icon"));
+    const icons = wrapper
+      .findAllComponents(RButton)
+      .map((b) => b.props("icon"));
     expect(icons).toContain("mdi-content-save-outline");
     expect(icons).toContain("mdi-restore");
   });

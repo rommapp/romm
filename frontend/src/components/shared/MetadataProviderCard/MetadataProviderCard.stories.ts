@@ -5,7 +5,7 @@
 // the shared card: rows of unequal header height must keep every
 // footer pinned to the bottom edge.
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
-import { RBtn } from "@/lib";
+import { RButton } from "@/lib";
 import { CONTRAST_TODO_PARAMETERS } from "@/utils/storyA11y";
 import MetadataProviderCard from "./MetadataProviderCard.vue";
 import type { ProviderCardStatus } from "./types";
@@ -62,19 +62,19 @@ type Story = StoryObj<typeof MetadataProviderCard>;
 export const TileGrid: Story = {
   name: "Tile · settings grid",
   render: () => ({
-    components: { MetadataProviderCard, RBtn },
+    components: { MetadataProviderCard, RButton },
     setup: () => ({ logo, ok, missing }),
     template: `
       <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; max-width: 900px;">
         <MetadataProviderCard name="IGDB" :logo="logo('IG', 'indigo')" :status="ok">
           <template #actions>
-            <RBtn variant="translucent" size="small" prepend-icon="mdi-key-variant">Get API key</RBtn>
-            <RBtn variant="text" size="small" prepend-icon="mdi-open-in-new">Website</RBtn>
+            <RButton variant="translucent" size="small" prepend-icon="mdi-key-variant">Get API key</RButton>
+            <RButton variant="text" size="small" prepend-icon="mdi-open-in-new">Website</RButton>
           </template>
         </MetadataProviderCard>
         <MetadataProviderCard name="LaunchBox" :logo="logo('LB', 'teal')" :status="ok">
           <template #actions>
-            <RBtn variant="text" size="small" prepend-icon="mdi-open-in-new">Website</RBtn>
+            <RButton variant="text" size="small" prepend-icon="mdi-open-in-new">Website</RButton>
           </template>
         </MetadataProviderCard>
         <MetadataProviderCard
@@ -85,8 +85,8 @@ export const TileGrid: Story = {
           dimmed
         >
           <template #actions>
-            <RBtn variant="translucent" size="small" prepend-icon="mdi-key-variant">Get API key</RBtn>
-            <RBtn variant="text" size="small" prepend-icon="mdi-open-in-new">Website</RBtn>
+            <RButton variant="translucent" size="small" prepend-icon="mdi-key-variant">Get API key</RButton>
+            <RButton variant="text" size="small" prepend-icon="mdi-open-in-new">Website</RButton>
           </template>
         </MetadataProviderCard>
       </div>

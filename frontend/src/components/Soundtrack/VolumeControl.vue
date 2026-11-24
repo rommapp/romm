@@ -4,7 +4,7 @@
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { RBtn, RMenu, RSlider } from "@/lib";
+import { RButton, RMenu, RSlider } from "@/lib";
 import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
 
 defineOptions({ inheritAttrs: false });
@@ -45,7 +45,7 @@ const sliderValue = computed({
     content-class="r-volume-menu"
   >
     <template #activator="{ props: activatorProps }">
-      <RBtn
+      <RButton
         v-bind="activatorProps"
         :icon="icon"
         variant="text"
@@ -66,7 +66,7 @@ const sliderValue = computed({
         :aria-label="t('rom.soundtrack-volume')"
         class="r-volume__slider"
       />
-      <RBtn
+      <RButton
         :icon="icon"
         variant="text"
         size="small"

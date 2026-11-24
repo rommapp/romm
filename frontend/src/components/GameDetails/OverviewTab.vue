@@ -17,7 +17,7 @@
 //
 // Status enum + flags (now_playing / backlogged / hidden) and personal
 // metrics (rating / difficulty / completion) live in the action ribbon (see
-// GameActionBtn for status, and MetricMenuBtn).
+// GameActionButton for status, and MetricMenuButton).
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import type {
@@ -41,7 +41,7 @@ import { PROVIDERS, providerId } from "@/components/GameDetails/providers";
 import { usePinnedMedia } from "@/composables/usePinnedMedia";
 import { useUISettings } from "@/composables/useUISettings";
 import { useWebpSupport } from "@/composables/useWebpSupport";
-import { RBtn, RIcon, RSegmentedControl } from "@/lib";
+import { RButton, RIcon, RSegmentedControl } from "@/lib";
 import storeCollections from "@/stores/collections";
 import type { DetailedRom } from "@/stores/roms";
 import { collectionCoverList } from "@/utils/collectionCovers";
@@ -296,7 +296,7 @@ const coverSource = computed(() => {
           <RIcon icon="mdi-image-multiple-outline" size="14" />
           {{ t("rom.media") }}
         </h4>
-        <RBtn
+        <RButton
           v-if="isCustomized && canPin"
           variant="text"
           size="x-small"
@@ -304,7 +304,7 @@ const coverSource = computed(() => {
           @click="resetPins"
         >
           {{ t("rom.pinned-media-reset") }}
-        </RBtn>
+        </RButton>
       </div>
       <MediaShelf
         v-if="pinnedMedia.length"

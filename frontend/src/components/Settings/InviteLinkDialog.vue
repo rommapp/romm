@@ -7,7 +7,7 @@ import { useI18n } from "vue-i18n";
 import { useClipboard } from "@/composables/useClipboard";
 import { useEmitterEvent } from "@/composables/useEmitterEvent";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { RBtn, RIcon, RSelect } from "@/lib";
+import { RButton, RIcon, RSelect } from "@/lib";
 import RDialog from "@/lib/overlays/RDialog/RDialog.vue";
 import userApi from "@/services/api/user";
 import { getRoleIcon } from "@/utils";
@@ -141,7 +141,7 @@ function close() {
       </div>
     </template>
     <template #footer>
-      <RBtn
+      <RButton
         variant="flat"
         color="primary"
         :loading="generating"
@@ -150,7 +150,7 @@ function close() {
         @click="createInviteLink"
       >
         {{ t("common.generate") }}
-      </RBtn>
+      </RButton>
     </template>
   </RDialog>
 </template>

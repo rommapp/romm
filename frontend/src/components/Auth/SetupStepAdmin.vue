@@ -16,7 +16,7 @@ import { useObjectUrl } from "@vueuse/core";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import PasswordField from "@/components/shared/PasswordField.vue";
-import { RBtn, RForm, RIcon, RTextField, RTooltip } from "@/lib";
+import { RButton, RForm, RIcon, RTextField, RTooltip } from "@/lib";
 import { defaultAvatarPath } from "@/utils";
 import {
   asciiOnly,
@@ -121,7 +121,7 @@ const abilities = [
         />
         <RTooltip>
           <template #activator="{ props: tipProps }">
-            <RBtn
+            <RButton
               v-bind="tipProps"
               variant="text"
               size="small"

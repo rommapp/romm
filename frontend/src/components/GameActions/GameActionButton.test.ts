@@ -2,7 +2,7 @@ import { mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 import { romFixture } from "@/utils/rom.fixtures";
-import GameActionBtn from "./GameActionBtn.vue";
+import GameActionButton from "./GameActionButton.vue";
 
 const play = vi.fn();
 const needsLaunchConfirm = { value: false };
@@ -26,10 +26,10 @@ vi.mock("@/composables/useGameActions", () => ({
   }),
 }));
 
-type Props = InstanceType<typeof GameActionBtn>["$props"];
+type Props = InstanceType<typeof GameActionButton>["$props"];
 
 function mountBtn(props: Partial<Props> = {}) {
-  return mount(GameActionBtn, {
+  return mount(GameActionButton, {
     props: { rom: romFixture({ id: 1 }), action: "play", ...props },
     global: { stubs: { RIcon: true, RTooltip: true } },
   });
@@ -57,7 +57,7 @@ beforeEach(() => {
   needsLaunchConfirm.value = false;
 });
 
-describe("GameActionBtn: launch links", () => {
+describe("GameActionButton: launch links", () => {
   it("stays a button unless asked to link", () => {
     const wrapper = mountBtn();
 

@@ -14,7 +14,7 @@
 import { useMutationObserver, useResizeObserver } from "@vueuse/core";
 import { computed, onMounted, ref, shallowRef } from "vue";
 import { useI18n } from "vue-i18n";
-import { RBtn, RTag } from "@/lib";
+import { RButton, RTag } from "@/lib";
 
 defineOptions({ inheritAttrs: false });
 
@@ -137,7 +137,7 @@ onMounted(() => {
     </header>
 
     <div class="card-row__wrap">
-      <RBtn
+      <RButton
         v-if="canLeft"
         icon="mdi-chevron-left"
         variant="translucent"
@@ -145,7 +145,7 @@ onMounted(() => {
         :aria-label="t('common.scroll-left')"
         @click="scrollBy(-1)"
       />
-      <RBtn
+      <RButton
         v-if="canRight"
         icon="mdi-chevron-right"
         variant="translucent"
@@ -212,10 +212,10 @@ onMounted(() => {
   scroll-behavior: smooth;
 }
 
-/* Vertically centred, anchored to the row edges. The RBtn surface gets
+/* Vertically centred, anchored to the row edges. The RButton surface gets
    a dark scrim so the arrow has contrast over busy cover thumbnails:
    translucent alone reads too faint without a brand color. Override
-   RBtn's at-rest opacity (0.7) so the 85% reading comes purely from
+   RButton's at-rest opacity (0.7) so the 85% reading comes purely from
    the white-secondary token applied to the icon. */
 .card-row__arrow {
   position: absolute;
@@ -229,13 +229,13 @@ onMounted(() => {
 .card-row__arrow--right {
   right: 8px;
 }
-.card-row__arrow.r-btn {
+.card-row__arrow.r-button {
   background: var(--r-color-overlay-scrim-strong) !important;
   color: var(--r-color-overlay-fg-secondary) !important;
   backdrop-filter: blur(10px);
   opacity: 1;
 }
-.card-row__arrow.r-btn:hover {
+.card-row__arrow.r-button:hover {
   background: color-mix(in srgb, black 88%, transparent) !important;
   color: var(--r-color-overlay-fg) !important;
 }

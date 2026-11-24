@@ -19,7 +19,7 @@ import { useIsAlive } from "@/composables/useIsAlive";
 import { usePageTitle } from "@/composables/usePageTitle";
 import { useSocketEvent } from "@/composables/useSocketEvent";
 import { usePlayingWhile } from "@/composables/useStageActive";
-import { RAlert, RBtn, RSpinner } from "@/lib";
+import { RAlert, RButton, RSpinner } from "@/lib";
 import { ROUTES } from "@/plugins/router";
 import streamingApi, {
   type ContainerBusyDetail,
@@ -265,9 +265,9 @@ onBeforeUnmount(() => {
         class="r-desktop__ended-reason"
       />
       <template #append>
-        <RBtn variant="text" @click="backToAdministration">
+        <RButton variant="text" @click="backToAdministration">
           {{ t("play.desktop-back") }}
-        </RBtn>
+        </RButton>
       </template>
     </RAlert>
 
@@ -293,7 +293,7 @@ onBeforeUnmount(() => {
 
         <span class="r-desktop__bar-spacer" />
 
-        <RBtn
+        <RButton
           :icon="isFullscreen ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'"
           variant="text"
           density="compact"
@@ -304,7 +304,7 @@ onBeforeUnmount(() => {
           "
           @click="toggleFullscreen"
         />
-        <RBtn
+        <RButton
           icon="mdi-stop"
           variant="text"
           density="compact"

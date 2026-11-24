@@ -38,7 +38,7 @@ import PlatformSelect from "@/components/shared/PlatformSelect.vue";
 import { useScanProviders } from "@/composables/useScanProviders";
 import { useScanTrigger } from "@/composables/useScanTrigger";
 import { useScanTypeOptions } from "@/composables/useScanTypeOptions";
-import { RAlert, RBtn, RIcon, RProgressLinear, RTooltip } from "@/lib";
+import { RAlert, RButton, RIcon, RProgressLinear, RTooltip } from "@/lib";
 import { ROUTES } from "@/plugins/router";
 import socket from "@/services/socket";
 import storePlatforms from "@/stores/platforms";
@@ -251,7 +251,7 @@ function stopScan() {
       :aria-label="t('scan.title')"
     >
       <div class="r-scan-card__head">
-        <RBtn
+        <RButton
           icon="mdi-information-outline"
           variant="text"
           size="small"
@@ -385,7 +385,7 @@ function stopScan() {
           </RAlert>
         </div>
 
-        <RBtn
+        <RButton
           class="r-scan-card__start"
           size="large"
           variant="flat"
@@ -396,16 +396,16 @@ function stopScan() {
           @click="scan"
         >
           {{ scanning ? t("scan.scanning") : t("scan.scan") }}
-        </RBtn>
+        </RButton>
 
-        <RBtn
+        <RButton
           class="r-scan-card__library"
           variant="outlined"
           prepend-icon="mdi-table-cog"
           :to="{ name: ROUTES.LIBRARY_MANAGEMENT }"
         >
           {{ t("common.library-management") }}
-        </RBtn>
+        </RButton>
       </footer>
     </section>
 
@@ -524,7 +524,7 @@ function stopScan() {
         <div v-if="scanning" class="r-scan-live__actions">
           <RTooltip :text="t('scan.abort-scan')" location="bottom">
             <template #activator="{ props: tipProps }">
-              <RBtn
+              <RButton
                 v-bind="tipProps"
                 icon="mdi-stop-circle-outline"
                 variant="text"

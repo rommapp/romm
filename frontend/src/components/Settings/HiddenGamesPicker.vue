@@ -8,7 +8,7 @@ import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import GameCover from "@/components/shared/GameCover.vue";
 import { useDebouncedSearch } from "@/composables/useDebouncedSearch";
-import { RBtn, RIcon, RSpinner, RTextField } from "@/lib";
+import { RButton, RIcon, RSpinner, RTextField } from "@/lib";
 import romApi from "@/services/api/rom";
 import type { SimpleRom } from "@/stores/roms";
 
@@ -150,7 +150,7 @@ function remove(id: number) {
           <GameCover :rom="s.rom" :title="s.name" responsive />
         </span>
         <span class="r-hgames__name">{{ s.name }}</span>
-        <RBtn
+        <RButton
           variant="text"
           icon="mdi-close"
           size="small"

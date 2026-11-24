@@ -25,7 +25,7 @@ import { useDebugMode } from "@/composables/useDebugMode";
 import { useReducedMotion } from "@/composables/useReducedMotion";
 import { useSnackbar } from "@/composables/useSnackbar";
 import { useUISettings } from "@/composables/useUISettings";
-import { RBtn, RIcon, RSelect, RSegmentedControl } from "@/lib";
+import { RButton, RIcon, RSelect, RSegmentedControl } from "@/lib";
 import { canOpenNativeSettings, openNativeSettings } from "@/services/native";
 import storeCollections from "@/stores/collections";
 import { useNativeStore } from "@/stores/native";
@@ -395,7 +395,7 @@ function onVirtualCollectionTypeChange(value: unknown) {
             {{ t("settings.boxart-style") }}
           </template>
         </RSelect>
-        <RBtn
+        <RButton
           variant="text"
           size="small"
           :prepend-icon="
@@ -406,7 +406,7 @@ function onVirtualCollectionTypeChange(value: unknown) {
           @click="showAdvancedBoxart = !showAdvancedBoxart"
         >
           {{ t("settings.boxart-advanced") }}
-        </RBtn>
+        </RButton>
         <template v-if="showAdvancedBoxart">
           <p class="r-ui__desc">
             {{ t("settings.boxart-advanced-desc") }}
@@ -478,14 +478,14 @@ function onVirtualCollectionTypeChange(value: unknown) {
             })
           }}
         </p>
-        <RBtn
+        <RButton
           variant="outlined"
           size="small"
           prepend-icon="mdi-cog-outline"
           @click="onOpenShellSettings"
         >
           {{ t("settings.open-shell-settings") }}
-        </RBtn>
+        </RButton>
       </div>
     </SettingsSection>
 

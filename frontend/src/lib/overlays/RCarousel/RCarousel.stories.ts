@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 import { type Component, ref } from "vue";
-import RBtn from "@/lib/primitives/RBtn/RBtn.vue";
+import RButton from "@/lib/primitives/RButton/RButton.vue";
 import { CONTRAST_TODO_PARAMETERS } from "@/utils/storyA11y";
 import RCarousel from "./RCarousel.vue";
 
@@ -142,7 +142,7 @@ export const Fullscreen: Story = {
     ariaLabel: "Screenshot lightbox",
   },
   render: (args) => ({
-    components: { RCarousel: RCarouselStory, RBtn },
+    components: { RCarousel: RCarouselStory, RButton },
     setup() {
       const index = ref<number | null>(null);
       const onClose = fn(() => (index.value = null));
@@ -150,7 +150,7 @@ export const Fullscreen: Story = {
     },
     template: `
       <div style="padding: 32px; min-height: 540px;">
-        <RBtn @click="index = 0">Open lightbox</RBtn>
+        <RButton @click="index = 0">Open lightbox</RButton>
         <RCarousel
           v-if="index !== null"
           v-bind="args"

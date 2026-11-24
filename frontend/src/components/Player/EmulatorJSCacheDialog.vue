@@ -4,7 +4,7 @@
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useEmitterEvent } from "@/composables/useEmitterEvent";
-import { RBtn, RDialog, RIcon } from "@/lib";
+import { RButton, RDialog, RIcon } from "@/lib";
 
 defineOptions({ inheritAttrs: false });
 
@@ -59,14 +59,14 @@ function closeDialog() {
       </div>
     </template>
     <template #footer>
-      <RBtn
+      <RButton
         variant="translucent"
         color="error"
         prepend-icon="mdi-database-remove"
         @click="clearIndexDB"
       >
         {{ t("common.confirm") }}
-      </RBtn>
+      </RButton>
     </template>
   </RDialog>
 </template>

@@ -17,7 +17,7 @@ import {
   type MatchedSource,
 } from "@/components/MatchRom/types";
 import { useEscapable } from "@/composables/useEscapable";
-import { RBtn, REmptyState, RIcon, RProgressCircular } from "@/lib";
+import { RButton, REmptyState, RIcon, RProgressCircular } from "@/lib";
 import type { SearchRom, SimpleRom } from "@/stores/roms";
 
 defineOptions({ inheritAttrs: false });
@@ -162,7 +162,7 @@ watch(
         <section class="match-grid__panel" :aria-label="t('rom.details')">
           <header class="match-grid__head">
             <h3 class="match-grid__title">{{ activeMatch.name }}</h3>
-            <RBtn
+            <RButton
               icon="mdi-close"
               size="small"
               variant="outlined"
@@ -225,7 +225,7 @@ watch(
             />
 
             <div class="match-grid__cta">
-              <RBtn
+              <RButton
                 variant="flat"
                 color="primary"
                 prepend-icon="mdi-check"
@@ -233,7 +233,7 @@ watch(
                 @click="confirm"
               >
                 {{ t("rom.match-this-game") }}
-              </RBtn>
+              </RButton>
             </div>
           </div>
         </section>

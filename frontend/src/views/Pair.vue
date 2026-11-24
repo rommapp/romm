@@ -11,7 +11,7 @@ import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import { useClipboard } from "@/composables/useClipboard";
 import { usePageTitle } from "@/composables/usePageTitle";
-import { RBtn, RIcon } from "@/lib";
+import { RButton, RIcon } from "@/lib";
 import { errorMessage as apiErrorMessage } from "@/utils/errorMessage";
 import { isCustomScheme } from "@/utils/pairCallback";
 
@@ -114,14 +114,14 @@ async function copyCode() {
       >
         {{ formattedCode }}
       </div>
-      <RBtn
+      <RButton
         variant="translucent"
         color="primary"
         prepend-icon="mdi-content-copy"
         @click="copyCode"
       >
         {{ t("common.copy-code") }}
-      </RBtn>
+      </RButton>
       <p class="r-pair__hint">
         {{ t("settings.pair-expires-shortly") }}
       </p>

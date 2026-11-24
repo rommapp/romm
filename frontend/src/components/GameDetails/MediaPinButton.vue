@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { RBtn } from "@/lib";
+import { RButton } from "@/lib";
 
 const props = defineProps<{ pinned: boolean }>();
 const emit = defineEmits<{ toggle: [] }>();
@@ -14,7 +14,7 @@ const label = computed(() =>
 </script>
 
 <template>
-  <RBtn
+  <RButton
     :icon="pinned ? 'mdi-pin' : 'mdi-pin-outline'"
     size="small"
     variant="flat"
@@ -29,7 +29,7 @@ const label = computed(() =>
 
 <style scoped>
 /* Sits on artwork, so it needs the fixed overlay scrim to stay legible. */
-.r-btn.r-media-pin--idle {
+.r-button.r-media-pin--idle {
   background: var(--r-color-overlay-scrim-strong);
   color: var(--r-color-overlay-fg);
 }

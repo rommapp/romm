@@ -14,7 +14,7 @@ import type { AdminUserDraft } from "@/components/Auth/SetupStepAdmin.vue";
 import SetupStepMetadata from "@/components/Auth/SetupStepMetadata.vue";
 import SetupStepPlatforms from "@/components/Auth/SetupStepPlatforms.vue";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { RBtn, RIcon, RImage, RSpinner, RSteps } from "@/lib";
+import { RButton, RIcon, RImage, RSpinner, RSteps } from "@/lib";
 import { refetchCSRFToken } from "@/services/api";
 import identityApi from "@/services/api/identity";
 import setupApi from "@/services/api/setup";
@@ -233,14 +233,14 @@ onMounted(loadLibraryInfo);
       >
         <RIcon icon="mdi-alert-circle-outline" :size="32" />
         <span>{{ libraryError }}</span>
-        <RBtn
+        <RButton
           variant="flat"
           color="primary"
           prepend-icon="mdi-refresh"
           @click="loadLibraryInfo"
         >
           {{ t("common.try-again") }}
-        </RBtn>
+        </RButton>
       </div>
 
       <Transition
@@ -270,7 +270,7 @@ onMounted(loadLibraryInfo);
     </div>
 
     <footer class="r-setup__footer">
-      <RBtn
+      <RButton
         v-if="!isFirstStep"
         variant="text"
         :disabled="submitting"
@@ -278,11 +278,11 @@ onMounted(loadLibraryInfo);
         @click="prev"
       >
         {{ t("setup.previous") }}
-      </RBtn>
+      </RButton>
 
       <div class="r-setup__footer-spacer" />
 
-      <RBtn
+      <RButton
         variant="flat"
         color="primary"
         :append-icon="isLastStep ? 'mdi-check' : 'mdi-chevron-right'"
@@ -291,7 +291,7 @@ onMounted(loadLibraryInfo);
         @click="next"
       >
         {{ isLastStep ? t("setup.finish") : t("setup.next") }}
-      </RBtn>
+      </RButton>
     </footer>
   </div>
 </template>

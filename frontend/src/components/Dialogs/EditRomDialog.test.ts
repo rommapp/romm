@@ -26,7 +26,7 @@ const GameCard = {
   props: { coverSrc: { type: String, default: "" } },
   template: `<div class="card" :data-cover="coverSrc" />`,
 };
-const RBtn = {
+const RButton = {
   props: { icon: { type: String, default: "" } },
   emits: ["click"],
   template: `<button type="button" :data-icon="icon" @click="$emit('click')" />`,
@@ -42,7 +42,7 @@ async function mountDialog() {
       stubs: {
         RDialog,
         GameCard,
-        RBtn,
+        RButton,
         RTabNav: true,
         RTextField: true,
         RIcon: true,

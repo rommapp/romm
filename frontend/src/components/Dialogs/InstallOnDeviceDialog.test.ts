@@ -102,7 +102,7 @@ function mountDialog(emitter: Emitter<Events>): VueWrapper {
             <span data-test-subtitle>{{ subtitle }}</span>
           </label>`,
         },
-        RBtn: true,
+        RButton: true,
         RIcon: true,
         RSpinner: true,
         REmptyState: true,

@@ -76,7 +76,7 @@ async function mountDialog(role: "admin" | "user" = "admin") {
       provide: { emitter },
       stubs: {
         RDialog,
-        RBtn: {
+        RButton: {
           emits: ["click"],
           template: `<button @click="$emit('click')"><slot /></button>`,
         },

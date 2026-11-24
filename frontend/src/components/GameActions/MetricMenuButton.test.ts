@@ -1,9 +1,9 @@
 import { mount } from "@vue/test-utils";
 import { describe, expect, it } from "vitest";
-import MetricMenuBtn from "./MetricMenuBtn.vue";
+import MetricMenuButton from "./MetricMenuButton.vue";
 
 function mountBtn() {
-  return mount(MetricMenuBtn, {
+  return mount(MetricMenuButton, {
     props: {
       value: 0,
       label: "Difficulty",
@@ -15,7 +15,7 @@ function mountBtn() {
   });
 }
 
-describe("MetricMenuBtn", () => {
+describe("MetricMenuButton", () => {
   it("names the metric in a hover tooltip", () => {
     const wrapper = mountBtn();
 

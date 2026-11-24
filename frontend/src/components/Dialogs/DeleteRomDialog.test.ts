@@ -43,7 +43,7 @@ const RDialog = {
   props: { modelValue: { type: Boolean, default: false } },
   template: `<div v-if="modelValue"><slot name="content" /><slot name="append" /><slot name="footer" /></div>`,
 };
-const RBtn = {
+const RButton = {
   emits: ["click"],
   template: `<button type="button" @click="$emit('click')"><slot /></button>`,
 };
@@ -58,7 +58,7 @@ const WholeList = defineComponent({
 });
 const stubs = {
   RDialog,
-  RBtn,
+  RButton,
   RCheckbox,
   RIcon: true,
   RVirtualScroller: WholeList,

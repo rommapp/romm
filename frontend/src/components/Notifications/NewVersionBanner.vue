@@ -18,7 +18,7 @@ import semver from "semver";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useUserLocalStorage } from "@/composables/useUserLocalStorage";
-import { RBtn, RIcon } from "@/lib";
+import { RButton, RIcon } from "@/lib";
 import storeHeartbeat from "@/stores/heartbeat";
 
 defineOptions({ inheritAttrs: false });
@@ -93,7 +93,7 @@ useEventListener(
         </span>
       </div>
       <div class="r-new-version__actions">
-        <RBtn
+        <RButton
           size="small"
           variant="translucent"
           color="primary"
@@ -101,15 +101,15 @@ useEventListener(
           @click="onOpenRelease"
         >
           {{ t("common.whats-new") }}
-        </RBtn>
-        <RBtn
+        </RButton>
+        <RButton
           size="small"
           variant="text"
           class="r-new-version__dismiss"
           @click="onDismiss"
         >
           {{ t("common.dismiss") }}
-        </RBtn>
+        </RButton>
       </div>
     </div>
   </transition>
