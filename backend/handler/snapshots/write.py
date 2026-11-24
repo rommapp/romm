@@ -210,7 +210,7 @@ def _content(write: SnapshotWrite, key: str) -> AssetContent | None:
 async def _same_save_identity(
     write: SnapshotWrite, plan: _Plan, current: Snapshot
 ) -> bool:
-    """Whether the push holds `current`'s save by its identity hash (a clock tick or scratch write apart), in the same shape and format."""
+    """Whether the push holds `current`'s save by identity hash, in the same shape and format."""
     sent = _content(write, SAVE_PART)
     if plan.resolved.save is None or sent is None:
         return False

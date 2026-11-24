@@ -77,7 +77,7 @@ async def test_sigil_answers_for_a_platform_it_has_a_rule_for():
     assert saved != md5(red_ram())
 
 
-async def test_without_sigil_a_platform_with_a_rule_hashes_as_before(
+async def test_without_sigil_a_platform_with_a_rule_hashes_its_content(
     monkeypatch: pytest.MonkeyPatch,
 ):
     monkeypatch.setattr(hashing, "sigil_binding", lambda: None)
@@ -85,7 +85,7 @@ async def test_without_sigil_a_platform_with_a_rule_hashes_as_before(
     assert await _identity(red_ram(), "gb") == md5(red_ram())
 
 
-async def test_a_unit_sigil_has_no_rule_for_hashes_as_before():
+async def test_a_unit_sigil_has_no_rule_for_hashes_its_content():
     pytest.importorskip("sigil")
 
     assert await _identity(b"only", "psx") == md5(b"only")
@@ -100,7 +100,9 @@ class _RefusingBinding:
         raise cls.SigilError(platform)
 
 
-async def test_a_unit_sigil_refuses_hashes_as_before(monkeypatch: pytest.MonkeyPatch):
+async def test_a_unit_sigil_refuses_hashes_its_content(
+    monkeypatch: pytest.MonkeyPatch,
+):
     monkeypatch.setattr(hashing, "sigil_binding", lambda: _RefusingBinding)
 
     assert await _identity(red_ram(), "gb") == md5(red_ram())
