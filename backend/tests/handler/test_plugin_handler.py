@@ -3,7 +3,12 @@ from pathlib import Path
 
 import pytest
 from handler import plugin_handler
-from handler.plugin_handler import list_plugins
+from handler.plugin_handler import (
+    PluginRefused,
+    list_plugins,
+    plugin_settings,
+    save_plugin_settings,
+)
 
 
 def write_plugin(base: Path, folder: str, manifest: dict | str) -> Path:
@@ -349,7 +354,12 @@ def test_a_group_holds_the_fields_an_entry_needs():
             "type": "groups",
             "max_items": 3,
             "fields": [
-                {"key": "cpu", "label": "CPU", "type": "search", "source": SEARCH_SOURCE},
+                {
+                    "key": "cpu",
+                    "label": "CPU",
+                    "type": "search",
+                    "source": SEARCH_SOURCE,
+                },
                 {"key": "memory", "label": "Memory", "type": "number", "min": 1},
             ],
         },
@@ -434,10 +444,68 @@ def test_an_entry_over_the_limit_is_not_held(shelf):
     write_plugin(shelf, "rommdeck", data)
     plugin = list_plugins()[0]
 
-    assert plugin_handler._value_fits(
-        plugin.settings[0], [{"cpu": "a"}, {"cpu": "b"}]
-    ) is False
+    assert (
+        plugin_handler._value_fits(plugin.settings[0], [{"cpu": "a"}, {"cpu": "b"}])
+        is False
+    )
     assert plugin_handler._value_fits(plugin.settings[0], [{"cpu": "a"}]) is True
+
+
+SETUPS_SETTING = {
+    "key": "setups",
+    "label": "Your PC setups",
+    "type": "groups",
+    "max_items": 4,
+    "fields": [
+        {"key": "name", "label": "Name"},
+        {"key": "cpu", "label": "CPU", "required": True},
+        {"key": "memory", "label": "Memory", "type": "number", "min": 1},
+        {
+            "key": "os",
+            "label": "OS",
+            "type": "select",
+            "options": [{"value": "LINUX", "label": "Linux"}],
+        },
+    ],
+}
+
+
+def test_a_saved_setup_survives_a_round_trip(shelf):
+    write_plugin(shelf, "emuready", manifest(settings=[SETUPS_SETTING]))
+    plugin = list_plugins()[0]
+    entries = [
+        {"name": "Desktop", "cpu": "5900x", "memory": 32, "os": "LINUX"},
+    ]
+
+    stored = save_plugin_settings(plugin, {"setups": entries})
+
+    assert stored["setups"] == entries
+    assert plugin_settings(plugin)["setups"] == entries
+
+
+def test_a_setup_naming_a_field_the_manifest_has_not_got_is_refused(shelf):
+    write_plugin(shelf, "emuready", manifest(settings=[SETUPS_SETTING]))
+    plugin = list_plugins()[0]
+
+    with pytest.raises(PluginRefused):
+        save_plugin_settings(plugin, {"setups": [{"cpu": "5900x", "gpu": "rx-6600"}]})
+
+
+def test_a_setup_without_the_field_the_manifest_requires_is_refused(shelf):
+    write_plugin(shelf, "emuready", manifest(settings=[SETUPS_SETTING]))
+    plugin = list_plugins()[0]
+
+    with pytest.raises(PluginRefused):
+        save_plugin_settings(plugin, {"setups": [{"name": "Desktop"}]})
+
+
+def test_more_setups_than_the_manifest_allows_is_refused(shelf):
+    write_plugin(shelf, "emuready", manifest(settings=[SETUPS_SETTING]))
+    plugin = list_plugins()[0]
+    one = {"cpu": "5900x"}
+
+    with pytest.raises(PluginRefused):
+        save_plugin_settings(plugin, {"setups": [one, one, one, one, one]})
 
 
 def test_a_parked_plugin_adds_nothing(shelf):

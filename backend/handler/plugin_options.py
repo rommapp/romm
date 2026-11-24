@@ -12,6 +12,7 @@ import logging
 import time
 from typing import Any, Final
 
+import httpx2
 from endpoints.responses.plugin import (
     PluginOptionSchema,
     PluginOptionSourceSchema,
@@ -69,7 +70,7 @@ def options_for(
 
     try:
         found = _ask(setting.source, query)
-    except (ValueError, TypeError, OSError, PluginRefused) as exc:
+    except (ValueError, TypeError, OSError, httpx2.HTTPError, PluginRefused) as exc:
         logger.warning(f"Plugins: {plugin.id}.{key} could not be searched: {exc}")
         return [], str(exc)
 

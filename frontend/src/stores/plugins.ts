@@ -158,7 +158,16 @@ export const usePluginStore = defineStore("plugins", () => {
 function refusal(error: unknown): string {
   const detail = (error as { response?: { data?: { detail?: unknown } } })
     ?.response?.data?.detail;
-  return typeof detail === "string"
-    ? detail
-    : "The server refused that plugin.";
+  if (typeof detail === "string") return detail;
+  // FastAPI answers a request that does not fit its model with a list of
+  // messages, one per field. The first is the one that names the problem, and
+  // saying it beats a sentence that says nothing.
+  if (Array.isArray(detail) && detail.length) {
+    const first = detail[0] as { msg?: unknown; loc?: unknown };
+    if (typeof first?.msg === "string") {
+      const where = Array.isArray(first.loc) ? first.loc.join(".") : "";
+      return where ? `${where}: ${first.msg}` : first.msg;
+    }
+  }
+  return "The server refused that plugin.";
 }

@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -140,9 +140,14 @@ class PluginSchema(BaseModel):
 
 
 class PluginSettingsSchema(BaseModel):
-    """A plugin's saved values, keyed by the manifest's setting keys."""
+    """A plugin's saved values, keyed by the manifest's setting keys.
 
-    values: dict[str, str | int | float | bool | None] = Field(default_factory=dict)
+    A value is whatever the field holds, which for a `groups` field is a list of
+    entries. Narrowing this to scalars would refuse the whole request before the
+    manifest got a look at it.
+    """
+
+    values: dict[str, Any] = Field(default_factory=dict)
 
 
 class PluginFactGroupSchema(BaseModel):
