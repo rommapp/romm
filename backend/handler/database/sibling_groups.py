@@ -16,7 +16,7 @@ from utils.sibling_groups import sibling_groups
 
 IdentityKey = tuple[int, int, str]
 
-# Bound on the parameters one IN list carries.
+# The most parameters a single IN list carries.
 _CHUNK_SIZE: Final = 500
 
 _KEY_COLUMNS = (
@@ -27,14 +27,14 @@ _KEY_COLUMNS = (
 
 
 def sibling_group_key() -> ColumnElement[int]:
-    """The id a ROM's versions share, needing an outer join to `RomSiblingGroup`."""
+    """The id a ROM's versions share. Requires an outer join to `RomSiblingGroup`."""
     return func.coalesce(RomSiblingGroup.group_id, Rom.id)
 
 
 def group_keys(
     session: Session, rom_ids: Collection[int], *, present_only: bool = False
 ) -> dict[int, int]:
-    """Each ROM's `sibling_group_key`, skipping ROMs off disk when `present_only`."""
+    """Return each ROM's `sibling_group_key`, skipping ROMs off disk when `present_only`."""
     query = select(Rom.id, sibling_group_key()).outerjoin(
         RomSiblingGroup, RomSiblingGroup.rom_id == Rom.id
     )
@@ -52,7 +52,7 @@ def group_keys(
 
 
 def group_members(session: Session, rom_ids: Collection[int]) -> set[int]:
-    """`rom_ids` plus every ROM currently grouped with one of them."""
+    """Return `rom_ids` plus every ROM currently grouped with one of them."""
     members = set(rom_ids)
     for chunk in batched(rom_ids, _CHUNK_SIZE, strict=False):
         group_ids = select(RomSiblingGroup.group_id).where(
@@ -119,7 +119,7 @@ def _as_key_rows(
 def _write(
     session: Session, groups: dict[int, int], *, scope: Collection[int] | None
 ) -> None:
-    """Store `groups` for the ROMs in `scope` (every ROM when None)."""
+    """Store `groups` for the ROMs in `scope` (every ROM when `scope` is None)."""
     # Only the rows that changed are written, so a rescan that moves nothing
     # takes no row locks.
     stored_query = select(RomSiblingGroup.rom_id, RomSiblingGroup.group_id)

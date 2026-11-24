@@ -574,8 +574,8 @@ def _representative_order(
     fs_name_no_ext: ColumnElement[Any] | QueryableAttribute[Any],
     rom_id: ColumnElement[Any] | QueryableAttribute[Any],
 ) -> list[ColumnElement[Any]]:
-    """Which version stands for its group: the user's pick, then a full release,
-    then the configured region priority, then the filename, then the id.
+    """Order a group's versions by the user's pick, then a full release, then the
+    configured region priority, then the filename, then the id.
     """
     order: list[ColumnElement[Any]] = [
         prerelease_rank.asc(),
@@ -1125,7 +1125,7 @@ class DBRomsHandler(DBBaseHandler):
         present_only: bool = False,
         session: Session = INJECTED_SESSION,
     ) -> dict[int, int]:
-        """Each ROM's `sibling_group_key`, equal for every version of one game."""
+        """Return each ROM's `sibling_group_key`, shared by all versions of a game."""
         return sibling_groups.group_keys(session, rom_ids, present_only=present_only)
 
     @begin_session
@@ -1135,7 +1135,7 @@ class DBRomsHandler(DBBaseHandler):
         *,
         session: Session = INJECTED_SESSION,
     ) -> set[int]:
-        """`rom_ids` plus every other version of the same games."""
+        """Return `rom_ids` plus every other version of the same games."""
         return sibling_groups.group_members(session, rom_ids)
 
     @begin_session
@@ -2479,7 +2479,7 @@ class DBRomsHandler(DBBaseHandler):
         id: int,
         session: Session = INJECTED_SESSION,
     ) -> None:
-        # Read before the cascade drops the row that names them.
+        # Read the siblings first, since deleting the ROM cascades to its group row.
         former_siblings = sibling_groups.group_members(session, [id]) - {id}
         session.execute(
             delete(Rom)

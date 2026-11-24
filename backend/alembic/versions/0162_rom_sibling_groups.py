@@ -49,7 +49,7 @@ def _backfill() -> None:
         for rom_id, provider, platform_id, provider_id in rows
     )
 
-    # A re-run after a partial failure starts the fill over.
+    # Clear the table so a re-run after a partial failure starts the backfill over.
     op.execute(f"DELETE FROM {TABLE}")  # nosec B608
     insert = sa.text(
         f"INSERT INTO {TABLE} (rom_id, group_id) VALUES (:rom_id, :group_id)"  # nosec B608

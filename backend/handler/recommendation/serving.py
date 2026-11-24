@@ -106,8 +106,8 @@ def recommended_roms(
 def _visible_representatives(
     items: Sequence[RecommendedRom], permissions: ResolvedPermissions
 ) -> list[RecommendedRom]:
-    """Swap each ROM for the version the gallery shows, keeping the visible ones."""
-    # Swapping before the visibility cut lets a visible version stand in, and
+    """Swap in each game's representative, then drop what the viewer can't see."""
+    # Swapping first lets a visible version stand in for a hidden one, and
     # resolving per request applies a main-version pick without waiting out the cache.
     representatives = db_rom_handler.get_sibling_representatives(
         [item.rom.id for item in items],

@@ -378,8 +378,8 @@ class RomIdentityKey(BaseModel):
 class RomSiblingGroup(BaseModel):
     """A ROM's connected component over `rom_identity_keys`, keyed by its lowest id."""
 
-    # Only ROMs with a sibling have a row. `db_rom_handler` keeps it, since no
-    # portable trigger can walk a graph.
+    # Only ROMs with a sibling have a row. `db_rom_handler` maintains the table,
+    # since no portable trigger can walk a graph.
     __tablename__ = "rom_sibling_groups"
 
     __table_args__ = (Index("idx_rom_sibling_groups_group_id", "group_id", "rom_id"),)
