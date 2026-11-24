@@ -599,6 +599,16 @@ describe("createSaveSyncTracker", () => {
     expect(tracker.offer(b, 4000)).toBe("hold");
   });
 
+  it("holds a save again once a restore started the SRAM over", () => {
+    const tracker = createSaveSyncTracker();
+    tracker.seed(server);
+    tracker.offer(a, 0);
+    expect(tracker.offer(a, 1000)).toBe("hold");
+    tracker.baseline(b);
+    tracker.offer(a, 2000);
+    expect(tracker.offer(a, 3000)).toBe("hold");
+  });
+
   it("uploads once the SRAM has been quiet long enough", () => {
     const tracker = createSaveSyncTracker();
     tracker.seed(server);

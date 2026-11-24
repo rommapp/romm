@@ -143,6 +143,7 @@ export function createSaveSyncTracker() {
       lastUploaded = save;
       baseline = save;
       previousTick = save;
+      held = null;
       unsentSince = null;
     },
     // SRAM restored by a state or a fresh boot: the tick waits for a change,
@@ -151,6 +152,7 @@ export function createSaveSyncTracker() {
       lastUploaded = null;
       baseline = save;
       previousTick = save;
+      held = null;
       unsentSince = null;
     },
     /**

@@ -233,6 +233,8 @@ let inFlightSave: Uint8Array | null = null;
 let pendingSave: SessionFile | null = null;
 // A private window keeps nothing, and a notice must not promise it did.
 let pendingSaveKept = false;
+// A save held before a restore is still owed, so only one held since may be dropped.
+let pendingSaveGeneration = -1;
 // One row per session: a save an earlier session never got through still owes
 // the server its own version, so this must not write over it.
 const pendingSaveId = pendingAssetId(romRef.value.id);
@@ -264,6 +266,7 @@ async function holdForLater(
 }
 async function rememberPendingSave(save: SessionFile) {
   pendingSave = save;
+  pendingSaveGeneration = saveGeneration;
   pendingSaveKept = false;
   pendingSaveKept = await holdForLater(pendingSaveId, "save", {
     kind: "save",
@@ -301,13 +304,38 @@ function holdSave(
   generation = saveGeneration,
 ): Promise<void> {
   const hold = saveWrite.then(async () => {
-    if (generation !== saveGeneration) return;
+    // The session keeps the device it is made with, so it waits for this one.
+    await deviceReady;
+    // Bytes already held keep the frame from when the game wrote them.
+    if (generation !== saveGeneration || heldFor(pendingSave, saveFile)) return;
     await rememberPendingSave(
       saveFileOf(toArrayBuffer(saveFile), screenshotFile),
     );
   });
   saveWrite = hold.catch(() => undefined);
   return hold;
+}
+let forgettingSuperseded = false;
+/** Drops a held save once the SRAM is back on bytes the server holds. */
+function forgetSupersededSave(saveFile: Uint8Array) {
+  const generation = saveGeneration;
+  if (forgettingSuperseded || pendingSaveGeneration !== generation) return;
+  forgettingSuperseded = true;
+  saveWrite = saveWrite
+    .then(async () => {
+      if (
+        pendingSave &&
+        generation === saveGeneration &&
+        pendingSaveGeneration === generation &&
+        !saveTracker.hasChanges(saveFile)
+      ) {
+        await forgetPendingSave();
+      }
+    })
+    .catch(() => undefined)
+    .finally(() => {
+      forgettingSuperseded = false;
+    });
 }
 function writeSave(
   file: { saveFile: ArrayBuffer; screenshotFile?: ArrayBuffer | undefined },
@@ -394,7 +422,11 @@ async function writeState({
   const written = (await sendContent(content)) !== null;
   if (!written) return { written, kept };
   await pendingAssetStore.clear(pendingId);
-  if (saveFile?.byteLength) saveTracker.markUploaded(saveFile);
+  if (saveFile?.byteLength) {
+    saveTracker.markUploaded(saveFile);
+    // The state carried this SRAM, so a copy held on the earlier base is not owed.
+    if (heldFor(pendingSave, saveFile)) await forgetPendingSave();
+  }
   return { written, kept: false };
 }
 // A state restores the machine mid-scene: its frames, sound and SRAM on the way
@@ -565,7 +597,12 @@ function installAutoSaveSync() {
     )
       return;
     const tick = saveTracker.offer(saveFile, performance.now());
-    if (tick === "idle") return;
+    if (tick === "idle") {
+      if (pendingSave && !saveTracker.hasChanges(saveFile)) {
+        forgetSupersededSave(saveFile);
+      }
+      return;
+    }
     const generation = saveGeneration;
     // Down, the write makes no request, so only a server that answered with a
     // failure has anything to back off from.

@@ -85,6 +85,14 @@ async def test_without_sigil_a_platform_with_a_rule_hashes_its_content(
     assert await _identity(red_ram(), "gb") == md5(red_ram())
 
 
+async def test_a_binding_without_unit_identities_hashes_its_content(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(hashing, "sigil_binding", lambda: object())
+
+    assert await _identity(red_ram(), "gb") == md5(red_ram())
+
+
 async def test_a_unit_sigil_has_no_rule_for_hashes_its_content():
     pytest.importorskip("sigil")
 
