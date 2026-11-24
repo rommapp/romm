@@ -228,6 +228,11 @@ let saveGeneration = 0;
 let saveLoading = false;
 // The bytes of the write on the wire, for the unload path to leave alone.
 let inFlightSave: Uint8Array | null = null;
+function queueSaveWork<T>(work: () => Promise<T>): Promise<T> {
+  const job = saveWrite.then(work);
+  saveWrite = job.catch(() => undefined);
+  return job;
+}
 // Progress the server has not taken yet, kept in the browser with the frame
 // from when the game wrote it, so a later retry pictures that moment.
 let pendingSave: SessionFile | null = null;
@@ -267,6 +272,8 @@ async function holdForLater(
 async function rememberPendingSave(save: SessionFile) {
   pendingSave = save;
   pendingSaveGeneration = saveGeneration;
+  // The unload path reads this during the write, so the old save's hold
+  // can't vouch for the new one.
   pendingSaveKept = false;
   pendingSaveKept = await holdForLater(pendingSaveId, "save", {
     kind: "save",
@@ -303,7 +310,7 @@ function holdSave(
   screenshotFile: ArrayBuffer | undefined,
   generation = saveGeneration,
 ): Promise<void> {
-  const hold = saveWrite.then(async () => {
+  return queueSaveWork(async () => {
     // The session keeps the device it is made with, so it waits for this one.
     await deviceReady;
     // Bytes already held keep the frame from when the game wrote them.
@@ -312,8 +319,6 @@ function holdSave(
       saveFileOf(toArrayBuffer(saveFile), screenshotFile),
     );
   });
-  saveWrite = hold.catch(() => undefined);
-  return hold;
 }
 let forgettingSuperseded = false;
 /** Drops a held save once the SRAM is back on bytes the server holds. */
@@ -321,17 +326,16 @@ function forgetSupersededSave(saveFile: Uint8Array) {
   const generation = saveGeneration;
   if (forgettingSuperseded || pendingSaveGeneration !== generation) return;
   forgettingSuperseded = true;
-  saveWrite = saveWrite
-    .then(async () => {
-      if (
-        pendingSave &&
-        generation === saveGeneration &&
-        pendingSaveGeneration === generation &&
-        !saveTracker.hasChanges(saveFile)
-      ) {
-        await forgetPendingSave();
-      }
-    })
+  void queueSaveWork(async () => {
+    if (
+      pendingSave &&
+      generation === saveGeneration &&
+      pendingSaveGeneration === generation &&
+      !saveTracker.hasChanges(saveFile)
+    ) {
+      await forgetPendingSave();
+    }
+  })
     .catch(() => undefined)
     .finally(() => {
       forgettingSuperseded = false;
@@ -342,7 +346,7 @@ function writeSave(
   generation = saveGeneration,
 ): Promise<PushOutcome | null> {
   if (saveLoading) return Promise.resolve(null);
-  const write = saveWrite.then(async () => {
+  return queueSaveWork(async () => {
     await deviceReady;
     if (generation !== saveGeneration) return null;
     const bytes = new Uint8Array(file.saveFile);
@@ -368,8 +372,6 @@ function writeSave(
       inFlightSave = null;
     }
   });
-  saveWrite = write.catch(() => null);
-  return write;
 }
 async function writeSaveIfChanged(file: {
   saveFile: ArrayBuffer;

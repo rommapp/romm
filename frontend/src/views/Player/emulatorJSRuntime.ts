@@ -207,6 +207,7 @@ export const SAVE_SYNC_POLL_MS = 1000;
 // Each tick copies and compares the whole SRAM, so the interval grows with it
 // past 1 MB (1 ms of work per second either way) rather than hitching big saves.
 const SAVE_SYNC_BYTES_PER_MS = 1024;
+
 interface PollableEmulator {
   started: boolean;
   gameManager: {

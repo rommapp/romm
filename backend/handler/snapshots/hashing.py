@@ -24,8 +24,7 @@ def _identity(content: bytes, platform_slug: str | None, features: int | None) -
     unit_identity = getattr(binding, "unit_identity", None)
     if unit_identity is not None and sigil_platform is not None:
         try:
-            identity: str = unit_identity(sigil_platform, features or 0, content)
-            return identity
+            return str(unit_identity(sigil_platform, features or 0, content))
         except binding.SigilError:
             pass
     try:
