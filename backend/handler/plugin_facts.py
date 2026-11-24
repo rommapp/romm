@@ -212,6 +212,57 @@ def _remember(plugin_id: str, fact_id: str, url: str, document: dict[str, Any]) 
         _CACHE[key] = (time.monotonic() + CACHE_TTL_SECONDS, document)
 
 
+def build_facts(
+    plugin_id: str,
+    specs: list[PluginFactSpec],
+    values: dict[str, str],
+    settings: dict[str, Any],
+) -> list[PluginFactSchema]:
+    """Fill the panels a plugin declares for one game.
+
+    Args:
+        plugin_id: The plugin the panels belong to.
+        specs: What the manifest asked for, in order.
+        values: The game's placeholder values.
+        settings: The plugin's saved values.
+
+    Returns:
+        list[PluginFactSchema]: One panel per declaration that is still drawn.
+    """
+    from handler.plugin_handler import expand_template  # cycle: the shelf reads panels
+
+    filled: list[PluginFactSchema] = []
+    for spec in specs:
+        if not still_worth_drawing(spec, settings):
+            continue
+        # What the user chose narrows what they are shown: a report for someone
+        # else's handheld answers a question they did not ask.
+        narrowing, narrowed = narrowed_query(spec, settings)
+        parameters = dict(spec.query)
+        parameters.update(narrowing)
+        url = source_url(
+            expand_template(spec.url, values, settings, encode_rom=True),
+            expand_query(
+                {
+                    name: expand_template(value, values, settings)
+                    for name, value in parameters.items()
+                }
+            ),
+        )
+        # The link follows the panel: a reader looking at their own handheld
+        # should land on the same question, not the general one.
+        target = link_for(spec, narrowed)
+        link = (
+            expand_template(target, values, settings, encode_rom=True)
+            if target
+            else None
+        )
+        filled.append(
+            fill_fact(plugin_id, spec, url, link, spec.scope if narrowed else None)
+        )
+    return filled
+
+
 def fill_fact(
     plugin_id: str,
     spec: PluginFactSpec,
@@ -350,7 +401,9 @@ def narrowed_query(
         return {}, False
     for value in spec.narrow.values():
         for name in SETTING_PLACEHOLDER.findall(value):
-            if not str(settings.get(name) or "").strip():
+            answered = settings.get(name)
+            # `False` and `0` are answers; only a missing or blank one is not.
+            if answered is None or isinstance(answered, str) and not answered.strip():
                 return {}, False
     return dict(spec.narrow), True
 
@@ -389,6 +442,7 @@ def still_worth_drawing(spec: PluginFactSpec, settings: dict[str, Any]) -> bool:
 __all__ = [
     "MAX_FACTS",
     "PATH_PATTERN",
+    "SETTING_PLACEHOLDER",
     "PluginFactSpec",
     "expand_query",
     "fill_fact",

@@ -1,20 +1,11 @@
 from decorators.auth import protected_route
 from fastapi import HTTPException, Request, status
 from handler.auth.constants import Scope
-from handler.auth.dependencies import visible_rom_or_404
+from handler.auth.dependencies import assert_admin, visible_rom_or_404
 from handler.database import db_rom_handler
-from handler.plugin_facts import (
-    PluginFactSpec,
-    expand_query,
-    fill_fact,
-    link_for,
-    narrowed_query,
-    source_url,
-    still_worth_drawing,
-)
+from handler.plugin_facts import PluginFactSpec, build_facts
 from handler.plugin_handler import (
     PluginRefused,
-    expand_template,
     find_facts,
     install_from_store,
     install_plugin,
@@ -30,7 +21,6 @@ from pydantic import BaseModel, Field
 from utils.router import APIRouter
 
 from endpoints.responses.plugin import (
-    PluginFactSchema,
     PluginFactsSchema,
     PluginOptionsSchema,
     PluginSchema,
@@ -54,9 +44,9 @@ class PluginInstallRequest(BaseModel):
 def _require_admin(request: Request) -> None:
     """Refuse a caller who is not an administrator.
 
-    A plugin installs for everyone and its settings reach everyone's browser, so
-    managing one is administration rather than library work. `users.write` is
-    not enough: it can be granted to someone who manages accounts.
+    Managing a plugin is administration: it installs for everyone and its
+    settings reach everyone's browser. The check itself lives in the auth
+    dependencies so there is one answer to "is this caller an admin".
 
     Args:
         request (Request): The incoming request.
@@ -64,11 +54,7 @@ def _require_admin(request: Request) -> None:
     Raises:
         HTTPException: The caller is not an administrator.
     """
-    if request.user.role != Role.ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only an administrator can manage plugins",
-        )
+    assert_admin(request)
 
 
 def _installed(plugin_id: str) -> PluginSchema:
@@ -227,39 +213,9 @@ def get_plugin_facts(
         return PluginFactsSchema(facts=[])
 
     values = _rom_values(request, rom_id)
-    settings = plugin_settings(plugin)
-
-    filled: list[PluginFactSchema] = []
-    for spec in specs:
-        if not still_worth_drawing(spec, settings):
-            continue
-        # What the user chose narrows what they are shown: a report for someone
-        # else's handheld answers a question they did not ask.
-        narrowing, narrowed = narrowed_query(spec, settings)
-        parameters = dict(spec.query)
-        parameters.update(narrowing)
-        url = source_url(
-            expand_template(spec.url, values, settings, encode_rom=True),
-            expand_query(
-                {
-                    name: expand_template(value, values, settings)
-                    for name, value in parameters.items()
-                }
-            ),
-        )
-        # The link follows the panel: a reader who is looking at their own
-        # handheld should land on the same question, not the general one.
-        target = link_for(spec, narrowed)
-        link = (
-            expand_template(target, values, settings, encode_rom=True)
-            if target
-            else None
-        )
-        filled.append(
-            fill_fact(plugin_id, spec, url, link, spec.scope if narrowed else None)
-        )
-
-    return PluginFactsSchema(facts=filled)
+    return PluginFactsSchema(
+        facts=build_facts(plugin_id, specs, values, plugin_settings(plugin))
+    )
 
 
 @protected_route(router.get, "/{plugin_id}/options", [Scope.ROMS_READ])

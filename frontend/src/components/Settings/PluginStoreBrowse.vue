@@ -56,6 +56,16 @@ function isInstalled(pluginId: string): boolean {
   return props.installedIds.includes(pluginId);
 }
 
+/** The homepage, when it is a web address. The catalogue is a remote file, so
+ *  a link from it is held to the schemes a browser may follow. */
+function webLink(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const lower = url.trim().toLowerCase();
+  return lower.startsWith("http://") || lower.startsWith("https://")
+    ? url.trim()
+    : null;
+}
+
 function close(): void {
   emit("update:open", false);
 }
@@ -66,6 +76,7 @@ function close(): void {
     :model-value="open"
     icon="mdi-storefront-outline"
     width="860"
+    scroll-content
     cancelable
     @update:model-value="emit('update:open', $event)"
   >
@@ -141,9 +152,9 @@ function close(): void {
             </div>
             <div class="card__foot">
               <a
-                v-if="entry.homepage"
+                v-if="webLink(entry.homepage)"
                 class="card__link"
-                :href="entry.homepage"
+                :href="webLink(entry.homepage)!"
                 target="_blank"
                 rel="noopener noreferrer"
               >

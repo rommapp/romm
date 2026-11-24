@@ -162,6 +162,67 @@ def test_a_search_is_asked_once_per_query(asked: list) -> None:
     assert len(asked) == 1
 
 
+def test_a_late_match_is_still_found(asked) -> None:
+    # The source sent the whole catalogue without the limit taking effect first:
+    # a match sitting after `limit` entries must still be offered.
+    ordered = {
+        "result": {
+            "data": {
+                "json": {
+                    "devices": [
+                        {"id": "a", "brandName": "AYANEO", "modelName": "One"},
+                        {"id": "b", "brandName": "AYANEO", "modelName": "Two"},
+                        {"id": "c", "brandName": "Retroid", "modelName": "Pocket 5"},
+                    ]
+                }
+            }
+        }
+    }
+
+    def fake_fetch(url: str, params: dict[str, str]):
+        return ordered
+
+    import handler.plugin_options as options_module
+
+    options_module._fetch = fake_fetch  # type: ignore[assignment]
+    narrow = setting(source=source(limit=2, query={}))
+    options_module._CACHE.clear()
+
+    found, _ = options_module.options_for(Plugin(narrow), "handheld", "pocket")
+
+    assert [o.value for o in found] == ["c"]
+
+
+def test_a_cache_forgets_what_it_no_longer_uses(asked) -> None:
+    import handler.plugin_options as options_module
+
+    plugin = Plugin(setting())
+    options_module.options_for(plugin, "handheld", "retroid")
+    assert options_module._CACHE
+
+    # Age every entry past its window, then ask again: the stale one goes.
+    for key, (_, value) in list(options_module._CACHE.items()):
+        options_module._CACHE[key] = (0.0, value)
+    options_module.options_for(plugin, "handheld", "retroid")
+
+    assert all(
+        at > 0 for at, _ in options_module._CACHE.values()
+    )
+
+
+def test_a_full_cache_is_dropped_rather_than_grown(asked) -> None:
+    import handler.plugin_options as options_module
+
+    plugin = Plugin(setting())
+    options_module._CACHE.clear()
+    for index in range(options_module.MAX_CACHED_SEARCHES):
+        options_module._CACHE[(f"other.{index}", "q")] = (1e18, [])
+
+    options_module.options_for(plugin, "handheld", "retroid")
+
+    assert len(options_module._CACHE) == 1
+
+
 def test_a_field_that_is_not_searchable_is_refused(asked: list) -> None:
     plain = Plugin(PluginSettingSchema(key="name", label="Name"))
 

@@ -84,8 +84,10 @@ export const usePluginStore = defineStore("plugins", () => {
   }
 
   /** The index itself, read when the store tab is first opened. */
-  async function loadStore(): Promise<string | null> {
-    if (storeLoaded.value) return null;
+  async function loadStore(fresh = false): Promise<string | null> {
+    // `fresh` is the reader asking again: the index is remote, and a store that
+    // was wrong a minute ago may have been fixed since.
+    if (storeLoaded.value && !fresh) return null;
     storeLoaded.value = true;
     try {
       store.value = (await pluginApi.getStore()).data ?? [];

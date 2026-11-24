@@ -9,20 +9,42 @@ vi.mock("vue-i18n", () => ({
 vi.mock("@/lib", () => ({
   RIcon: { template: `<i class="icon" />` },
   RChip: {
-    props: ["size", "variant"],
+    props: {
+      size: { type: String, default: "" },
+      variant: { type: String, default: "" },
+    },
     template: `<span class="chip"><slot /></span>`,
   },
   RBtn: {
-    props: ["variant", "color", "size", "disabled"],
+    props: {
+      variant: { type: String, default: "" },
+      color: { type: String, default: "" },
+      size: { type: String, default: "" },
+      disabled: { type: Boolean, default: false },
+      prependIcon: { type: String, default: "" },
+    },
     emits: ["click"],
-    template: `<button class="btn" @click="$emit('click')"><slot /></button>`,
+    template: `<button class="btn" :disabled="disabled" @click="$emit('click')"><slot /></button>`,
   },
   RDialog: {
-    props: ["modelValue", "icon", "width", "cancelable"],
+    props: {
+      modelValue: { type: Boolean, default: false },
+      icon: { type: String, default: "" },
+      width: { type: [String, Number], default: "" },
+      cancelable: { type: Boolean, default: false },
+      scrollContent: { type: Boolean, default: false },
+    },
+    emits: ["update:modelValue"],
     template: `<div class="dialog"><slot name="header" /><slot name="content" /><slot name="footer" /></div>`,
   },
   RTextField: {
-    props: ["modelValue", "placeholder"],
+    props: {
+      modelValue: { type: [String, Number], default: "" },
+      placeholder: { type: String, default: "" },
+      prependInnerIcon: { type: String, default: "" },
+      density: { type: String, default: "" },
+      hideDetails: { type: [Boolean, String], default: false },
+    },
     emits: ["update:modelValue"],
     template: `<input class="search" :value="modelValue" @input="$emit('update:modelValue', $event.target.value)" />`,
   },

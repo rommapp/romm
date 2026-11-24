@@ -22,6 +22,7 @@ from typing import Any, Final, cast
 from urllib.parse import quote, urlsplit
 
 import httpx
+import httpx2
 from config import PLUGINS_BASE_PATH
 from endpoints.responses.plugin import (
     PluginActionSchema,
@@ -41,6 +42,7 @@ from handler.plugin_facts import (
     MAX_FACTS,
     PATH_PATTERN,
     PUBLIC_ONLY,
+    SETTING_PLACEHOLDER,
     PluginFactSpec,
     forget_all,
     refused_source,
@@ -101,7 +103,7 @@ PLACEHOLDER_PATTERN: Final[re.Pattern[str]] = re.compile(r"\{([a-z_]+)\}")
 # What a plugin's own settings fill in. The browser does the same substitution
 # with the values the user saved; here the manifest's defaults stand in, which
 # is enough to know the URL is shippable at all.
-SETTING_PLACEHOLDER: Final[re.Pattern[str]] = re.compile(r"\{setting\.([a-z_]+)\}")
+
 WHITESPACE_PATTERN: Final[re.Pattern[str]] = re.compile(r"[\s\x00-\x1f]")
 ICON_PATTERN: Final[re.Pattern[str]] = re.compile(r"[A-Za-z0-9:_-]+")
 
@@ -315,6 +317,7 @@ def _parse_plugin(
                 continue
             keys.add(setting.key)
             settings.append(setting)
+        _drop_ambiguous_searches(settings, plugin_id)
     defaults = {setting.key: setting.default for setting in settings}
 
     raw_actions = raw.get("actions")
@@ -394,18 +397,17 @@ def expand_template(
     settings: dict[str, Any],
     encode_rom: bool = False,
 ) -> str:
-    """Fill a manifest's template, on the server, for one request.
+    """Fill a manifest's template on the server, for one request.
 
-    The browser does the same for an action's URL; a source is fetched here, so
-    the same placeholders are filled the same way — settings first, then the
-    game, with the game's values encoded because they end up in a query.
+    Settings are substituted first, then the game's values, which are encoded
+    only when `encode_rom` asks: a query value is encoded once, by the builder
+    that assembles the query string.
 
     Args:
         template: The manifest's url, query value or link.
         rom_values: What the game contributes.
         settings: The plugin's saved values.
-        encode_rom: Whether the game's values are encoded here. A query value is
-            encoded once, by the query builder, so it asks for the raw text.
+        encode_rom: Whether the game's values are encoded here.
 
     Returns:
         str: The template with placeholders replaced.
@@ -843,6 +845,13 @@ def remove_plugin(plugin_id: str) -> None:
     if resolved.parent != base.resolve() or not resolved.is_dir():
         raise PluginRefused(f"{plugin_id} is not a plugin folder")
 
+    # The folder may already hold a different plugin: an operator who drops a
+    # replacement in the same directory, then removes the old id, would have the
+    # replacement deleted along with it.
+    manifest = _read_manifest(resolved / MANIFEST_NAME)
+    if not isinstance(manifest, dict) or _slug(manifest.get("id")) != plugin_id:
+        raise PluginRefused(f"{plugin_id} is no longer installed")
+
     try:
         shutil.rmtree(resolved)
     except OSError as exc:
@@ -907,6 +916,37 @@ def _parse_source(
         if isinstance(limit, int) and 1 <= limit <= MAX_OPTION_LIMIT
         else 20,
     )
+
+
+def _drop_ambiguous_searches(
+    settings: list[PluginSettingSchema], plugin_id: str
+) -> None:
+    """Keep one searchable field per key.
+
+    A search is asked for by key alone, so a `cpu` both at the top level and
+    inside a setup would answer for whichever came first — one of the two would
+    silently show the other's choices. The first keeps the key, in place.
+
+    Args:
+        settings: The parsed fields, with their entries, edited in place.
+        plugin_id: The owning plugin, for the log line.
+    """
+    seen: set[str] = set()
+    for setting in settings:
+        if setting.type == "search":
+            seen.add(setting.key)
+        kept: list[PluginSettingSchema] = []
+        for field in setting.fields:
+            if field.type == "search" and field.key in seen:
+                log.warning(
+                    f"Plugins: {plugin_id}.{setting.key}.{field.key} repeats a "
+                    "search key, so the first one keeps it"
+                )
+                continue
+            if field.type == "search":
+                seen.add(field.key)
+            kept.append(field)
+        setting.fields = kept
 
 
 def _parse_group_fields(
@@ -1102,12 +1142,17 @@ def save_plugin_settings(
 
     folder = _folder_for(plugin.id) or Path(PLUGINS_BASE_PATH) / plugin.id
     path = folder / SETTINGS_NAME
+    body = json.dumps(stored, ensure_ascii=False, indent=2)
+    # The same limit the read applies: a file it would refuse is a save that
+    # looked successful and lost the settings on the next page load.
+    if len(body.encode("utf-8")) > MAX_MANIFEST_BYTES:
+        raise PluginRefused(
+            f"{plugin.name}'s settings are larger than a settings file may be"
+        )
     try:
         folder.mkdir(parents=True, exist_ok=True)
         tmp = folder / f".{SETTINGS_NAME}.tmp"
-        tmp.write_text(
-            json.dumps(stored, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
+        tmp.write_text(body, encoding="utf-8")
         tmp.replace(path)
     except OSError as exc:
         raise PluginRefused(f"Cannot save {plugin.name}'s settings: {exc}") from exc
@@ -1260,6 +1305,11 @@ def store_plugins() -> list[StorePluginSchema]:
             for tag in (entry.get("tags") or [])[:MAX_STORE_TAGS]
             if isinstance(tag, str)
         ]
+        # The index is a repository's file, and its homepage becomes a link an
+        # administrator clicks: only a web address is one.
+        homepage = _text(entry.get("homepage"), MAX_URL_LENGTH)
+        if homepage and not _is_web_url(homepage):
+            homepage = None
         plugins.append(
             StorePluginSchema(
                 id=plugin_id,
@@ -1267,7 +1317,7 @@ def store_plugins() -> list[StorePluginSchema]:
                 version=_text(entry.get("version"), MAX_TEXT_LENGTH) or "0.0.0",
                 description=_text(entry.get("description"), MAX_TEXT_LENGTH),
                 author=_text(entry.get("author"), MAX_TEXT_LENGTH),
-                homepage=_text(entry.get("homepage"), MAX_URL_LENGTH),
+                homepage=homepage,
                 manifest_url=manifest_url,
                 tags=[tag for tag in tags if tag],
             )
@@ -1327,7 +1377,7 @@ def _fetch_json(url: str, limit: int, what: str) -> dict[str, Any]:
                     raise PluginRefused(f"{what} is larger than it should be")
     except PluginRefused:
         raise
-    except httpx.HTTPError as exc:
+    except (httpx2.HTTPError, httpx.HTTPError) as exc:
         raise PluginRefused(f"Cannot fetch {what}: {exc}") from exc
     try:
         raw = json.loads(body.decode("utf-8"))

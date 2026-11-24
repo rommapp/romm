@@ -8,6 +8,7 @@ catalogue should be visible without a restart.
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from typing import Any, Final
@@ -21,6 +22,7 @@ from endpoints.responses.plugin import (
 from fastapi import status
 from utils.context import create_httpx_client
 
+from handler.plugin_facts import PUBLIC_ONLY
 from handler.plugin_handler import PluginRefused, PluginSchema
 
 logger = logging.getLogger(__name__)
@@ -30,6 +32,9 @@ OPTION_TIMEOUT: Final[float] = 8.0
 # long: the next keystroke asks again.
 CACHE_SECONDS: Final[float] = 60.0
 MAX_OPTION_BYTES: Final[int] = 512 * 1024
+# A search is cheap to repeat and expensive to keep: the cache holds the recent
+# ones, not every one a server has ever answered.
+MAX_CACHED_SEARCHES: Final[int] = 256
 
 _CACHE: dict[tuple[str, str], tuple[float, list[PluginOptionSchema]]] = {}
 
@@ -65,8 +70,11 @@ def options_for(
 
     cache_key = (f"{plugin.id}.{key}", query.strip().lower())
     cached = _CACHE.get(cache_key)
-    if cached is not None and time.monotonic() - cached[0] < CACHE_SECONDS:
-        return cached[1], None
+    if cached is not None:
+        if time.monotonic() - cached[0] < CACHE_SECONDS:
+            return cached[1], None
+        # Read, not used, and past its life: drop it rather than leave it.
+        _CACHE.pop(cache_key, None)
 
     try:
         found = _ask(setting.source, query)
@@ -74,8 +82,18 @@ def options_for(
         logger.warning(f"Plugins: {plugin.id}.{key} could not be searched: {exc}")
         return [], str(exc)
 
+    _forget_expired()
+    if len(_CACHE) >= MAX_CACHED_SEARCHES:
+        _CACHE.clear()
     _CACHE[cache_key] = (time.monotonic(), found)
     return found, None
+
+
+def _forget_expired() -> None:
+    """Drop every cached search that has outlived its window."""
+    now = time.monotonic()
+    for key in [k for k, (at, _) in _CACHE.items() if now - at >= CACHE_SECONDS]:
+        _CACHE.pop(key, None)
 
 
 def _walk(fields: list[PluginSettingSchema]) -> list[PluginSettingSchema]:
@@ -122,6 +140,11 @@ def _ask(source: PluginOptionSourceSchema, query: str) -> list[PluginOptionSchem
     if not isinstance(items, list):
         raise TypeError(f"{source.items} is not a list")
 
+    # A source that cannot be asked narrows its own list: it sent the whole
+    # catalogue, so the search happens here instead — before the page is cut,
+    # because a match after the first `limit` entries is still a match.
+    needle = "" if asks_source else query.strip().lower()
+
     found: list[PluginOptionSchema] = []
     seen: set[str] = set()
     for item in items:
@@ -133,17 +156,12 @@ def _ask(source: PluginOptionSourceSchema, query: str) -> list[PluginOptionSchem
             continue
         if value in seen:
             continue
+        if needle and needle not in label.lower():
+            continue
         seen.add(value)
         found.append(PluginOptionSchema(value=value, label=label))
         if len(found) >= source.limit:
             break
-
-    if not asks_source:
-        # A source that cannot be asked narrows its own list: it sent the whole
-        # catalogue, so the search happens here instead.
-        needle = query.strip().lower()
-        if needle:
-            found = [o for o in found if needle in o.label.lower()][: source.limit]
     return found
 
 
@@ -162,20 +180,28 @@ def _fetch(url: str, params: dict[str, str]) -> Any:
             answered with more than a list.
         ValueError: The reply is not JSON.
     """
-    # The guarded client refuses anything that is not a public address, which is
-    # the same rule the panel's own fetch is held to.
-    with create_httpx_client() as client:
-        response = client.get(
+    # Public-only at connection time: an empty allowlist is what keeps a
+    # private origin out even if the name resolved publicly a moment ago.
+    with (
+        create_httpx_client(allowlist=PUBLIC_ONLY) as client,
+        client.stream(
+            "GET",
             url,
             params=params,
             timeout=OPTION_TIMEOUT,
             follow_redirects=False,
-        )
+        ) as response,
+    ):
         if response.status_code != status.HTTP_200_OK:
             raise PluginRefused(f"{url} answered {response.status_code}")
-        if len(response.content) > MAX_OPTION_BYTES:
-            raise PluginRefused(f"{url} answered with more than a list")
-        return response.json()
+        # Read in chunks and stop at the limit: a source that streams megabytes
+        # must not decide how much memory the server spends.
+        body = b""
+        for chunk in response.iter_bytes():
+            body += chunk
+            if len(body) > MAX_OPTION_BYTES:
+                raise PluginRefused(f"{url} answered with more than a list")
+    return json.loads(body.decode("utf-8"))
 
 
 def _at(payload: Any, path: str) -> Any:

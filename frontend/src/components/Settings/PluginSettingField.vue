@@ -97,9 +97,20 @@ watch(
 );
 
 function setEntry(index: number, key: string, value: unknown): void {
-  const next = entries.value.map((entry, at) =>
-    at === index ? { ...entry, [key]: value } : entry,
-  );
+  const field = (props.setting.fields ?? []).find((one) => one.key === key);
+  const next = entries.value.map((entry, at) => {
+    if (at !== index) return entry;
+    // A blank answer to something optional is the absence of an answer: a
+    // cleared dropdown or number must not become "" in the saved entry.
+    const clean = { ...entry };
+    if (value === "" || value === undefined) {
+      if (field?.required) clean[key] = value;
+      else delete clean[key];
+    } else {
+      clean[key] = value;
+    }
+    return clean;
+  });
   entries.value = next;
   emit("update:modelValue", next);
 }
@@ -107,9 +118,11 @@ function setEntry(index: number, key: string, value: unknown): void {
 function addEntry(): void {
   const empty: Entry = {};
   for (const field of props.setting.fields ?? []) {
-    if (field.type === "number") empty[field.key] = undefined;
-    else if (field.type === "boolean") empty[field.key] = false;
-    else empty[field.key] = "";
+    // Only what has a sensible starting value: an empty string is not one for a
+    // number or a choice, and the server refuses those.
+    if (field.type === "boolean") empty[field.key] = false;
+    else if (field.type === "text" || field.type === "url")
+      empty[field.key] = "";
   }
   entries.value = [...entries.value, empty];
   emit("update:modelValue", entries.value);
@@ -256,6 +269,7 @@ onBeforeUnmount(() => {
       :model-value="String(modelValue ?? '')"
       :items="searchItems"
       searchable
+      :item-search-terms="() => [typed]"
       :loading="loading"
       :search-placeholder="t('settings.plugins-search')"
       :placeholder="setting.placeholder ?? setting.label"

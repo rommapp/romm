@@ -100,7 +100,9 @@ function gridStyle(fact: PluginFactSchema): Record<string, string> {
   // is as wide as the longest chip in it and every row starts where the last
   // one did.
   return {
-    gridTemplateColumns: `minmax(0, 6.5rem) repeat(${columns(fact).length}, auto)`,
+    // `minmax(0, …)` so a long rating label shrinks its column and wraps inside
+    // it, rather than running the table off the edge of a narrow screen.
+    gridTemplateColumns: `minmax(0, 6.5rem) repeat(${columns(fact).length}, minmax(0, auto))`,
   };
 }
 
@@ -349,6 +351,7 @@ function orderedRatings(
   display: grid;
   align-items: center;
   gap: 0 8px;
+  max-width: 100%;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -399,6 +402,10 @@ function orderedRatings(
   background: color-mix(in srgb, currentColor 18%, transparent);
   font-size: 0.74rem;
   line-height: 1.35;
+  /* A long rating label wraps inside its chip instead of widening the table. */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  min-width: 0;
   white-space: nowrap;
 }
 

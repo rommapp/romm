@@ -14,9 +14,21 @@ vi.mock("@/services/api/plugin", () => ({
 
 vi.mock("@/lib", () => ({
   RIcon: { template: `<i />` },
-  RBtn: { template: `<button class="btn"><slot /></button>` },
+  RBtn: {
+    props: {
+      variant: { type: String, default: "" },
+      size: { type: String, default: "" },
+      disabled: { type: Boolean, default: false },
+    },
+    emits: ["click"],
+    template: `<button class="btn" :disabled="disabled" @click="$emit('click')"><slot /></button>`,
+  },
   RSwitch: {
-    props: ["modelValue", "label"],
+    props: {
+      modelValue: { type: Boolean, default: false },
+      label: { type: String, default: "" },
+      disabled: { type: Boolean, default: false },
+    },
     emits: ["update:modelValue"],
     template: `<button class="switch" />`,
   },
@@ -26,14 +38,24 @@ vi.mock("@/lib", () => ({
       modelValue: { type: [String, Number], default: "" },
       items: { type: Array, default: () => [] },
       searchable: { type: Boolean, default: false },
+      itemSearchTerms: { type: Function, default: undefined },
       loading: { type: Boolean, default: false },
       placeholder: { type: String, default: "" },
+      searchPlaceholder: { type: String, default: "" },
+      disabled: { type: Boolean, default: false },
     },
     emits: ["update:modelValue", "update:search"],
     template: `<div class="select">{{ items ? items.length : 0 }}</div>`,
   },
   RTextField: {
-    props: ["modelValue", "type", "placeholder"],
+    name: "RTextField",
+    props: {
+      modelValue: { type: [String, Number], default: "" },
+      type: { type: String, default: "text" },
+      placeholder: { type: String, default: "" },
+      id: { type: String, default: "" },
+      disabled: { type: Boolean, default: false },
+    },
     emits: ["update:modelValue"],
     template: `<input class="text" />`,
   },
@@ -259,6 +281,36 @@ describe("PluginSettingField: a list of entries", () => {
 
     expect(wrapper.emitted("update:modelValue")?.at(-1)?.[0]).toEqual([
       { name: "b" },
+    ]);
+  });
+
+  it("leaves an unanswered optional field out of the entry", async () => {
+    const wrapper = mount(PluginSettingField, {
+      props: {
+        setting: {
+          key: "pc_setups",
+          label: "Setups",
+          type: "groups",
+          max_items: 4,
+          fields: [
+            { key: "name", label: "Name", type: "text" },
+            { key: "cpu", label: "CPU", type: "search", required: true },
+          ],
+        },
+        modelValue: [{ name: "Desk", cpu: "5900x" }],
+        pluginId: "emuready",
+      },
+    });
+    await flushPromises();
+
+    // Clearing the optional name must drop the key rather than save "" for it,
+    // which the server refuses for anything but text.
+    const nameField = wrapper.findComponent({ name: "RTextField" });
+    nameField.vm.$emit("update:modelValue", "");
+    await flushPromises();
+
+    expect(wrapper.emitted("update:modelValue")?.at(-1)?.[0]).toEqual([
+      { cpu: "5900x" },
     ]);
   });
 

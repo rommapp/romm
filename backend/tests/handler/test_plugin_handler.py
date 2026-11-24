@@ -4,9 +4,11 @@ from pathlib import Path
 import pytest
 from handler import plugin_handler
 from handler.plugin_handler import (
+    MAX_MANIFEST_BYTES,
     PluginRefused,
     list_plugins,
     plugin_settings,
+    remove_plugin,
     save_plugin_settings,
 )
 
@@ -506,6 +508,61 @@ def test_more_setups_than_the_manifest_allows_is_refused(shelf):
 
     with pytest.raises(PluginRefused):
         save_plugin_settings(plugin, {"setups": [one, one, one, one, one]})
+
+
+def test_a_search_key_is_kept_by_one_field_only(shelf):
+    data = manifest(
+        settings=[
+            {
+                "key": "cpu",
+                "label": "CPU",
+                "type": "search",
+                "source": SEARCH_SOURCE,
+            },
+            {
+                "key": "setups",
+                "label": "Setups",
+                "type": "groups",
+                "fields": [
+                    {"key": "cpu", "label": "CPU", "type": "search", "source": SEARCH_SOURCE},
+                    {"key": "gpu", "label": "GPU", "type": "search", "source": SEARCH_SOURCE},
+                ],
+            },
+        ]
+    )
+    write_plugin(shelf, "rommdeck", data)
+
+    plugin = list_plugins()[0]
+
+    # The top-level field keeps `cpu`; the entry's copy is dropped so a search
+    # for one cannot answer for the other.
+    assert [field.key for field in plugin.settings[1].fields] == ["gpu"]
+
+
+def test_a_settings_file_that_could_not_be_read_back_is_refused(shelf):
+    write_plugin(
+        shelf,
+        "rommdeck",
+        manifest(settings=[{"key": "token", "label": "Token"}]),
+    )
+    plugin = list_plugins()[0]
+
+    with pytest.raises(PluginRefused):
+        save_plugin_settings(plugin, {"token": "x" * (MAX_MANIFEST_BYTES + 1)})
+
+
+def test_removing_an_id_the_folder_no_longer_holds_is_refused(shelf):
+    write_plugin(shelf, "rommdeck", manifest())
+    list_plugins()
+    # An operator replaced the plugin in the same folder.
+    (shelf / "rommdeck" / "plugin.json").write_text(
+        json.dumps(manifest(plugin_id="something-else")), encoding="utf-8"
+    )
+
+    with pytest.raises(PluginRefused):
+        remove_plugin("rommdeck")
+
+    assert (shelf / "rommdeck" / "plugin.json").exists()
 
 
 def test_a_parked_plugin_adds_nothing(shelf):

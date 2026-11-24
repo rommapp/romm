@@ -34,6 +34,9 @@ const draft = ref<Record<string, unknown>>({});
 const saved = ref<Record<string, unknown>>({});
 const problem = ref("");
 const busy = ref(false);
+// Reading a plugin's values and writing them are separate waits: a save in
+// flight must not unlock a form that is still loading the next plugin.
+const saving = ref(false);
 const flash = ref("");
 
 const hasSettingsActions = computed(() =>
@@ -99,15 +102,20 @@ function coerce(setting: PluginSettingSchema, value: unknown): unknown {
 
 async function save(): Promise<void> {
   if (!selected.value) return;
-  busy.value = true;
+  const target = selected.value.id;
+  const sent = { ...draft.value };
+  saving.value = true;
   problem.value = "";
-  const result = await store.saveSettings(selected.value.id, draft.value);
-  busy.value = false;
+  const result = await store.saveSettings(target, sent);
+  saving.value = false;
+  // The reader may have moved on while this was in flight: what was saved
+  // belongs to the plugin it was sent for, not to whatever is selected now.
+  if (selectedId.value !== target) return;
   if (!result.ok) {
     problem.value = result.message ?? "";
     return;
   }
-  saved.value = { ...draft.value };
+  saved.value = { ...sent };
   flash.value = t("settings.plugins-saved");
   setTimeout(() => (flash.value = ""), 2500);
 }
@@ -150,9 +158,9 @@ function openAdd(): void {
   if (tab.value === "store") void openStore();
 }
 
-async function openStore(): Promise<void> {
+async function openStore(fresh = false): Promise<void> {
   storeProblem.value = "";
-  const failure = await store.loadStore();
+  const failure = await store.loadStore(fresh);
   if (failure) storeProblem.value = failure;
 }
 
@@ -167,14 +175,16 @@ async function addFromStore(pluginId: string): Promise<void> {
   addBusy.value = "";
   if (result.ok) storeProblem.value = "";
   if (!result.ok) {
-    // Said where the reader is looking: the store screen has no other place to
-    // put a failure, and the add dialog may not even be open.
+    // Said where the reader is looking, and without emptying the shelf: the
+    // catalogue is fine, one install was not.
     const message = result.message ?? "";
     addProblem.value = message;
     storeProblem.value = browsing.value ? message : "";
     return;
   }
-  adding.value = false;
+  // Closing Add while Browse is open sends focus back behind Browse, so Add
+  // waits until the store screen is closed too.
+  if (!browsing.value) adding.value = false;
   await pick(pluginId);
 }
 
@@ -304,7 +314,7 @@ onMounted(async () => {
           <h4 class="plugins-detail__section">
             {{ t("settings.plugins-settings") }}
           </h4>
-          <div class="plugins-form" :aria-busy="busy">
+          <div class="plugins-form" :aria-busy="busy || saving">
             <div
               v-for="setting in selected.settings"
               :key="setting.key"
@@ -314,7 +324,7 @@ onMounted(async () => {
                 :setting="setting"
                 :model-value="fieldValue(setting)"
                 :plugin-id="selected.id"
-                :disabled="busy"
+                :disabled="busy || saving"
                 @update:model-value="setField(setting, $event)"
               />
             </div>
@@ -325,7 +335,7 @@ onMounted(async () => {
                 v-if="mayManage"
                 variant="flat"
                 color="primary"
-                :disabled="busy || !dirty"
+                :disabled="busy || saving || !dirty"
                 @click="save"
               >
                 {{ t("settings.plugins-save") }}
@@ -471,7 +481,7 @@ onMounted(async () => {
       :busy-id="addBusy"
       :problem="storeProblem"
       @install="addFromStore"
-      @refresh="openStore"
+      @refresh="openStore(true)"
     />
   </section>
 </template>
