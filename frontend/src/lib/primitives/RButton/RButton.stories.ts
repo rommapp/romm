@@ -323,7 +323,7 @@ export const AsLink: Story = {
           External link (&lt;a&gt;)
         </RButton>
         <span style="font:12px/1.4 sans-serif;color:var(--r-color-fg-muted)">
-          With <code>to</code>, RButton renders <code>&lt;router-link&gt;</code> — invisible in this story without a router, but the prop is accepted.
+          With <code>to</code>, RButton renders <code>&lt;router-link&gt;</code> (invisible in this story without a router, but the prop is accepted).
         </span>
       </div>
     `,

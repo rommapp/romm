@@ -278,7 +278,7 @@ export const Disabled: Story = {
       <div style="padding:48px;display:flex;justify-content:center">
         <RTooltip v-bind="args">
           <template #activator="{ props }">
-            <RButton v-bind="props" variant="translucent">Hover me — nothing happens</RButton>
+            <RButton v-bind="props" variant="translucent">Hover me (nothing happens)</RButton>
           </template>
         </RTooltip>
       </div>
