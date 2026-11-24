@@ -1,15 +1,5 @@
-from fastapi import HTTPException, Request, status
-from pydantic import BaseModel, Field
-
 from decorators.auth import protected_route
-from endpoints.responses.plugin import (
-    PluginFactSchema,
-    PluginFactsSchema,
-    PluginOptionsSchema,
-    PluginSchema,
-    PluginSettingsSchema,
-    StorePluginSchema,
-)
+from fastapi import HTTPException, Request, status
 from handler.auth.constants import Scope
 from handler.auth.dependencies import visible_rom_or_404
 from handler.database import db_rom_handler
@@ -17,6 +7,7 @@ from handler.plugin_facts import (
     PluginFactSpec,
     expand_query,
     fill_fact,
+    narrowed_query,
     source_url,
     still_worth_drawing,
 )
@@ -34,7 +25,17 @@ from handler.plugin_handler import (
 )
 from handler.plugin_options import options_for
 from models.user import Role
+from pydantic import BaseModel, Field
 from utils.router import APIRouter
+
+from endpoints.responses.plugin import (
+    PluginFactSchema,
+    PluginFactsSchema,
+    PluginOptionsSchema,
+    PluginSchema,
+    PluginSettingsSchema,
+    StorePluginSchema,
+)
 
 router = APIRouter(
     prefix="/plugins",
@@ -231,12 +232,17 @@ def get_plugin_facts(
     for spec in specs:
         if not still_worth_drawing(spec, settings):
             continue
+        # What the user chose narrows what they are shown: a report for someone
+        # else's handheld answers a question they did not ask.
+        narrowing, narrowed = narrowed_query(spec, settings)
+        parameters = dict(spec.query)
+        parameters.update(narrowing)
         url = source_url(
             expand_template(spec.url, values, settings, encode_rom=True),
             expand_query(
                 {
                     name: expand_template(value, values, settings)
-                    for name, value in spec.query.items()
+                    for name, value in parameters.items()
                 }
             ),
         )
@@ -245,7 +251,9 @@ def get_plugin_facts(
             if spec.link
             else None
         )
-        filled.append(fill_fact(plugin_id, spec, url, link))
+        filled.append(
+            fill_fact(plugin_id, spec, url, link, spec.scope if narrowed else None)
+        )
 
     return PluginFactsSchema(facts=filled)
 

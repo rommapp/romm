@@ -91,6 +91,39 @@ def test_counts_one_group_per_emulator(source: list[str]) -> None:
     assert fact.groups[1].counts == {"Playable": 1}
 
 
+def test_a_choice_narrows_the_source(monkeypatch: pytest.MonkeyPatch) -> None:
+    narrow_spec = spec(
+        narrow={"input": '{"json":{"deviceIds":["{setting.handheld}"]}}'}
+    )
+
+    narrowing, applied = plugin_facts.narrowed_query(
+        narrow_spec, {"handheld": "82f3e2fe"}
+    )
+
+    assert applied is True
+    assert narrowing == {"input": '{"json":{"deviceIds":["{setting.handheld}"]}}'}
+
+
+def test_an_unanswered_choice_does_not_narrow() -> None:
+    narrow_spec = spec(
+        narrow={"input": '{"json":{"deviceIds":["{setting.handheld}"]}}'}
+    )
+
+    for empty in (None, "", "   "):
+        narrowing, applied = plugin_facts.narrowed_query(
+            narrow_spec, {"handheld": empty}
+        )
+        assert applied is False
+        assert narrowing == {}
+
+
+def test_a_panel_that_narrows_nothing_is_not_narrowed() -> None:
+    narrowing, applied = plugin_facts.narrowed_query(spec(), {"handheld": "x"})
+
+    assert applied is False
+    assert narrowing == {}
+
+
 def test_a_source_is_asked_for_once_per_answer(source: list[str]) -> None:
     fill_fact("emuready", spec(), "https://example.com/api?x=1", None)
     fill_fact("emuready", spec(), "https://example.com/api?x=1", None)

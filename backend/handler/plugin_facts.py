@@ -21,7 +21,6 @@ from typing import Any
 from urllib.parse import urlencode, urlsplit
 
 import httpx2
-
 from endpoints.responses.plugin import (
     PluginFactGroupSchema,
     PluginFactSchema,
@@ -29,6 +28,10 @@ from endpoints.responses.plugin import (
 )
 from utils.context import create_httpx_client
 from utils.ssrf import ValidationError, validate_url_for_http_request
+
+# `{setting.<key>}` in a template. Held here rather than imported from the
+# handler: the handler reads panels, so the import would go both ways.
+SETTING_PLACEHOLDER = re.compile(r"\{setting\.([a-z_]+)\}")
 
 # A source a manifest names is a URL nobody vetted, so it may only reach public
 # addresses: no internal services, no metadata endpoints, nothing on the machine
@@ -71,6 +74,12 @@ class PluginFactSpec:
     limit: int = 200
     # Key of a boolean setting that must be on for the panel to be filled.
     enabled_by: str | None = None
+    # Extra query parameters that narrow the source to what the user chose, such
+    # as their own device. They are only sent when every setting they name has a
+    # value: an unanswered question is not a filter.
+    narrow: dict[str, str] = field(default_factory=dict)
+    # What to call the narrowing in the panel, when it was applied.
+    scope: str | None = None
 
 
 def refused_source(url: str) -> str | None:
@@ -201,7 +210,11 @@ def _remember(plugin_id: str, fact_id: str, url: str, document: dict[str, Any]) 
 
 
 def fill_fact(
-    plugin_id: str, spec: PluginFactSpec, url: str, link: str | None
+    plugin_id: str,
+    spec: PluginFactSpec,
+    url: str,
+    link: str | None,
+    scope: str | None = None,
 ) -> PluginFactSchema:
     """Fill one panel from its source.
 
@@ -210,6 +223,8 @@ def fill_fact(
         spec: What the manifest asked for.
         url: The source address, already expanded and query-encoded.
         link: Where a reader can see the whole report, if the manifest says.
+        scope: What the panel is narrowed to, when the user's own choices
+            narrowed it.
 
     Returns:
         PluginFactSchema: The panel, with `note` set when nothing could be read.
@@ -221,7 +236,12 @@ def fill_fact(
             _remember(plugin_id, spec.id, url, document)
     except (TypeError, ValueError) as exc:
         return PluginFactSchema(
-            id=spec.id, label=spec.label, slot=spec.slot, link=link, note=str(exc)
+            id=spec.id,
+            label=spec.label,
+            slot=spec.slot,
+            link=link,
+            note=str(exc),
+            scope=scope,
         )
 
     items = _dig(document, spec.list_path)
@@ -232,6 +252,7 @@ def fill_fact(
             slot=spec.slot,
             link=link,
             note="The source answered, but not in the shape this plugin asked for",
+            scope=scope,
         )
 
     grouped: dict[str, dict[str, int]] = {}
@@ -252,6 +273,7 @@ def fill_fact(
             slot=spec.slot,
             link=link,
             note="No reports for this title yet",
+            scope=scope,
         )
 
     groups = [
@@ -267,6 +289,7 @@ def fill_fact(
         link=link,
         groups=groups[:MAX_GROUPS],
         total=sum(group.total for group in groups),
+        scope=scope,
     )
 
 
@@ -306,6 +329,29 @@ def forget_all() -> None:
         _CACHE.clear()
 
 
+def narrowed_query(
+    spec: PluginFactSpec, settings: dict[str, Any]
+) -> tuple[dict[str, str], bool]:
+    """The parameters that narrow a source to this user's own hardware.
+
+    Args:
+        spec: The panel's declaration.
+        settings: The plugin's saved values.
+
+    Returns:
+        tuple[dict[str, str], bool]: The parameters to add, and whether they
+            apply. They do not apply while a setting they name is unanswered,
+            because "no answer" and "any answer" are not the same question.
+    """
+    if not spec.narrow:
+        return {}, False
+    for value in spec.narrow.values():
+        for name in SETTING_PLACEHOLDER.findall(value):
+            if not str(settings.get(name) or "").strip():
+                return {}, False
+    return dict(spec.narrow), True
+
+
 def still_worth_drawing(spec: PluginFactSpec, settings: dict[str, Any]) -> bool:
     """Whether a panel's gate lets it be filled.
 
@@ -328,6 +374,7 @@ __all__ = [
     "expand_query",
     "fill_fact",
     "forget_all",
+    "narrowed_query",
     "refused_source",
     "source_url",
     "still_worth_drawing",

@@ -216,6 +216,55 @@ A URL may interpolate the game the button was pressed on. Values are URL-encoded
 
 Any other placeholder is refused, so a manifest cannot ask for values the UI does not offer.
 
+## Panels
+
+A panel is a block of numbers a plugin fills from its own source and RomM draws
+under the game. The manifest names the address, the path to the list in the
+answer, and the two fields to count by.
+
+```json
+{
+  "facts": [
+    {
+      "id": "handheld",
+      "label": "Handheld reports",
+      "action": "handheld",
+      "url": "{setting.base_url}/api/listings",
+      "query": { "input": "{\"search\":\"{rom_name}\",\"limit\":50}" },
+      "narrow": {
+        "input": "{\"search\":\"{rom_name}\",\"limit\":50,\"deviceIds\":[\"{setting.handheld}\"]}"
+      },
+      "scope": "your handheld only",
+      "list_path": "result.data.json.listings",
+      "group_by": "emulator.name",
+      "rating_field": "performance.label",
+      "link": "{setting.base_url}/listings?search={rom_name}",
+      "enabled_by": "show_handheld",
+      "limit": 50
+    }
+  ]
+}
+```
+
+| Field                      | Notes                                                                                                                      |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `id`                       | Lowercase slug, unique within the plugin.                                                                                  |
+| `label`                    | The panel's name, 48 characters at most.                                                                                   |
+| `action`                   | The action this panel explains. A panel only appears where its action's button is, so a panel naming no action is refused. |
+| `url`                      | The address, with the same placeholders as an action. It must be public.                                                   |
+| `query`                    | Parameters sent with the request. `{query}` is not used here; this is the unfiltered question.                             |
+| `narrow`                   | Parameters that replace `query` when the user has answered every setting they name.                                        |
+| `scope`                    | A short line saying what the numbers are narrowed to, shown under the panel's name.                                        |
+| `list_path`                | Dotted path to the list in the answer.                                                                                     |
+| `group_by`, `rating_field` | The two fields counted: one row per value of `group_by`, one column per value of `rating_field`.                           |
+| `link`                     | Where a reader can see the whole report.                                                                                   |
+| `limit`                    | How many entries are counted, 500 at most.                                                                                 |
+
+`narrow` is how a panel answers a question about the user rather than about
+everyone: the settings it names are filled in like any other template, and while
+one of them is unanswered the block is skipped entirely and `query` is sent
+instead. A question the user has not answered is not a filter.
+
 ## Schemes
 
 `http` and `https` open like any link. Anything else is treated as a custom scheme and handed to the OS, which is how a desktop app gets launched. `javascript`, `data`, `file`, `blob`, `vbscript` and `about` are refused, and so is a URL with whitespace or control characters.

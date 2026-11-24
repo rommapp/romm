@@ -19,5 +19,6 @@ export type PluginFactSchema = {
     groups?: Array<PluginFactGroupSchema>;
     total?: number;
     note?: (string | null);
+    scope?: (string | null);
 };
 

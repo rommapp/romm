@@ -174,6 +174,9 @@ class PluginFactSchema(BaseModel):
     groups: list[PluginFactGroupSchema] = Field(default_factory=list)
     total: int = 0
     note: str | None = None
+    # What the numbers are narrowed to, when the user's own choices narrowed
+    # them: "your handheld", "your setups". Absent means the whole catalogue.
+    scope: str | None = None
 
 
 class PluginFactsSchema(BaseModel):

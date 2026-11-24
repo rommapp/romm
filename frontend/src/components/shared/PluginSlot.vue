@@ -190,6 +190,12 @@ function orderedRatings(
               </span>
             </header>
 
+            <!-- Whose reports these are: it qualifies every number below, so it
+                 gets a line of its own rather than a shout beside the title. -->
+            <p v-if="reportFor(action)!.scope" class="report__scope">
+              {{ reportFor(action)!.scope }}
+            </p>
+
             <p v-if="reportFor(action)!.note" class="report__note">
               {{ reportFor(action)!.note }}
             </p>
@@ -326,6 +332,15 @@ function orderedRatings(
   opacity: 0.62;
   font-size: 0.76rem;
   line-height: 1.45;
+}
+
+/* A line of its own under the heading, with room to be read. */
+.report__scope {
+  margin: -2px 0 6px;
+  color: var(--r-color-tooltip-fg);
+  opacity: 0.66;
+  font-size: 0.74rem;
+  letter-spacing: 0.01em;
 }
 
 /* One grid for the whole table, with each row flattened into it: that is what

@@ -22,7 +22,6 @@ from typing import Any, Final, cast
 from urllib.parse import quote, urlsplit
 
 import httpx
-
 from config import PLUGINS_BASE_PATH
 from endpoints.responses.plugin import (
     PluginActionSchema,
@@ -35,6 +34,9 @@ from endpoints.responses.plugin import (
     PluginSlot,
     StorePluginSchema,
 )
+from logger.logger import log
+from utils.context import create_httpx_client
+
 from handler.plugin_facts import (
     MAX_FACTS,
     PATH_PATTERN,
@@ -43,8 +45,6 @@ from handler.plugin_facts import (
     forget_all,
     refused_source,
 )
-from logger.logger import log
-from utils.context import create_httpx_client
 
 MANIFEST_NAME: Final[str] = "plugin.json"
 SETTINGS_NAME: Final[str] = "settings.json"
@@ -510,6 +510,17 @@ def _parse_facts(
                 )
                 enabled_by = None
 
+        narrow: dict[str, str] = {}
+        raw_narrow = raw_fact.get("narrow")
+        if isinstance(raw_narrow, dict):
+            for name, value in list(raw_narrow.items())[:4]:
+                if not isinstance(name, str) or not isinstance(value, str):
+                    continue
+                if not re.match(r"^[A-Za-z0-9_.-]{1,64}$", name):
+                    continue
+                narrow[name] = value[:1024]
+        scope = _text(raw_fact.get("scope"), MAX_LABEL_LENGTH)
+
         slot = raw_fact.get("slot")
         if not isinstance(slot, str) or slot not in SLOTS:
             slot = DEFAULT_SLOT
@@ -548,6 +559,8 @@ def _parse_facts(
                 action=action_id,
                 limit=limit,
                 enabled_by=enabled_by,
+                narrow=narrow,
+                scope=scope,
             )
         )
         summaries.append(
