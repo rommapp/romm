@@ -268,8 +268,9 @@ async function settle(entry: StoredAsset): Promise<SyncedAsset> {
  *   send: The pass's sender, which chains pushes held on the same base.
  *
  * Returns:
- *   The asset when the server made a snapshot of it or refused it for good,
- *   else null: it failed and stays held, or the server already had it.
+ *   The asset when the server made a snapshot of it or refused it for good.
+ *   Null when the push failed and the asset stays held, or when the server
+ *   already had it.
  */
 async function uploadPendingAsset(
   entry: StoredAsset,
