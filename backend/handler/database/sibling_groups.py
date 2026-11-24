@@ -4,11 +4,14 @@ from collections.abc import Collection, Iterable, Iterator
 from itertools import batched
 from typing import Final
 
-from sqlalchemy import delete, func, insert, select, tuple_
+from sqlalchemy import Insert, delete, func, select, tuple_
+from sqlalchemy.dialects import mysql as sa_mysql
+from sqlalchemy.dialects import postgresql as sa_pg
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
 
 from models.rom import Rom, RomIdentityKey, RomSiblingGroup
+from utils.database import is_postgresql
 from utils.sibling_groups import sibling_groups
 
 IdentityKey = tuple[int, int, str]
@@ -28,16 +31,21 @@ def sibling_group_key() -> ColumnElement[int]:
     return func.coalesce(RomSiblingGroup.group_id, Rom.id)
 
 
-def group_keys(session: Session, rom_ids: Collection[int]) -> dict[int, int]:
-    """Each ROM's `sibling_group_key`."""
+def group_keys(
+    session: Session, rom_ids: Collection[int], *, present_only: bool = False
+) -> dict[int, int]:
+    """Each ROM's `sibling_group_key`, skipping ROMs off disk when `present_only`."""
+    query = select(Rom.id, sibling_group_key()).outerjoin(
+        RomSiblingGroup, RomSiblingGroup.rom_id == Rom.id
+    )
+    if present_only:
+        query = query.where(Rom.missing_from_fs.is_(False))
     keys: dict[int, int] = {}
     for chunk in batched(rom_ids, _CHUNK_SIZE, strict=False):
         keys.update(
             (rom_id, group_key)
             for rom_id, group_key in session.execute(
-                select(Rom.id, sibling_group_key())
-                .outerjoin(RomSiblingGroup, RomSiblingGroup.rom_id == Rom.id)
-                .where(Rom.id.in_(chunk))
+                query.where(Rom.id.in_(chunk))
             ).all()
         )
     return keys
@@ -61,11 +69,8 @@ def group_members(session: Session, rom_ids: Collection[int]) -> set[int]:
 
 
 def regroup(session: Session, rom_ids: Collection[int]) -> None:
-    """Recompute the groups of `rom_ids` after their identity keys changed.
-
-    Starts from the ROMs' current groups as well, since a ROM that lost a key
-    can split the group it leaves behind.
-    """
+    """Recompute the groups of `rom_ids` after their identity keys changed."""
+    # Their current groups too, since a ROM that lost a key can split the one it left.
     visited = group_members(session, rom_ids)
     frontier = set(visited)
     seen_keys: set[IdentityKey] = set()
@@ -119,11 +124,9 @@ def _holders_of_keys(
 def _write(
     session: Session, groups: dict[int, int], *, scope: Collection[int] | None
 ) -> None:
-    """Store `groups` for the ROMs in `scope` (every ROM when None).
-
-    Only the rows that changed are written, so a rescan that moves nothing
-    takes no row locks.
-    """
+    """Store `groups` for the ROMs in `scope` (every ROM when None)."""
+    # Only the rows that changed are written, so a rescan that moves nothing
+    # takes no row locks.
     stored_query = select(RomSiblingGroup.rom_id, RomSiblingGroup.group_id)
     stored: dict[int, int] = {}
     if scope is None:
@@ -139,12 +142,11 @@ def _write(
                 ).all()
             )
 
-    stale = [
-        rom_id for rom_id, group_id in stored.items() if groups.get(rom_id) != group_id
-    ]
+    # Sorted, so two writers lock shared rows in the same order.
+    stale = sorted(rom_id for rom_id in stored if rom_id not in groups)
     fresh = [
         {"rom_id": rom_id, "group_id": group_id}
-        for rom_id, group_id in groups.items()
+        for rom_id, group_id in sorted(groups.items())
         if stored.get(rom_id) != group_id
     ]
 
@@ -153,4 +155,16 @@ def _write(
             delete(RomSiblingGroup).where(RomSiblingGroup.rom_id.in_(chunk))
         )
     for rows in batched(fresh, _CHUNK_SIZE, strict=False):
-        session.execute(insert(RomSiblingGroup), list(rows))
+        session.execute(_upsert(session, list(rows)))
+
+
+def _upsert(session: Session, rows: list[dict[str, int]]) -> Insert:
+    """Insert `rows`, moving a row another writer committed since this one read it."""
+    if is_postgresql(session.get_bind()):
+        pg_insert = sa_pg.insert(RomSiblingGroup).values(rows)
+        return pg_insert.on_conflict_do_update(
+            index_elements=["rom_id"],
+            set_={"group_id": pg_insert.excluded.group_id},
+        )
+    mysql_insert = sa_mysql.insert(RomSiblingGroup).values(rows)
+    return mysql_insert.on_duplicate_key_update(group_id=mysql_insert.inserted.group_id)

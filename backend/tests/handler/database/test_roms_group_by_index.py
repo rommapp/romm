@@ -16,9 +16,8 @@ was paid four times over. 0107 widened the index to close the gap.
 0108 added `generated_primary_region` for the same reason: region priority ranks
 each sibling, and `roms.regions` is JSON that no covering index can carry.
 
-The failure mode is silent, and adding a metadata provider is the way back into
-it: a new id column joins the window's COALESCE chain, the index does not follow
-it, and the gallery quietly returns to full scans.
+The failure mode is silent: a `roms` column the window starts reading that the
+index does not follow quietly returns the gallery to full scans.
 """
 
 import re

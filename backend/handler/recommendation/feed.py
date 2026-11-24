@@ -307,20 +307,18 @@ class FeedBuilder:
 def first_distinct_games[T](
     batches: Iterable[Sequence[T]], rom_id_of: Callable[[T], int], *, want: int
 ) -> list[T]:
-    """The first `want` items that are each a different game, in order.
-
-    Reads `batches` lazily, so a game with a dozen versions costs another
-    batch rather than a short list.
-    """
+    """The first `want` on-disk items that are each a different game, in order."""
+    # Lazy, so a game with a dozen versions costs another batch, not a short list.
     seen: set[int] = set()
     kept: list[T] = []
     for batch in batches:
         group_keys = db_rom_handler.get_sibling_group_keys(
-            [rom_id_of(item) for item in batch]
+            [rom_id_of(item) for item in batch], present_only=True
         )
         for item in batch:
-            group_key = group_keys.get(rom_id_of(item), rom_id_of(item))
-            if group_key in seen:
+            # A version off disk leaves the game's slot to one on disk.
+            group_key = group_keys.get(rom_id_of(item))
+            if group_key is None or group_key in seen:
                 continue
             seen.add(group_key)
             kept.append(item)
@@ -329,16 +327,23 @@ def first_distinct_games[T](
     return kept
 
 
-def hydrate_roms(rom_ids: Sequence[int]) -> dict[int, Rom]:
+def hydrate_roms(
+    rom_ids: Sequence[int], *, include_missing: bool = False
+) -> dict[int, Rom]:
     """Load ROMs through the shared `SimpleRomSchema` load path.
 
     Missing-from-disk ROMs are dropped here rather than in SQL, so the edge
     queries never have to join the wide `roms` table.
+
+    Args:
+        rom_ids: The ROMs to load.
+        include_missing: Keep ROMs missing from disk, for `as_representatives`
+            to swap for a version on disk.
     """
     return {
         rom.id: rom
         for rom in db_rom_handler.get_roms_simple_by_ids(list(rom_ids))
-        if not rom.missing_from_fs
+        if include_missing or not rom.missing_from_fs
     }
 
 
@@ -353,7 +358,7 @@ def get_cached_feed(user_id: int, limit: int) -> list[RecommendedRom] | None:
     except ValueError, TypeError:
         return None
 
-    roms = hydrate_roms([entry["rom_id"] for entry in entries])
+    roms = hydrate_roms([entry["rom_id"] for entry in entries], include_missing=True)
 
     return [
         RecommendedRom(

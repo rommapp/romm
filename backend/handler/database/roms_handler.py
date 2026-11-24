@@ -1122,10 +1122,11 @@ class DBRomsHandler(DBBaseHandler):
         self,
         rom_ids: Sequence[int],
         *,
+        present_only: bool = False,
         session: Session = INJECTED_SESSION,
     ) -> dict[int, int]:
         """Each ROM's `sibling_group_key`, equal for every version of one game."""
-        return sibling_groups.group_keys(session, rom_ids)
+        return sibling_groups.group_keys(session, rom_ids, present_only=present_only)
 
     @begin_session
     def get_sibling_group_members(
@@ -1143,17 +1144,15 @@ class DBRomsHandler(DBBaseHandler):
         rom_ids: Sequence[int],
         *,
         user_id: int | None,
-        visibility: RomVisibilityFilter = UNRESTRICTED,
+        visibility: RomVisibilityFilter,
         session: Session = INJECTED_SESSION,
     ) -> dict[int, int]:
-        """Map each ROM to the version of its game the grouped gallery shows.
-
-        ROMs whose every version is hidden from the viewer or missing from disk
-        are left out.
-        """
+        """Map each ROM to its game's grouped-gallery version, if one is visible and on disk."""
         group_keys = self.get_sibling_group_keys(rom_ids, session=session)
         if not group_keys:
             return {}
+        # Filtering on member ids keeps the lookup on the primary key.
+        member_ids = sibling_groups.group_members(session, group_keys.keys())
 
         group_key = sibling_group_key()
         hidden_last = (
@@ -1188,14 +1187,7 @@ class DBRomsHandler(DBBaseHandler):
                 RomUser, and_(RomUser.rom_id == Rom.id, RomUser.user_id == user_id)
             )
             .where(
-                # The group id when there is one, so the lookup stays on its index.
-                or_(
-                    RomSiblingGroup.group_id.in_(set(group_keys.values())),
-                    and_(
-                        RomSiblingGroup.group_id.is_(None),
-                        Rom.id.in_(group_keys.keys()),
-                    ),
-                ),
+                Rom.id.in_(member_ids),
                 Rom.missing_from_fs.is_(False),
                 *visibility.clauses(),
             )

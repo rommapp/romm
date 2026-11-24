@@ -378,6 +378,25 @@ def test_similar_roms_show_a_visible_version_of_a_hidden_one(
     assert library["metroid"].id not in returned_ids
 
 
+def test_similar_roms_show_an_on_disk_version_of_a_missing_one(
+    client: TestClient, access_token: str, platform: Platform
+):
+    """The edges point at a version gone from disk; the game must still show."""
+    library = build_library(platform)
+    metroid_europe = _metroid_europe(platform)
+    SimilarityBuilder().build()
+    db_rom_handler.update_rom(library["metroid"].id, {"missing_from_fs": True})
+
+    body = client.get(
+        f"/api/roms/{library['metroid_2'].id}/similar",
+        headers={"Authorization": f"Bearer {access_token}"},
+    ).json()
+
+    returned_ids = [entry["rom"]["id"] for entry in body]
+    assert metroid_europe.id in returned_ids
+    assert library["metroid"].id not in returned_ids
+
+
 def test_cold_start_reads_past_a_game_with_many_versions(
     client: TestClient, access_token: str, admin_user: User, platform: Platform
 ):

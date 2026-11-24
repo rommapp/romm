@@ -1,7 +1,11 @@
+import threading
+import time
+
 from sqlalchemy import delete, select
 from tests.factories import make_rom
 
-from handler.database import db_rom_handler
+from handler.auth.rom_visibility import UNRESTRICTED
+from handler.database import db_rom_handler, sibling_groups
 from handler.database.base_handler import sync_session
 from models.platform import Platform
 from models.rom import Rom, RomSiblingGroup, RomUser
@@ -123,6 +127,52 @@ class TestSiblingGroups:
 
         assert _groups() == {first.id: first.id, bridge.id: first.id, last.id: first.id}
 
+    def test_two_writers_grouping_one_rom_both_commit(self, platform: Platform):
+        """The second writer reads before the first commits, then meets its row."""
+        existing = make_rom(platform, "Raced (USA)", igdb_id=90)
+        first_grouped = threading.Event()
+        errors: list[Exception] = []
+
+        def write(name: str, *, after: threading.Event | None) -> None:
+            if after is not None:
+                after.wait(timeout=5)
+            try:
+                with sync_session.begin() as session:
+                    rom = Rom(
+                        platform_id=platform.id,
+                        name=name,
+                        fs_name=f"{name}.zip",
+                        fs_path="roms",
+                        igdb_id=90,
+                    )
+                    session.add(rom)
+                    session.flush()
+                    sibling_groups.regroup(session, [rom.id])
+                    if after is None:
+                        first_grouped.set()
+                        # Holds the row lock while the second writer runs.
+                        time.sleep(0.5)
+            except Exception as exc:
+                errors.append(exc)
+
+        writers = [
+            threading.Thread(
+                target=write, args=("Raced (Europe)",), kwargs={"after": None}
+            ),
+            threading.Thread(
+                target=write, args=("Raced (Japan)",), kwargs={"after": first_grouped}
+            ),
+        ]
+        for writer in writers:
+            writer.start()
+        for writer in writers:
+            writer.join()
+
+        assert errors == []
+        groups = _groups()
+        assert len(groups) == 3
+        assert set(groups.values()) == {existing.id}
+
 
 class TestSiblingRepresentatives:
     def test_every_version_maps_to_the_gallery_card(
@@ -132,7 +182,9 @@ class TestSiblingRepresentatives:
         (card,) = _gallery(platform, admin_user.id)
 
         representatives = db_rom_handler.get_sibling_representatives(
-            [first.id, bridge.id, last.id], user_id=admin_user.id
+            [first.id, bridge.id, last.id],
+            user_id=admin_user.id,
+            visibility=UNRESTRICTED,
         )
 
         assert representatives == {first.id: card, bridge.id: card, last.id: card}
@@ -143,7 +195,7 @@ class TestSiblingRepresentatives:
         db_rom_handler.update_rom_user(rom_user.id, {"is_main_sibling": True})
 
         representatives = db_rom_handler.get_sibling_representatives(
-            [first.id], user_id=admin_user.id
+            [first.id], user_id=admin_user.id, visibility=UNRESTRICTED
         )
 
         assert representatives == {first.id: last.id}
@@ -157,7 +209,7 @@ class TestSiblingRepresentatives:
             session.add(RomUser(rom_id=first.id, user_id=admin_user.id, hidden=True))
 
         representatives = db_rom_handler.get_sibling_representatives(
-            [first.id], user_id=admin_user.id
+            [first.id], user_id=admin_user.id, visibility=UNRESTRICTED
         )
 
         assert representatives[first.id] != first.id
@@ -171,7 +223,7 @@ class TestSiblingRepresentatives:
 
         assert _gallery(platform, admin_user.id) == [first.id]
         assert db_rom_handler.get_sibling_representatives(
-            [second.id], user_id=admin_user.id
+            [second.id], user_id=admin_user.id, visibility=UNRESTRICTED
         ) == {second.id: first.id}
 
     def test_a_rom_without_siblings_represents_itself(
@@ -180,5 +232,5 @@ class TestSiblingRepresentatives:
         rom = make_rom(platform, "Solo", igdb_id=70)
 
         assert db_rom_handler.get_sibling_representatives(
-            [rom.id], user_id=admin_user.id
+            [rom.id], user_id=admin_user.id, visibility=UNRESTRICTED
         ) == {rom.id: rom.id}

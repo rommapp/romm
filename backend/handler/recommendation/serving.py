@@ -46,7 +46,7 @@ def similar_roms(
         lambda edge: edge.rom_id,
         group_keys,
     )
-    roms = hydrate_roms([edge.rom_id for edge in edges])
+    roms = hydrate_roms([edge.rom_id for edge in edges], include_missing=True)
     candidates = _visible_representatives(
         [
             RecommendedRom(
@@ -106,11 +106,7 @@ def recommended_roms(
 def _visible_representatives(
     items: Sequence[RecommendedRom], permissions: ResolvedPermissions
 ) -> list[RecommendedRom]:
-    """`as_representatives`, then the visibility cut.
-
-    In that order, so a game whose top-ranked version is hidden from the
-    viewer is shown through a visible version rather than dropped.
-    """
+    """`as_representatives` before the visibility cut, so a visible version stands in."""
     return [
         item
         for item in as_representatives(items, permissions)
@@ -121,11 +117,8 @@ def _visible_representatives(
 def as_representatives(
     items: Sequence[RecommendedRom], permissions: ResolvedPermissions
 ) -> list[RecommendedRom]:
-    """Swap each ROM for the version of its game the grouped gallery shows.
-
-    Resolved per request rather than ranked in, so a user's main-version pick
-    takes effect without waiting for a cached feed to expire.
-    """
+    """Swap each ROM for the version of its game the grouped gallery shows."""
+    # Per request, so a main-version pick applies without waiting out the cached feed.
     representatives = db_rom_handler.get_sibling_representatives(
         [item.rom.id for item in items],
         user_id=permissions.user_id,
@@ -139,13 +132,16 @@ def as_representatives(
     swapped = hydrate_roms(list(swapped_ids)) if swapped_ids else {}
 
     result: list[RecommendedRom] = []
+    # A feed cached before two groups merged holds a version of each.
+    emitted: set[int] = set()
     for item in items:
         representative_id = representatives.get(item.rom.id)
-        if representative_id is None:
+        if representative_id is None or representative_id in emitted:
             continue
         rom = swapped.get(representative_id, item.rom)
         if rom.id != representative_id:
             continue
+        emitted.add(representative_id)
         result.append(replace(item, rom=rom))
     return result
 

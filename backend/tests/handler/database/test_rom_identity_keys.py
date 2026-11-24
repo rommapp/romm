@@ -1,4 +1,4 @@
-"""Checks for the `rom_identity_keys` mirror that backs the `sibling_roms` view.
+"""Checks for the `rom_identity_keys` mirror the sibling groups are built from.
 
 Migration 0127 moved sibling matching off an OR-of-equalities self-join over
 `roms` and onto one row per (ROM, provider it has an id for), maintained by
@@ -56,7 +56,7 @@ def _keys(rom_id: int) -> set[tuple[int, int, str]]:
 
 
 def _view_rows(rom_id: int) -> list[int]:
-    """Raw `sibling_roms` rows, undeduped: the view emits one per match."""
+    """Raw `sibling_roms` rows for one ROM."""
     with sync_session.begin() as session:
         return sorted(
             session.scalars(
