@@ -198,8 +198,8 @@ function announceBranch(outcome: PushOutcome) {
  * Sends `content` through the session, holding nothing itself.
  *
  * Returns:
- *   How the server took it, as the channel's current or as a branch, or null
- *   when it did not.
+ *   The push outcome, as the channel's current or as a branch, or null when
+ *   the push failed.
  */
 async function sendContent(
   content: SnapshotContent,
@@ -720,7 +720,8 @@ function onBeforeUnload(event: BeforeUnloadEvent) {
   const saveFile = unsyncedSave(emulator);
   if (!saveFile) return;
   unloadSave = saveFile;
-  // Held bytes sync on the next visit, so closing the tab cannot lose them.
+  // The browser already holds these bytes and syncs them on the next visit,
+  // so the tab can close without a prompt.
   if (pendingSaveKept && heldFor(pendingSave, saveFile)) return;
   // EmulatorJS tears the core down on this event, and a cancelled close has
   // to keep the game running.

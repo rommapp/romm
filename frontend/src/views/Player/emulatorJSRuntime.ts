@@ -114,8 +114,9 @@ export function buildStateFormData(
   ]);
 }
 
-/** A changed SRAM uploads once it has held still this long, so a burst of
- * writes (Pokemon uses SRAM as scratch space on every menu) goes up once. */
+/** A changed SRAM uploads once it has stopped changing for this long, so a
+ * burst of writes (Pokemon uses SRAM as scratch space in every menu) uploads
+ * once. */
 export const SAVE_SYNC_QUIET_MS = 5_000;
 /** The longest a changed SRAM waits to upload while the game keeps writing it. */
 export const SAVE_SYNC_MAX_WAIT_MS = 60_000;
@@ -156,8 +157,9 @@ export function createSaveSyncTracker() {
       unsentSince = null;
     },
     /**
-     * What this tick does with `save`: settled new bytes are held in the
-     * browser at once, and upload after a quiet spell or the longest wait.
+     * What this tick does with `save`: new bytes that two ticks agree on are
+     * kept in the browser at once, then upload after `SAVE_SYNC_QUIET_MS`
+     * without a change or after `SAVE_SYNC_MAX_WAIT_MS` at most.
      *
      * Args:
      *   save: The SRAM this tick read.

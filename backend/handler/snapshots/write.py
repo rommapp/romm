@@ -160,8 +160,8 @@ class _Plan:
     parent: Snapshot | None
     resolved: Resolved
     expected_current_id: int | None = None
-    # The current snapshot this push adds no progress to: the same content, or
-    # a save whose identity hash matches, a clock tick or a scratch write apart.
+    # The current snapshot this push adds no progress to: the content matches, or
+    # the save has the same identity hash because only a clock or scratch RAM moved.
     same_as: int | None = None
     saves: dict[str, Save] = field(default_factory=dict)
     states: dict[str, State] = field(default_factory=dict)
@@ -210,7 +210,8 @@ def _content(write: SnapshotWrite, key: str) -> AssetContent | None:
 async def _same_save_identity(
     write: SnapshotWrite, plan: _Plan, current: Snapshot
 ) -> bool:
-    """Whether the push holds `current`'s save by identity hash, in the same shape and format."""
+    """Whether the push has `current`'s bank and a save with the same identity
+    hash, shape and format."""
     sent = _content(write, SAVE_PART)
     if plan.resolved.save is None or sent is None:
         return False

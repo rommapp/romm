@@ -46,7 +46,7 @@ def red_ram(changes: dict[int, int] | None = None) -> bytes:
 
 
 def pokemon_red(features: int) -> tuple[Rom, RomFile]:
-    """A Pokemon Red ROM on gb, its file read by sigil with `features`."""
+    """A Pokemon Red ROM on gb whose file carries the sigil cart `features`."""
     rom = make_rom(make_platform("gb"), "Pokemon Red")
     rom_file = db_rom_handler.add_rom_file(
         RomFile(

@@ -1,5 +1,5 @@
-"""A save unit's identity hash, sigil's for a platform it has a rule for and
-otherwise the content hash without the unit's clock members."""
+"""A save unit's identity hash. Sigil computes it on platforms it has a rule
+for; elsewhere it is the content hash without the unit's clock members."""
 
 import asyncio
 import hashlib
@@ -46,8 +46,8 @@ def _identity(content: bytes, platform_slug: str | None, features: int | None) -
 async def identity_hash(
     content: bytes, *, platform_slug: str | None, features: int | None
 ) -> str:
-    """The unit's identity as sigil gives it for the game's platform and cart
-    `features`, or otherwise the content hash without the clock members."""
+    """The unit's identity hash from sigil for the game's platform and cart
+    `features`, or the content hash without clock members if sigil has no rule."""
     return await asyncio.to_thread(_identity, content, platform_slug, features)
 
 
