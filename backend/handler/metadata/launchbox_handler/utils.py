@@ -178,7 +178,10 @@ def parse_videourl(url: str | None) -> str:
     if not url:
         return ""
 
-    parsed = urlparse(url)
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return ""
     host = (parsed.hostname or "").lower()
     if host == "youtu.be":
         return parsed.path.lstrip("/").split("/")[0]

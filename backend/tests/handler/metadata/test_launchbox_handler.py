@@ -318,6 +318,9 @@ class TestParseVideourl:
         assert parse_videourl("https://www.youtube.com/watch?v=abc123#t=30") == "abc123"
         assert parse_videourl("https://youtu.be/abc123#t=30") == "abc123"
 
+    def test_malformed_url_has_no_id(self):
+        assert parse_videourl("https://[youtube.com/watch?v=abc123") == ""
+
     def test_non_youtube(self):
         assert parse_videourl("https://vimeo.com/123456") == ""
 
