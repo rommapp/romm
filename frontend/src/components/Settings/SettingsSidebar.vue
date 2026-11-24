@@ -44,7 +44,9 @@ const { unreadCount } = storeToRefs(storeNotificationInbox());
 const pluginStore = usePluginStore();
 onMounted(() => void pluginStore.load());
 
-const pluginRows = computed(() =>
+// Named for the template's guard: the group only exists when a plugin put
+// something in the navigation.
+const hasPluginNav = computed(() =>
   pluginStore.plugins.some((plugin) =>
     plugin.actions.some((action) => action.slot === "app.nav"),
   ),

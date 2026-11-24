@@ -75,12 +75,13 @@ function mountList(
   overrides: Partial<Flags> = {},
   joinLabel = "rom.join-session",
   streamLabel = "rom.stream",
+  withPlay = false,
 ) {
   Object.assign(flags, overrides);
   joinActionLabel = joinLabel;
   streamActionLabel = streamLabel;
   return mount(GameActionsList, {
-    props: { rom: romFixture({ id: 1 }) },
+    props: { rom: romFixture({ id: 1 }), withPlay },
     global: { stubs: { RMenuItem, RDivider } },
   });
 }
@@ -153,6 +154,17 @@ describe("GameActionsList: playing", () => {
     const shown = labels(wrapper);
     expect(shown).not.toContain("rom.play");
     expect(shown).toContain("rom.stream");
+  });
+
+  it("offers Play when the row has no button of its own", () => {
+    // A gallery row's menu is its only way to start a game.
+    const shown = labels(mountList({ canPlayLocally: true }, undefined, undefined, true).valueOf());
+    expect(shown).toContain("play.play-in-browser");
+  });
+
+  it("keeps Play out when the row can still be played from a button", () => {
+    const shown = labels(mountList({ canPlayLocally: true }));
+    expect(shown).not.toContain("play.play-in-browser");
   });
 
   it("renders the stream label the composable resolved", () => {
