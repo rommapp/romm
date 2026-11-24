@@ -40,11 +40,11 @@ def similar_roms(
     group_keys = db_rom_handler.get_sibling_group_keys(
         [rom_id, *(edge.rom_id for edge in edges)]
     )
-    source_group = group_keys.get(rom_id, rom_id)
     edges = collapse_sibling_groups(
-        [edge for edge in edges if group_keys.get(edge.rom_id) != source_group],
+        edges,
         lambda edge: edge.rom_id,
         group_keys,
+        seen={group_keys.get(rom_id, rom_id)},
     )
     roms = hydrate_roms([edge.rom_id for edge in edges], include_missing=True)
     candidates = _visible_representatives(
@@ -106,19 +106,9 @@ def recommended_roms(
 def _visible_representatives(
     items: Sequence[RecommendedRom], permissions: ResolvedPermissions
 ) -> list[RecommendedRom]:
-    """`as_representatives` before the visibility cut, so a visible version stands in."""
-    return [
-        item
-        for item in as_representatives(items, permissions)
-        if permissions.can_see_rom(item.rom)
-    ]
-
-
-def as_representatives(
-    items: Sequence[RecommendedRom], permissions: ResolvedPermissions
-) -> list[RecommendedRom]:
-    """Swap each ROM for the version of its game the grouped gallery shows."""
-    # Per request, so a main-version pick applies without waiting out the cached feed.
+    """Swap each ROM for the version the gallery shows, keeping the visible ones."""
+    # Swapping before the visibility cut lets a visible version stand in, and
+    # resolving per request applies a main-version pick without waiting out the cache.
     representatives = db_rom_handler.get_sibling_representatives(
         [item.rom.id for item in items],
         user_id=permissions.user_id,
@@ -139,7 +129,7 @@ def as_representatives(
         if representative_id is None or representative_id in emitted:
             continue
         rom = swapped.get(representative_id, item.rom)
-        if rom.id != representative_id:
+        if rom.id != representative_id or not permissions.can_see_rom(rom):
             continue
         emitted.add(representative_id)
         result.append(replace(item, rom=rom))

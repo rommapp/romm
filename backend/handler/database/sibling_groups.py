@@ -1,10 +1,10 @@
 """Keeps `rom_sibling_groups` in step with `rom_identity_keys`."""
 
-from collections.abc import Collection, Iterable, Iterator
+from collections.abc import Callable, Collection, Iterable, Iterator
 from itertools import batched
-from typing import Final
+from typing import Any, Final
 
-from sqlalchemy import Insert, delete, func, select, tuple_
+from sqlalchemy import Insert, Row, delete, func, select, tuple_
 from sqlalchemy.dialects import mysql as sa_mysql
 from sqlalchemy.dialects import postgresql as sa_pg
 from sqlalchemy.orm import Session
@@ -77,9 +77,11 @@ def regroup(session: Session, rom_ids: Collection[int]) -> None:
     key_rows: list[tuple[int, IdentityKey]] = []
 
     while frontier:
-        new_keys = {key for _, key in _keys_of_roms(session, frontier)} - seen_keys
+        new_keys = {
+            key for _, key in _key_rows(session, frontier, RomIdentityKey.rom_id.in_)
+        } - seen_keys
         seen_keys |= new_keys
-        holders = list(_holders_of_keys(session, new_keys))
+        holders = list(_key_rows(session, new_keys, tuple_(*_KEY_COLUMNS).in_))
         key_rows.extend(holders)
         frontier = {rom_id for rom_id, _ in holders} - visited
         visited |= frontier
@@ -90,35 +92,28 @@ def regroup(session: Session, rom_ids: Collection[int]) -> None:
 def rebuild(session: Session) -> None:
     """Recompute every group from scratch."""
     rows = session.execute(select(RomIdentityKey.rom_id, *_KEY_COLUMNS)).all()
-    groups = sibling_groups(
-        (rom_id, (provider, platform_id, provider_id))
-        for rom_id, provider, platform_id, provider_id in rows
-    )
-    _write(session, groups, scope=None)
+    _write(session, sibling_groups(_as_key_rows(rows)), scope=None)
 
 
-def _keys_of_roms(
-    session: Session, rom_ids: Iterable[int]
+def _key_rows(
+    session: Session,
+    values: Iterable[Any],
+    matches: Callable[[tuple[Any, ...]], ColumnElement[bool]],
 ) -> Iterator[tuple[int, IdentityKey]]:
-    for chunk in batched(rom_ids, _CHUNK_SIZE, strict=False):
-        for rom_id, provider, platform_id, provider_id in session.execute(
-            select(RomIdentityKey.rom_id, *_KEY_COLUMNS).where(
-                RomIdentityKey.rom_id.in_(chunk)
-            )
-        ).all():
-            yield rom_id, (provider, platform_id, provider_id)
+    """The key rows `matches` selects, querying `values` a chunk at a time."""
+    for chunk in batched(values, _CHUNK_SIZE, strict=False):
+        yield from _as_key_rows(
+            session.execute(
+                select(RomIdentityKey.rom_id, *_KEY_COLUMNS).where(matches(chunk))
+            ).all()
+        )
 
 
-def _holders_of_keys(
-    session: Session, keys: Iterable[IdentityKey]
+def _as_key_rows(
+    rows: Iterable[Row[int, int, int, str]],
 ) -> Iterator[tuple[int, IdentityKey]]:
-    for chunk in batched(keys, _CHUNK_SIZE, strict=False):
-        for rom_id, provider, platform_id, provider_id in session.execute(
-            select(RomIdentityKey.rom_id, *_KEY_COLUMNS).where(
-                tuple_(*_KEY_COLUMNS).in_(chunk)
-            )
-        ).all():
-            yield rom_id, (provider, platform_id, provider_id)
+    for rom_id, provider, platform_id, provider_id in rows:
+        yield rom_id, (provider, platform_id, provider_id)
 
 
 def _write(

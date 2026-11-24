@@ -1,3 +1,4 @@
+from collections import Counter
 from collections.abc import Hashable, Iterable
 
 
@@ -31,7 +32,5 @@ def sibling_groups(key_rows: Iterable[tuple[int, Hashable]]) -> dict[int, int]:
             parent[max(left, right)] = min(left, right)
 
     roots = {rom_id: find(rom_id) for rom_id in parent}
-    sizes: dict[int, int] = {}
-    for root in roots.values():
-        sizes[root] = sizes.get(root, 0) + 1
+    sizes = Counter(roots.values())
     return {rom_id: root for rom_id, root in roots.items() if sizes[root] > 1}

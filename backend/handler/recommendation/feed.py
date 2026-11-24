@@ -17,7 +17,11 @@ from typing import Any, Final
 
 from handler.database import db_recommendation_handler, db_rom_handler
 from handler.database.recommendations_handler import UserAffinityRow
-from handler.recommendation.diversity import OVERFETCH_FACTOR, cap_by_series
+from handler.recommendation.diversity import (
+    OVERFETCH_FACTOR,
+    cap_by_series,
+    collapse_sibling_groups,
+)
 from handler.recommendation.scoring import Facet
 from handler.redis_handler import sync_cache
 from logger.logger import log
@@ -280,11 +284,12 @@ class FeedBuilder:
         log.debug(f"No recommendation seeds for user {self.user_id}, using fallback")
 
         batch_size = limit * OVERFETCH_FACTOR
+        exclude_rom_ids = list(excluded)
 
         def pages() -> Iterator[list[int]]:
             offset = 0
             while page := db_recommendation_handler.get_fallback_rom_ids(
-                batch_size, exclude_rom_ids=list(excluded), offset=offset
+                batch_size, exclude_rom_ids=exclude_rom_ids, offset=offset
             ):
                 yield page
                 offset += batch_size
@@ -315,15 +320,11 @@ def first_distinct_games[T](
         group_keys = db_rom_handler.get_sibling_group_keys(
             [rom_id_of(item) for item in batch], present_only=True
         )
-        for item in batch:
-            # A version off disk leaves the game's slot to one on disk.
-            group_key = group_keys.get(rom_id_of(item))
-            if group_key is None or group_key in seen:
-                continue
-            seen.add(group_key)
-            kept.append(item)
-            if len(kept) == want:
-                return kept
+        # A version off disk has no key, leaving the game's slot to one on disk.
+        on_disk = [item for item in batch if rom_id_of(item) in group_keys]
+        kept.extend(collapse_sibling_groups(on_disk, rom_id_of, group_keys, seen))
+        if len(kept) >= want:
+            return kept[:want]
     return kept
 
 
@@ -337,7 +338,7 @@ def hydrate_roms(
 
     Args:
         rom_ids: The ROMs to load.
-        include_missing: Keep ROMs missing from disk, for `as_representatives`
+        include_missing: Keep ROMs missing from disk, for `_visible_representatives`
             to swap for a version on disk.
     """
     return {

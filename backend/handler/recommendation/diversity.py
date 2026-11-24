@@ -45,9 +45,13 @@ def collapse_sibling_groups(
     items: Iterable[T],
     rom_id_of: Callable[[T], int],
     group_keys: Mapping[int, int],
+    seen: set[int] | None = None,
 ) -> list[T]:
-    """Keep the first item from each sibling group, so a game shows once."""
-    seen: set[int] = set()
+    """Keep the first item from each sibling group, so a game shows once.
+
+    Groups already in `seen` are dropped, and `seen` gains the groups kept.
+    """
+    seen = set() if seen is None else seen
     kept: list[T] = []
     for item in items:
         rom_id = rom_id_of(item)
