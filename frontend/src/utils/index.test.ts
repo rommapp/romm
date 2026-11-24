@@ -249,6 +249,7 @@ describe("formatBytes", () => {
   it("carries a size that rounds up to 1024 into the next unit", () => {
     expect(formatBytes(1024 ** 2 - 1)).toBe("1 MB");
     expect(formatBytes(1024 ** 3 - 1)).toBe("1 GB");
-    expect(formatBytes(1024 ** 2 - 1, 0)).toBe("1 MB");
+    expect(formatBytes(1024 ** 2 - 32)).toBe("1023.97 KB");
+    expect(formatBytes(1024 ** 2 - 32, 1)).toBe("1 MB");
   });
 });
