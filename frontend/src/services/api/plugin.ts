@@ -1,5 +1,6 @@
 import type {
   PluginFactsSchema,
+  PluginOptionsSchema,
   PluginSchema,
   StorePluginSchema,
 } from "@/__generated__";
@@ -32,6 +33,14 @@ async function installFromStore(pluginId: string) {
   return api.post<Plugin>(`/plugins/store/${encodeURIComponent(pluginId)}`);
 }
 
+/** The choices a searchable setting offers for what the user has typed. The
+ *  server asks the plugin's source, since the catalogue is the plugin's. */
+async function getOptions(pluginId: string, key: string, q: string) {
+  return api.get<PluginOptionsSchema>(
+    `/plugins/${encodeURIComponent(pluginId)}/options?key=${encodeURIComponent(key)}&q=${encodeURIComponent(q)}`,
+  );
+}
+
 /** The panels a plugin fills for one game, fetched by the server from the
  *  source its manifest names. */
 async function getFacts(pluginId: string, romId: number) {
@@ -60,6 +69,7 @@ export default {
   getStore,
   installFromStore,
   getFacts,
+  getOptions,
   getSettings,
   saveSettings,
 };

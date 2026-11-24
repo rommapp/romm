@@ -8,18 +8,10 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { PluginSchema, PluginSettingSchema } from "@/__generated__";
+import PluginSettingField from "@/components/Settings/PluginSettingField.vue";
 import PluginSlot from "@/components/shared/PluginSlot.vue";
 import { useConfirm } from "@/composables/useConfirm";
-import {
-  RBtn,
-  RCard,
-  RChip,
-  RDialog,
-  RIcon,
-  RSelect,
-  RSwitch,
-  RTextField,
-} from "@/lib";
+import { RBtn, RCard, RChip, RDialog, RIcon, RTextField } from "@/lib";
 import storeAuth from "@/stores/auth";
 import { usePluginStore } from "@/stores/plugins";
 
@@ -102,13 +94,6 @@ function coerce(setting: PluginSettingSchema, value: unknown): unknown {
   }
   const parsed = Number(value);
   return Number.isNaN(parsed) ? setting.default : parsed;
-}
-
-function selectItems(setting: PluginSettingSchema) {
-  return (setting.options ?? []).map((option) => ({
-    title: option.label,
-    value: option.value,
-  }));
 }
 
 async function save(): Promise<void> {
@@ -310,36 +295,13 @@ onMounted(async () => {
               :key="setting.key"
               class="plugins-form__field"
             >
-              <RSwitch
-                v-if="setting.type === 'boolean'"
-                :model-value="Boolean(fieldValue(setting))"
-                :label="setting.label"
-                @update:model-value="setField(setting, $event)"
-              />
-              <label
-                v-else
-                class="plugins-form__label"
-                :for="`plugin-setting-${setting.key}`"
-                >{{ setting.label }}</label
-              >
-              <RSelect
-                v-if="setting.type === 'select'"
-                :model-value="String(fieldValue(setting) ?? '')"
-                :items="selectItems(setting)"
-                @update:model-value="setField(setting, $event)"
-              />
-              <RTextField
-                v-else-if="setting.type !== 'boolean'"
-                :id="`plugin-setting-${setting.key}`"
-                :model-value="String(fieldValue(setting) ?? '')"
-                :placeholder="setting.placeholder ?? setting.label"
-                :type="setting.type === 'number' ? 'number' : 'text'"
+              <PluginSettingField
+                :setting="setting"
+                :model-value="fieldValue(setting)"
+                :plugin-id="selected.id"
                 :disabled="busy"
                 @update:model-value="setField(setting, $event)"
               />
-              <p v-if="setting.help" class="plugins-form__help">
-                {{ setting.help }}
-              </p>
             </div>
             <div class="plugins-form__actions">
               <p v-if="problem" class="plugins-form__problem">{{ problem }}</p>

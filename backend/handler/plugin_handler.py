@@ -27,6 +27,7 @@ from config import PLUGINS_BASE_PATH
 from endpoints.responses.plugin import (
     PluginActionSchema,
     PluginFactSummarySchema,
+    PluginOptionSourceSchema,
     PluginSchema,
     PluginSettingOptionSchema,
     PluginSettingSchema,
@@ -60,8 +61,26 @@ MAX_SETTING_OPTIONS: Final[int] = 12
 MAX_STORE_PLUGINS: Final[int] = 100
 MAX_STORE_TAGS: Final[int] = 6
 SETTING_TYPES: Final[frozenset[str]] = frozenset(
-    {"text", "url", "number", "boolean", "select", "password"}
+    {
+        "text",
+        "url",
+        "number",
+        "boolean",
+        "select",
+        "password",
+        # A select whose choices come from the plugin's own source, so the list
+        # can be long and is searched rather than scrolled.
+        "search",
+        # A list the user builds: each entry holds its own fields. A PC setup is
+        # one entry, and its parts are the fields.
+        "groups",
+    }
 )
+# How many entries one `groups` field may hold, and how many fields one entry
+# may declare.
+MAX_GROUPS: Final[int] = 8
+MAX_GROUP_FIELDS: Final[int] = 8
+MAX_OPTION_LIMIT: Final[int] = 50
 
 # A shelf, not a registry: this bounds the directory walk on a share the user
 # controls.
@@ -818,6 +837,94 @@ def _forget(base: Path) -> None:
         _CACHE.pop(str(base), None)
 
 
+def _parse_source(
+    raw: Any, plugin_id: str, key: str
+) -> PluginOptionSourceSchema | None:
+    """Where a searchable field asks for its choices.
+
+    Args:
+        raw: The `source` block, as written.
+        plugin_id: The owning plugin, for the log line.
+        key: The field's key, for the log line.
+
+    Returns:
+        PluginOptionSourceSchema | None: The source, or None when it is unusable.
+    """
+    if not isinstance(raw, dict):
+        log.warning(f"Plugins: {plugin_id}.{key} searches nothing: no source")
+        return None
+    url = _text(raw.get("url"), MAX_URL_LENGTH)
+    items = _text(raw.get("items"), MAX_TEXT_LENGTH)
+    value = _text(raw.get("value"), MAX_TEXT_LENGTH)
+    label = _text(raw.get("label"), MAX_TEXT_LENGTH)
+    if not url or refused_source(url) is not None:
+        # The fetch refuses a private address anyway; refusing it here means the
+        # manifest is refused rather than a form that quietly finds nothing.
+        log.warning(f"Plugins: {plugin_id}.{key} searches a source it cannot reach")
+        return None
+    if not items or not value or not label:
+        # Without these three there is nothing to show and nothing to store.
+        log.warning(f"Plugins: {plugin_id}.{key} names no items, value or label")
+        return None
+
+    query: dict[str, str] = {}
+    raw_query = raw.get("query")
+    if isinstance(raw_query, dict):
+        for name, sent in list(raw_query.items())[:MAX_SETTING_OPTIONS]:
+            if not isinstance(name, str) or not isinstance(sent, str):
+                continue
+            query[name] = sent[:MAX_URL_LENGTH]
+
+    limit = raw.get("limit")
+    return PluginOptionSourceSchema(
+        url=url,
+        query=query,
+        items=items,
+        value=value,
+        label=label,
+        limit=limit
+        if isinstance(limit, int) and 1 <= limit <= MAX_OPTION_LIMIT
+        else 20,
+    )
+
+
+def _parse_group_fields(
+    raw: Any, plugin_id: str, key: str
+) -> list[PluginSettingSchema]:
+    """The fields one entry of a `groups` list holds.
+
+    A field inside a group may be anything a top-level field may be except
+    another group: a list inside a list has no obvious way to be drawn.
+
+    Args:
+        raw: The `fields` list, as written.
+        plugin_id: The owning plugin, for the log line.
+        key: The group's key, for the log line.
+
+    Returns:
+        list[PluginSettingSchema]: The usable fields, in declaration order.
+    """
+    if not isinstance(raw, list):
+        log.warning(f"Plugins: {plugin_id}.{key} is a list with no fields")
+        return []
+    fields: list[PluginSettingSchema] = []
+    seen: set[str] = set()
+    for entry in raw[:MAX_GROUP_FIELDS]:
+        field = _parse_setting(entry, plugin_id)
+        if field is None:
+            continue
+        if field.type == "groups":
+            log.warning(
+                f"Plugins: {plugin_id}.{key}.{field.key} nests a list in a list"
+            )
+            continue
+        if field.key in seen:
+            continue
+        seen.add(field.key)
+        fields.append(field)
+    return fields
+
+
 def _parse_setting(raw: Any, plugin_id: str) -> PluginSettingSchema | None:
     """One field of a plugin's settings form, as the UI will render it.
 
@@ -863,13 +970,35 @@ def _parse_setting(raw: Any, plugin_id: str) -> PluginSettingSchema | None:
             log.warning(f"Plugins: {plugin_id}.{key} has no usable option")
             return None
 
-    default = raw.get("default")
-    if kind == "boolean":
-        default = bool(default) if default is not None else False
-    elif kind == "number":
-        default = default if isinstance(default, (int, float)) else None
-    else:
-        default = _text(default, MAX_TEXT_LENGTH) if default is not None else None
+    source: PluginOptionSourceSchema | None = None
+    fields: list[PluginSettingSchema] = []
+    max_items = 0
+    if kind == "search":
+        source = _parse_source(raw.get("source"), plugin_id, key)
+        if source is None:
+            return None
+    elif kind == "groups":
+        fields = _parse_group_fields(raw.get("fields"), plugin_id, key)
+        if not fields:
+            return None
+        raw_max = raw.get("max_items")
+        max_items = (
+            raw_max
+            if isinstance(raw_max, int) and 1 <= raw_max <= MAX_GROUPS
+            else MAX_GROUPS
+        )
+        # A list starts empty, and an empty list is the same as none: the form
+        # adds the first entry when the user asks for one.
+        default = None
+
+    if kind != "groups":
+        declared = raw.get("default")
+        if kind == "boolean":
+            default = bool(declared) if declared is not None else False
+        elif kind == "number":
+            default = declared if isinstance(declared, (int, float)) else None
+        else:
+            default = _text(declared, MAX_TEXT_LENGTH) if declared is not None else None
 
     return PluginSettingSchema(
         key=key,
@@ -882,6 +1011,9 @@ def _parse_setting(raw: Any, plugin_id: str) -> PluginSettingSchema | None:
         min=raw.get("min") if isinstance(raw.get("min"), (int, float)) else None,
         max=raw.get("max") if isinstance(raw.get("max"), (int, float)) else None,
         required=raw.get("required") is True,
+        source=source,
+        fields=fields,
+        max_items=max_items,
     )
 
 
@@ -902,6 +1034,11 @@ def plugin_settings(plugin: PluginSchema) -> dict[str, Any]:
     saved = _read_settings(folder / SETTINGS_NAME)
     values: dict[str, Any] = {}
     for setting in plugin.settings:
+        if setting.type == "groups" and setting.key in saved:
+            # A list is pruned entry by entry rather than dropped whole, so one
+            # setup written by an older version does not take the others with it.
+            values[setting.key] = _pruned_groups(setting, saved[setting.key])
+            continue
         # No saved value, or one this version can't use: the manifest's default.
         if setting.key in saved and _value_fits(setting, saved[setting.key]):
             values[setting.key] = saved[setting.key]
@@ -968,6 +1105,69 @@ def _read_settings(path: Path) -> dict[str, Any]:
     return raw if isinstance(raw, dict) else {}
 
 
+def _pruned_groups(setting: PluginSettingSchema, saved: Any) -> list[dict[str, Any]]:
+    """The entries of a saved list that still match the manifest.
+
+    Args:
+        setting: The group field.
+        saved: What the settings file held for it.
+
+    Returns:
+        list[dict[str, Any]]: The entries that survived, capped at the maximum.
+    """
+    if not isinstance(saved, list):
+        return []
+    by_key = {field.key: field for field in setting.fields}
+    kept: list[dict[str, Any]] = []
+    for entry in saved:
+        if not isinstance(entry, dict) or len(kept) >= setting.max_items:
+            continue
+        clean: dict[str, Any] = {}
+        for key, held in entry.items():
+            field = by_key.get(key)
+            if field is not None and _value_fits(field, held):
+                clean[key] = held
+        # An entry that lost every field says nothing, and one that lost a field
+        # the manifest requires is a setup the user has not finished making.
+        missing_required = any(
+            field.required and field.key not in clean for field in setting.fields
+        )
+        if clean and not missing_required:
+            kept.append(clean)
+    return kept
+
+
+def _groups_fit(setting: PluginSettingSchema, value: Any) -> bool:
+    """Whether a value is a list of entries this group can hold.
+
+    Args:
+        setting: The group field.
+        value: What the form sent, or the file held.
+
+    Returns:
+        bool: True when every entry matches the group's fields.
+    """
+    if not isinstance(value, list):
+        return False
+    if len(value) > setting.max_items:
+        return False
+    fields = setting.fields
+    for entry in value:
+        if not isinstance(entry, dict):
+            return False
+        if set(entry) - {field.key for field in fields}:
+            return False
+        for field in fields:
+            held = entry.get(field.key)
+            if held is None:
+                if field.required:
+                    return False
+                continue
+            if not _value_fits(field, held):
+                return False
+    return True
+
+
 def _value_fits(setting: PluginSettingSchema, value: Any) -> bool:
     """Whether a value is one this setting can hold.
 
@@ -990,6 +1190,12 @@ def _value_fits(setting: PluginSettingSchema, value: Any) -> bool:
         return setting.max is None or value <= setting.max
     if setting.type == "select":
         return isinstance(value, str) and any(o.value == value for o in setting.options)
+    if setting.type == "search":
+        # A value from the source is an id, which RomM never sees a list of:
+        # the check is that it is a string, and that it is not a novel.
+        return isinstance(value, str) and len(value) <= MAX_TEXT_LENGTH
+    if setting.type == "groups":
+        return _groups_fit(setting, value)
     if setting.type == "url":
         return isinstance(value, str) and (not value or _is_web_url(value))
     return isinstance(value, str) and len(value) <= MAX_TEXT_LENGTH

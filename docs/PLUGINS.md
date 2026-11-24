@@ -56,54 +56,163 @@ The shelf is read on every request and cached until a manifest changes, so a fol
 }
 ```
 
-| Field | Required | Notes |
-| --- | --- | --- |
-| `id` | yes | Lowercase slug, unique on the shelf. |
-| `name` | yes | Shown as the plugin's name, 200 characters at most. |
-| `version` | no | Free text, `0.0.0` when absent. |
-| `description` | no | One line, not shown in the UI today. |
-| `author` | no | Free text. |
-| `homepage` | no | `http` or `https` only. |
-| `actions` | yes | One to eight actions; a plugin without a usable action is skipped. |
-| `enabled` | no | `false` parks the plugin: its folder stays, and it adds nothing to the UI. |
+| Field         | Required | Notes                                                                      |
+| ------------- | -------- | -------------------------------------------------------------------------- |
+| `id`          | yes      | Lowercase slug, unique on the shelf.                                       |
+| `name`        | yes      | Shown as the plugin's name, 200 characters at most.                        |
+| `version`     | no       | Free text, `0.0.0` when absent.                                            |
+| `description` | no       | One line, not shown in the UI today.                                       |
+| `author`      | no       | Free text.                                                                 |
+| `homepage`    | no       | `http` or `https` only.                                                    |
+| `actions`     | yes      | One to eight actions; a plugin without a usable action is skipped.         |
+| `enabled`     | no       | `false` parks the plugin: its folder stays, and it adds nothing to the UI. |
 
 ### Actions
 
-| Field | Required | Notes |
-| --- | --- | --- |
-| `id` | yes | Lowercase slug, unique within the plugin. |
-| `label` | yes | The button's tooltip and accessible name, 48 characters at most. Plugin labels are not translated. |
-| `icon` | no | An `mdi-` icon name. Defaults to `mdi-puzzle-outline`. |
-| `image` | no | A logo URL (`http` or `https`) painted instead of the icon. |
-| `url` | yes | See placeholders below. |
-| `open` | no | `new-tab` (default) or `same-tab`. |
-| `slot` | no | Where the action is drawn; `game.details` by default. See below. |
-| `platforms` | no | Platform slugs the action is offered on, e.g. `["ngc", "wii"]`. Omitted means every platform. A slug the game is also known by (`gc` for `ngc`) matches too. |
+| Field       | Required | Notes                                                                                                                                                        |
+| ----------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `id`        | yes      | Lowercase slug, unique within the plugin.                                                                                                                    |
+| `label`     | yes      | The button's tooltip and accessible name, 48 characters at most. Plugin labels are not translated.                                                           |
+| `icon`      | no       | An `mdi-` icon name. Defaults to `mdi-puzzle-outline`.                                                                                                       |
+| `image`     | no       | A logo URL (`http` or `https`) painted instead of the icon.                                                                                                  |
+| `url`       | yes      | See placeholders below.                                                                                                                                      |
+| `open`      | no       | `new-tab` (default) or `same-tab`.                                                                                                                           |
+| `slot`      | no       | Where the action is drawn; `game.details` by default. See below.                                                                                             |
+| `platforms` | no       | Platform slugs the action is offered on, e.g. `["ngc", "wii"]`. Omitted means every platform. A slug the game is also known by (`gc` for `ngc`) matches too. |
 
 ### Slots
 
 A slot is one place in RomM that renders whatever plugins declare for it, so the same manifest can put a button on a game, an entry in the Play menu, or a link in Settings:
 
-| Slot | Where it lands |
-| --- | --- |
-| `game.details` | The action row on a game, beside Play and Download. The default. |
-| `game.play` | A way to start the game, offered in the Play menu next to RomM's own. |
-| `app.nav` | An entry in the Settings navigation. |
-| `settings.page` | A row on Settings, Plugins. |
+| Slot            | Where it lands                                                        |
+| --------------- | --------------------------------------------------------------------- |
+| `game.details`  | The action row on a game, beside Play and Download. The default.      |
+| `game.play`     | A way to start the game, offered in the Play menu next to RomM's own. |
+| `app.nav`       | An entry in the Settings navigation.                                  |
+| `settings.page` | A row on Settings, Plugins.                                           |
 
 A slot the UI does not render would be a button nobody can press, so an unknown one drops the action and logs it. `"play": true` from before slots existed still means `game.play`.
+
+### Settings
+
+A plugin may ask its user for values, and those values reach its URLs through
+`{setting.<key>}`. The manifest describes the fields; the values live beside it,
+in the plugin's own folder, and are checked against the manifest on every write.
+
+```json
+{
+  "settings": [
+    { "key": "address", "label": "Server address", "type": "url" },
+    { "key": "token", "label": "API token", "type": "password" },
+    {
+      "key": "listed",
+      "label": "Offer this action",
+      "type": "boolean",
+      "default": true
+    }
+  ]
+}
+```
+
+| Field         | Required     | Notes                                                                                   |
+| ------------- | ------------ | --------------------------------------------------------------------------------------- |
+| `key`         | yes          | Lowercase slug, unique within the plugin.                                               |
+| `label`       | yes          | The field's name in the form, 48 characters at most. Not translated.                    |
+| `type`        | no           | `text` (default), `url`, `number`, `boolean`, `select`, `password`, `search`, `groups`. |
+| `default`     | no           | Used until the user saves.                                                              |
+| `help`        | no           | A line under the field.                                                                 |
+| `placeholder` | no           | Hint text inside the field.                                                             |
+| `required`    | no           | An empty value is refused when true.                                                    |
+| `min`, `max`  | no           | Bounds for `number`.                                                                    |
+| `options`     | for `select` | `[{ "value": "...", "label": "..." }]`, twelve at most.                                 |
+| `source`      | for `search` | Where the choices come from; see below.                                                 |
+| `fields`      | for `groups` | The fields one entry holds, eight at most.                                              |
+| `max_items`   | no           | How many entries a `groups` field holds, eight at most; four when absent.               |
+
+A `password` comes back blank to anyone who cannot manage plugins, and a value
+saved by an older version is dropped when the manifest stops describing it.
+
+#### Searchable lists
+
+A `search` field holds an id from a list only the plugin's own source knows, so
+RomM asks that source as the user types and shows what comes back. The list is
+fetched on the server, through the same guard as everything else a manifest
+names, and the address must be public.
+
+```json
+{
+  "key": "handheld",
+  "label": "Your handheld",
+  "type": "search",
+  "source": {
+    "url": "https://www.emuready.com/api/mobile/trpc/devices.get",
+    "query": { "input": "{\"json\":{\"search\":\"{query}\",\"limit\":20}}" },
+    "items": "result.data.json.devices",
+    "value": "id",
+    "label": "{brandName} {modelName}",
+    "limit": 20
+  }
+}
+```
+
+| Field   | Notes                                                                                                |
+| ------- | ---------------------------------------------------------------------------------------------------- |
+| `url`   | Must resolve to a public address.                                                                    |
+| `query` | Parameters to send; `{query}` is replaced with what the user typed, escaped for the JSON it sits in. |
+| `items` | Dotted path to the list in the reply.                                                                |
+| `value` | Dotted path to what the field stores.                                                                |
+| `label` | Dotted path to the text shown, or a template mixing several (`{brand.name} {modelName}`).            |
+| `limit` | How many choices one search may offer, 50 at most.                                                   |
+
+A source that cannot be reached empties the list and says why under the field;
+the rest of the form still saves.
+
+#### Lists of entries
+
+A `groups` field is a list the user builds, one entry at a time. Each entry holds
+the fields the manifest declares, and any of those fields may itself be a
+`search`, which is how a machine's parts are each picked from their own list.
+
+```json
+{
+  "key": "setups",
+  "label": "Your PC setups",
+  "type": "groups",
+  "max_items": 4,
+  "fields": [
+    { "key": "name", "label": "Name" },
+    {
+      "key": "cpu",
+      "label": "CPU",
+      "type": "search",
+      "source": { "...": "..." }
+    },
+    { "key": "memory", "label": "Memory (GB)", "type": "number", "min": 1 },
+    {
+      "key": "os",
+      "label": "Operating system",
+      "type": "select",
+      "options": [{ "value": "WINDOWS", "label": "Windows" }]
+    }
+  ]
+}
+```
+
+A list may not hold another list. Entries are stored as an array of objects in
+the settings file, and an entry that loses every field the manifest still
+declares is dropped rather than kept empty.
 
 ### Placeholders
 
 A URL may interpolate the game the button was pressed on. Values are URL-encoded, so a title with `&` or `#` cannot rewrite the query string.
 
-| Placeholder | Value |
-| --- | --- |
-| `{rom_id}` | RomM's id for the game. |
-| `{rom_name}` | The game's display name. |
-| `{platform_slug}` | The platform's slug, e.g. `ngc`. |
-| `{platform_name}` | The platform's display name. |
-| `{file_name}` | The ROM file's name, empty when the game resolves to several files. |
+| Placeholder       | Value                                                               |
+| ----------------- | ------------------------------------------------------------------- |
+| `{rom_id}`        | RomM's id for the game.                                             |
+| `{rom_name}`      | The game's display name.                                            |
+| `{platform_slug}` | The platform's slug, e.g. `ngc`.                                    |
+| `{platform_name}` | The platform's display name.                                        |
+| `{file_name}`     | The ROM file's name, empty when the game resolves to several files. |
 
 Any other placeholder is refused, so a manifest cannot ask for values the UI does not offer.
 

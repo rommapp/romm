@@ -273,6 +273,173 @@ def test_a_setting_type_that_is_not_a_string_is_refused_without_raising(shelf):
     assert plugins[0].settings == []
 
 
+SEARCH_SOURCE = {
+    "url": "https://example.com/api/devices",
+    "query": {"input": '{"json":{"search":"{query}"}}'},
+    "items": "result.data.json.devices",
+    "value": "id",
+    "label": "{brandName} {modelName}",
+}
+
+
+def test_a_searchable_field_keeps_where_it_asks():
+    data = manifest(
+        settings=[
+            {
+                "key": "handheld",
+                "label": "Handheld",
+                "type": "search",
+                "source": SEARCH_SOURCE,
+            }
+        ]
+    )
+
+    assert data["settings"][0]["type"] == "search"
+    field = plugin_handler._parse_setting(data["settings"][0], "rommdeck")
+
+    assert field is not None
+    assert field.source is not None
+    assert field.source.items == "result.data.json.devices"
+    assert field.source.limit == 20
+
+
+def test_a_searchable_field_without_a_source_is_refused():
+    field = plugin_handler._parse_setting(
+        {"key": "handheld", "label": "Handheld", "type": "search"}, "rommdeck"
+    )
+
+    assert field is None
+
+
+def test_a_searchable_field_naming_nothing_to_show_is_refused():
+    incomplete = {key: value for key, value in SEARCH_SOURCE.items() if key != "value"}
+
+    field = plugin_handler._parse_setting(
+        {
+            "key": "handheld",
+            "label": "Handheld",
+            "type": "search",
+            "source": incomplete,
+        },
+        "rommdeck",
+    )
+
+    assert field is None
+
+
+def test_a_searchable_field_cannot_search_a_local_address():
+    field = plugin_handler._parse_setting(
+        {
+            "key": "handheld",
+            "label": "Handheld",
+            "type": "search",
+            "source": {**SEARCH_SOURCE, "url": "http://127.0.0.1/devices"},
+        },
+        "rommdeck",
+    )
+
+    assert field is None
+
+
+def test_a_group_holds_the_fields_an_entry_needs():
+    field = plugin_handler._parse_setting(
+        {
+            "key": "setups",
+            "label": "PC setups",
+            "type": "groups",
+            "max_items": 3,
+            "fields": [
+                {"key": "cpu", "label": "CPU", "type": "search", "source": SEARCH_SOURCE},
+                {"key": "memory", "label": "Memory", "type": "number", "min": 1},
+            ],
+        },
+        "rommdeck",
+    )
+
+    assert field is not None
+    assert field.max_items == 3
+    assert [nested.key for nested in field.fields] == ["cpu", "memory"]
+    assert field.default is None
+
+
+def test_a_group_inside_a_group_is_refused():
+    field = plugin_handler._parse_setting(
+        {
+            "key": "outer",
+            "label": "Outer",
+            "type": "groups",
+            "fields": [
+                {
+                    "key": "inner",
+                    "label": "Inner",
+                    "type": "groups",
+                    "fields": [{"key": "cpu", "label": "CPU"}],
+                }
+            ],
+        },
+        "rommdeck",
+    )
+
+    assert field is None
+
+
+def test_entries_a_manifest_no_longer_describes_are_dropped(shelf):
+    data = manifest(
+        settings=[
+            {
+                "key": "setups",
+                "label": "PC setups",
+                "type": "groups",
+                "fields": [
+                    {"key": "cpu", "label": "CPU"},
+                    {"key": "memory", "label": "Memory", "type": "number"},
+                ],
+            }
+        ]
+    )
+    write_plugin(shelf, "rommdeck", data)
+    plugin = list_plugins()[0]
+    kept = plugin_handler._pruned_groups(
+        plugin.settings[0],
+        [
+            {"cpu": "c562c365", "memory": 16},
+            {"cpu": "c562c365", "gpu": "gone"},
+            {"memory": 8},
+            "not an entry",
+        ],
+    )
+
+    # What the manifest no longer describes goes, entry by entry: the second
+    # entry loses its unknown field and keeps the one that is still declared.
+    # The last value is not an entry at all, so nothing survives it.
+    assert kept == [
+        {"cpu": "c562c365", "memory": 16},
+        {"cpu": "c562c365"},
+        {"memory": 8},
+    ]
+
+
+def test_an_entry_over_the_limit_is_not_held(shelf):
+    data = manifest(
+        settings=[
+            {
+                "key": "setups",
+                "label": "PC setups",
+                "type": "groups",
+                "max_items": 1,
+                "fields": [{"key": "cpu", "label": "CPU"}],
+            }
+        ]
+    )
+    write_plugin(shelf, "rommdeck", data)
+    plugin = list_plugins()[0]
+
+    assert plugin_handler._value_fits(
+        plugin.settings[0], [{"cpu": "a"}, {"cpu": "b"}]
+    ) is False
+    assert plugin_handler._value_fits(plugin.settings[0], [{"cpu": "a"}]) is True
+
+
 def test_a_parked_plugin_adds_nothing(shelf):
     write_plugin(shelf, "rommdeck", manifest(enabled=False))
 

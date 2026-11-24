@@ -15,7 +15,34 @@ PluginSlot = Literal[
 # What a plugin asks its user for. The manifest describes the fields; the values
 # live beside it in the plugin's folder and reach an action's URL through
 # {setting.<key>}, so a plugin stays declarative: it never runs, it is told.
-PluginSettingType = Literal["text", "url", "number", "boolean", "select", "password"]
+PluginSettingType = Literal[
+    "text",
+    "url",
+    "number",
+    "boolean",
+    "select",
+    "password",
+    "search",  # a select whose choices come from the plugin's own source
+    "groups",  # a list the user builds, each entry holding its own fields
+]
+
+
+class PluginOptionSchema(BaseModel):
+    """One choice a searchable field offers."""
+
+    value: str
+    label: str
+
+
+class PluginOptionsSchema(BaseModel):
+    """The choices a search found.
+
+    An error is said in `note` and comes with an empty list: a source that is
+    down is not a reason to close the form.
+    """
+
+    options: list[PluginOptionSchema] = Field(default_factory=list)
+    note: str | None = None
 
 
 class PluginSettingOptionSchema(BaseModel):
@@ -23,6 +50,26 @@ class PluginSettingOptionSchema(BaseModel):
 
     value: str
     label: str
+
+
+class PluginOptionSourceSchema(BaseModel):
+    """Where a searchable field gets its choices.
+
+    The list is served by the plugin's own source, not by RomM: RomM only asks
+    it and shows what comes back.
+    """
+
+    # The address asked for every search, with `{query}` standing in for the
+    # text the user typed.
+    url: str
+    # Query parameters to send, of which one usually carries `{query}`.
+    query: dict[str, str] = Field(default_factory=dict)
+    # Dotted paths into the reply: where the list is, and what names an entry.
+    items: str
+    value: str
+    label: str
+    # How many a search may bring back.
+    limit: int = 20
 
 
 class PluginSettingSchema(BaseModel):
@@ -38,6 +85,12 @@ class PluginSettingSchema(BaseModel):
     min: float | None = None
     max: float | None = None
     required: bool = False
+    # `search`: whose API answers the search.
+    source: PluginOptionSourceSchema | None = None
+    # `groups`: the fields one entry of the list holds.
+    fields: list[PluginSettingSchema] = Field(default_factory=list)
+    # `groups`: how many entries the list may hold.
+    max_items: int = 8
 
 
 class PluginActionSchema(BaseModel):

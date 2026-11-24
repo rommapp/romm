@@ -5,9 +5,9 @@
 /**
  * A panel a plugin fills by asking its own server for data.
  *
- * The UI needs to know that a panel exists and where it belongs; what it
- * fetches, and how, stays on the server, so a manifest's request cannot be
- * read back out of the plugin list.
+ * The UI needs to know that a panel exists, where it belongs, and which action
+ * it explains; what it fetches, and how, stays on the server, so a manifest's
+ * request cannot be read back out of the plugin list.
  */
 export type PluginFactSummarySchema = {
     id: string;

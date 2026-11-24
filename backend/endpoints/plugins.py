@@ -5,6 +5,7 @@ from decorators.auth import protected_route
 from endpoints.responses.plugin import (
     PluginFactSchema,
     PluginFactsSchema,
+    PluginOptionsSchema,
     PluginSchema,
     PluginSettingsSchema,
     StorePluginSchema,
@@ -31,6 +32,7 @@ from handler.plugin_handler import (
     save_plugin_settings,
     store_plugins,
 )
+from handler.plugin_options import options_for
 from models.user import Role
 from utils.router import APIRouter
 
@@ -246,6 +248,39 @@ def get_plugin_facts(
         filled.append(fill_fact(plugin_id, spec, url, link))
 
     return PluginFactsSchema(facts=filled)
+
+
+@protected_route(router.get, "/{plugin_id}/options", [Scope.ROMS_READ])
+def get_plugin_options(
+    request: Request,
+    plugin_id: str,
+    key: str,
+    q: str = "",
+) -> PluginOptionsSchema:
+    """The choices a searchable setting offers for what the user typed.
+
+    The list belongs to the plugin's own source, so the server asks it rather
+    than shipping a catalogue to the browser. A source that cannot be reached
+    comes back as an empty list and the reason, because a form that cannot be
+    searched is still a form whose other fields can be saved.
+
+    Args:
+        request (Request): The incoming request.
+        plugin_id (str): The id the manifest declares.
+        key (str): Which setting is being filled in.
+        q (str): What the user has typed so far.
+
+    Returns:
+        PluginOptionsSchema: The choices, and a note when there are none.
+    """
+    plugin = _installed(plugin_id)
+    try:
+        options, note = options_for(plugin, key, q)
+    except PluginRefused as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
+    return PluginOptionsSchema(options=options, note=note)
 
 
 @protected_route(router.get, "/{plugin_id}/settings", [Scope.ROMS_READ])
