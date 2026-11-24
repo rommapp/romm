@@ -10,6 +10,7 @@ import {
 import {
   buildPush,
   heldPushSender,
+  madeSnapshot,
   sendPush,
   sessionTarget,
   SnapshotSession,
@@ -361,6 +362,40 @@ describe("SnapshotSession", () => {
 describe("sendPush", () => {
   beforeEach(() => {
     api.pushSnapshot.mockReset();
+  });
+
+  it.each([
+    [201, false],
+    [200, true],
+  ])("reads a %i answer as unchanged: %s", async (status, unchanged) => {
+    api.pushSnapshot.mockResolvedValueOnce({
+      data: snapshotFixture({ id: 50 }),
+      status,
+    });
+
+    const outcome = await sendPush(
+      buildPush(target, { kind: "save", save: file(SRAM) }),
+    );
+
+    expect(outcome).toMatchObject({ kind: "current", unchanged });
+    expect(madeSnapshot(outcome)).toBe(!unchanged);
+  });
+
+  it("counts a branch as a new snapshot", async () => {
+    api.pushSnapshot.mockRejectedValueOnce(
+      conflict({
+        current: snapshotFixture({ id: 50 }),
+        branch: snapshotFixture({ id: 51 }),
+        reason: "moved",
+      }),
+    );
+
+    const outcome = await sendPush(
+      buildPush(target, { kind: "save", save: file(SRAM) }),
+    );
+
+    expect(outcome.kind).toBe("branched");
+    expect(madeSnapshot(outcome)).toBe(true);
   });
 
   it("builds on the current when retention removed the parent", async () => {

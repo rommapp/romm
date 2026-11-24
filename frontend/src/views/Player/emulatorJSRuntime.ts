@@ -114,12 +114,24 @@ export function buildStateFormData(
   ]);
 }
 
+/** A changed SRAM uploads once it has held still this long, so a burst of
+ * writes (Pokemon uses SRAM as scratch space on every menu) goes up once. */
+export const SAVE_SYNC_QUIET_MS = 5_000;
+/** The longest a changed SRAM waits to upload while the game keeps writing it. */
+export const SAVE_SYNC_MAX_WAIT_MS = 60_000;
+
+/** What a tick does with the SRAM: nothing, keep it in the browser, or upload it. */
+export type SaveTick = "idle" | "hold" | "upload";
+
 // Per EmulatorJS "saveSaveFiles" tick, whether the SRAM is worth uploading
 // (#4201). Two agreeing ticks keep a mid-write save from being uploaded (#2349).
 export function createSaveSyncTracker() {
   let lastUploaded: Uint8Array | null = null;
   let baseline: Uint8Array | null = null;
   let previousTick: Uint8Array | null = null;
+  let held: Uint8Array | null = null;
+  let changedAt = 0;
+  let unsentSince: number | null = null;
   // Bytes the server does not hold: neither the last upload nor the SRAM the
   // session started from.
   const hasChanges = (save: Uint8Array): boolean =>
@@ -139,10 +151,35 @@ export function createSaveSyncTracker() {
       baseline = save;
       previousTick = save;
     },
-    shouldUpload(save: Uint8Array): boolean {
+    /**
+     * What this tick does with `save`: settled new bytes are held in the
+     * browser at once, and upload after a quiet spell or the longest wait.
+     *
+     * Args:
+     *   save: The SRAM this tick read.
+     *   now: The current time, in milliseconds on a monotonic clock.
+     */
+    offer(save: Uint8Array, now: number): SaveTick {
       const stable = bytesEqual(save, previousTick);
       previousTick = save;
-      return stable && hasChanges(save);
+      if (!stable) {
+        changedAt = now;
+        return "idle";
+      }
+      if (!hasChanges(save)) {
+        unsentSince = null;
+        return "idle";
+      }
+      unsentSince ??= now;
+      if (
+        now - changedAt >= SAVE_SYNC_QUIET_MS ||
+        now - unsentSince >= SAVE_SYNC_MAX_WAIT_MS
+      ) {
+        return "upload";
+      }
+      if (bytesEqual(save, held)) return "idle";
+      held = save;
+      return "hold";
     },
     // Leaving the player cannot wait for a second tick, so it uploads on
     // this alone.
@@ -165,27 +202,6 @@ export const SAVE_SYNC_POLL_MS = 1000;
 // Each tick copies and compares the whole SRAM, so the interval grows with it
 // past 1 MB (1 ms of work per second either way) rather than hitching big saves.
 const SAVE_SYNC_BYTES_PER_MS = 1024;
-/** The notice for an automatic upload shows at most once per interval, since
- * Pokemon Gen 1 and 2 games write SRAM as scratch space whenever a menu opens. */
-export const SAVE_SYNCED_NOTICE_INTERVAL_MS = 5 * 60 * 1000;
-
-/**
- * Whether an automatic upload shows the "Save synced" notice.
- *
- * Args:
- *   lastShownAt: When the notice last showed, or null if it has not shown
- *     since the session started or a save was held back.
- *   now: The current time, in the same clock as `lastShownAt`.
- */
-export function shouldAnnounceAutoSync(
-  lastShownAt: number | null,
-  now: number,
-): boolean {
-  return (
-    lastShownAt === null || now - lastShownAt >= SAVE_SYNCED_NOTICE_INTERVAL_MS
-  );
-}
-
 interface PollableEmulator {
   started: boolean;
   gameManager: {

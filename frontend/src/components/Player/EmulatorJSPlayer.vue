@@ -42,6 +42,7 @@ import { browserDeviceId } from "@/utils/saveSync/browserDevice";
 import { bytesEqual, saveContentHash } from "@/utils/saveSync/hash";
 import { createRetryBackoff } from "@/utils/saveSync/retryBackoff";
 import {
+  madeSnapshot,
   sendPushOnUnload,
   sessionTarget,
   SnapshotSession,
@@ -73,7 +74,6 @@ import {
   labelContextMenuButton,
   createSaveSyncTracker,
   pollSaveFiles,
-  shouldAnnounceAutoSync,
   toArrayBuffer,
 } from "@/views/Player/emulatorJSRuntime";
 
@@ -198,19 +198,22 @@ function announceBranch(outcome: PushOutcome) {
  * Sends `content` through the session, holding nothing itself.
  *
  * Returns:
- *   Whether the server took it, as the channel's current or as a branch.
+ *   How the server took it, as the channel's current or as a branch, or null
+ *   when it did not.
  */
-async function sendContent(content: SnapshotContent): Promise<boolean> {
+async function sendContent(
+  content: SnapshotContent,
+): Promise<PushOutcome | null> {
   const writer = snapshotSession();
-  if (!writer || !heartbeatStore.connected) return false;
+  if (!writer || !heartbeatStore.connected) return null;
   try {
     const outcome = await writer.push(content);
     announceBranch(outcome);
     romAssetsStale = true;
-    return true;
+    return outcome;
   } catch (error) {
     console.error("Snapshot push failed", error);
-    return false;
+    return null;
   }
 }
 // Bytes the server already holds, so forced writes can skip an unchanged SRAM.
@@ -274,10 +277,8 @@ async function forgetPendingSave() {
 // The tick re-offers a failed save every pass: each save the game writes is
 // announced once, not every retry of it.
 let heldBackSave: Uint8Array | null = null;
-let saveSyncedShownAt: number | null = null;
 function announceSaveHeldBack(saveFile: Uint8Array) {
   heldBackSave = saveFile;
-  saveSyncedShownAt = null;
   announceHeldBack("save", pendingSaveKept);
 }
 const HELD_BACK_MESSAGE = {
@@ -292,14 +293,33 @@ function announceHeldBack(kind: "save" | "state", kept: boolean) {
     icon: kept ? "mdi-cloud-clock-outline" : "mdi-cloud-off-outline",
   });
 }
+/**
+ * Keeps a save the tick has not uploaded yet in the browser, with the frame
+ * from when the game wrote it, so closing the tab before the upload loses
+ * nothing.
+ */
+function holdSave(
+  saveFile: Uint8Array,
+  screenshotFile: ArrayBuffer | undefined,
+  generation = saveGeneration,
+): Promise<void> {
+  const hold = saveWrite.then(async () => {
+    if (generation !== saveGeneration) return;
+    await rememberPendingSave(
+      saveFileOf(toArrayBuffer(saveFile), screenshotFile),
+    );
+  });
+  saveWrite = hold.catch(() => undefined);
+  return hold;
+}
 function writeSave(
   file: { saveFile: ArrayBuffer; screenshotFile?: ArrayBuffer | undefined },
   generation = saveGeneration,
-): Promise<boolean> {
-  if (saveLoading) return Promise.resolve(false);
+): Promise<PushOutcome | null> {
+  if (saveLoading) return Promise.resolve(null);
   const write = saveWrite.then(async () => {
     await deviceReady;
-    if (generation !== saveGeneration) return false;
+    if (generation !== saveGeneration) return null;
     const bytes = new Uint8Array(file.saveFile);
     inFlightSave = bytes;
     try {
@@ -323,7 +343,7 @@ function writeSave(
       inFlightSave = null;
     }
   });
-  saveWrite = write.catch(() => false);
+  saveWrite = write.catch(() => null);
   return write;
 }
 async function writeSaveIfChanged(file: {
@@ -333,7 +353,7 @@ async function writeSaveIfChanged(file: {
   const generation = saveGeneration;
   await saveWrite;
   if (saveTracker.isUploaded(new Uint8Array(file.saveFile))) return true;
-  return writeSave(file, generation);
+  return (await writeSave(file, generation)) !== null;
 }
 /**
  * Writes a state into `slot` of the session's core, with the SRAM beside it
@@ -374,7 +394,7 @@ async function writeState({
   };
   const pendingId = pendingAssetId(romRef.value.id);
   const kept = await holdForLater(pendingId, "state", content);
-  const written = await sendContent(content);
+  const written = (await sendContent(content)) !== null;
   if (!written) return { written, kept };
   await pendingAssetStore.clear(pendingId);
   if (saveFile?.byteLength) saveTracker.markUploaded(saveFile);
@@ -547,11 +567,12 @@ function installAutoSaveSync() {
       !saveFile?.byteLength
     )
       return;
-    if (!saveTracker.shouldUpload(saveFile)) return;
+    const tick = saveTracker.offer(saveFile, performance.now());
+    if (tick === "idle") return;
     // Down, the write makes no request, so only a server that answered with a
     // failure has anything to back off from.
     const online = heartbeatStore.connected;
-    if (online && !retryBackoff.ready()) return;
+    if (tick === "upload" && online && !retryBackoff.ready()) return;
     uploading = true;
     try {
       // The capture needs the game running, so it happens here, once per save:
@@ -559,16 +580,18 @@ function installAutoSaveSync() {
       const screenshotFile = heldFor(pendingSave, saveFile)
         ? undefined
         : await captureScreenshot();
-      const written = await writeSave({
+      if (tick === "hold") {
+        await holdSave(saveFile, screenshotFile);
+        return;
+      }
+      const outcome = await writeSave({
         saveFile: toArrayBuffer(saveFile),
         screenshotFile,
       });
-      if (written) {
+      if (outcome) {
         retryBackoff.reset();
         heldBackSave = null;
-        const now = performance.now();
-        if (shouldAnnounceAutoSync(saveSyncedShownAt, now)) {
-          saveSyncedShownAt = now;
+        if (madeSnapshot(outcome)) {
           displayMessage(t("play.save-synced"), {
             duration: 3000,
             tone: "success",
@@ -660,6 +683,8 @@ function onBeforeUnload(event: BeforeUnloadEvent) {
   const saveFile = unsyncedSave(emulator);
   if (!saveFile) return;
   unloadSave = saveFile;
+  // Held bytes sync on the next visit, so closing the tab cannot lose them.
+  if (pendingSaveKept && heldFor(pendingSave, saveFile)) return;
   // EmulatorJS tears the core down on this event, and a cancelled close has
   // to keep the game running.
   event.stopImmediatePropagation();
