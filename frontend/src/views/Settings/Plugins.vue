@@ -9,6 +9,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { PluginSchema, PluginSettingSchema } from "@/__generated__";
 import PluginSettingField from "@/components/Settings/PluginSettingField.vue";
+import PluginStoreBrowse from "@/components/Settings/PluginStoreBrowse.vue";
 import PluginSlot from "@/components/shared/PluginSlot.vue";
 import { useConfirm } from "@/composables/useConfirm";
 import { RBtn, RCard, RChip, RDialog, RIcon, RTextField } from "@/lib";
@@ -131,6 +132,15 @@ const pasted = ref("");
 const addProblem = ref("");
 const addBusy = ref("");
 const storeProblem = ref("");
+// The store as a place to look through, rather than only a list in a dialog.
+const browsing = ref(false);
+
+async function openBrowse(): Promise<void> {
+  browsing.value = true;
+  // Opening the store is not the same as having read it: a reader who arrives
+  // here first should not be told the store is empty.
+  if (!store.store.length && !storeProblem.value) await openStore();
+}
 
 function openAdd(): void {
   url.value = "";
@@ -155,8 +165,13 @@ async function addFromStore(pluginId: string): Promise<void> {
   addProblem.value = "";
   const result = await store.installFromStore(pluginId);
   addBusy.value = "";
+  if (result.ok) storeProblem.value = "";
   if (!result.ok) {
-    addProblem.value = result.message ?? "";
+    // Said where the reader is looking: the store screen has no other place to
+    // put a failure, and the add dialog may not even be open.
+    const message = result.message ?? "";
+    addProblem.value = message;
+    storeProblem.value = browsing.value ? message : "";
     return;
   }
   adding.value = false;
@@ -356,6 +371,14 @@ onMounted(async () => {
             <p class="plugins-page__hint">
               {{ t("settings.plugins-add-store-hint") }}
             </p>
+            <RBtn
+              variant="surface"
+              size="small"
+              prepend-icon="mdi-storefront-outline"
+              @click="openBrowse()"
+            >
+              {{ t("settings.plugins-store-browse") }}
+            </RBtn>
             <p v-if="storeProblem" class="plugins-form__problem">
               {{ storeProblem }}
             </p>
@@ -438,6 +461,18 @@ onMounted(async () => {
         </div>
       </template>
     </RDialog>
+
+    <!-- The store itself: browsing, searching, and installing from one screen,
+         for a reader who wants to see what is on offer before deciding. -->
+    <PluginStoreBrowse
+      v-model:open="browsing"
+      :entries="store.store"
+      :installed-ids="store.plugins.map((plugin) => plugin.id)"
+      :busy-id="addBusy"
+      :problem="storeProblem"
+      @install="addFromStore"
+      @refresh="openStore"
+    />
   </section>
 </template>
 
