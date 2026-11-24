@@ -113,6 +113,59 @@ describe("PluginSettingField: a searched field", () => {
     );
   });
 
+  it("keeps the chosen item after the search moves on", async () => {
+    const wrapper = mount(PluginSettingField, {
+      props: {
+        setting: searchSetting(),
+        modelValue: "e4394fe4",
+        pluginId: "emuready",
+      },
+    });
+    await flushPromises();
+
+    // The first page was asked for, and it holds the saved choice with its
+    // name, which is what makes the control show the choice rather than look
+    // cleared the moment a new search replaces the list.
+    const select = wrapper.findComponent({ name: "RSelect" });
+    expect(select.props("items")).toContainEqual({
+      title: "AYN Thor Max",
+      value: "e4394fe4",
+    });
+  });
+
+  it("hands the chosen id up and never clears it by itself", async () => {
+    const wrapper = mount(PluginSettingField, {
+      props: { setting: searchSetting(), modelValue: "", pluginId: "emuready" },
+    });
+    await flushPromises();
+
+    const select = wrapper.findComponent({ name: "RSelect" });
+    select.vm.$emit("update:modelValue", "e4394fe4");
+    await flushPromises();
+
+    // The id is what gets saved; nothing here may replace it with an empty one.
+    expect(wrapper.emitted("update:modelValue")).toEqual([["e4394fe4"]]);
+  });
+
+  it("shows the saved choice after the list is replaced", async () => {
+    const wrapper = mount(PluginSettingField, {
+      props: { setting: searchSetting(), modelValue: "", pluginId: "emuready" },
+    });
+    await flushPromises();
+
+    // The user picks one, the parent stores it, and a later search returns a
+    // list that does not mention it: the control still shows what was chosen.
+    getOptions.mockResolvedValue({ data: { options: [] } });
+    await wrapper.setProps({ modelValue: "e4394fe4" });
+
+    const select = wrapper.findComponent({ name: "RSelect" });
+    expect(select.props("modelValue")).toBe("e4394fe4");
+    expect(select.props("items")).toContainEqual({
+      title: "AYN Thor Max",
+      value: "e4394fe4",
+    });
+  });
+
   it("says so when the source cannot be reached", async () => {
     getOptions.mockRejectedValue(new Error("nope"));
     const wrapper = mount(PluginSettingField, {

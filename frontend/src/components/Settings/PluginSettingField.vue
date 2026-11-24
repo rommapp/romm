@@ -5,7 +5,7 @@
 // same component, so a setup's CPU is the same kind of control as a top-level
 // text box. Nothing here knows what a "setup" is: the manifest says which
 // fields an entry holds, and this draws them.
-import { onBeforeUnmount, ref, watch } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { PluginOptionSchema, PluginSettingSchema } from "@/__generated__";
 import { RBtn, RIcon, RSelect, RSwitch, RTextField } from "@/lib";
@@ -34,7 +34,14 @@ const options = ref<PluginOptionSchema[]>([]);
 const note = ref("");
 const loading = ref(false);
 let asked = 0;
+let lastAsked: string | null = null;
 let timer: ReturnType<typeof setTimeout> | undefined;
+
+// Every label this field has seen, by the id it belongs to. A search replaces
+// the list with whatever matched, and the choice the user already made is
+// usually not in it: without this, the control would have no item to show for
+// its own value and would look like it had been cleared.
+const known = ref(new Map<string, string>());
 
 const asEntries = (): Entry[] =>
   Array.isArray(props.modelValue) ? (props.modelValue as Entry[]) : [];
@@ -82,21 +89,34 @@ function removeEntry(index: number): void {
   emit("update:modelValue", entries.value);
 }
 
-function selectItems(setting: PluginSettingSchema) {
-  return (setting.options ?? []).map((option) => ({
+// One array per field, not one per render: a control handed a new list on every
+// render treats it as a new set of choices.
+const selectItems = computed(() =>
+  (props.setting.options ?? []).map((option) => ({
     title: option.label,
     value: option.value,
-  }));
-}
+  })),
+);
 
-function searchItems() {
-  return options.value.map((option) => ({
+const searchItems = computed(() => {
+  const items = options.value.map((option) => ({
     title: option.label,
     value: option.value,
   }));
-}
+  const chosen = String(props.modelValue ?? "");
+  if (chosen && !items.some((item) => item.value === chosen)) {
+    items.unshift({ title: known.value.get(chosen) ?? chosen, value: chosen });
+  }
+  return items;
+});
 
 async function ask(query: string): Promise<void> {
+  // Closing the panel clears the search box, and that is not a new search: the
+  // list the user was just looking at is the one they expect to still be there.
+  if (query === "" && options.value.length) return;
+  if (query === lastAsked) return;
+  lastAsked = query;
+
   const mine = ++asked;
   loading.value = true;
   try {
@@ -107,6 +127,9 @@ async function ask(query: string): Promise<void> {
     );
     if (mine !== asked) return;
     options.value = data.options ?? [];
+    for (const option of options.value) {
+      known.value.set(option.value, option.label);
+    }
     note.value = data.note ?? "";
   } catch {
     if (mine !== asked) return;
@@ -120,6 +143,9 @@ async function ask(query: string): Promise<void> {
 watch(
   () => [props.pluginId, props.setting.key],
   () => {
+    lastAsked = null;
+    known.value = new Map();
+    options.value = [];
     if (props.setting.type === "search") void ask("");
   },
   { immediate: true },
@@ -194,7 +220,7 @@ onBeforeUnmount(() => {
     <RSelect
       v-if="setting.type === 'search'"
       :model-value="String(modelValue ?? '')"
-      :items="searchItems()"
+      :items="searchItems"
       searchable
       :loading="loading"
       :search-placeholder="t('settings.plugins-search')"
@@ -206,7 +232,7 @@ onBeforeUnmount(() => {
     <RSelect
       v-else-if="setting.type === 'select'"
       :model-value="String(modelValue ?? '')"
-      :items="selectItems(setting)"
+      :items="selectItems"
       :disabled="disabled"
       @update:model-value="emit('update:modelValue', $event)"
     />
