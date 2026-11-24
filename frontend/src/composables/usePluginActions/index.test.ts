@@ -8,6 +8,7 @@ import {
   DEFAULT_PLUGIN_ICON,
   expandPluginUrl,
   gateOpen,
+  safeHref,
   usePluginActions,
 } from "@/composables/usePluginActions";
 import { usePluginStore } from "@/stores/plugins";
@@ -61,6 +62,29 @@ function withPluginActions<T>(
   mount(Probe);
   return seen as T;
 }
+
+describe("safeHref", () => {
+  it("allows the schemes a plugin exists to open", () => {
+    expect(safeHref("rommdeck://open?rom=1")).toBe("rommdeck://open?rom=1");
+    expect(safeHref("https://emuready.com/listings?search=x")).toBe(
+      "https://emuready.com/listings?search=x",
+    );
+  });
+
+  it("refuses what a browser would run or read from disk", () => {
+    expect(safeHref("javascript:alert(1)")).toBeNull();
+    expect(safeHref(" JavaScript:alert(1)")).toBeNull();
+    expect(safeHref("data:text/html,<script>x</script>")).toBeNull();
+    expect(safeHref("file:///etc/passwd")).toBeNull();
+    expect(safeHref("vbscript:msgbox")).toBeNull();
+    expect(safeHref("blob:https://x/y")).toBeNull();
+    expect(safeHref("about:blank")).toBeNull();
+  });
+
+  it("refuses an empty URL", () => {
+    expect(safeHref("   ")).toBeNull();
+  });
+});
 
 describe("usePluginActions: settings", () => {
   beforeEach(() => {

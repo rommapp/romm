@@ -272,6 +272,14 @@ async function onLogout() {
         :label="t('settings.devices')"
         @click="open = false"
       />
+      <!-- The settings sidebar is desktop-only, so Plugins needs a way in here
+           or a phone cannot reach it at all. -->
+      <RMenuItem
+        :to="{ name: ROUTES.PLUGINS }"
+        icon="mdi-puzzle-outline"
+        :label="t('settings.plugins')"
+        @click="open = false"
+      />
     </div>
 
     <!-- System -->

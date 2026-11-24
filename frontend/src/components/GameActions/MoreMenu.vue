@@ -17,7 +17,7 @@ import type { SimpleRom } from "@/stores/roms";
 
 defineOptions({ inheritAttrs: false });
 
-defineProps<{ rom: SimpleRom | null }>();
+defineProps<{ rom: SimpleRom | null; withPlay?: boolean }>();
 
 const open = ref(false);
 </script>
@@ -27,6 +27,6 @@ const open = ref(false);
     <template #activator="{ props: activatorProps }">
       <slot name="activator" :props="activatorProps" />
     </template>
-    <GameActionsList :rom="rom" @close="open = false" />
+    <GameActionsList :rom="rom" :with-play="withPlay" @close="open = false" />
   </RMenu>
 </template>

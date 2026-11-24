@@ -7,7 +7,11 @@ import type { SimpleRom } from "@/stores/roms";
 
 defineOptions({ inheritAttrs: false });
 
-const props = defineProps<{ rom: SimpleRom | null }>();
+const props = defineProps<{
+  rom: SimpleRom | null;
+  /** Offer browser Play here. A gallery row has no Play button of its own. */
+  withPlay?: boolean;
+}>();
 
 const emit = defineEmits<{ (e: "close"): void }>();
 
@@ -33,9 +37,16 @@ function run(fn: () => void | Promise<void>) {
 </script>
 
 <template>
-  <!-- Primary actions. Playing is not one of them: the Play button beside this
-       menu covers the browser, a plugin, or a choice between the two, so a row
-       here could only disagree with it. -->
+  <!-- Playing is not primary here: the Play button beside this menu covers the
+       browser, a plugin, or a choice between the two. A gallery row has no such
+       button, so it asks for one with `withPlay` rather than losing the launch
+       entirely. -->
+  <RMenuItem
+    v-if="withPlay && actions.canPlayLocally.value"
+    :label="t('play.play-in-browser')"
+    icon="mdi-play"
+    @click="run(() => actions.play('local'))"
+  />
   <RMenuItem
     v-if="actions.canPlayStream.value"
     :label="actions.streamActionLabel.value"

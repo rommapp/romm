@@ -74,7 +74,7 @@ function run(target: Target): void {
     plugins.open(target.action);
     return;
   }
-  void actions.play("auto");
+  void actions.play("local");
 }
 
 function onPlay(): void {

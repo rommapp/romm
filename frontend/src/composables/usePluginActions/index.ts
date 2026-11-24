@@ -53,6 +53,32 @@ export function expandPluginUrl(
   );
 }
 
+// Schemes a browser runs as markup, or reads as a local file. A manifest's
+// default is checked at install, but a saved setting can supply the whole URL,
+// so the same rule is applied to what is actually about to be opened.
+const UNSAFE_SCHEMES: readonly string[] = [
+  "javascript:",
+  "data:",
+  "vbscript:",
+  "file:",
+  "blob:",
+  "about:",
+];
+
+/** Whether a URL may be handed to the browser.
+ *
+ *  A custom scheme (`rommdeck:`) is the point of a plugin, so anything that
+ *  parses as a scheme is allowed; what is refused is the set a browser would
+ *  execute or read from disk.
+ */
+export function safeHref(href: string): string | null {
+  const trimmed = href.trim();
+  if (!trimmed) return null;
+  const lower = trimmed.toLowerCase();
+  if (UNSAFE_SCHEMES.some((scheme) => lower.startsWith(scheme))) return null;
+  return trimmed;
+}
+
 /** Whether a setting that gates an action is switched on.
  *
  *  Only an explicit `false` closes the gate. A setting that has not been read
@@ -134,11 +160,13 @@ export function usePluginActions(getRom: () => SimpleRom | null | undefined): {
    *   action: The action whose URL to open.
    */
   function open(action: PluginAction): void {
+    const href = safeHref(action.href);
+    if (!href) return;
     if (action.open === "same-tab") {
-      window.location.assign(action.href);
+      window.location.assign(href);
       return;
     }
-    window.open(action.href, "_blank", "noopener,noreferrer");
+    window.open(href, "_blank", "noopener,noreferrer");
   }
 
   return { actions, playActions, forSlot, open };

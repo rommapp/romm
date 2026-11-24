@@ -235,6 +235,44 @@ def test_an_unknown_slot_drops_the_action(shelf, slot):
     assert list_plugins() == []
 
 
+def test_a_panel_that_explains_no_action_is_refused(shelf):
+    data = manifest()
+    data["facts"] = [
+        {
+            "id": "handheld",
+            "label": "Handheld reports",
+            "url": "https://example.com/api",
+            "list_path": "listings",
+            "group_by": "emulator",
+        }
+    ]
+    write_plugin(shelf, "rommdeck", data)
+
+    # The plugin is still a plugin; the panel is what has nowhere to be drawn.
+    assert list_plugins()[0].facts == []
+
+
+def test_a_slot_that_is_not_a_string_is_refused_without_raising(shelf):
+    data = manifest()
+    data["actions"][0]["slot"] = ["game.play"]
+    write_plugin(shelf, "rommdeck", data)
+
+    # The manifest names nowhere to draw, so it adds nothing; the point is that
+    # reading it does not raise and take the rest of the shelf with it.
+    assert list_plugins() == []
+
+
+def test_a_setting_type_that_is_not_a_string_is_refused_without_raising(shelf):
+    data = manifest()
+    data["settings"] = [{"key": "show", "label": "Show", "type": ["boolean"]}]
+    write_plugin(shelf, "rommdeck", data)
+
+    plugins = list_plugins()
+
+    assert len(plugins) == 1
+    assert plugins[0].settings == []
+
+
 def test_a_parked_plugin_adds_nothing(shelf):
     write_plugin(shelf, "rommdeck", manifest(enabled=False))
 

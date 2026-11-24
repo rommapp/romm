@@ -27,10 +27,10 @@ const { t } = useI18n();
 const confirm = useConfirm();
 const store = usePluginStore();
 
-// Installing writes to the server's disk, so only a user who may administer it
-// is offered the controls. The routes enforce the same scope.
+// A plugin installs for everyone and its settings reach everyone's browser, so
+// the controls belong to an administrator; the routes check the same thing.
 const auth = storeAuth();
-const mayManage = computed(() => auth.scopes.includes("users.write"));
+const mayManage = computed(() => auth.user?.role === "admin");
 
 const selectedId = ref<string>("");
 const selected = computed<PluginSchema | null>(
@@ -53,11 +53,21 @@ const dirty = computed(
   () => JSON.stringify(draft.value) !== JSON.stringify(saved.value),
 );
 
+let pickToken = 0;
+
 async function pick(pluginId: string): Promise<void> {
-  selectedId.value = pluginId;
   problem.value = "";
   flash.value = "";
+  // The old draft goes before the new values arrive: a form holding one
+  // plugin's values under another plugin's name can be saved to the wrong one.
+  const token = ++pickToken;
+  selectedId.value = pluginId;
+  draft.value = {};
+  saved.value = {};
+  busy.value = true;
   const values = await store.settings(pluginId);
+  if (token !== pickToken) return;
+  busy.value = false;
   draft.value = { ...(values ?? {}) };
   saved.value = { ...(values ?? {}) };
 }
@@ -76,7 +86,22 @@ function fieldValue(setting: PluginSettingSchema): unknown {
 }
 
 function setField(setting: PluginSettingSchema, value: unknown): void {
-  draft.value = { ...draft.value, [setting.key]: value };
+  draft.value = {
+    ...draft.value,
+    [setting.key]: coerce(setting, value),
+  };
+}
+
+/** What a field's input means, as the type the manifest declared. An input
+ *  hands back a string even when it is a number field, and an empty box is a
+ *  clear rather than a zero. */
+function coerce(setting: PluginSettingSchema, value: unknown): unknown {
+  if (setting.type !== "number") return value;
+  if (value === "" || value === null || value === undefined) {
+    return setting.required ? setting.default : null;
+  }
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? setting.default : parsed;
 }
 
 function selectItems(setting: PluginSettingSchema) {
@@ -279,7 +304,7 @@ onMounted(async () => {
           <h4 class="plugins-detail__section">
             {{ t("settings.plugins-settings") }}
           </h4>
-          <div class="plugins-form">
+          <div class="plugins-form" :aria-busy="busy">
             <div
               v-for="setting in selected.settings"
               :key="setting.key"
@@ -309,6 +334,7 @@ onMounted(async () => {
                 :model-value="String(fieldValue(setting) ?? '')"
                 :placeholder="setting.placeholder ?? setting.label"
                 :type="setting.type === 'number' ? 'number' : 'text'"
+                :disabled="busy"
                 @update:model-value="setField(setting, $event)"
               />
               <p v-if="setting.help" class="plugins-form__help">

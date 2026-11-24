@@ -16,6 +16,9 @@ export function usePluginFacts(getRom: () => SimpleRom | null | undefined) {
   const facts = ref<Record<string, PluginFactSchema>>({});
   const loading = ref(false);
   const askedFor = ref<number | null>(null);
+  // Guards a late reply: the answer only lands if it is still the game on
+  // screen, and only once, so a slow source cannot replace a newer report.
+  let generation = 0;
 
   const pluginsWithFacts = computed(() =>
     store.plugins.filter((plugin) => (plugin.facts ?? []).length > 0),
@@ -24,10 +27,11 @@ export function usePluginFacts(getRom: () => SimpleRom | null | undefined) {
   async function load(romId: number): Promise<void> {
     if (askedFor.value === romId) return;
     askedFor.value = romId;
-    if (!pluginsWithFacts.value.length) {
-      facts.value = {};
-      return;
-    }
+    const mine = ++generation;
+    // The report belongs to the game, so leaving one clears it rather than
+    // showing the last game's numbers under this one's name.
+    facts.value = {};
+    if (!pluginsWithFacts.value.length) return;
     loading.value = true;
     const collected: Record<string, PluginFactSchema> = {};
     await Promise.all(
@@ -53,6 +57,7 @@ export function usePluginFacts(getRom: () => SimpleRom | null | undefined) {
         }
       }),
     );
+    if (mine !== generation) return;
     facts.value = collected;
     loading.value = false;
   }

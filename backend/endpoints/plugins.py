@@ -1,6 +1,16 @@
-from decorators.auth import protected_route
 from fastapi import HTTPException, Request, status
+from pydantic import BaseModel, Field
+
+from decorators.auth import protected_route
+from endpoints.responses.plugin import (
+    PluginFactSchema,
+    PluginFactsSchema,
+    PluginSchema,
+    PluginSettingsSchema,
+    StorePluginSchema,
+)
 from handler.auth.constants import Scope
+from handler.auth.dependencies import visible_rom_or_404
 from handler.database import db_rom_handler
 from handler.plugin_facts import (
     PluginFactSpec,
@@ -21,16 +31,8 @@ from handler.plugin_handler import (
     save_plugin_settings,
     store_plugins,
 )
-from pydantic import BaseModel, Field
+from models.user import Role
 from utils.router import APIRouter
-
-from endpoints.responses.plugin import (
-    PluginFactSchema,
-    PluginFactsSchema,
-    PluginSchema,
-    PluginSettingsSchema,
-    StorePluginSchema,
-)
 
 router = APIRouter(
     prefix="/plugins",
@@ -43,6 +45,26 @@ class PluginInstallRequest(BaseModel):
 
     url: str | None = None
     manifest: dict | None = Field(default=None, description="A plugin.json body")
+
+
+def _require_admin(request: Request) -> None:
+    """Refuse a caller who is not an administrator.
+
+    A plugin installs for everyone and its settings reach everyone's browser, so
+    managing one is administration rather than library work. `users.write` is
+    not enough: it can be granted to someone who manages accounts.
+
+    Args:
+        request (Request): The incoming request.
+
+    Raises:
+        HTTPException: The caller is not an administrator.
+    """
+    if request.user.role != Role.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only an administrator can manage plugins",
+        )
 
 
 def _installed(plugin_id: str) -> PluginSchema:
@@ -80,6 +102,7 @@ def get_plugins(request: Request) -> list[PluginSchema]:
 
 @protected_route(router.post, "", [Scope.USERS_WRITE])
 def add_plugin(request: Request, body: PluginInstallRequest) -> PluginSchema:
+    _require_admin(request)
     """Install a plugin from a URL, or from a manifest the caller sends.
 
     Args:
@@ -124,6 +147,7 @@ def get_store(request: Request) -> list[StorePluginSchema]:
 
 @protected_route(router.post, "/store/{plugin_id}", [Scope.USERS_WRITE])
 def install_store_plugin(request: Request, plugin_id: str) -> PluginSchema:
+    _require_admin(request)
     """Install a plugin the store lists.
 
     Args:
@@ -144,10 +168,11 @@ def install_store_plugin(request: Request, plugin_id: str) -> PluginSchema:
         ) from exc
 
 
-def _rom_values(rom_id: int) -> dict[str, str]:
+def _rom_values(request: Request, rom_id: int) -> dict[str, str]:
     """What a manifest may interpolate about one game.
 
     Args:
+        request: The incoming request, for the caller's view of the library.
         rom_id: The game the panel is being filled for.
 
     Returns:
@@ -156,11 +181,7 @@ def _rom_values(rom_id: int) -> dict[str, str]:
     Raises:
         HTTPException: No game with that id exists.
     """
-    rom = db_rom_handler.get_rom(rom_id)
-    if rom is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Rom {rom_id} not found"
-        )
+    rom = visible_rom_or_404(request, db_rom_handler.get_rom(rom_id), rom_id)
     file_name = ""
     files = getattr(rom, "files", None) or []
     if files:
@@ -201,7 +222,7 @@ def get_plugin_facts(
     if not specs:
         return PluginFactsSchema(facts=[])
 
-    values = _rom_values(rom_id)
+    values = _rom_values(request, rom_id)
     settings = plugin_settings(plugin)
 
     filled: list[PluginFactSchema] = []
@@ -239,13 +260,23 @@ def get_plugin_settings(request: Request, plugin_id: str) -> PluginSettingsSchem
         PluginSettingsSchema: One value per setting the manifest declares.
     """
     plugin = _installed(plugin_id)
-    return PluginSettingsSchema(values=plugin_settings(plugin))
+    values = plugin_settings(plugin)
+    if request.user.role != Role.ADMIN:
+        # A viewer needs the values that build action URLs, not the secrets an
+        # administrator typed: a password comes back blank, and blank is what a
+        # form shows and never what anything saves.
+        secrets = {s.key for s in plugin.settings if s.type == "password"}
+        values = {
+            key: (None if key in secrets else value) for key, value in values.items()
+        }
+    return PluginSettingsSchema(values=values)
 
 
 @protected_route(router.put, "/{plugin_id}/settings", [Scope.USERS_WRITE])
 def put_plugin_settings(
     request: Request, plugin_id: str, body: PluginSettingsSchema
 ) -> PluginSettingsSchema:
+    _require_admin(request)
     """Save a plugin's settings, validated against its manifest.
 
     Args:
@@ -272,6 +303,7 @@ def put_plugin_settings(
 
 @protected_route(router.delete, "/{plugin_id}", [Scope.USERS_WRITE])
 def delete_plugin(request: Request, plugin_id: str) -> None:
+    _require_admin(request)
     """Remove an installed plugin.
 
     Args:

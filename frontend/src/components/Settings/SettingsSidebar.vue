@@ -18,7 +18,7 @@
 // On phones / small tablets it isn't rendered at all: the navbar UserMenu
 // mirrors the same section IA, so an in-page strip would only duplicate it.
 import { storeToRefs } from "pinia";
-import { computed } from "vue";
+import { computed, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import { useCan } from "@/composables/useCan";
 import PluginSlot from "@/components/shared/PluginSlot.vue";
@@ -38,9 +38,13 @@ const isAdmin = useCan("app.admin");
 const heartbeat = storeHeartbeat();
 const { unreadCount } = storeToRefs(storeNotificationInbox());
 // A plugin entry in the navigation is a URL, so it sits below the sections
-// rather than inside one.
+// rather than inside one. The sidebar asks for the shelf itself: a direct visit
+// to a Settings page would otherwise show no plugin links until something else
+// loaded them.
 const pluginStore = usePluginStore();
-const hasPluginNav = computed(() =>
+onMounted(() => void pluginStore.load());
+
+const pluginRows = computed(() =>
   pluginStore.plugins.some((plugin) =>
     plugin.actions.some((action) => action.slot === "app.nav"),
   ),

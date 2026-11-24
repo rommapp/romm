@@ -9,6 +9,7 @@ import { useI18n } from "vue-i18n";
 import type { PluginFactSchema } from "@/__generated__";
 import { usePluginFacts } from "@/composables/usePluginFacts";
 import {
+  safeHref,
   usePluginActions,
   type PluginAction,
 } from "@/composables/usePluginActions";
@@ -127,8 +128,9 @@ function orderedRatings(
   <ul v-if="labelled" class="plugin-slot">
     <li v-for="action in actions" :key="`${action.pluginId}:${action.id}`">
       <a
+        v-if="safeHref(action.href)"
         class="plugin-slot__row"
-        :href="action.href"
+        :href="safeHref(action.href)!"
         :target="action.open === 'same-tab' ? undefined : '_blank'"
         :rel="action.open === 'same-tab' ? undefined : 'noopener noreferrer'"
       >
@@ -237,9 +239,11 @@ function orderedRatings(
             </p>
 
             <a
-              v-if="reportFor(action)!.link"
+              v-if="
+                reportFor(action)!.link && safeHref(reportFor(action)!.link!)
+              "
               class="report__link"
-              :href="reportFor(action)!.link!"
+              :href="safeHref(reportFor(action)!.link!)!"
               target="_blank"
               rel="noopener noreferrer"
             >

@@ -18,10 +18,11 @@ import re
 import shutil
 import threading
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, cast
 from urllib.parse import quote, urlsplit
 
 import httpx
+
 from config import PLUGINS_BASE_PATH
 from endpoints.responses.plugin import (
     PluginActionSchema,
@@ -29,17 +30,20 @@ from endpoints.responses.plugin import (
     PluginSchema,
     PluginSettingOptionSchema,
     PluginSettingSchema,
+    PluginSettingType,
     PluginSlot,
     StorePluginSchema,
 )
-from logger.logger import log
-
 from handler.plugin_facts import (
     MAX_FACTS,
     PATH_PATTERN,
+    PUBLIC_ONLY,
     PluginFactSpec,
     forget_all,
+    refused_source,
 )
+from logger.logger import log
+from utils.context import create_httpx_client
 
 MANIFEST_NAME: Final[str] = "plugin.json"
 SETTINGS_NAME: Final[str] = "settings.json"
@@ -111,6 +115,28 @@ _CACHE_LOCK = threading.Lock()
 # the server, and a manifest's request should not be readable by every client.
 _FACTS_BY_ID: dict[str, list[PluginFactSpec]] = {}
 
+# Where each plugin's folder actually is, and the shelf it was read from. The id
+# names the plugin, not the directory: a folder copied in under any name stays
+# manageable. The shelf travels with it so a stale entry cannot point at a folder
+# that belongs to another shelf.
+_FOLDERS: dict[str, tuple[Path, Path]] = {}
+
+
+def _folder_for(plugin_id: str) -> Path | None:
+    """The folder a plugin was read from, if it is on the shelf being read now.
+
+    Args:
+        plugin_id: The id the manifest declares.
+
+    Returns:
+        Path | None: The folder, or None when it is not installed here.
+    """
+    entry = _FOLDERS.get(plugin_id)
+    if entry is None:
+        return None
+    shelf, folder = entry
+    return folder if shelf == Path(PLUGINS_BASE_PATH) else None
+
 
 def find_facts(plugin_id: str) -> list[PluginFactSpec]:
     """The panels a plugin declared.
@@ -149,6 +175,7 @@ def list_plugins() -> list[PluginSchema]:
 
     plugins: list[PluginSchema] = []
     facts: dict[str, list[PluginFactSpec]] = {}
+    folders: dict[str, tuple[Path, Path]] = {}
     seen: set[str] = set()
     for manifest_path, _, _ in candidates:
         path = Path(manifest_path)
@@ -166,6 +193,7 @@ def list_plugins() -> list[PluginSchema]:
             continue
         seen.add(plugin.id)
         plugins.append(plugin)
+        folders[plugin.id] = (base, path.parent)
         if specs:
             facts[plugin.id] = specs
 
@@ -174,6 +202,8 @@ def list_plugins() -> list[PluginSchema]:
         _CACHE[str(base)] = (stamp, plugins)
         _FACTS_BY_ID.clear()
         _FACTS_BY_ID.update(facts)
+        _FOLDERS.clear()
+        _FOLDERS.update(folders)
     # What was read for the old shelf may not be what the new one asks for.
     forget_all()
     log.info(f"Plugins: {len(plugins)} on the shelf at {base}")
@@ -462,7 +492,9 @@ def _parse_facts(
                 enabled_by = None
 
         slot = raw_fact.get("slot")
-        chosen: PluginSlot = slot if slot in SLOTS else DEFAULT_SLOT
+        if not isinstance(slot, str) or slot not in SLOTS:
+            slot = DEFAULT_SLOT
+        chosen: PluginSlot = cast(PluginSlot, slot)
 
         # A panel may explain one action's button. Naming an action that does
         # not exist is a manifest mistake, and a panel nobody can hover is not
@@ -475,6 +507,13 @@ def _parse_facts(
                 "the manifest does not have"
             )
             action_id = None
+
+        if action_id is None:
+            log.warning(
+                f"Plugins: {plugin_id}.{fact_id} names no action, so there is "
+                "nowhere to show it"
+            )
+            continue
 
         specs.append(
             PluginFactSpec(
@@ -589,6 +628,8 @@ def _slot(raw: dict[str, Any], plugin_id: str, action_id: str) -> PluginSlot | N
         return "game.play"
 
     slot = raw.get("slot", DEFAULT_SLOT)
+    # The isinstance is what keeps a list or a number from raising on the set
+    # lookup; a slot the UI never draws is still refused, not moved.
     if not isinstance(slot, str) or slot not in SLOTS:
         log.warning(f"Plugins: {plugin_id}.{action_id} names an unknown slot {slot!r}")
         return None
@@ -714,6 +755,11 @@ def install_plugin(
         base.mkdir(parents=True, exist_ok=True)
         if folder.exists():
             raise PluginRefused(f"{plugin.name} is already installed")
+        installed = sum(1 for path in base.iterdir() if path.is_dir())
+        if installed >= MAX_PLUGINS:
+            raise PluginRefused(
+                f"The shelf holds {MAX_PLUGINS} plugins already; remove one first"
+            )
         folder.mkdir()
     except OSError as exc:
         raise PluginRefused(f"Cannot write to the plugins folder: {exc}") from exc
@@ -748,7 +794,7 @@ def remove_plugin(plugin_id: str) -> None:
         raise PluginRefused("That is not a plugin id")
 
     base = Path(PLUGINS_BASE_PATH)
-    folder = base / folder_name
+    folder = _folder_for(plugin_id) or base / folder_name
     try:
         resolved = folder.resolve(strict=True)
     except (OSError, RuntimeError) as exc:
@@ -791,7 +837,7 @@ def _parse_setting(raw: Any, plugin_id: str) -> PluginSettingSchema | None:
         return None
 
     kind = raw.get("type", "text")
-    if kind not in SETTING_TYPES:
+    if not isinstance(kind, str) or kind not in SETTING_TYPES:
         log.warning(f"Plugins: {plugin_id}.{key} has an unknown type {kind!r}")
         return None
 
@@ -828,7 +874,7 @@ def _parse_setting(raw: Any, plugin_id: str) -> PluginSettingSchema | None:
     return PluginSettingSchema(
         key=key,
         label=label,
-        type=kind,
+        type=cast(PluginSettingType, kind),
         default=default,
         help=_text(raw.get("help"), MAX_TEXT_LENGTH),
         placeholder=_text(raw.get("placeholder"), MAX_TEXT_LENGTH),
@@ -852,7 +898,8 @@ def plugin_settings(plugin: PluginSchema) -> dict[str, Any]:
     Returns:
         dict[str, Any]: One value per setting the manifest declares.
     """
-    saved = _read_settings(Path(PLUGINS_BASE_PATH) / plugin.id / SETTINGS_NAME)
+    folder = _folder_for(plugin.id) or Path(PLUGINS_BASE_PATH) / plugin.id
+    saved = _read_settings(folder / SETTINGS_NAME)
     values: dict[str, Any] = {}
     for setting in plugin.settings:
         # No saved value, or one this version can't use: the manifest's default.
@@ -895,7 +942,7 @@ def save_plugin_settings(
         if setting.key not in stored:
             stored[setting.key] = setting.default
 
-    folder = Path(PLUGINS_BASE_PATH) / plugin.id
+    folder = _folder_for(plugin.id) or Path(PLUGINS_BASE_PATH) / plugin.id
     path = folder / SETTINGS_NAME
     try:
         folder.mkdir(parents=True, exist_ok=True)
@@ -1036,8 +1083,14 @@ def _fetch_json(url: str, limit: int, what: str) -> dict[str, Any]:
     parsed = urlsplit(url)
     if parsed.scheme not in WEB_SCHEMES or not parsed.netloc:
         raise PluginRefused(f"{what} must be an http or https URL")
+    reason = refused_source(url)
+    if reason:
+        raise PluginRefused(f"{what} cannot be fetched: {reason}")
     try:
-        with httpx.stream("GET", url, timeout=10, follow_redirects=True) as response:
+        with (
+            create_httpx_client(allowlist=PUBLIC_ONLY) as client,
+            client.stream("GET", url, timeout=10, follow_redirects=False) as response,
+        ):
             if response.status_code != 200:
                 raise PluginRefused(f"{what} answered {response.status_code}")
             body = b""

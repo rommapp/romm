@@ -6,18 +6,14 @@ answers JSON, a path to the list in that answer, and the two fields to count by;
 the server fetches it, and the UI draws what comes back. Nothing here knows what
 EmuReady is: the manifest says where to look, this module does the looking.
 
-Two rules shape the fetching. The first is that a manifest is not trusted with
-the network: only http(s), only public addresses, redirects refused, a size cap
-and a timeout, so a plugin cannot use RomM to read a router's admin page or to
-hang a request forever. The second is that a source being down is not an error
-the page should carry: a failed panel comes back with the reason in `note`, and
-the rest of the game page is unaffected.
+A manifest is not trusted with the network: http(s) only, public addresses only
+through the shared SSRF guard, no redirects, a size cap and a timeout. A source
+being down is not an error the page carries; the panel comes back with the
+reason in `note`.
 """
 
-import ipaddress
 import json
 import re
-import socket
 import threading
 import time
 from dataclasses import dataclass, field
@@ -25,11 +21,19 @@ from typing import Any
 from urllib.parse import urlencode, urlsplit
 
 import httpx2
+
 from endpoints.responses.plugin import (
     PluginFactGroupSchema,
     PluginFactSchema,
     PluginSlot,
 )
+from utils.context import create_httpx_client
+from utils.ssrf import ValidationError, validate_url_for_http_request
+
+# A source a manifest names is a URL nobody vetted, so it may only reach public
+# addresses: no internal services, no metadata endpoints, nothing on the machine
+# RomM itself runs on.
+PUBLIC_ONLY: frozenset[tuple[str, int]] = frozenset()
 
 # A panel is a summary, not an archive: the first page of results, capped.
 MAX_FACTS: int = 4
@@ -72,6 +76,9 @@ class PluginFactSpec:
 def refused_source(url: str) -> str | None:
     """Why a URL may not be fetched, or None when it may.
 
+    The same guard the connection uses, asked early: a manifest's author gets a
+    sentence instead of a failed request.
+
     Args:
         url: The address the manifest resolves to.
 
@@ -79,37 +86,9 @@ def refused_source(url: str) -> str | None:
         str | None: A reason fit to show a plugin's author, or None.
     """
     try:
-        parts = urlsplit(url)
-    except ValueError:
-        return "That is not a URL"
-    if parts.scheme not in ("http", "https"):
-        return "A source must be http or https"
-    host = parts.hostname
-    if not host:
-        return "A source needs a host"
-    try:
-        infos = socket.getaddrinfo(
-            host, parts.port or (443 if parts.scheme == "https" else 80)
-        )
-    except OSError:
-        return f"{host} cannot be resolved"
-    for info in infos:
-        address = info[4][0]
-        try:
-            parsed = ipaddress.ip_address(address)
-        except ValueError:
-            return f"{host} resolved to something unreadable"
-        if (
-            parsed.is_private
-            or parsed.is_loopback
-            or parsed.is_link_local
-            or parsed.is_reserved
-            or parsed.is_multicast
-            or parsed.is_unspecified
-        ):
-            # A manifest pointing at the machine RomM runs on is either a
-            # mistake or an attempt to read something it was never given.
-            return f"{host} is not a public address"
+        validate_url_for_http_request(url, allowlist=PUBLIC_ONLY)
+    except ValidationError as exc:
+        return exc.message
     return None
 
 
@@ -166,11 +145,17 @@ def _fetch(url: str) -> dict[str, Any]:
 
     body = bytearray()
     try:
+        # The guarded client pins the address it resolved, so a name that
+        # answers one thing at validation cannot answer another at connect.
         with (
-            httpx2.Client(
-                timeout=FETCH_TIMEOUT_SECONDS, follow_redirects=False, trust_env=True
-            ) as client,
-            client.stream("GET", url, headers={"Accept": "application/json"}) as reply,
+            create_httpx_client(allowlist=PUBLIC_ONLY) as client,
+            client.stream(
+                "GET",
+                url,
+                headers={"Accept": "application/json"},
+                timeout=FETCH_TIMEOUT_SECONDS,
+                follow_redirects=False,
+            ) as reply,
         ):
             if reply.status_code != 200:
                 raise ValueError(f"The source answered {reply.status_code}")

@@ -454,6 +454,7 @@ function onRowPointerDown(e: PointerEvent) {
               action="more"
               size="small"
               variant="bare"
+              menu-play
             />
             <button
               v-if="expandable"
@@ -700,6 +701,7 @@ function onRowPointerDown(e: PointerEvent) {
               action="more"
               size="small"
               variant="bare"
+              menu-play
             />
           </div>
         </div>

@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, TypeVar
 
 import aiohttp
 import httpx2
-
 from config import has_proxy_env
+
 from utils.ssrf import (
     INTERNAL_ORIGIN_ALLOWLIST,
     install_async_ssrf_protection,
@@ -55,11 +55,26 @@ def create_httpx_async_client(
     return client
 
 
-def create_httpx_client() -> httpx2.Client:
+def create_httpx_client(
+    allowlist: frozenset[tuple[str, int]] = INTERNAL_ORIGIN_ALLOWLIST,
+) -> httpx2.Client:
+    """An SSRF-guarded client that lets only `allowlist` origins reach private addresses.
+
+    Args:
+        allowlist: Origins that may resolve to a private address. Empty means
+            the client may only reach public addresses, which is what a URL a
+            user or a plugin supplied has to be held to.
+    """
+
+    def validate(request: httpx2.Request) -> None:
+        validate_url_for_http_request(str(request.url), allowlist=allowlist)
+
     client = httpx2.Client(
         trust_env=has_proxy_env(),
-        event_hooks={"request": [_validate_request_url_sync]},
+        event_hooks={"request": [validate]},
     )
+    # The sync backend is public-only by construction: the allowlist lives in the
+    # fast-fail hook above, which is what a private-origin caller needs.
     install_sync_ssrf_protection(client)
     return client
 

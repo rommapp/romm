@@ -96,6 +96,9 @@ interface Props {
    */
   variant?: "glass" | "surface" | "emphasized" | "brand" | "bare";
   withLabel?: boolean;
+  /** `more` only: offer browser Play in the menu, for rows that have no Play
+   *  button of their own. */
+  menuPlay?: boolean;
   /**
    * Status-only: when several status states are active, the button
    * stretches to show every icon. `horizontal` lays them in a row
@@ -136,6 +139,7 @@ const props = withDefaults(defineProps<Props>(), {
   manual: false,
   chevron: false,
   label: undefined,
+  menuPlay: false,
 });
 
 const emit = defineEmits<{ activate: [] }>();
@@ -420,7 +424,11 @@ function onClick(e: MouseEvent) {
         />
       </button>
     </template>
-    <GameActionsList :rom="rom" @close="moreOpen = false" />
+    <GameActionsList
+      :rom="rom"
+      :with-play="menuPlay"
+      @close="moreOpen = false"
+    />
   </RMenu>
 
   <!-- Status: enum picker; icon mirrors the current value, dashed

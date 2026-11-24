@@ -93,6 +93,7 @@ def test_get_plugin_facts_fills_a_panel_from_its_source(
                     {
                         "id": "handheld",
                         "label": "Handheld reports",
+                        "action": "open",
                         "url": "{setting.base_url}/api/listings",
                         "query": {"input": '{"json":{"search":"{rom_name}"}}'},
                         "list_path": "listings",
@@ -111,7 +112,7 @@ def test_get_plugin_facts_fills_a_panel_from_its_source(
     monkeypatch.setattr(
         plugin_endpoints,
         "_rom_values",
-        lambda rom_id: {
+        lambda request, rom_id: {
             "rom_id": str(rom_id),
             "rom_name": "Luigi's Mansion",
             "platform_slug": "ngc",
@@ -161,6 +162,7 @@ def test_the_plugin_list_says_a_panel_exists_without_its_source(
                     {
                         "id": "handheld",
                         "label": "Handheld reports",
+                        "action": "open",
                         "url": "https://example.com/secret-path",
                         "list_path": "listings",
                         "group_by": "emulator",
@@ -182,7 +184,7 @@ def test_the_plugin_list_says_a_panel_exists_without_its_source(
             "id": "handheld",
             "label": "Handheld reports",
             "slot": "game.details",
-            "action": None,
+            "action": "open",
         }
     ]
     assert "secret-path" not in response.text
