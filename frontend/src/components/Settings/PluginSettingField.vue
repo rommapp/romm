@@ -43,6 +43,37 @@ let timer: ReturnType<typeof setTimeout> | undefined;
 // its own value and would look like it had been cleared.
 const known = ref(new Map<string, string>());
 
+// The source has no lookup by id, so a label is only in hand while its search
+// results are. Remembering them in the browser is what lets a saved setup read
+// as "AMD Ryzen 9 5900X" after a reload instead of as its id.
+const labelKey = (): string =>
+  `romm.plugin-labels.${props.pluginId}.${props.setting.key}`;
+
+function rememberLabels(entries: Map<string, string>): void {
+  try {
+    const held = JSON.parse(localStorage.getItem(labelKey()) ?? "{}") as Record<
+      string,
+      string
+    >;
+    for (const [value, label] of entries) held[value] = label;
+    localStorage.setItem(labelKey(), JSON.stringify(held));
+  } catch {
+    // Storage that is full or switched off is not worth failing a form over.
+  }
+}
+
+function loadLabels(): Map<string, string> {
+  try {
+    const held = JSON.parse(localStorage.getItem(labelKey()) ?? "{}") as Record<
+      string,
+      string
+    >;
+    return new Map(Object.entries(held));
+  } catch {
+    return new Map();
+  }
+}
+
 const asEntries = (): Entry[] =>
   Array.isArray(props.modelValue) ? (props.modelValue as Entry[]) : [];
 
@@ -127,9 +158,12 @@ async function ask(query: string): Promise<void> {
     );
     if (mine !== asked) return;
     options.value = data.options ?? [];
+    const newly = new Map<string, string>();
     for (const option of options.value) {
       known.value.set(option.value, option.label);
+      newly.set(option.value, option.label);
     }
+    if (newly.size) rememberLabels(newly);
     note.value = data.note ?? "";
   } catch {
     if (mine !== asked) return;
@@ -144,7 +178,7 @@ watch(
   () => [props.pluginId, props.setting.key],
   () => {
     lastAsked = null;
-    known.value = new Map();
+    known.value = loadLabels();
     options.value = [];
     if (props.setting.type === "search") void ask("");
   },

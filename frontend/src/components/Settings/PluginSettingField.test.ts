@@ -166,6 +166,31 @@ describe("PluginSettingField: a searched field", () => {
     });
   });
 
+  it("names a saved choice after a reload", async () => {
+    // The source has no lookup by id: the label is remembered from the search
+    // that first offered it, so a saved setup does not read as a bare uuid.
+    localStorage.setItem(
+      "romm.plugin-labels.emuready.handheld",
+      JSON.stringify({ e4394fe4: "AYN Thor Max" }),
+    );
+    getOptions.mockResolvedValue({ data: { options: [] } });
+
+    const wrapper = mount(PluginSettingField, {
+      props: {
+        setting: searchSetting(),
+        modelValue: "e4394fe4",
+        pluginId: "emuready",
+      },
+    });
+    await flushPromises();
+
+    const select = wrapper.findComponent({ name: "RSelect" });
+    expect(select.props("items")).toContainEqual({
+      title: "AYN Thor Max",
+      value: "e4394fe4",
+    });
+  });
+
   it("says so when the source cannot be reached", async () => {
     getOptions.mockRejectedValue(new Error("nope"));
     const wrapper = mount(PluginSettingField, {
