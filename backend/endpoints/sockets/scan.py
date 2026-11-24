@@ -1420,8 +1420,8 @@ async def scan_platforms(
 
         log.info(f"{emoji.EMOJI_CHECK_MARK} Scan completed")
 
-        # Repairs a group two scan workers rewrote at once, before the cache drop
-        # and the smart collection refresh read the groups.
+        # Repair any group two scan workers rewrote at once. This runs first
+        # because the cache drop and the smart collection refresh read the groups.
         try:
             db_rom_handler.rebuild_sibling_groups()
         except Exception as e:
