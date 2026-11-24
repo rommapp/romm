@@ -36,8 +36,8 @@ def md5(data: bytes) -> str:
 
 
 def red_ram(changes: dict[int, int] | None = None) -> bytes:
-    """A 32 KiB Pokemon Red RAM with `changes` written in, its main-data checksum
-    (the complement of the 8-bit sum of 0x2598-0x3522, at 0x3523) valid."""
+    """A 32 KiB Pokemon Red RAM with `changes` written in and a valid main-data
+    checksum, the complement of the 8-bit sum of 0x2598-0x3522, stored at 0x3523."""
     ram = bytearray((i * 31 + i // 97) & 0xFF for i in range(0x8000))
     for offset, value in (changes or {}).items():
         ram[offset] = value
