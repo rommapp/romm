@@ -1,4 +1,8 @@
-import type { PluginSchema, StorePluginSchema } from "@/__generated__";
+import type {
+  PluginFactsSchema,
+  PluginSchema,
+  StorePluginSchema,
+} from "@/__generated__";
 import api from "@/services/api";
 
 type Plugin = PluginSchema;
@@ -28,6 +32,14 @@ async function installFromStore(pluginId: string) {
   return api.post<Plugin>(`/plugins/store/${encodeURIComponent(pluginId)}`);
 }
 
+/** The panels a plugin fills for one game, fetched by the server from the
+ *  source its manifest names. */
+async function getFacts(pluginId: string, romId: number) {
+  return api.get<PluginFactsSchema>(
+    `/plugins/${encodeURIComponent(pluginId)}/facts?rom_id=${romId}`,
+  );
+}
+
 async function getSettings(pluginId: string) {
   return api.get<{ values: Record<string, unknown> }>(
     `/plugins/${encodeURIComponent(pluginId)}/settings`,
@@ -47,6 +59,7 @@ export default {
   deletePlugin,
   getStore,
   installFromStore,
+  getFacts,
   getSettings,
   saveSettings,
 };

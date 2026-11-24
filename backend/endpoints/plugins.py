@@ -1,8 +1,18 @@
 from decorators.auth import protected_route
 from fastapi import HTTPException, Request, status
 from handler.auth.constants import Scope
+from handler.database import db_rom_handler
+from handler.plugin_facts import (
+    PluginFactSpec,
+    expand_query,
+    fill_fact,
+    source_url,
+    still_worth_drawing,
+)
 from handler.plugin_handler import (
     PluginRefused,
+    expand_template,
+    find_facts,
     install_from_store,
     install_plugin,
     list_plugins,
@@ -15,6 +25,8 @@ from pydantic import BaseModel, Field
 from utils.router import APIRouter
 
 from endpoints.responses.plugin import (
+    PluginFactSchema,
+    PluginFactsSchema,
     PluginSchema,
     PluginSettingsSchema,
     StorePluginSchema,
@@ -130,6 +142,89 @@ def install_store_plugin(request: Request, plugin_id: str) -> PluginSchema:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
         ) from exc
+
+
+def _rom_values(rom_id: int) -> dict[str, str]:
+    """What a manifest may interpolate about one game.
+
+    Args:
+        rom_id: The game the panel is being filled for.
+
+    Returns:
+        dict[str, str]: The placeholders, as text.
+
+    Raises:
+        HTTPException: No game with that id exists.
+    """
+    rom = db_rom_handler.get_rom(rom_id)
+    if rom is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Rom {rom_id} not found"
+        )
+    file_name = ""
+    files = getattr(rom, "files", None) or []
+    if files:
+        file_name = getattr(files[0], "file_name", "") or ""
+    return {
+        "rom_id": str(rom.id),
+        "rom_name": rom.name or "",
+        "platform_slug": getattr(rom, "platform_slug", "") or "",
+        "platform_name": getattr(rom, "platform_display_name", "") or "",
+        "file_name": file_name,
+    }
+
+
+@protected_route(router.get, "/{plugin_id}/facts", [Scope.ROMS_READ])
+def get_plugin_facts(
+    request: Request, plugin_id: str, rom_id: int
+) -> PluginFactsSchema:
+    """Fill the panels a plugin declares, for one game.
+
+    The manifest names a source and the shape of its answer; the server fetches
+    it within the limits a plugin is held to. A source that fails comes back as
+    a panel with the reason in `note`, so one broken lookup cannot take the page
+    down with it.
+
+    Args:
+        request (Request): The incoming request.
+        plugin_id (str): The id the manifest declares.
+        rom_id (int): The game whose panels are being filled.
+
+    Returns:
+        PluginFactsSchema: One panel per declaration, in order.
+
+    Raises:
+        HTTPException: The plugin is not installed, or the game is not known.
+    """
+    plugin = _installed(plugin_id)
+    specs: list[PluginFactSpec] = find_facts(plugin_id)
+    if not specs:
+        return PluginFactsSchema(facts=[])
+
+    values = _rom_values(rom_id)
+    settings = plugin_settings(plugin)
+
+    filled: list[PluginFactSchema] = []
+    for spec in specs:
+        if not still_worth_drawing(spec, settings):
+            continue
+        url = source_url(
+            expand_template(spec.url, values, settings, encode_rom=True),
+            expand_query(
+                {
+                    name: expand_template(value, values, settings)
+                    for name, value in spec.query.items()
+                }
+            ),
+        )
+        link = (
+            expand_template(spec.link, values, settings, encode_rom=True)
+            if spec.link
+            else None
+        )
+        filled.append(fill_fact(plugin_id, spec, url, link))
+
+    return PluginFactsSchema(facts=filled)
 
 
 @protected_route(router.get, "/{plugin_id}/settings", [Scope.ROMS_READ])

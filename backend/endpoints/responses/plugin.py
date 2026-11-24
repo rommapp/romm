@@ -56,6 +56,19 @@ class PluginActionSchema(BaseModel):
     enabled_by: str | None = None
 
 
+class PluginFactSummarySchema(BaseModel):
+    """A panel a plugin fills by asking its own server for data.
+
+    The UI needs to know that a panel exists and where it belongs; what it
+    fetches, and how, stays on the server, so a manifest's request cannot be
+    read back out of the plugin list.
+    """
+
+    id: str
+    label: str
+    slot: PluginSlot = "game.details"
+
+
 class PluginSchema(BaseModel):
     """A plugin manifest, as the UI reads it."""
 
@@ -67,12 +80,45 @@ class PluginSchema(BaseModel):
     homepage: str | None = None
     actions: list[PluginActionSchema] = Field(default_factory=list)
     settings: list[PluginSettingSchema] = Field(default_factory=list)
+    facts: list[PluginFactSummarySchema] = Field(default_factory=list)
 
 
 class PluginSettingsSchema(BaseModel):
     """A plugin's saved values, keyed by the manifest's setting keys."""
 
     values: dict[str, str | int | float | bool | None] = Field(default_factory=dict)
+
+
+class PluginFactGroupSchema(BaseModel):
+    """One thing the reports were grouped by, and how they rated."""
+
+    key: str
+    counts: dict[str, int] = Field(default_factory=dict)
+    total: int = 0
+
+
+class PluginFactSchema(BaseModel):
+    """A plugin's panel, filled with what its source answered.
+
+    `note` carries why a panel is empty: a title nobody has reported on, a
+    source that timed out, a manifest whose paths no longer match. It is said
+    rather than raised, because a compatibility lookup failing is not a reason
+    to break the page it sits on.
+    """
+
+    id: str
+    label: str
+    slot: PluginSlot = "game.details"
+    link: str | None = None
+    groups: list[PluginFactGroupSchema] = Field(default_factory=list)
+    total: int = 0
+    note: str | None = None
+
+
+class PluginFactsSchema(BaseModel):
+    """Every panel one plugin fills for one game."""
+
+    facts: list[PluginFactSchema] = Field(default_factory=list)
 
 
 class StorePluginSchema(BaseModel):

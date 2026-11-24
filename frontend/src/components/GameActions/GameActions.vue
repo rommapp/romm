@@ -17,6 +17,7 @@ import { useI18n } from "vue-i18n";
 import GameActionBtn from "@/components/GameActions/GameActionBtn.vue";
 import MetricMenuBtn from "@/components/GameActions/MetricMenuBtn.vue";
 import PlayButton from "@/components/GameActions/PlayButton.vue";
+import PluginFacts from "@/components/GameActions/PluginFacts.vue";
 import PluginSlot from "@/components/shared/PluginSlot.vue";
 import { METRICS } from "@/components/GameActions/metrics";
 import { useBreakpoint } from "@/composables/useBreakpoint";
@@ -129,6 +130,8 @@ useGridNav(rootEl, {
     />
     <!-- Plugins that put an action on a game. -->
     <PluginSlot slot="game.details" :rom="rom" :size="btnSize" />
+    <!-- What plugins learned about this game, filled by the server. -->
+    <PluginFacts slot="game.details" :rom="rom" />
     <GameActionBtn :rom="rom" action="more" :size="btnSize" variant="surface" />
 
     <!-- Desktop only: the metric pills sit in the ribbon. On phones they

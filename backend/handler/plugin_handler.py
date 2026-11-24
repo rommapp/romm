@@ -19,12 +19,13 @@ import shutil
 import threading
 from pathlib import Path
 from typing import Any, Final
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
 import httpx
 from config import PLUGINS_BASE_PATH
 from endpoints.responses.plugin import (
     PluginActionSchema,
+    PluginFactSummarySchema,
     PluginSchema,
     PluginSettingOptionSchema,
     PluginSettingSchema,
@@ -32,6 +33,13 @@ from endpoints.responses.plugin import (
     StorePluginSchema,
 )
 from logger.logger import log
+
+from handler.plugin_facts import (
+    MAX_FACTS,
+    PATH_PATTERN,
+    PluginFactSpec,
+    forget_all,
+)
 
 MANIFEST_NAME: Final[str] = "plugin.json"
 SETTINGS_NAME: Final[str] = "settings.json"
@@ -99,6 +107,22 @@ DEFAULT_SLOT: Final[str] = "game.details"
 _CACHE: dict[str, tuple[tuple[tuple[str, int, int], ...], list[PluginSchema]]] = {}
 _CACHE_LOCK = threading.Lock()
 
+# What each plugin asked to read, kept out of the response: the fetch belongs to
+# the server, and a manifest's request should not be readable by every client.
+_FACTS_BY_ID: dict[str, list[PluginFactSpec]] = {}
+
+
+def find_facts(plugin_id: str) -> list[PluginFactSpec]:
+    """The panels a plugin declared.
+
+    Args:
+        plugin_id: The id the manifest declares.
+
+    Returns:
+        list[PluginFactSpec]: One entry per panel, in the order declared.
+    """
+    return list(_FACTS_BY_ID.get(plugin_id, []))
+
 
 def list_plugins() -> list[PluginSchema]:
     """Every valid plugin on the shelf, sorted by name.
@@ -124,15 +148,17 @@ def list_plugins() -> list[PluginSchema]:
         return cached[1]
 
     plugins: list[PluginSchema] = []
+    facts: dict[str, list[PluginFactSpec]] = {}
     seen: set[str] = set()
     for manifest_path, _, _ in candidates:
         path = Path(manifest_path)
         raw = _read_manifest(path)
         if raw is None:
             continue
-        plugin = _parse_plugin(raw, path.parent)
-        if plugin is None:
+        parsed = _parse_plugin(raw, path.parent)
+        if parsed is None:
             continue
+        plugin, specs = parsed
         if plugin.id in seen:
             log.warning(
                 f"Plugins: {plugin.id} is on the shelf twice, keeping the first"
@@ -140,10 +166,16 @@ def list_plugins() -> list[PluginSchema]:
             continue
         seen.add(plugin.id)
         plugins.append(plugin)
+        if specs:
+            facts[plugin.id] = specs
 
     plugins.sort(key=lambda plugin: plugin.name.lower())
     with _CACHE_LOCK:
         _CACHE[str(base)] = (stamp, plugins)
+        _FACTS_BY_ID.clear()
+        _FACTS_BY_ID.update(facts)
+    # What was read for the old shelf may not be what the new one asks for.
+    forget_all()
     log.info(f"Plugins: {len(plugins)} on the shelf at {base}")
     return plugins
 
@@ -207,7 +239,9 @@ def _read_manifest(path: Path) -> dict[str, Any] | None:
     return raw
 
 
-def _parse_plugin(raw: dict[str, Any], folder: Path) -> PluginSchema | None:
+def _parse_plugin(
+    raw: dict[str, Any], folder: Path
+) -> tuple[PluginSchema, list[PluginFactSpec]] | None:
     folder_name = folder.name
     plugin_id = _slug(raw.get("id"))
     name = _text(raw.get("name"), MAX_TEXT_LENGTH)
@@ -270,6 +304,8 @@ def _parse_plugin(raw: dict[str, Any], folder: Path) -> PluginSchema | None:
             )
             action.enabled_by = None
 
+    summaries, specs = _parse_facts(raw.get("facts"), plugin_id, defaults, settings)
+
     return PluginSchema(
         id=plugin_id,
         name=name,
@@ -279,7 +315,8 @@ def _parse_plugin(raw: dict[str, Any], folder: Path) -> PluginSchema | None:
         homepage=homepage,
         actions=actions,
         settings=settings,
-    )
+        facts=summaries,
+    ), specs
 
 
 def _with_defaults(template: str, defaults: dict[str, Any]) -> str:
@@ -298,6 +335,148 @@ def _with_defaults(template: str, defaults: dict[str, Any]) -> str:
         return "" if value is None else str(value)
 
     return SETTING_PLACEHOLDER.sub(substitute, template)
+
+
+def expand_template(
+    template: str,
+    rom_values: dict[str, str],
+    settings: dict[str, Any],
+    encode_rom: bool = False,
+) -> str:
+    """Fill a manifest's template, on the server, for one request.
+
+    The browser does the same for an action's URL; a source is fetched here, so
+    the same placeholders are filled the same way — settings first, then the
+    game, with the game's values encoded because they end up in a query.
+
+    Args:
+        template: The manifest's url, query value or link.
+        rom_values: What the game contributes.
+        settings: The plugin's saved values.
+        encode_rom: Whether the game's values are encoded here. A query value is
+            encoded once, by the query builder, so it asks for the raw text.
+
+    Returns:
+        str: The template with placeholders replaced.
+    """
+
+    def substitute_setting(match: re.Match[str]) -> str:
+        value = settings.get(match.group(1))
+        return "" if value is None else str(value)
+
+    with_settings = SETTING_PLACEHOLDER.sub(substitute_setting, template)
+
+    def substitute_rom(match: re.Match[str]) -> str:
+        value = rom_values.get(match.group(1), "")
+        return quote(value, safe="") if encode_rom else value
+
+    return PLACEHOLDER_PATTERN.sub(substitute_rom, with_settings)
+
+
+def _parse_facts(
+    raw: Any,
+    plugin_id: str,
+    defaults: dict[str, Any],
+    settings: list[PluginSettingSchema],
+) -> tuple[list[PluginFactSummarySchema], list[PluginFactSpec]]:
+    """Read the panels a manifest asks to fill from a source.
+
+    A panel names a URL that answers JSON, the path to the list in that answer,
+    and the two fields to count by. Everything is checked here, against the
+    defaults the manifest also declares, so a panel that could not work is
+    dropped at install time rather than discovered on a game page.
+
+    Args:
+        raw: The manifest's `facts` value.
+        plugin_id: The plugin the panels belong to.
+        defaults: One value per setting the manifest declares.
+        settings: The settings themselves, for validating a panel's gate.
+
+    Returns:
+        tuple[list[PluginFactSummarySchema], list[PluginFactSpec]]: What the UI
+            is told about, and what the server needs to fill them.
+    """
+    if not isinstance(raw, list):
+        return [], []
+
+    summaries: list[PluginFactSummarySchema] = []
+    specs: list[PluginFactSpec] = []
+    for raw_fact in raw[:MAX_FACTS]:
+        if not isinstance(raw_fact, dict) or len(specs) >= MAX_FACTS:
+            continue
+        fact_id = _slug(raw_fact.get("id"))
+        label = _text(raw_fact.get("label"), MAX_LABEL_LENGTH)
+        url = raw_fact.get("url")
+        list_path = raw_fact.get("list_path")
+        if not fact_id or not label or not isinstance(url, str):
+            log.warning(f"Plugins: {plugin_id} has a panel with no id, label or url")
+            continue
+        if not isinstance(list_path, str) or not PATH_PATTERN.match(list_path):
+            log.warning(f"Plugins: {plugin_id}.{fact_id} names no usable list_path")
+            continue
+        # Judged on its defaults, like an action's URL: a panel whose default
+        # address is not fetchable cannot start working by being installed.
+        reason = _url_refusal(_with_defaults(url, defaults))
+        if reason:
+            log.warning(f"Plugins: {plugin_id}.{fact_id} source refused: {reason}")
+            continue
+
+        query: dict[str, str] = {}
+        raw_query = raw_fact.get("query")
+        if isinstance(raw_query, dict):
+            for name, value in list(raw_query.items())[:8]:
+                if not isinstance(name, str) or not isinstance(
+                    value, (str, int, float)
+                ):
+                    continue
+                if not re.match(r"^[A-Za-z0-9_.-]{1,64}$", name):
+                    continue
+                query[name] = str(value)[:1024]
+
+        link = raw_fact.get("link")
+        if isinstance(link, str):
+            expanded = _with_defaults(link, defaults)
+            link = link if not _url_refusal(expanded) else None
+        else:
+            link = None
+
+        limit = raw_fact.get("limit")
+        if not isinstance(limit, int) or isinstance(limit, bool):
+            limit = 200
+        limit = max(1, min(limit, 500))
+
+        gate = raw_fact.get("enabled_by")
+        enabled_by = _slug(gate) if isinstance(gate, str) else None
+        if enabled_by is not None:
+            setting = next((s for s in settings if s.key == enabled_by), None)
+            if setting is None or setting.type != "boolean":
+                log.warning(
+                    f"Plugins: {plugin_id}.{fact_id} is switched by {enabled_by!r}, "
+                    "which is not a boolean setting"
+                )
+                enabled_by = None
+
+        slot = raw_fact.get("slot")
+        chosen: PluginSlot = slot if slot in SLOTS else DEFAULT_SLOT
+
+        specs.append(
+            PluginFactSpec(
+                id=fact_id,
+                label=label,
+                slot=chosen,
+                url=url,
+                query=query,
+                list_path=list_path,
+                group_by=str(raw_fact.get("group_by") or ""),
+                rating_field=str(raw_fact.get("rating_field") or ""),
+                link=link,
+                limit=limit,
+                enabled_by=enabled_by,
+            )
+        )
+        summaries.append(PluginFactSummarySchema(id=fact_id, label=label, slot=chosen))
+
+    return summaries, specs
 
 
 def _parse_action(
@@ -499,7 +678,8 @@ def install_plugin(
         raise PluginRefused("The manifest needs an 'id'")
 
     base = Path(PLUGINS_BASE_PATH)
-    plugin = _parse_plugin(manifest, base / folder_name)
+    parsed = _parse_plugin(manifest, base / folder_name)
+    plugin = parsed[0] if parsed else None
     if plugin is None:
         raise PluginRefused("The manifest is not a usable plugin")
 
@@ -527,6 +707,7 @@ def install_plugin(
         raise PluginRefused(f"Cannot write the manifest: {exc}") from exc
 
     _forget(base)
+    forget_all()
     log.info(f"Plugins: installed {plugin.id} from {'a URL' if url else 'a manifest'}")
     return plugin
 

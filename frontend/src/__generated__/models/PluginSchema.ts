@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { PluginActionSchema } from './PluginActionSchema';
+import type { PluginFactSummarySchema } from './PluginFactSummarySchema';
 import type { PluginSettingSchema } from './PluginSettingSchema';
 /**
  * A plugin manifest, as the UI reads it.
@@ -16,5 +17,6 @@ export type PluginSchema = {
     homepage?: (string | null);
     actions?: Array<PluginActionSchema>;
     settings?: Array<PluginSettingSchema>;
+    facts?: Array<PluginFactSummarySchema>;
 };
 

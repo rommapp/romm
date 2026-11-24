@@ -226,6 +226,10 @@ export type { PlaySessionIngestResponse } from './models/PlaySessionIngestRespon
 export type { PlaySessionIngestResult } from './models/PlaySessionIngestResult';
 export type { PlaySessionSchema } from './models/PlaySessionSchema';
 export type { PluginActionSchema } from './models/PluginActionSchema';
+export type { PluginFactGroupSchema } from './models/PluginFactGroupSchema';
+export type { PluginFactSchema } from './models/PluginFactSchema';
+export type { PluginFactSummarySchema } from './models/PluginFactSummarySchema';
+export type { PluginFactsSchema } from './models/PluginFactsSchema';
 export type { PluginInstallRequest } from './models/PluginInstallRequest';
 export type { PluginSchema } from './models/PluginSchema';
 export type { PluginSettingOptionSchema } from './models/PluginSettingOptionSchema';
