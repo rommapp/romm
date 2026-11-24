@@ -109,8 +109,14 @@ export function formatBytes(bytes: number, decimals = 2) {
   const k = 1024;
   const dm = Math.max(0, decimals);
   const sizes = ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+  let i = Math.floor(Math.log(bytes) / Math.log(k));
+  let value = parseFloat((bytes / Math.pow(k, i)).toFixed(dm));
+  // Rounding can land on 1024 ("1024 KB"); report it in the next unit instead.
+  if (value >= k && i < sizes.length - 1) {
+    i += 1;
+    value = parseFloat((bytes / Math.pow(k, i)).toFixed(dm));
+  }
+  return `${value} ${sizes[i]}`;
 }
 
 /**
