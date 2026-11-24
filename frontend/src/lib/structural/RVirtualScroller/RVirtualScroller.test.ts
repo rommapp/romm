@@ -335,4 +335,22 @@ describe("RVirtualScroller pageScroll", () => {
     scrollTo.mockRestore();
     wrapper.unmount();
   });
+
+  it("jumps instead of smooth scrolling over more than three viewports", async () => {
+    const wrapper = await mountPage();
+    const scrollTo = vi
+      .spyOn(window, "scrollTo")
+      .mockImplementation(((opts: ScrollToOptions) =>
+        setPageScroll(opts.top ?? 0)) as typeof window.scrollTo);
+
+    // Row 30 sits 3000px down, six 500px viewports away.
+    wrapper.vm.scrollToIndex(30, { smooth: true });
+    expect(scrollTo).toHaveBeenLastCalledWith({
+      top: 3000,
+      behavior: "instant",
+    });
+    expect(wrapper.vm.scrollTop).toBe(3000);
+    scrollTo.mockRestore();
+    wrapper.unmount();
+  });
 });
