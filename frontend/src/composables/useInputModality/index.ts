@@ -9,10 +9,6 @@ import { readonly, ref } from "vue";
 export type InputModality = "mouse" | "touch" | "key" | "pad";
 
 const modality = ref<InputModality>("mouse");
-// A tap is followed by compatibility mouse events, which would flip the
-// modality straight back to mouse and resize every touch-sized control.
-const MOUSE_AFTER_TOUCH_MS = 700;
-let lastTouchAt = 0;
 let installed = false;
 let teardown: (() => void) | null = null;
 let pinned: InputModality | null = null;
@@ -61,30 +57,20 @@ export function useInputModality() {
 
     applyAttribute(modality.value);
 
-    // Mouse handlers: split because, once the user is on a gamepad,
-    // we want the mouse to "disappear": tiny accidental nudges of a
-    // couch-side mouse shouldn't paint hover states on top of the
-    // focused tile. Only a deliberate click (mousedown) flips the
-    // modality back to mouse; mousemove / wheel are ignored while
-    // in pad mode.
-    const fromTouch = () =>
-      performance.now() - lastTouchAt < MOUSE_AFTER_TOUCH_MS;
-    const onMouseMove = () => {
-      if (modality.value === "pad" || fromTouch()) return;
+    // Pointer events, not mouse events: a tap also fires mouse events, but
+    // its pointer events report `touch`.
+    const onPointerMove = (e: PointerEvent) => {
+      if (e.pointerType === "touch" || modality.value === "pad") return;
       setModality("mouse");
     };
-    const onMouseDown = () => {
-      if (fromTouch()) return;
-      setModality("mouse");
+    const onPointerDown = (e: PointerEvent) => {
+      setModality(e.pointerType === "touch" ? "touch" : "mouse");
     };
     const onWheel = () => {
-      if (modality.value === "pad" || fromTouch()) return;
+      if (modality.value === "pad") return;
       setModality("mouse");
     };
-    const onTouch = () => {
-      lastTouchAt = performance.now();
-      setModality("touch");
-    };
+    const onTouch = () => setModality("touch");
     const onKey = (e: KeyboardEvent) => {
       // useGamepad's synthetic arrows are pad input, not keyboard.
       if (!e.isTrusted) return;
@@ -99,8 +85,8 @@ export function useInputModality() {
     // removed, so the modality keeps tracking across a layout swap. Tearing
     // them down on the first installer's unmount would drop `data-input`
     // during the auth ↔ app transition.
-    window.addEventListener("mousemove", onMouseMove, { passive: true });
-    window.addEventListener("mousedown", onMouseDown, { passive: true });
+    window.addEventListener("pointermove", onPointerMove, { passive: true });
+    window.addEventListener("pointerdown", onPointerDown, { passive: true });
     window.addEventListener("wheel", onWheel, { passive: true });
     window.addEventListener("touchstart", onTouch, { passive: true });
     // Capture, so navigation handlers further down already see "key".
@@ -111,8 +97,8 @@ export function useInputModality() {
     // stacking a second set. In production this is never invoked: the
     // listeners are app-lifetime by design (see the note above).
     teardown = () => {
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("wheel", onWheel);
       window.removeEventListener("touchstart", onTouch);
       window.removeEventListener("keydown", onKey, { capture: true });
