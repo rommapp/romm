@@ -128,7 +128,7 @@ watch(
           rel="noopener noreferrer"
         >
           {{ t("settings.plugins-facts-all") }}
-          <RIcon icon="mdi-open-in-new" size="12" />
+          <RIcon icon="mdi-open-in-new" size="14" />
         </a>
       </header>
 
@@ -205,8 +205,8 @@ watch(
 }
 
 .plugin-facts__dot {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   flex: 0 0 auto;
 }

@@ -91,6 +91,58 @@ const actions = computed<PluginAction[]>(() => forSlot(props.slot));
   text-decoration: underline;
 }
 
+/* The action row's buttons are styled by the shared button's own stylesheet,
+   which is scoped to that component and cannot reach a button rendered here.
+   What a plugin adds therefore has to paint itself into the same row: the same
+   circle, the same glass, the same ladder, or it reads as bare glyphs beside
+   RomM's own. */
+.r-game-btn--action-plugin {
+  appearance: none;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--r-color-border-strong);
+  border-radius: 50%;
+  background: var(--r-color-surface);
+  color: var(--r-color-fg-secondary);
+  backdrop-filter: blur(20px);
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+
+.r-game-btn--action-plugin:hover {
+  background: var(--r-color-surface-hover);
+  color: var(--r-color-fg);
+}
+
+.r-game-btn--action-plugin.r-game-btn--default {
+  width: 40px;
+  height: 40px;
+}
+
+.r-game-btn--action-plugin.r-game-btn--large {
+  width: 44px;
+  height: 44px;
+}
+
+.r-game-btn--action-plugin.r-game-btn--default .r-icon {
+  font-size: 20px;
+}
+
+.r-game-btn--action-plugin.r-game-btn--large .r-icon {
+  font-size: 22px;
+}
+
+.r-game-btn--action-plugin .r-game-btn__img {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+}
+
 .plugin-slot__logo {
   width: 18px;
   height: 18px;
