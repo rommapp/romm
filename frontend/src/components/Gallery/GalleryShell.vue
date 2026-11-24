@@ -69,8 +69,12 @@ import { useGallerySelectAll } from "@/composables/useGallerySelectAll";
 import { useGallerySelectionInput } from "@/composables/useGallerySelectionInput";
 import { useGalleryViewModeUrl } from "@/composables/useGalleryViewModeUrl";
 import {
+  currentLetterIn,
+  lettersInRange,
+  settleLetterPick,
   useGalleryVirtualItems,
   type GalleryItem,
+  type LetterPick,
 } from "@/composables/useGalleryVirtualItems";
 import { useGridNav } from "@/composables/useGridNav";
 import { useListExpansion } from "@/composables/useListExpansion";
@@ -586,34 +590,28 @@ watchEffect(() => {
   });
 });
 
-const visibleLettersSet = computed<Set<string>>(() => {
-  const set = new Set<string>();
-  const r = viewportRange.value;
-  if (r.last < r.first) return set;
-  const items = virtualItems.value;
-  for (let i = r.first; i <= r.last; i++) {
-    const it = items[i];
-    if (!it) continue;
-    if (it.kind === "letter-header") set.add(it.letter);
-    else if (it.kind === "row") for (const l of it.letters) set.add(l);
-    else if (it.kind === "list-row") set.add(it.letter);
-  }
-  return set;
-});
+const visibleLettersSet = computed(() =>
+  lettersInRange(
+    virtualItems.value,
+    viewportRange.value.first,
+    viewportRange.value.last,
+  ),
+);
 
-const currentLetter = computed<string>(() => {
-  const r = viewportRange.value;
-  if (r.last < r.first) return "";
-  const items = virtualItems.value;
-  for (let i = r.first; i <= r.last; i++) {
-    const it = items[i];
-    if (!it) continue;
-    if (it.kind === "letter-header") return it.letter;
-    if (it.kind === "row" && it.letters.length > 0) return it.letters[0]!;
-    if (it.kind === "list-row") return it.letter;
-  }
-  return "";
+const currentLetter = computed(() =>
+  currentLetterIn(visibleLettersSet.value, letterPick.value),
+);
+watch(visibleLettersSet, (visible) => {
+  // Rows re-packing under a settling jump can leave the range a step behind.
+  if (jumpLetter.value && !visible.has(jumpLetter.value)) return;
+  letterPick.value = settleLetterPick(letterPick.value, visible);
 });
+watch(
+  () => galleryRoms.resultEpoch,
+  () => {
+    letterPick.value = null;
+  },
+);
 
 // Viewport-driven windowed fetch. The shell collects which positions are
 // currently visible (from the rows in `viewportRange`, for both grid and
@@ -681,6 +679,16 @@ watch(virtualItems, async (_items, _prev, onCleanup) => {
 const LETTER_JUMP_MAX_MS = 15000;
 const jumpLetter = ref<string | null>(null);
 let jumpDeadline = 0;
+const letterPick = ref<LetterPick | null>(null);
+// The watcher above holds the pick while a jump settles; settle it once the jump ends.
+watch(jumpLetter, (letter) => {
+  if (!letter) {
+    letterPick.value = settleLetterPick(
+      letterPick.value,
+      visibleLettersSet.value,
+    );
+  }
+});
 
 function anchorLetter(letter: string, smooth: boolean) {
   const idx = letterToIndex.value.get(letter);
@@ -728,6 +736,7 @@ function commitRefresh(apply: () => boolean): Promise<void> {
 }
 
 function scrollToLetter(letter: string) {
+  letterPick.value = { letter, shown: visibleLettersSet.value.has(letter) };
   jumpLetter.value = letter;
   jumpDeadline = Date.now() + LETTER_JUMP_MAX_MS;
   anchorLetter(letter, true);

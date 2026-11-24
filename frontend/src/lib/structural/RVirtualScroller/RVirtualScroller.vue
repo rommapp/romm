@@ -320,6 +320,8 @@ watch(
   { immediate: true },
 );
 
+const SMOOTH_SCROLL_MAX_VIEWPORTS = 3;
+
 interface ScrollToIndexOptions {
   smooth?: boolean;
   /** Pixels of viewport to leave above the target item: typically the
@@ -338,7 +340,10 @@ function scrollToIndex(index: number, options: ScrollToIndexOptions = {}) {
   // The item's flow top in the scroller is `innerOffsetTop + itemTop`.
   // Subtract the sticky band so the row lands below it.
   const target = Math.max(0, innerOffsetTop.value + itemTop - stickyOffset);
-  if (options.smooth) {
+  // A long smooth scroll mounts every row it passes, which crashes the
+  // iOS Safari tab deep into a large gallery.
+  const maxSmooth = SMOOTH_SCROLL_MAX_VIEWPORTS * containerHeight.value;
+  if (options.smooth && Math.abs(target - scrollTop.value) <= maxSmooth) {
     scrollTarget()?.scrollTo({ top: target, behavior: "smooth" });
   } else {
     scrollTo(target);
