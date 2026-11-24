@@ -221,7 +221,7 @@ export function assignFlatRowLetters(
   return out;
 }
 
-/** Every letter the items in `[first, last]` cover. */
+/** Every letter the items in `[first, last]` cover, in screen order. */
 export function lettersInRange(
   items: readonly GalleryItem[],
   first: number,
@@ -238,24 +238,31 @@ export function lettersInRange(
   return set;
 }
 
-/** The jump menu's current letter: `picked` while the range still shows it.
- *  Otherwise it is the first letter in `[first, last]`. A picked letter often
- *  starts mid-row, after the tail of the letter before it. */
-export function currentLetterInRange(
-  items: readonly GalleryItem[],
-  first: number,
-  last: number,
-  picked: string | null,
+/** A letter picked in the jump menu, and whether it has reached the screen. */
+export interface LetterPick {
+  letter: string;
+  shown: boolean;
+}
+
+/** Drops a pick once its letter has been on screen and scrolled away. */
+export function settleLetterPick(
+  pick: LetterPick | null,
+  visible: ReadonlySet<string>,
+): LetterPick | null {
+  if (!pick) return null;
+  if (visible.has(pick.letter))
+    return pick.shown ? pick : { ...pick, shown: true };
+  return pick.shown ? null : pick;
+}
+
+/** The picked letter while it is on screen, because a jump often lands on a
+ *  row that starts with the letter before it. */
+export function currentLetterIn(
+  visible: ReadonlySet<string>,
+  pick: LetterPick | null,
 ): string {
-  if (picked && lettersInRange(items, first, last).has(picked)) return picked;
-  for (let i = first; i <= last; i++) {
-    const it = items[i];
-    if (!it) continue;
-    if (it.kind === "letter-header") return it.letter;
-    if (it.kind === "row" && it.letters.length > 0) return it.letters[0]!;
-    if (it.kind === "list-row") return it.letter;
-  }
-  return "";
+  if (pick && visible.has(pick.letter)) return pick.letter;
+  return visible.values().next().value ?? "";
 }
 
 export function useGalleryVirtualItems(opts: Options) {

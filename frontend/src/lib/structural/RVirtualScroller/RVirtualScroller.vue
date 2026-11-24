@@ -320,7 +320,6 @@ watch(
   { immediate: true },
 );
 
-// Beyond this distance a smooth `scrollToIndex` jumps instead.
 const SMOOTH_SCROLL_MAX_VIEWPORTS = 3;
 
 interface ScrollToIndexOptions {

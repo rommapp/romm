@@ -69,10 +69,12 @@ import { useGallerySelectAll } from "@/composables/useGallerySelectAll";
 import { useGallerySelectionInput } from "@/composables/useGallerySelectionInput";
 import { useGalleryViewModeUrl } from "@/composables/useGalleryViewModeUrl";
 import {
-  currentLetterInRange,
+  currentLetterIn,
   lettersInRange,
+  settleLetterPick,
   useGalleryVirtualItems,
   type GalleryItem,
+  type LetterPick,
 } from "@/composables/useGalleryVirtualItems";
 import { useGridNav } from "@/composables/useGridNav";
 import { useListExpansion } from "@/composables/useListExpansion";
@@ -597,13 +599,11 @@ const visibleLettersSet = computed(() =>
 );
 
 const currentLetter = computed(() =>
-  currentLetterInRange(
-    virtualItems.value,
-    viewportRange.value.first,
-    viewportRange.value.last,
-    pickedLetter.value,
-  ),
+  currentLetterIn(visibleLettersSet.value, letterPick.value),
 );
+watch(visibleLettersSet, (visible) => {
+  letterPick.value = settleLetterPick(letterPick.value, visible);
+});
 
 // Viewport-driven windowed fetch. The shell collects which positions are
 // currently visible (from the rows in `viewportRange`, for both grid and
@@ -671,8 +671,7 @@ watch(virtualItems, async (_items, _prev, onCleanup) => {
 const LETTER_JUMP_MAX_MS = 15000;
 const jumpLetter = ref<string | null>(null);
 let jumpDeadline = 0;
-// The last letter picked, the current letter while it stays on screen.
-const pickedLetter = ref<string | null>(null);
+const letterPick = ref<LetterPick | null>(null);
 
 function anchorLetter(letter: string, smooth: boolean) {
   const idx = letterToIndex.value.get(letter);
@@ -713,7 +712,7 @@ function commitRefresh(apply: () => boolean): Promise<void> {
   return resultsTransition.run(() => {
     if (!apply()) return false;
     endLetterJump();
-    pickedLetter.value = null;
+    letterPick.value = null;
     // A new result reads from its first row, not the old scroll depth.
     scrollerRef.value?.scrollTo(0);
     return true;
@@ -721,7 +720,7 @@ function commitRefresh(apply: () => boolean): Promise<void> {
 }
 
 function scrollToLetter(letter: string) {
-  pickedLetter.value = letter;
+  letterPick.value = { letter, shown: false };
   jumpLetter.value = letter;
   jumpDeadline = Date.now() + LETTER_JUMP_MAX_MS;
   anchorLetter(letter, true);
