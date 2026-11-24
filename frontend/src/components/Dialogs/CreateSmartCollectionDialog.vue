@@ -87,6 +87,7 @@ const openHandler = () => {
       filterPhysical: galleryFilter.filterPhysical,
       filterVerified: galleryFilter.filterVerified,
       selectedPlatforms: galleryFilter.selectedPlatforms,
+      platformsLogic: galleryFilter.platformsLogic,
       selectedGenres: galleryFilter.selectedGenres,
       genresLogic: galleryFilter.genresLogic,
       selectedFranchises: galleryFilter.selectedFranchises,

@@ -588,6 +588,43 @@ def test_get_roms_sorted_by_user_field_keeps_all_roms(
     assert [item["id"] for item in body["items"]] == [rom.id, never_played.id]
 
 
+def test_get_roms_filter_by_platforms_logic(
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+    platform: Platform,
+    other_platform: Platform,
+):
+    other_rom = make_rom(other_platform, "other_rom", fs_extension="gba")
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    response = client.get(
+        "/api/roms",
+        headers=headers,
+        params={"platform_ids": [platform.id], "platforms_logic": "none"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert {item["id"] for item in response.json()["items"]} == {other_rom.id}
+
+    response = client.get(
+        "/api/roms",
+        headers=headers,
+        params={
+            "platform_ids": [platform.id, other_platform.id],
+            "platforms_logic": "none",
+        },
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["items"] == []
+
+    response = client.get(
+        "/api/roms",
+        headers=headers,
+        params={"platform_ids": [platform.id], "platforms_logic": "all"},
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+
 def test_get_roms_filter_by_metadata_providers(
     client: TestClient, access_token: str, rom: Rom, platform: Platform
 ):

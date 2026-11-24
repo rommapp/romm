@@ -1,5 +1,6 @@
 {
   "age-rating": "年龄分级",
+  "attributes": "游戏信息",
   "browse-platform": "浏览 {platform}",
   "category": "分类",
   "change-view": "切换视图",
@@ -128,7 +129,6 @@
   "show-verified-only": "仅显示哈希已验证的ROM",
   "status": "状态",
   "tag": "标签",
-  "tags": "标签",
   "update-platform-failed": "更新平台失败：{error}",
   "updated": "平台已更新",
   "upload-firmware": "上传固件",

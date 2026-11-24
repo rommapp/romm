@@ -1,5 +1,6 @@
 {
   "age-rating": "Clasificare pe vârstă",
+  "attributes": "Atribute",
   "browse-platform": "Răsfoiește {platform}",
   "category": "Categorie",
   "change-view": "Schimbă vizualizarea",
@@ -128,7 +129,6 @@
   "show-verified-only": "Afișează doar ROM-uri cu hash verificat",
   "status": "Stare",
   "tag": "Etichetă",
-  "tags": "Etichete",
   "update-platform-failed": "Actualizarea platformei a eșuat: {error}",
   "updated": "Platformă actualizată",
   "upload-firmware": "Încarcă firmware",

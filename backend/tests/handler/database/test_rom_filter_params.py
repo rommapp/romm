@@ -66,6 +66,7 @@ class TestHasFilters:
 
     def test_a_logic_operator_alone_is_not_a_filter(self):
         assert RomFilterParams(genres_logic="all").has_filters() is False
+        assert RomFilterParams(platforms_logic="none").has_filters() is False
 
     def test_grouping_is_not_a_filter(self):
         # Grouping collapses matching rows; it does not change which ones match.
@@ -94,6 +95,11 @@ class TestScopeOnly:
         assert scoped.genres is None
         assert scoped.matched is None
 
+    def test_it_keeps_platform_exclusion(self):
+        params = RomFilterParams(platform_ids=[1], platforms_logic="none")
+
+        assert params.scope_only().platforms_logic == "none"
+
 
 class TestHasOnlyPlatformScope:
     @pytest.mark.parametrize(
@@ -106,6 +112,7 @@ class TestHasOnlyPlatformScope:
             (RomFilterParams(platform_ids=[1], search_term="mario"), False),
             (RomFilterParams(platform_ids=[1], collection_id=3), False),
             (RomFilterParams(collection_id=3), False),
+            (RomFilterParams(platform_ids=[1], platforms_logic="none"), False),
         ],
     )
     def test_only_platforms_count(self, params: RomFilterParams, expected: bool):

@@ -1,5 +1,6 @@
 {
   "age-rating": "Възрастова група",
+  "attributes": "Атрибути",
   "browse-platform": "Разгледай {platform}",
   "category": "Категория",
   "change-view": "Смени изгледа",
@@ -128,7 +129,6 @@
   "show-verified-only": "Покажи само ROM-ове с проверен хеш",
   "status": "Статус",
   "tag": "Таг",
-  "tags": "Тагове",
   "update-platform-failed": "Неуспешно обновяване на платформата: {error}",
   "updated": "Платформата е обновена",
   "upload-firmware": "Качи фърмуер",
