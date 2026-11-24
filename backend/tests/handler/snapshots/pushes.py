@@ -33,6 +33,16 @@ def md5(data: bytes) -> str:
     return hashlib.md5(data, usedforsecurity=False).hexdigest()
 
 
+def red_ram(changes: dict[int, int] | None = None) -> bytes:
+    """A 32 KiB Pokemon Red RAM with `changes` written in, its main-data checksum
+    (the complement of the 8-bit sum of 0x2598-0x3522, at 0x3523) valid."""
+    ram = bytearray((i * 31 + i // 97) & 0xFF for i in range(0x8000))
+    for offset, value in (changes or {}).items():
+        ram[offset] = value
+    ram[0x3523] = ~sum(ram[0x2598:0x3523]) & 0xFF
+    return bytes(ram)
+
+
 def stored_files(base: Path) -> list[Path]:
     return sorted(path for path in base.rglob("*") if path.is_file())
 

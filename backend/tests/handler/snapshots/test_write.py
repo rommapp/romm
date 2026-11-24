@@ -9,6 +9,7 @@ from fastapi import UploadFile as StarletteUploadFile
 from sqlalchemy import select, update
 from tests._embedded_archives import EMBEDDINGS, embedded_archive
 from tests._zipfile_shim import reload_zipfile
+from tests.factories import make_platform, make_rom
 from tests.handler.snapshots.pushes import (
     SRAM,
     STATE_A,
@@ -19,13 +20,14 @@ from tests.handler.snapshots.pushes import (
     part,
     push,
     push_save,
+    red_ram,
     save_entry,
     stored_bytes,
     stored_files,
 )
 
 from handler import asset_store
-from handler.database import db_snapshot_handler
+from handler.database import db_rom_handler, db_snapshot_handler
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_asset_handler
 from handler.filesystem.assets_handler import hash_zip_contents
@@ -979,6 +981,53 @@ async def test_a_clock_only_change_is_no_new_snapshot(
     if outcome == Outcome.UNCHANGED:
         assert result.snapshot.id == first.snapshot.id
         assert stored_files(_assets_dir) == files_before
+
+
+@pytest.mark.parametrize(
+    "offset,outcome",
+    [(0x0100, Outcome.UNCHANGED), (0x2600, Outcome.CREATED)],
+    ids=["sprite buffer", "main data"],
+)
+async def test_a_scratch_only_change_is_no_new_snapshot(
+    admin_user: User, offset: int, outcome: Outcome
+):
+    sigil = pytest.importorskip("sigil")
+    rom = make_rom(make_platform("gb"), "Pokemon Red")
+    rom_file = db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="Pokemon Red.gb",
+            file_path=rom.fs_path,
+            file_size_bytes=1024,
+            sha1_hash="b" * 40,
+            sigil_features=sigil.FEATURE_GB_SCRATCH_GEN1,
+        )
+    )
+    saved, changed = red_ram(), red_ram({offset: 0x5A})
+    first = await write_snapshot(
+        push(
+            admin_user,
+            rom,
+            rom_file,
+            Manifest(save=save_entry(saved, SaveFormat.NATIVE)),
+            expected=None,
+            parts={SAVE_PART: part(saved, "Pokemon Red.srm")},
+        )
+    )
+
+    result = await write_snapshot(
+        push(
+            admin_user,
+            rom,
+            rom_file,
+            Manifest(save=save_entry(changed, SaveFormat.NATIVE)),
+            expected=first.snapshot.id,
+            channel_id=first.snapshot.channel_id,
+            parts={SAVE_PART: part(changed, "Pokemon Red.srm")},
+        )
+    )
+
+    assert result.outcome == outcome
 
 
 async def test_the_same_save_in_another_form_makes_a_new_current(
