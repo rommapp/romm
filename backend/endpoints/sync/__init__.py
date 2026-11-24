@@ -41,6 +41,8 @@ from handler.sync.comparison import (
     compare_save_state,
     roms_to_check_for_removals,
 )
+from handler.sync.console.profiles import is_console
+from handler.sync.console.sync_handler import enqueue_console_sync
 from logger.logger import log
 from models.assets import Save
 from models.deleted_asset import DeletedAsset
@@ -675,6 +677,9 @@ def trigger_push_pull(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Sync is disabled for this device",
         )
+
+    if is_console(device):
+        return SyncSessionSchema.model_validate(enqueue_console_sync(device))
 
     # Create a session and enqueue the job
     sync_session = db_sync_session_handler.create_session(

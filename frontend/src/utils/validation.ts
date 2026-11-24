@@ -49,6 +49,17 @@ export function lengthBetween(min: number, max: number, msgKey?: string): Rule {
   };
 }
 
+export function integerBetween(min: number, max: number): Rule {
+  return (v) => {
+    const text = typeof v === "string" ? v.trim() : v;
+    const n = text == null || text === "" ? NaN : Number(text);
+    return (
+      (Number.isInteger(n) && n >= min && n <= max) ||
+      i18n.global.t("common.integer-range", { min, max })
+    );
+  };
+}
+
 export const usernameLength = lengthBetween(3, 255, "common.username-length");
 export const passwordLength = lengthBetween(6, 255, "common.password-length");
 

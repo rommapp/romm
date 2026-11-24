@@ -69,6 +69,7 @@
   "hide-password": "Passwort ausblenden",
   "home": "Startseite",
   "in-library": "In der Bibliothek",
+  "integer-range": "Gib eine ganze Zahl von {min} bis {max} ein",
   "invalid-email": "Ungültige E-Mail",
   "invalid-json": "Ungültiges JSON-Format",
   "invalid-relative-path": "Gib einen relativen Ordnerpfad ohne \"..\"-Segmente ein",

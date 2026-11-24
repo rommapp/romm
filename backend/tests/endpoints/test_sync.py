@@ -22,6 +22,7 @@ from handler.database import (
     db_sync_session_handler,
 )
 from handler.socket_handler import socket_handler
+from handler.sync.console import sync_handler as console_sync
 from models.assets import Save
 from models.device import Device, SyncMode
 from models.platform import Platform
@@ -788,6 +789,36 @@ class TestPushPullTrigger:
         assert data["device_id"] == device.id
         assert data["status"] == "PENDING"
         mock_queue.enqueue.assert_called_once()
+
+    def test_a_console_is_queued_with_the_console_timeout(
+        self, client, access_token: str, admin_user: User
+    ):
+        device = db_device_handler.add_device(
+            Device(
+                id="pp-console",
+                user_id=admin_user.id,
+                client="ps3",
+                sync_mode=SyncMode.PUSH_PULL,
+                sync_enabled=True,
+            )
+        )
+
+        with (
+            mock.patch("endpoints.sync.high_prio_queue") as push_pull_queue,
+            mock.patch.object(console_sync, "high_prio_queue") as console_queue,
+        ):
+            response = client.post(
+                f"/api/sync/devices/{device.id}/push-pull",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        push_pull_queue.enqueue.assert_not_called()
+        console_queue.enqueue.assert_called_once()
+        assert (
+            console_queue.enqueue.call_args.kwargs["job_timeout"]
+            == console_sync._LOCK_TTL_SECONDS
+        )
 
     def test_trigger_push_pull_wrong_mode(
         self, client, access_token: str, admin_user: User

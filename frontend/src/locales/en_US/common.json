@@ -69,6 +69,7 @@
   "hide-password": "Hide password",
   "home": "Home",
   "in-library": "In library",
+  "integer-range": "Enter a whole number from {min} to {max}",
   "invalid-email": "Invalid email",
   "invalid-json": "Invalid JSON format",
   "invalid-relative-path": "Enter a relative folder path without \"..\" segments",

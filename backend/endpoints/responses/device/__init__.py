@@ -55,3 +55,14 @@ class DeviceCreateResponse(BaseModel):
     device_id: str
     name: str | None
     created_at: UTCDatetime
+
+
+class ConsoleUserSchema(BaseModel):
+    id: str
+    name: str | None
+
+
+class ConsoleProbeResponse(BaseModel):
+    reachable: bool
+    is_ftp: bool
+    users: list[ConsoleUserSchema]

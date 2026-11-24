@@ -69,6 +69,7 @@
   "hide-password": "Dölj lösenord",
   "home": "Hem",
   "in-library": "I biblioteket",
+  "integer-range": "Ange ett heltal från {min} till {max}",
   "invalid-email": "Ogiltig e-postadress",
   "invalid-json": "Ogiltigt JSON-format",
   "invalid-relative-path": "Ange en relativ mappsökväg utan ”..”-segment",

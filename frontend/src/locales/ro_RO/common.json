@@ -69,6 +69,7 @@
   "hide-password": "Ascunde parola",
   "home": "Acasă",
   "in-library": "În bibliotecă",
+  "integer-range": "Introdu un număr întreg între {min} și {max}",
   "invalid-email": "Email invalid",
   "invalid-json": "Format JSON nevalid",
   "invalid-relative-path": "Introdu o cale relativă de folder fără segmente \"..\"",

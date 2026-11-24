@@ -22,6 +22,7 @@ from handler.database import (
 from handler.device_install import device_install_handler
 from handler.filesystem import get_fs_sync_handler
 from handler.socket_handler import close_client_token_sockets
+from handler.sync.console.profiles import is_console, is_console_client
 from logger.logger import log
 from models.audit_event import AuditAction
 from models.device import Device, SyncMode
@@ -29,6 +30,7 @@ from utils.auth import require_device, token_reaches_device
 from utils.client_tokens import record_token_event
 from utils.router import APIRouter
 
+from .consoles import router as consoles_router
 from .install import router as install_router
 
 router = APIRouter(
@@ -36,6 +38,7 @@ router = APIRouter(
     tags=["devices"],
 )
 
+router.include_router(consoles_router)
 router.include_router(install_router)
 
 # Flags a device reports about itself, such as {"remote_install": true}.
@@ -43,6 +46,17 @@ DeviceCapabilities = Annotated[
     dict[Annotated[str, StringConstraints(min_length=1, max_length=64)], StrictBool],
     Field(max_length=32),
 ]
+
+
+# Where a console is and what it syncs, which only the console routes validate.
+_CONSOLE_FIELDS = frozenset({"client", "ip_address", "sync_mode", "sync_config"})
+
+
+def _console_route_required() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Consoles are set up and changed through /api/devices/consoles",
+    )
 
 
 class DeviceCreatePayload(BaseModel):
@@ -101,6 +115,8 @@ def register_device(
     payload: DeviceCreatePayload,
 ) -> DeviceCreateResponse:
     """Register a device and return its ID."""
+    if is_console_client(payload.client):
+        raise _console_route_required()
     existing_device = None
     if not payload.allow_duplicate:
         existing_device = db_device_handler.get_device_by_fingerprint(
@@ -231,6 +247,10 @@ def update_device(
     device: Device | None = require_device(request, device_id)
 
     update_data = payload.model_dump(exclude_unset=True)
+    if (is_console(device) and _CONSOLE_FIELDS & update_data.keys()) or (
+        is_console_client(update_data.get("client"))
+    ):
+        raise _console_route_required()
     if update_data:
         device = db_device_handler.update_device(
             device_id=device_id,
