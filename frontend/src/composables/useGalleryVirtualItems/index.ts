@@ -238,9 +238,9 @@ export function lettersInRange(
   return set;
 }
 
-/** The jump menu's current letter: `picked` while the range still shows it,
- *  else the first letter in `[first, last]`. A picked letter often starts
- *  mid-row, after the tail of the letter before it. */
+/** The jump menu's current letter: `picked` while the range still shows it.
+ *  Otherwise it is the first letter in `[first, last]`. A picked letter often
+ *  starts mid-row, after the tail of the letter before it. */
 export function currentLetterInRange(
   items: readonly GalleryItem[],
   first: number,
