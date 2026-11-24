@@ -111,8 +111,13 @@ function topGroups(fact: PluginFactSchema): PluginFactSchema["groups"] {
           activator="parent"
           location="top"
           :max-width="340"
-          :hint="t('settings.plugins-facts-hint')"
-          hint-icon="mdi-open-in-new"
+          :close-delay="160"
+          interactive
+          :hint="
+            reportFor(action)!.link
+              ? undefined
+              : t('settings.plugins-facts-hint')
+          "
         >
           <div class="plugin-slot__report">
             <p class="plugin-slot__report-head">
@@ -152,6 +157,30 @@ function topGroups(fact: PluginFactSchema): PluginFactSchema["groups"] {
                 >
               </li>
             </ul>
+
+            <p
+              v-if="(reportFor(action)!.groups?.length ?? 0) > 3"
+              class="plugin-slot__report-more"
+            >
+              {{
+                t("settings.plugins-facts-more", {
+                  count: reportFor(action)!.groups!.length - 3,
+                })
+              }}
+            </p>
+
+            <!-- The pointer can travel into the tip, so the report is a real
+                 link there rather than an instruction to press the icon. -->
+            <a
+              v-if="reportFor(action)!.link"
+              class="plugin-slot__report-link"
+              :href="reportFor(action)!.link!"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {{ t("settings.plugins-facts-all") }}
+              <RIcon icon="mdi-open-in-new" size="13" />
+            </a>
           </div>
         </RTooltip>
       </template>
@@ -212,6 +241,26 @@ function topGroups(fact: PluginFactSchema): PluginFactSchema["groups"] {
 
 .plugin-slot__report-total {
   margin-inline-start: auto;
+}
+
+.plugin-slot__report-more {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+
+.plugin-slot__report-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
+  color: var(--r-color-fg);
+  font-size: 0.78rem;
+  text-decoration: none;
+}
+
+.plugin-slot__report-link:hover {
+  text-decoration: underline;
 }
 
 .plugin-slot__report-groups {

@@ -93,6 +93,10 @@ interface Props {
    *  tooltip would linger over whatever it opened. Set this only for a
    *  standalone info affordance whose sole purpose is to reveal the tip. */
   openOnTap?: boolean;
+  /** Keep the tip open while the pointer is inside it, so whatever it holds can
+   *  be clicked. Off by default: a tip that only names its activator should
+   *  leave the moment the pointer does. */
+  interactive?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -109,6 +113,7 @@ const props = withDefaults(defineProps<Props>(), {
   hint: undefined,
   hintIcon: undefined,
   openOnTap: false,
+  interactive: false,
 });
 
 const emit = defineEmits<{
@@ -179,6 +184,17 @@ function hide() {
   clearTimers();
   if (closeDelayMs.value <= 0) setOpen(false);
   else closeTimer.start();
+}
+
+// An interactive tip follows the pointer into its own body: the activator's
+// leave starts the close, the body's enter cancels it.
+function hold() {
+  if (!props.interactive) return;
+  clearTimers();
+  setOpen(true);
+}
+function release() {
+  if (props.interactive) hide();
 }
 
 const hasContent = computed(
@@ -402,9 +418,11 @@ const bodyStyle = computed(() => {
         v-if="isOpen && hasContent && !disabled"
         ref="floating"
         v-bind="$attrs"
-        :class="tooltipClasses"
+        :class="[tooltipClasses, { 'r-tooltip--interactive': interactive }]"
         :style="bodyStyle"
         role="tooltip"
+        @mouseenter="hold"
+        @mouseleave="release"
       >
         <slot>{{ text }}</slot>
         <span v-if="hint" class="r-tooltip__hint">
@@ -449,6 +467,12 @@ const bodyStyle = computed(() => {
     0 1px 2px color-mix(in srgb, black 40%, transparent);
   backdrop-filter: blur(18px);
   pointer-events: none;
+}
+
+/* A tip that holds something clickable has to be enterable; everything else
+   stays out of the pointer's way so it never eats a click meant for the page. */
+.r-tooltip--interactive {
+  pointer-events: auto;
 }
 
 /* Secondary affordance line under the main content: muted + smaller,

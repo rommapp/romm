@@ -57,10 +57,13 @@ export function usePluginFacts(getRom: () => SimpleRom | null | undefined) {
     loading.value = false;
   }
 
+  // The shelf may finish loading after the page does, so the watch is on both
+  // the game and whether there is anything to ask about: waiting only for the
+  // game would leave the buttons without their reports on a cold start.
   watch(
-    () => getRom()?.id,
-    (romId) => {
-      if (romId) void load(romId);
+    () => [getRom()?.id ?? null, pluginsWithFacts.value.length] as const,
+    ([romId, withFacts]) => {
+      if (romId && withFacts) void load(romId);
     },
     { immediate: true },
   );
