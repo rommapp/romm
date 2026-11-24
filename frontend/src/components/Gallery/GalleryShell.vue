@@ -602,6 +602,8 @@ const currentLetter = computed(() =>
   currentLetterIn(visibleLettersSet.value, letterPick.value),
 );
 watch(visibleLettersSet, (visible) => {
+  // Rows re-packing under a settling jump can leave the range a step behind.
+  if (jumpLetter.value && !visible.has(jumpLetter.value)) return;
   letterPick.value = settleLetterPick(letterPick.value, visible);
 });
 watch(
@@ -725,7 +727,7 @@ function commitRefresh(apply: () => boolean): Promise<void> {
 }
 
 function scrollToLetter(letter: string) {
-  letterPick.value = { letter, shown: false };
+  letterPick.value = { letter, shown: visibleLettersSet.value.has(letter) };
   jumpLetter.value = letter;
   jumpDeadline = Date.now() + LETTER_JUMP_MAX_MS;
   anchorLetter(letter, true);
