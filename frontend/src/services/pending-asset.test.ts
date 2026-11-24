@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import pendingAssetStore, {
+  claimPendingAsset,
   hasPendingAssets,
   pendingAssetId,
   pendingAssetKinds,
@@ -468,6 +469,62 @@ describe("syncPendingAssets", () => {
 
     expect(snapshotApiMocks.pushSnapshot).toHaveBeenCalledTimes(1);
     expect([...rows.keys()]).toEqual(["save:not-asked"]);
+  });
+
+  it("leaves a save claimed by a session in another tab", async () => {
+    queue({ id: "save:claimed" });
+    queue({ id: "save:unclaimed", romId: 2 });
+    vi.stubGlobal("navigator", {
+      locks: {
+        query: () =>
+          Promise.resolve({
+            held: [{ name: "romm-pending-asset:save:claimed" }],
+          }),
+      },
+    });
+
+    try {
+      await expect(syncPendingAssets()).resolves.toMatchObject({
+        synced: [{ kind: "save", romId: 2 }],
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+
+    expect(snapshotApiMocks.pushSnapshot).toHaveBeenCalledTimes(1);
+    expect([...rows.keys()]).toEqual(["save:claimed"]);
+  });
+
+  it("hands over a save once its claim is released", async () => {
+    vi.stubGlobal("navigator", {
+      locks: {
+        held: new Set<string>(),
+        async request(name: string, run: () => Promise<void>) {
+          this.held.add(name);
+          await run();
+          this.held.delete(name);
+        },
+        query() {
+          return Promise.resolve({
+            held: [...this.held].map((name) => ({ name })),
+          });
+        },
+      },
+    });
+    queue({ id: "save:released" });
+
+    try {
+      const release = claimPendingAsset("save:released");
+      await expect(syncPendingAssets()).resolves.toMatchObject({ synced: [] });
+      release();
+      await vi.waitFor(async () =>
+        expect(await syncPendingAssets()).toMatchObject({
+          synced: [{ kind: "save" }],
+        }),
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   // The newest capture has to land last, or the channel's current is stale.

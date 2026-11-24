@@ -54,6 +54,38 @@ export function pendingAssetId(romId: number): string {
   return `${romId}:${uuidv7()}`;
 }
 
+const CLAIM_LOCK_PREFIX = "romm-pending-asset:";
+
+/**
+ * Claims row `id` for a running session, so a pass in another tab leaves it to
+ * that session. Web Locks only exists in a secure context; elsewhere this is a no-op.
+ *
+ * Returns:
+ *   A function that releases the claim.
+ */
+export function claimPendingAsset(id: string): () => void {
+  const locks = globalThis.navigator?.locks;
+  if (!locks) return () => undefined;
+  let release: () => void = () => undefined;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  locks.request(CLAIM_LOCK_PREFIX + id, () => held).catch(() => undefined);
+  return release;
+}
+
+async function claimedIds(): Promise<Set<string>> {
+  const locks = globalThis.navigator?.locks;
+  if (!locks) return new Set();
+  const { held = [] } = await locks.query();
+  return new Set(
+    held
+      .map((lock) => lock.name ?? "")
+      .filter((name) => name.startsWith(CLAIM_LOCK_PREFIX))
+      .map((name) => name.slice(CLAIM_LOCK_PREFIX.length)),
+  );
+}
+
 // The rows are the player's unsynced progress, so an upgrade keeps them: it
 // only drops the stores this version has stopped using.
 function upgradeDatabase(request: IDBOpenDBRequest) {
@@ -328,10 +360,14 @@ export async function syncPendingAssets(
   const dropped: DroppedAsset[] = [];
   const owner = currentUserId();
   const send = heldPushSender();
+  // A session still playing pushes its own save; sending it from here would
+  // move the channel under that session and branch its next push.
+  const claimed = await claimedIds();
   // One row at a time, so a queue of large states is never all in memory.
   for (const { id } of await heldKeys(kinds)) {
     // Signing out mid-pass must not hand the rest to whoever signs in next.
     if (currentUserId() !== owner) break;
+    if (claimed.has(id)) continue;
     const entry = await withStore<StoredAsset>("readonly", (store) =>
       store.get(id),
     );

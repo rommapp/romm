@@ -29,7 +29,10 @@ import {
   sessionScreenshotFile,
 } from "@/services/api/save";
 import syncApi from "@/services/api/sync";
-import pendingAssetStore, { pendingAssetId } from "@/services/pending-asset";
+import pendingAssetStore, {
+  claimPendingAsset,
+  pendingAssetId,
+} from "@/services/pending-asset";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import storeHeartbeat from "@/stores/heartbeat";
@@ -243,6 +246,7 @@ let pendingSaveGeneration = -1;
 // One row per session: a save an earlier session never got through still owes
 // the server its own version, so this must not write over it.
 const pendingSaveId = pendingAssetId(romRef.value.id);
+const releasePendingSave = claimPendingAsset(pendingSaveId);
 function currentSlot(): string | undefined {
   return loadedSave?.slot || props.saveSlot || undefined;
 }
@@ -534,6 +538,7 @@ onBeforeUnmount(() => {
   uninstallAutoSaveSync();
   refreshStaleRomAssets();
   exitEmulatorOnce();
+  releasePendingSave();
   fullScreen.value = false;
   playing.value = false;
 });
