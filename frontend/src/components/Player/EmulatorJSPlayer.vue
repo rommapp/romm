@@ -73,6 +73,7 @@ import {
   labelContextMenuButton,
   createSaveSyncTracker,
   pollSaveFiles,
+  shouldAnnounceAutoSync,
   toArrayBuffer,
 } from "@/views/Player/emulatorJSRuntime";
 
@@ -273,8 +274,10 @@ async function forgetPendingSave() {
 // The tick re-offers a failed save every pass: each save the game writes is
 // announced once, not every retry of it.
 let heldBackSave: Uint8Array | null = null;
+let saveSyncedShownAt: number | null = null;
 function announceSaveHeldBack(saveFile: Uint8Array) {
   heldBackSave = saveFile;
+  saveSyncedShownAt = null;
   announceHeldBack("save", pendingSaveKept);
 }
 const HELD_BACK_MESSAGE = {
@@ -563,11 +566,15 @@ function installAutoSaveSync() {
       if (written) {
         retryBackoff.reset();
         heldBackSave = null;
-        displayMessage(t("play.save-synced"), {
-          duration: 3000,
-          tone: "success",
-          icon: "mdi-cloud-sync",
-        });
+        const now = Date.now();
+        if (shouldAnnounceAutoSync(saveSyncedShownAt, now)) {
+          saveSyncedShownAt = now;
+          displayMessage(t("play.save-synced"), {
+            duration: 3000,
+            tone: "success",
+            icon: "mdi-cloud-sync",
+          });
+        }
         return;
       }
       if (online) retryBackoff.failed();

@@ -165,6 +165,26 @@ export const SAVE_SYNC_POLL_MS = 1000;
 // Each tick copies and compares the whole SRAM, so the interval grows with it
 // past 1 MB (1 ms of work per second either way) rather than hitching big saves.
 const SAVE_SYNC_BYTES_PER_MS = 1024;
+/** Pokemon Gen 1 and 2 use SRAM as scratch space, so opening a menu uploads a
+ * save. The notice for an automatic upload shows at most once per window. */
+export const SAVE_SYNCED_NOTICE_INTERVAL_MS = 5 * 60 * 1000;
+
+/**
+ * Whether an automatic upload announces itself.
+ *
+ * Args:
+ *   lastShownAt: When the notice last showed, or null if it has not shown
+ *     since the session started or a save was held back.
+ *   now: The current time, in the same clock as `lastShownAt`.
+ */
+export function shouldAnnounceAutoSync(
+  lastShownAt: number | null,
+  now: number,
+): boolean {
+  return (
+    lastShownAt === null || now - lastShownAt >= SAVE_SYNCED_NOTICE_INTERVAL_MS
+  );
+}
 
 interface PollableEmulator {
   started: boolean;

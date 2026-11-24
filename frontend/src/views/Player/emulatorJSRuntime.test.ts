@@ -12,6 +12,8 @@ import {
   patchNetplaySocketIo,
   pollSaveFiles,
   resolveScreenshot,
+  SAVE_SYNCED_NOTICE_INTERVAL_MS,
+  shouldAnnounceAutoSync,
   writeArrayBuffersAsBytes,
 } from "./emulatorJSRuntime";
 
@@ -569,6 +571,30 @@ describe("installEJSDefaultOptionsTrap", () => {
         "crt-easymode.glslp",
       );
     });
+  });
+});
+
+describe("shouldAnnounceAutoSync", () => {
+  const shownAt = 1_000_000;
+
+  it("announces the first upload of a session", () => {
+    expect(shouldAnnounceAutoSync(null, shownAt)).toBe(true);
+  });
+
+  it("stays quiet until the window has passed", () => {
+    expect(shouldAnnounceAutoSync(shownAt, shownAt)).toBe(false);
+    expect(
+      shouldAnnounceAutoSync(
+        shownAt,
+        shownAt + SAVE_SYNCED_NOTICE_INTERVAL_MS - 1,
+      ),
+    ).toBe(false);
+  });
+
+  it("announces again once the window has passed", () => {
+    expect(
+      shouldAnnounceAutoSync(shownAt, shownAt + SAVE_SYNCED_NOTICE_INTERVAL_MS),
+    ).toBe(true);
   });
 });
 
