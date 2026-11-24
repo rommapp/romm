@@ -73,7 +73,6 @@ export function formatPlaytime(
   if (!seconds || seconds <= 0) return null;
   const hours = seconds / SECONDS_PER_HOUR;
   const minutes = Math.round(seconds / 60);
-  // 59m30s and over rounds to 60 minutes, which reads as an hour.
   if (minutes < 60) return minutes > 0 ? `${minutes}m` : null;
   return `${hourFormatter(locale, 1).format(Math.round(hours * 2) / 2)}h`;
 }
