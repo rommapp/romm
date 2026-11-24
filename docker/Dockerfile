@@ -7,6 +7,7 @@
 #   - sigil-build: Build sigil Python bindings (title ID extraction)
 #   - gme-build: Build libgme to WebAssembly (chiptune soundtracks)
 #   - rom-converto-fetch: Fetch the rom-converto CLI (ROM conversion and metadata)
+#   - s6-overlay-fetch: Fetch the s6-overlay process supervisor
 #   - emulator-stage: Fetch and extract emulators
 #   - nginx-build: Build nginx modules
 #   - production-stage: Setup frontend and backend
@@ -33,6 +34,10 @@ ARG EMSDK_AMD64_SHA256=744fb6a68941970951bacf9d6632041a0398260492232691ef22bbf54
 ARG EMSDK_ARM64_SHA256=369a4cb655aa1066e6e450dde774243c502d999b1d93fb4890a9d1428daa9280
 ARG GME_VERSION=0.6.5
 ARG GME_COMMIT=9e23d10f9fd2a6a2f33b10912dd8dc7153258995
+ARG S6_OVERLAY_VERSION=3.2.3.2
+ARG S6_OVERLAY_NOARCH_SHA256=5379750ed30a84bbd2e2dd74847ba6b5bd29cd0b2e3ea2ec58049b57eb2eda12
+ARG S6_OVERLAY_X86_64_SHA256=e6befcc96a437a3831386ecfc51808c5d3e939dc5fe3c02ae9284599e8aa2408
+ARG S6_OVERLAY_AARCH64_SHA256=b17f17a82e7a515c682a91edaf2ffdabb73f891981b6c1fd712115693a2f8b4c
 
 
 FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION}@${PYTHON_ALPINE_DIGEST} AS python-alias
@@ -186,6 +191,29 @@ RUN case "${TARGETARCH}" in \
     chmod 0755 /rom-converto
 
 
+# S6-OVERLAY
+FROM alpine:${ALPINE_VERSION}@${ALPINE_DIGEST} AS s6-overlay-fetch
+ARG TARGETARCH
+ARG S6_OVERLAY_VERSION
+ARG S6_OVERLAY_NOARCH_SHA256
+ARG S6_OVERLAY_X86_64_SHA256
+ARG S6_OVERLAY_AARCH64_SHA256
+RUN apk add --no-cache xz && \
+    case "${TARGETARCH}" in \
+        amd64) s6_arch="x86_64"; s6_sha="${S6_OVERLAY_X86_64_SHA256}" ;; \
+        arm64) s6_arch="aarch64"; s6_sha="${S6_OVERLAY_AARCH64_SHA256}" ;; \
+        *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac && \
+    s6_url="https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}" && \
+    wget -qO /tmp/s6-noarch.tar.xz "${s6_url}/s6-overlay-noarch.tar.xz" && \
+    echo "${S6_OVERLAY_NOARCH_SHA256}  /tmp/s6-noarch.tar.xz" | sha256sum -c - && \
+    wget -qO /tmp/s6-arch.tar.xz "${s6_url}/s6-overlay-${s6_arch}.tar.xz" && \
+    echo "${s6_sha}  /tmp/s6-arch.tar.xz" | sha256sum -c - && \
+    mkdir /s6-overlay && \
+    tar -C /s6-overlay -Jxpf /tmp/s6-noarch.tar.xz && \
+    tar -C /s6-overlay -Jxpf /tmp/s6-arch.tar.xz
+
+
 # FETCH EMULATORJS, RUFFLE, JS-DOS, FAKE-08 AND EASYRPG
 # Keep the pins below in sync with the dev image's copies in ../Dockerfile.
 # checkov:skip=CKV_DOCKER_4:every ADD below is a remote URL pinned by --checksum
@@ -328,8 +356,14 @@ RUN mkdir -p /var/www/html/assets/romm && \
 COPY ./backend /backend
 RUN python3 -m compileall -q /backend
 
-# Setup init script and config files
-COPY ./docker/init_scripts/* /
+# s6-overlay supervises every process in the container: ordered startup with
+# readiness gates, restart of anything that dies, and a bounded SIGTERM/SIGKILL
+# shutdown so a process that refuses to exit cannot strand PID 1.
+COPY --from=s6-overlay-fetch /s6-overlay/ /
+
+# Setup entrypoint, service definitions and config files
+COPY ./docker/init_scripts/docker-entrypoint.sh /docker-entrypoint.sh
+COPY ./docker/s6-overlay/ /etc/s6-overlay/
 COPY ./docker/nginx/js/ /etc/nginx/js/
 COPY ./docker/nginx/templates/ /etc/nginx/templates/
 COPY ./docker/nginx/default.conf /etc/nginx/nginx.conf
@@ -370,6 +404,14 @@ ENV SCREENSCRAPER_DEV_PASSWORD=${SCREENSCRAPER_DEV_PASSWORD}
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/backend
+
+# Exit the container when a startup step fails, instead of leaving it up and
+# serving nothing, so the restart policy can retry.
+ENV S6_BEHAVIOUR_IF_STAGE2_FAILS=2
+# Upper bounds on shutdown: how long a service gets after SIGTERM before s6
+# stops waiting, and how long anything still alive gets before SIGKILL.
+ENV S6_SERVICES_GRACETIME=10000
+ENV S6_KILL_GRACETIME=5000
 
 # Declare only the parent `/romm`, not its subdirs, so Docker keeps them 
 # on one mount (`st_dev`) and cross-directory `os.link()` hardlinks don't fail.

@@ -8,7 +8,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 NGINX_CONF = REPO_ROOT / "docker" / "nginx" / "default.conf"
 DOCKERFILE = REPO_ROOT / "docker" / "Dockerfile"
-INIT_SCRIPT = REPO_ROOT / "docker" / "init_scripts" / "init"
+GUNICORN_RUN = REPO_ROOT / "docker" / "s6-overlay" / "s6-rc.d" / "romm-gunicorn" / "run"
 ENV_TEMPLATE = REPO_ROOT / "env.template"
 
 # nginx's own default upstream keepalive_timeout, which gunicorn must outlive.
@@ -32,9 +32,9 @@ REQUIRED_GZIP_TYPES = [
 ]
 
 
-def _init_script_keepalive() -> int:
+def _gunicorn_keepalive() -> int:
     match = re.search(
-        r'--keep-alive "\$\{WEB_SERVER_KEEPALIVE:-(\d+)\}"', INIT_SCRIPT.read_text()
+        r'--keep-alive "\$\{WEB_SERVER_KEEPALIVE:-(\d+)\}"', GUNICORN_RUN.read_text()
     )
     assert match, "could not read the gunicorn --keep-alive default"
     return int(match.group(1))
@@ -79,25 +79,13 @@ def test_nginx_starts_without_the_njs_notice() -> None:
 
 
 def test_gunicorn_outlives_nginx_upstream_idle_timeout() -> None:
-    assert _init_script_keepalive() > NGINX_UPSTREAM_IDLE_TIMEOUT
+    assert _gunicorn_keepalive() > NGINX_UPSTREAM_IDLE_TIMEOUT
 
 
 def test_env_template_documents_the_same_keepalive_default() -> None:
     match = re.search(r"^WEB_SERVER_KEEPALIVE=(\d+)", ENV_TEMPLATE.read_text(), re.M)
     assert match, "env.template is missing WEB_SERVER_KEEPALIVE"
-    assert int(match.group(1)) == _init_script_keepalive()
-
-
-def test_init_script_records_the_rq_worker_pid_at_launch() -> None:
-    assert 'echo "$!" >"/tmp/${name}.pid"' in INIT_SCRIPT.read_text()
-
-
-def test_init_script_records_the_gunicorn_pid_at_launch() -> None:
-    """A slow start must not let the watchdog spawn a second gunicorn."""
-    assert re.search(
-        r'main:app &\n(?:\s*#.*\n)*\s*echo "\$!" >/tmp/gunicorn\.pid',
-        INIT_SCRIPT.read_text(),
-    )
+    assert int(match.group(1)) == _gunicorn_keepalive()
 
 
 def test_image_ships_compiled_bytecode() -> None:
@@ -108,10 +96,10 @@ def test_image_ships_compiled_bytecode() -> None:
     assert re.search(r"^RUN python3 -m compileall -q /backend$", dockerfile, re.M)
 
 
-def _init_script_trusted_proxies() -> str:
+def _gunicorn_trusted_proxies() -> str:
     match = re.search(
         r'--forwarded-allow-ips="\$\{FORWARDED_ALLOW_IPS:-([^}]+)\}"',
-        INIT_SCRIPT.read_text(),
+        GUNICORN_RUN.read_text(),
     )
     assert match, "could not read the gunicorn --forwarded-allow-ips default"
     return match.group(1)
@@ -119,7 +107,7 @@ def _init_script_trusted_proxies() -> str:
 
 def test_client_addresses_are_trusted_only_from_private_proxies() -> None:
     """A client can't choose its own address by sending X-Forwarded-For."""
-    trusted = _init_script_trusted_proxies().split(",")
+    trusted = _gunicorn_trusted_proxies().split(",")
 
     assert "*" not in trusted
     assert "127.0.0.1" in trusted
@@ -127,6 +115,6 @@ def test_client_addresses_are_trusted_only_from_private_proxies() -> None:
 
 def test_env_template_documents_the_same_trusted_proxies() -> None:
     assert (
-        f"FORWARDED_ALLOW_IPS={_init_script_trusted_proxies()} "
+        f"FORWARDED_ALLOW_IPS={_gunicorn_trusted_proxies()} "
         in ENV_TEMPLATE.read_text()
     )
