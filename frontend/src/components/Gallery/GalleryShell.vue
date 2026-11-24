@@ -680,6 +680,15 @@ const LETTER_JUMP_MAX_MS = 15000;
 const jumpLetter = ref<string | null>(null);
 let jumpDeadline = 0;
 const letterPick = ref<LetterPick | null>(null);
+// The watcher above holds the pick while a jump settles; settle it once the jump ends.
+watch(jumpLetter, (letter) => {
+  if (!letter) {
+    letterPick.value = settleLetterPick(
+      letterPick.value,
+      visibleLettersSet.value,
+    );
+  }
+});
 
 function anchorLetter(letter: string, smooth: boolean) {
   const idx = letterToIndex.value.get(letter);
