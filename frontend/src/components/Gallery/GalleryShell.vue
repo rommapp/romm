@@ -69,6 +69,8 @@ import { useGallerySelectAll } from "@/composables/useGallerySelectAll";
 import { useGallerySelectionInput } from "@/composables/useGallerySelectionInput";
 import { useGalleryViewModeUrl } from "@/composables/useGalleryViewModeUrl";
 import {
+  currentLetterInRange,
+  lettersInRange,
   useGalleryVirtualItems,
   type GalleryItem,
 } from "@/composables/useGalleryVirtualItems";
@@ -586,34 +588,22 @@ watchEffect(() => {
   });
 });
 
-const visibleLettersSet = computed<Set<string>>(() => {
-  const set = new Set<string>();
-  const r = viewportRange.value;
-  if (r.last < r.first) return set;
-  const items = virtualItems.value;
-  for (let i = r.first; i <= r.last; i++) {
-    const it = items[i];
-    if (!it) continue;
-    if (it.kind === "letter-header") set.add(it.letter);
-    else if (it.kind === "row") for (const l of it.letters) set.add(l);
-    else if (it.kind === "list-row") set.add(it.letter);
-  }
-  return set;
-});
+const visibleLettersSet = computed(() =>
+  lettersInRange(
+    virtualItems.value,
+    viewportRange.value.first,
+    viewportRange.value.last,
+  ),
+);
 
-const currentLetter = computed<string>(() => {
-  const r = viewportRange.value;
-  if (r.last < r.first) return "";
-  const items = virtualItems.value;
-  for (let i = r.first; i <= r.last; i++) {
-    const it = items[i];
-    if (!it) continue;
-    if (it.kind === "letter-header") return it.letter;
-    if (it.kind === "row" && it.letters.length > 0) return it.letters[0]!;
-    if (it.kind === "list-row") return it.letter;
-  }
-  return "";
-});
+const currentLetter = computed(() =>
+  currentLetterInRange(
+    virtualItems.value,
+    viewportRange.value.first,
+    viewportRange.value.last,
+    pickedLetter.value,
+  ),
+);
 
 // Viewport-driven windowed fetch. The shell collects which positions are
 // currently visible (from the rows in `viewportRange`, for both grid and
@@ -681,6 +671,8 @@ watch(virtualItems, async (_items, _prev, onCleanup) => {
 const LETTER_JUMP_MAX_MS = 15000;
 const jumpLetter = ref<string | null>(null);
 let jumpDeadline = 0;
+// The last letter picked, the current letter while it stays on screen.
+const pickedLetter = ref<string | null>(null);
 
 function anchorLetter(letter: string, smooth: boolean) {
   const idx = letterToIndex.value.get(letter);
@@ -721,6 +713,7 @@ function commitRefresh(apply: () => boolean): Promise<void> {
   return resultsTransition.run(() => {
     if (!apply()) return false;
     endLetterJump();
+    pickedLetter.value = null;
     // A new result reads from its first row, not the old scroll depth.
     scrollerRef.value?.scrollTo(0);
     return true;
@@ -728,6 +721,7 @@ function commitRefresh(apply: () => boolean): Promise<void> {
 }
 
 function scrollToLetter(letter: string) {
+  pickedLetter.value = letter;
   jumpLetter.value = letter;
   jumpDeadline = Date.now() + LETTER_JUMP_MAX_MS;
   anchorLetter(letter, true);

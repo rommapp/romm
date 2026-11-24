@@ -221,6 +221,43 @@ export function assignFlatRowLetters(
   return out;
 }
 
+/** Every letter the items in `[first, last]` cover. */
+export function lettersInRange(
+  items: readonly GalleryItem[],
+  first: number,
+  last: number,
+): Set<string> {
+  const set = new Set<string>();
+  for (let i = first; i <= last; i++) {
+    const it = items[i];
+    if (!it) continue;
+    if (it.kind === "letter-header") set.add(it.letter);
+    else if (it.kind === "row") for (const l of it.letters) set.add(l);
+    else if (it.kind === "list-row") set.add(it.letter);
+  }
+  return set;
+}
+
+/** The jump menu's current letter: `picked` while the range still shows it,
+ *  else the first letter in `[first, last]`. A picked letter often starts
+ *  mid-row, after the tail of the letter before it. */
+export function currentLetterInRange(
+  items: readonly GalleryItem[],
+  first: number,
+  last: number,
+  picked: string | null,
+): string {
+  if (picked && lettersInRange(items, first, last).has(picked)) return picked;
+  for (let i = first; i <= last; i++) {
+    const it = items[i];
+    if (!it) continue;
+    if (it.kind === "letter-header") return it.letter;
+    if (it.kind === "row" && it.letters.length > 0) return it.letters[0]!;
+    if (it.kind === "list-row") return it.letter;
+  }
+  return "";
+}
+
 export function useGalleryVirtualItems(opts: Options) {
   const skeletonRows = opts.skeletonRowCount ?? 4;
 
