@@ -238,7 +238,7 @@ function queueSaveWork<T>(work: () => Promise<T>): Promise<T> {
 let pendingSave: SessionFile | null = null;
 // A private window keeps nothing, and a notice must not promise it did.
 let pendingSaveKept = false;
-// A save held before a restore is still owed, so only one held since may be dropped.
+// Only a save held since the last restore may be dropped; an older one is still owed.
 let pendingSaveGeneration = -1;
 // One row per session: a save an earlier session never got through still owes
 // the server its own version, so this must not write over it.
@@ -311,7 +311,7 @@ function holdSave(
   generation = saveGeneration,
 ): Promise<void> {
   return queueSaveWork(async () => {
-    // The session keeps the device it is made with, so it waits for this one.
+    // The session keeps the device id it was created with, so registration comes first.
     await deviceReady;
     // Bytes already held keep the frame from when the game wrote them.
     if (generation !== saveGeneration || heldFor(pendingSave, saveFile)) return;
@@ -426,7 +426,7 @@ async function writeState({
   await pendingAssetStore.clear(pendingId);
   if (saveFile?.byteLength) {
     saveTracker.markUploaded(saveFile);
-    // The state carried this SRAM, so a copy held on the earlier base is not owed.
+    // The state push carried this SRAM, so the copy held on the older base needn't sync.
     if (heldFor(pendingSave, saveFile)) await forgetPendingSave();
   }
   return { written, kept: false };

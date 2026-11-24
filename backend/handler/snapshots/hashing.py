@@ -20,7 +20,7 @@ from logger.logger import log
 def _identity(content: bytes, platform_slug: str | None, features: int | None) -> str:
     binding = sigil_binding()
     sigil_platform = SIGIL_RESTORE_PLATFORM_SLUGS.get(platform_slug or "")
-    # A binding built before sigil had unit identities has a rule for no platform.
+    # A binding older than `unit_identity` falls back to the content hash.
     unit_identity = getattr(binding, "unit_identity", None)
     if unit_identity is not None and sigil_platform is not None:
         try:
