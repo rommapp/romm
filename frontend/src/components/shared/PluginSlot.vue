@@ -63,6 +63,64 @@ function bestTone(fact: PluginFactSchema): string {
 function topGroups(fact: PluginFactSchema): PluginFactSchema["groups"] {
   return (fact.groups ?? []).slice(0, 3);
 }
+
+// Best first: a source may hand its ratings over in any order, and a table
+// whose columns move between emulators cannot be read down.
+const RATING_ORDER = [
+  "perfect",
+  "great",
+  "playable",
+  "ingame",
+  "intro",
+  "loadable",
+  "poor",
+];
+
+/** The rating columns a tooltip shows, in canonical order: the union across the
+ *  emulators it names, so every row has the same columns and a column can be
+ *  read down. */
+function columns(fact: PluginFactSchema): string[] {
+  const seen = new Set<string>();
+  for (const group of topGroups(fact)) {
+    for (const rating of Object.keys(group.counts ?? {})) seen.add(rating);
+  }
+  return [...seen].sort(
+    (a, b) =>
+      RATING_ORDER.indexOf(a.trim().toLowerCase()) -
+      RATING_ORDER.indexOf(b.trim().toLowerCase()),
+  );
+}
+
+/** The grid a row wears: a name column, then one column per rating. Fixed
+ *  columns are the only way a chip for one emulator sits under the same chip for
+ *  the next, which is what makes the table readable down. */
+function gridStyle(fact: PluginFactSchema): Record<string, string> {
+  // `auto` sizes a column to its widest cell across the whole grid, so a column
+  // is as wide as the longest chip in it and every row starts where the last
+  // one did.
+  return {
+    gridTemplateColumns: `minmax(0, 6.5rem) repeat(${columns(fact).length}, auto)`,
+  };
+}
+
+/** How many reports the three named emulators leave out. */
+function hiddenReports(fact: PluginFactSchema): number {
+  const shown = (fact.groups ?? [])
+    .slice(0, 3)
+    .reduce((total, group) => total + (group.total ?? 0), 0);
+  return Math.max((fact.total ?? 0) - shown, 0);
+}
+
+function orderedRatings(
+  group: NonNullable<PluginFactSchema["groups"]>[number],
+): [string, number][] {
+  const entries = Object.entries(group.counts ?? {});
+  const rank = (rating: string) => {
+    const at = RATING_ORDER.indexOf(rating.trim().toLowerCase());
+    return at === -1 ? RATING_ORDER.length : at;
+  };
+  return entries.sort((a, b) => rank(a[0]) - rank(b[0]));
+}
 </script>
 
 <template>
@@ -110,77 +168,91 @@ function topGroups(fact: PluginFactSchema): PluginFactSchema["groups"] {
         <RTooltip
           activator="parent"
           location="top"
-          :max-width="340"
+          max-width="min(92vw, 640px)"
           :close-delay="160"
           interactive
-          :hint="
-            reportFor(action)!.link
-              ? undefined
-              : t('settings.plugins-facts-hint')
-          "
         >
-          <div class="plugin-slot__report">
-            <p class="plugin-slot__report-head">
+          <div class="report">
+            <header class="report__head">
               <span
-                class="plugin-slot__dot"
+                class="report__dot"
                 :class="`is-${bestTone(reportFor(action)!)}`"
               />
-              <span class="plugin-slot__report-label">{{ action.label }}</span>
-              <span
-                v-if="reportFor(action)!.total"
-                class="plugin-slot__report-total"
-                >{{
+              <span class="report__title">{{ action.label }}</span>
+              <span v-if="reportFor(action)!.total" class="report__total">
+                {{
                   t("settings.plugins-facts-reports", {
                     count: reportFor(action)!.total,
                   })
-                }}</span
-              >
-            </p>
+                }}
+              </span>
+            </header>
 
-            <p v-if="reportFor(action)!.note" class="plugin-slot__report-note">
+            <p v-if="reportFor(action)!.note" class="report__note">
               {{ reportFor(action)!.note }}
             </p>
 
-            <ul v-else class="plugin-slot__report-groups">
+            <ul
+              v-else
+              class="report__grid"
+              :style="gridStyle(reportFor(action)!)"
+            >
               <li
                 v-for="group in topGroups(reportFor(action)!)"
                 :key="group.key"
-                class="plugin-slot__report-group"
+                class="report__row"
               >
-                <b>{{ group.key }}</b>
+                <span class="report__name" :title="group.key">{{
+                  group.key
+                }}</span>
                 <span
-                  v-for="[rating, count] in Object.entries(group.counts ?? {})"
+                  v-for="rating in columns(reportFor(action)!)"
                   :key="rating"
-                  class="plugin-slot__rating"
-                  :class="`is-${toneFor(rating)}`"
-                  >{{ rating }} {{ count }}</span
+                  class="report__cell"
                 >
+                  <span
+                    v-if="group.counts?.[rating]"
+                    class="report__chip"
+                    :class="`is-${toneFor(rating)}`"
+                  >
+                    {{ rating }}<b>{{ group.counts[rating] }}</b>
+                  </span>
+                  <!-- A column that holds nothing still holds its place, so the
+                       table reads down rather than in a ragged edge. -->
+                  <span v-else class="report__gap">–</span>
+                </span>
               </li>
             </ul>
 
             <p
               v-if="(reportFor(action)!.groups?.length ?? 0) > 3"
-              class="plugin-slot__report-more"
+              class="report__note"
             >
               {{
                 t("settings.plugins-facts-more", {
                   count: reportFor(action)!.groups!.length - 3,
+                  reports: hiddenReports(reportFor(action)!),
                 })
               }}
             </p>
 
-            <!-- The pointer can travel into the tip, so the report is a real
-                 link there rather than an instruction to press the icon. -->
             <a
               v-if="reportFor(action)!.link"
-              class="plugin-slot__report-link"
+              class="report__link"
               :href="reportFor(action)!.link!"
               target="_blank"
               rel="noopener noreferrer"
             >
-              {{ t("settings.plugins-facts-all") }}
-              <RIcon icon="mdi-open-in-new" size="13" />
+              {{
+                t("settings.plugins-facts-all-count", {
+                  count: reportFor(action)!.total,
+                })
+              }}
+              <RIcon icon="mdi-arrow-top-right" size="14" />
             </a>
+            <p v-else class="report__note">
+              {{ t("settings.plugins-facts-hint") }}
+            </p>
           </div>
         </RTooltip>
       </template>
@@ -211,108 +283,153 @@ function topGroups(fact: PluginFactSchema): PluginFactSchema["groups"] {
   text-decoration: underline;
 }
 
-/* The tooltip that stands in for the report. It is a small table, so it reads
-   in the same order every time: who, then how it rated. */
-.plugin-slot__report {
+/* The tooltip that stands in for the report: a small table, not a paragraph.
+   A fixed name column and a fixed order for the chips is what makes three
+   emulators comparable at a glance instead of three sentences. */
+.report {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  min-width: 240px;
+  gap: 10px;
+  min-width: 288px;
 }
 
-.plugin-slot__report-head {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin: 0;
-  font-size: 0.85rem;
-}
-
-.plugin-slot__report-label {
-  font-weight: 600;
-}
-
-.plugin-slot__report-total,
-.plugin-slot__report-note {
-  color: var(--muted-foreground);
-  font-size: 0.78rem;
-  margin: 0;
-}
-
-.plugin-slot__report-total {
-  margin-inline-start: auto;
-}
-
-.plugin-slot__report-more {
-  margin: 0;
-  color: var(--muted-foreground);
-  font-size: 0.75rem;
-}
-
-.plugin-slot__report-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  align-self: flex-start;
-  color: var(--r-color-fg);
-  font-size: 0.78rem;
-  text-decoration: none;
-}
-
-.plugin-slot__report-link:hover {
-  text-decoration: underline;
-}
-
-.plugin-slot__report-groups {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: 0.78rem;
-}
-
-.plugin-slot__report-group {
+.report__head {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.plugin-slot__report-group b {
-  min-width: 74px;
+.report__title {
+  font-size: 0.88rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.report__total {
+  margin-inline-start: auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--r-color-tooltip-fg) 10%, transparent);
+  color: var(--r-color-tooltip-fg);
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+
+.report__note {
+  margin: 0;
+  color: var(--r-color-tooltip-fg);
+  opacity: 0.62;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+/* One grid for the whole table, with each row flattened into it: that is what
+   makes a chip sit under the same chip on the row above. */
+.report__grid {
+  display: grid;
+  align-items: center;
+  gap: 0 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.report__row {
+  display: contents;
+}
+
+.report__name {
+  overflow: hidden;
+  padding: 6px 0;
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--r-color-tooltip-fg) 8%, transparent);
+  font-size: 0.79rem;
   font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.plugin-slot__rating {
-  padding: 0 5px;
-  border-radius: 5px;
-  background: color-mix(in srgb, currentColor 14%, transparent);
+.report__gap {
+  color: var(--r-color-tooltip-fg);
+  font-size: 0.74rem;
+  opacity: 0.16;
 }
 
-.plugin-slot__dot {
+.report__cell {
+  display: flex;
+  padding: 6px 0;
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--r-color-tooltip-fg) 8%, transparent);
+}
+
+/* The last row's cells sit on the tooltip's own edge: no rule under it. */
+.report__row:last-child .report__name,
+.report__row:last-child .report__cell {
+  border-bottom: 0;
+}
+
+.report__chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 2px 7px;
+  border-radius: 7px;
+  /* Tinted by the rating's own colour, at a weight that keeps the label legible
+     against the tooltip's near-black: the tone reads, the text still reads. */
+  background: color-mix(in srgb, currentColor 18%, transparent);
+  font-size: 0.74rem;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.report__chip b {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.report__link {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 -6px -2px;
+  padding: 7px 6px 3px;
+  border-top: 1px solid
+    color-mix(in srgb, var(--r-color-tooltip-fg) 12%, transparent);
+  color: var(--r-color-tooltip-fg);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.report__link:hover {
+  color: var(--r-color-tooltip-fg);
+  text-decoration: underline;
+}
+
+.report__dot {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
   flex: 0 0 auto;
+  border-radius: 50%;
   background: currentColor;
 }
 
-.plugin-slot__dot.is-great,
-.plugin-slot__rating.is-great {
+.report__dot.is-great,
+.report__chip.is-great {
   color: #3fbf6f;
 }
-.plugin-slot__dot.is-good,
-.plugin-slot__rating.is-good {
+.report__dot.is-good,
+.report__chip.is-good {
   color: #8fd14f;
 }
-.plugin-slot__dot.is-mixed,
-.plugin-slot__rating.is-mixed {
-  color: #e0b341;
+.report__dot.is-mixed,
+.report__chip.is-mixed {
+  color: #f0c25a;
 }
-.plugin-slot__dot.is-bad,
-.plugin-slot__rating.is-bad {
-  color: #d9534f;
+.report__dot.is-bad,
+.report__chip.is-bad {
+  color: #f2726a;
 }
 
 /* The action row's buttons are styled by the shared button's own stylesheet,
