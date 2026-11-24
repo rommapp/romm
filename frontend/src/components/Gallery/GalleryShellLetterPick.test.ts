@@ -104,6 +104,17 @@ describe("GalleryShell jump menu letter", () => {
     expect(shell.current()).toBe("T");
   });
 
+  it("drops an offscreen pick when the jump ends", async () => {
+    const shell = await mountShell();
+    await shell.pick("T");
+    await shell.show(6, 13);
+    await shell.show(22, 27);
+    await shell.userScroll();
+    await shell.show(6, 13);
+
+    expect(shell.current()).toBe("S");
+  });
+
   it("drops the pick once its letter scrolls away", async () => {
     const shell = await mountShell();
     await shell.pick("T");
