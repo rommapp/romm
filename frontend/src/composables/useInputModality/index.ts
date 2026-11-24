@@ -57,9 +57,8 @@ export function useInputModality() {
 
     applyAttribute(modality.value);
 
-    // Pointer events, not mouse events: a tap's compatibility mouse events
-    // would flip the modality back to mouse, but its pointer events say
-    // `touch`. In pad mode only a click (not a nudge) brings the mouse back.
+    // Pointer events, not mouse events: a tap also fires mouse events, but
+    // its pointer events report `touch`.
     const onPointerMove = (e: PointerEvent) => {
       if (e.pointerType === "touch" || modality.value === "pad") return;
       setModality("mouse");
