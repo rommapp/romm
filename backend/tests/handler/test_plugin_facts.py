@@ -14,6 +14,7 @@ from handler.plugin_facts import (
     PluginFactSpec,
     expand_query,
     fill_fact,
+    link_for,
     refused_source,
     source_url,
     still_worth_drawing,
@@ -122,6 +123,29 @@ def test_a_panel_that_narrows_nothing_is_not_narrowed() -> None:
 
     assert applied is False
     assert narrowing == {}
+
+
+def test_a_narrowed_panel_links_to_the_narrowed_report() -> None:
+    narrow_spec = spec(
+        link="https://example.com/listings?search={rom_name}",
+        narrow_link="https://example.com/listings?search={rom_name}&deviceIds={setting.handheld}",
+    )
+
+    assert link_for(narrow_spec, True).endswith("deviceIds={setting.handheld}")
+    assert (
+        link_for(narrow_spec, False) == "https://example.com/listings?search={rom_name}"
+    )
+
+
+def test_a_panel_without_a_narrowed_link_keeps_the_one_it_has() -> None:
+    plain = spec(link="https://example.com/listings?search={rom_name}")
+
+    assert link_for(plain, True) == "https://example.com/listings?search={rom_name}"
+    assert link_for(plain, False) == "https://example.com/listings?search={rom_name}"
+
+
+def test_a_panel_with_no_link_at_all_says_nothing() -> None:
+    assert link_for(spec(), True) is None
 
 
 def test_a_source_is_asked_for_once_per_answer(source: list[str]) -> None:

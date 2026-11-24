@@ -258,12 +258,15 @@ answer, and the two fields to count by.
 | `list_path`                | Dotted path to the list in the answer.                                                                                     |
 | `group_by`, `rating_field` | The two fields counted: one row per value of `group_by`, one column per value of `rating_field`.                           |
 | `link`                     | Where a reader can see the whole report.                                                                                   |
+| `narrow_link`              | Where a reader goes when the panel is narrowed, so the page they land on asks the same question.                           |
 | `limit`                    | How many entries are counted, 500 at most.                                                                                 |
 
 `narrow` is how a panel answers a question about the user rather than about
 everyone: the settings it names are filled in like any other template, and while
 one of them is unanswered the block is skipped entirely and `query` is sent
-instead. A question the user has not answered is not a filter.
+instead. A question the user has not answered is not a filter. `narrow_link`
+follows the same rule, so the report a reader opens from a narrowed panel is
+narrowed too.
 
 ## Schemes
 

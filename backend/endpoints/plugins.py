@@ -7,6 +7,7 @@ from handler.plugin_facts import (
     PluginFactSpec,
     expand_query,
     fill_fact,
+    link_for,
     narrowed_query,
     source_url,
     still_worth_drawing,
@@ -246,9 +247,12 @@ def get_plugin_facts(
                 }
             ),
         )
+        # The link follows the panel: a reader who is looking at their own
+        # handheld should land on the same question, not the general one.
+        target = link_for(spec, narrowed)
         link = (
-            expand_template(spec.link, values, settings, encode_rom=True)
-            if spec.link
+            expand_template(target, values, settings, encode_rom=True)
+            if target
             else None
         )
         filled.append(

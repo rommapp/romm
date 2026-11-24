@@ -494,6 +494,13 @@ def _parse_facts(
         else:
             link = None
 
+        narrow_link = raw_fact.get("narrow_link")
+        if isinstance(narrow_link, str):
+            expanded = _with_defaults(narrow_link, defaults)
+            narrow_link = narrow_link if not _url_refusal(expanded) else None
+        else:
+            narrow_link = None
+
         limit = raw_fact.get("limit")
         if not isinstance(limit, int) or isinstance(limit, bool):
             limit = 200
@@ -561,6 +568,7 @@ def _parse_facts(
                 enabled_by=enabled_by,
                 narrow=narrow,
                 scope=scope,
+                narrow_link=narrow_link,
             )
         )
         summaries.append(

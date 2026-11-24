@@ -80,6 +80,9 @@ class PluginFactSpec:
     narrow: dict[str, str] = field(default_factory=dict)
     # What to call the narrowing in the panel, when it was applied.
     scope: str | None = None
+    # Where to send a reader once the panel is narrowed: the same report, asked
+    # the same question, rather than the general one the panel has moved off.
+    narrow_link: str | None = None
 
 
 def refused_source(url: str) -> str | None:
@@ -352,6 +355,22 @@ def narrowed_query(
     return dict(spec.narrow), True
 
 
+def link_for(spec: PluginFactSpec, narrowed: bool) -> str | None:
+    """Where a reader goes to see the whole report.
+
+    Args:
+        spec: The panel's declaration.
+        narrowed: Whether the panel's numbers are narrowed to the user.
+
+    Returns:
+        str | None: The template to expand, which is the narrowed one when the
+            panel was narrowed and the manifest names one.
+    """
+    if narrowed and spec.narrow_link:
+        return spec.narrow_link
+    return spec.link
+
+
 def still_worth_drawing(spec: PluginFactSpec, settings: dict[str, Any]) -> bool:
     """Whether a panel's gate lets it be filled.
 
@@ -374,6 +393,7 @@ __all__ = [
     "expand_query",
     "fill_fact",
     "forget_all",
+    "link_for",
     "narrowed_query",
     "refused_source",
     "source_url",
