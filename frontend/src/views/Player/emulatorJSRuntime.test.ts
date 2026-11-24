@@ -620,6 +620,18 @@ describe("createSaveSyncTracker", () => {
     }
   });
 
+  it("starts the wait over once a capped upload goes through", () => {
+    const tracker = createSaveSyncTracker();
+    tracker.seed(server);
+    tracker.offer(a, 0);
+    tracker.offer(a, 1000);
+    expect(tracker.offer(a, SAVE_SYNC_MAX_WAIT_MS + 1000)).toBe("upload");
+    tracker.markUploaded(a);
+    const next = SAVE_SYNC_MAX_WAIT_MS + 1500;
+    expect(tracker.offer(b, next)).toBe("idle");
+    expect(tracker.offer(b, next + 1000)).toBe("hold");
+  });
+
   it("starts the wait over once the SRAM is back to what the server holds", () => {
     const tracker = createSaveSyncTracker();
     tracker.seed(server);

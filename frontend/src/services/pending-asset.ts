@@ -10,6 +10,7 @@ import { errorMessage } from "@/utils/errorMessage";
 import { openDb } from "@/utils/idb";
 import {
   heldPushSender,
+  madeSnapshot,
   type HeldPush,
 } from "@/utils/saveSync/snapshotSession";
 import { uuidv7 } from "@/utils/uuid";
@@ -265,6 +266,10 @@ async function settle(entry: StoredAsset): Promise<SyncedAsset> {
 /**
  * Args:
  *   send: The pass's sender, which chains pushes held on the same base.
+ *
+ * Returns:
+ *   The asset when the server made a snapshot of it or refused it for good,
+ *   else null: it failed and stays held, or the server already had it.
  */
 async function uploadPendingAsset(
   entry: StoredAsset,
@@ -276,8 +281,9 @@ async function uploadPendingAsset(
   }
 
   try {
-    await send(entry.held);
-    return await settle(entry);
+    const outcome = await send(entry.held);
+    const settled = await settle(entry);
+    return madeSnapshot(outcome) ? settled : null;
   } catch (error) {
     const reason = permanentRefusal(error);
     if (reason) return { ...(await settle(entry)), reason };

@@ -264,6 +264,7 @@ async function holdForLater(
 }
 async function rememberPendingSave(save: SessionFile) {
   pendingSave = save;
+  pendingSaveKept = false;
   pendingSaveKept = await holdForLater(pendingSaveId, "save", {
     kind: "save",
     save,
@@ -293,11 +294,7 @@ function announceHeldBack(kind: "save" | "state", kept: boolean) {
     icon: kept ? "mdi-cloud-clock-outline" : "mdi-cloud-off-outline",
   });
 }
-/**
- * Keeps a save the tick has not uploaded yet in the browser, with the frame
- * from when the game wrote it, so closing the tab before the upload loses
- * nothing.
- */
+/** Tries to keep an unsent save and its screenshot in the browser. */
 function holdSave(
   saveFile: Uint8Array,
   screenshotFile: ArrayBuffer | undefined,
@@ -569,6 +566,7 @@ function installAutoSaveSync() {
       return;
     const tick = saveTracker.offer(saveFile, performance.now());
     if (tick === "idle") return;
+    const generation = saveGeneration;
     // Down, the write makes no request, so only a server that answered with a
     // failure has anything to back off from.
     const online = heartbeatStore.connected;
@@ -581,13 +579,13 @@ function installAutoSaveSync() {
         ? undefined
         : await captureScreenshot();
       if (tick === "hold") {
-        await holdSave(saveFile, screenshotFile);
+        await holdSave(saveFile, screenshotFile, generation);
         return;
       }
-      const outcome = await writeSave({
-        saveFile: toArrayBuffer(saveFile),
-        screenshotFile,
-      });
+      const outcome = await writeSave(
+        { saveFile: toArrayBuffer(saveFile), screenshotFile },
+        generation,
+      );
       if (outcome) {
         retryBackoff.reset();
         heldBackSave = null;
@@ -749,7 +747,7 @@ async function loadSave(
 }
 
 // Progress the tick has not taken yet belongs to the save being left, so it
-// goes out (or is held) before a switch replaces the SRAM.
+// goes out (or is held) before a save switch or a state replaces the SRAM.
 async function uploadUnsyncedSave() {
   const emulator = autoSyncedEmulator();
   const saveFile = emulator ? unsyncedSave(emulator) : null;
@@ -760,7 +758,7 @@ async function uploadUnsyncedSave() {
   try {
     await writeSave({ saveFile: toArrayBuffer(saveFile), screenshotFile });
   } catch (error) {
-    console.error("Save sync before switching failed", error);
+    console.error("Save sync before replacing the SRAM failed", error);
   }
 }
 
@@ -822,6 +820,7 @@ async function applyState(state: Uint8Array) {
 }
 
 async function loadState(state: StateSchema) {
+  await uploadUnsyncedSave();
   // Raised before the download, since the picker resumes the game meanwhile.
   holdBackUntilStateApplied();
   try {
@@ -962,6 +961,7 @@ window.EJS_onGameStart = () => {
       window.EJS_emulator.storage.states
         .get(window.EJS_emulator.getBaseFileName() + ".state")
         .then(async (e: Uint8Array) => {
+          await uploadUnsyncedSave();
           await applyState(e);
           displayMessage(t("play.quick-state-loaded"), {
             duration: 3000,

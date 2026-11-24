@@ -143,6 +143,7 @@ export function createSaveSyncTracker() {
       lastUploaded = save;
       baseline = save;
       previousTick = save;
+      unsentSince = null;
     },
     // SRAM restored by a state or a fresh boot: the tick waits for a change,
     // but a forced write still persists it since the server has no copy.
@@ -150,6 +151,7 @@ export function createSaveSyncTracker() {
       lastUploaded = null;
       baseline = save;
       previousTick = save;
+      unsentSince = null;
     },
     /**
      * What this tick does with `save`: settled new bytes are held in the
@@ -187,6 +189,7 @@ export function createSaveSyncTracker() {
     markUploaded(save: Uint8Array) {
       lastUploaded = save;
       baseline = null;
+      unsentSince = null;
     },
     // Whether the server already holds these exact bytes.
     isUploaded(save: Uint8Array): boolean {

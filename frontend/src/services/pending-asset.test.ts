@@ -263,11 +263,27 @@ describe("syncPendingAssets", () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     snapshotApiMocks.pushSnapshot.mockResolvedValue({
       data: snapshotFixture({ id: 43 }),
+      status: 201,
     });
   });
 
   afterEach(() => {
     snapshotApiMocks.pushSnapshot.mockReset();
+  });
+
+  it("drops a held save the server already had without reporting it", async () => {
+    queue({ id: "save:already-held" });
+    snapshotApiMocks.pushSnapshot.mockResolvedValueOnce({
+      data: snapshotFixture({ id: 42 }),
+      status: 200,
+    });
+
+    await expect(syncPendingAssets()).resolves.toEqual({
+      synced: [],
+      dropped: [],
+    });
+    expect(snapshotApiMocks.pushSnapshot).toHaveBeenCalledTimes(1);
+    expect(rows.size).toBe(0);
   });
 
   it("pushes a held save onto the base it was held on", async () => {
