@@ -87,6 +87,7 @@ export default defineConfig(({ mode }) => {
     // `-webkit-` twin: Lightning CSS keeps only the last of the pair.
     css: {
       transformer: "lightningcss",
+      devSourcemap: true,
     },
     define: {
       "process.env": {},
