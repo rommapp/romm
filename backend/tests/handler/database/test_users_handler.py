@@ -120,7 +120,7 @@ class TestDeleteUser:
         # A restored dump puts the unique key first, so InnoDB checks the user with it.
         with sync_engine.connect() as conn:
             if not is_postgresql(conn):
-                conn.execute(text("OPTIMIZE TABLE play_sessions"))
+                conn.execute(text("ALTER TABLE play_sessions FORCE"))
         started = datetime.now(timezone.utc).replace(microsecond=0)
         for user in (admin_user, editor_user):
             device = db_device_handler.add_device(
