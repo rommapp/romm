@@ -304,7 +304,9 @@ def _parse_plugin(
             )
             action.enabled_by = None
 
-    summaries, specs = _parse_facts(raw.get("facts"), plugin_id, defaults, settings)
+    summaries, specs = _parse_facts(
+        raw.get("facts"), plugin_id, defaults, settings, action_ids
+    )
 
     return PluginSchema(
         id=plugin_id,
@@ -378,6 +380,7 @@ def _parse_facts(
     plugin_id: str,
     defaults: dict[str, Any],
     settings: list[PluginSettingSchema],
+    action_ids: set[str],
 ) -> tuple[list[PluginFactSummarySchema], list[PluginFactSpec]]:
     """Read the panels a manifest asks to fill from a source.
 
@@ -391,6 +394,8 @@ def _parse_facts(
         plugin_id: The plugin the panels belong to.
         defaults: One value per setting the manifest declares.
         settings: The settings themselves, for validating a panel's gate.
+        action_ids: The actions that parsed, so a panel can only explain one of
+            them.
 
     Returns:
         tuple[list[PluginFactSummarySchema], list[PluginFactSpec]]: What the UI
@@ -459,6 +464,18 @@ def _parse_facts(
         slot = raw_fact.get("slot")
         chosen: PluginSlot = slot if slot in SLOTS else DEFAULT_SLOT
 
+        # A panel may explain one action's button. Naming an action that does
+        # not exist is a manifest mistake, and a panel nobody can hover is not
+        # worth keeping the tie for.
+        action_ref = raw_fact.get("action")
+        action_id = _slug(action_ref) if isinstance(action_ref, str) else None
+        if action_id is not None and action_id not in action_ids:
+            log.warning(
+                f"Plugins: {plugin_id}.{fact_id} explains an action {action_id!r} "
+                "the manifest does not have"
+            )
+            action_id = None
+
         specs.append(
             PluginFactSpec(
                 id=fact_id,
@@ -470,11 +487,16 @@ def _parse_facts(
                 group_by=str(raw_fact.get("group_by") or ""),
                 rating_field=str(raw_fact.get("rating_field") or ""),
                 link=link,
+                action=action_id,
                 limit=limit,
                 enabled_by=enabled_by,
             )
         )
-        summaries.append(PluginFactSummarySchema(id=fact_id, label=label, slot=chosen))
+        summaries.append(
+            PluginFactSummarySchema(
+                id=fact_id, label=label, slot=chosen, action=action_id
+            )
+        )
 
     return summaries, specs
 

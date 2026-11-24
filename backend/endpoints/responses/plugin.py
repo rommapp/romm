@@ -59,14 +59,17 @@ class PluginActionSchema(BaseModel):
 class PluginFactSummarySchema(BaseModel):
     """A panel a plugin fills by asking its own server for data.
 
-    The UI needs to know that a panel exists and where it belongs; what it
-    fetches, and how, stays on the server, so a manifest's request cannot be
-    read back out of the plugin list.
+    The UI needs to know that a panel exists, where it belongs, and which action
+    it explains; what it fetches, and how, stays on the server, so a manifest's
+    request cannot be read back out of the plugin list.
     """
 
     id: str
     label: str
     slot: PluginSlot = "game.details"
+    # The action this panel is about, when the manifest ties them together. A
+    # button that opens a report can then show what the report says on hover.
+    action: str | None = None
 
 
 class PluginSchema(BaseModel):

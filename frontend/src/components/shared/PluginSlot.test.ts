@@ -6,6 +6,14 @@ import { usePluginStore } from "@/stores/plugins";
 import { romFixture } from "@/utils/rom.fixtures";
 import PluginSlot from "./PluginSlot.vue";
 
+vi.mock("vue-i18n", () => ({
+  useI18n: () => ({ t: (key: string) => key }),
+}));
+
+vi.mock("@/services/api/plugin", () => ({
+  default: { getFacts: vi.fn(async () => ({ data: { facts: [] } })) },
+}));
+
 const rom = romFixture({
   id: 42,
   name: "Luigi's Mansion",

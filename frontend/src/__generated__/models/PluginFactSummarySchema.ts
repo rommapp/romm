@@ -13,5 +13,6 @@ export type PluginFactSummarySchema = {
     id: string;
     label: string;
     slot?: 'game.details' | 'game.play' | 'app.nav' | 'settings.page';
+    action?: (string | null);
 };
 

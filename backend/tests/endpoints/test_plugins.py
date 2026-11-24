@@ -178,7 +178,12 @@ def test_the_plugin_list_says_a_panel_exists_without_its_source(
 
     plugin = response.json()[0]
     assert plugin["facts"] == [
-        {"id": "handheld", "label": "Handheld reports", "slot": "game.details"}
+        {
+            "id": "handheld",
+            "label": "Handheld reports",
+            "slot": "game.details",
+            "action": None,
+        }
     ]
     assert "secret-path" not in response.text
 

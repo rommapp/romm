@@ -62,6 +62,8 @@ class PluginFactSpec:
     group_by: str = ""
     rating_field: str = ""
     link: str | None = None
+    # The action this panel explains, if the manifest names one.
+    action: str | None = None
     limit: int = 200
     # Key of a boolean setting that must be on for the panel to be filled.
     enabled_by: str | None = None
