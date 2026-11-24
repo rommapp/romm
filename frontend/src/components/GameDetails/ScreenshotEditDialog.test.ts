@@ -23,7 +23,7 @@ const RSwitch = {
     @change="$emit('update:modelValue', $event.target.checked)"
   />`,
 };
-const RBtn = {
+const RButton = {
   props: { disabled: { type: Boolean, default: false } },
   emits: ["click"],
   template: `<button class="save" :disabled="disabled" @click="$emit('click')"><slot /></button>`,
@@ -32,7 +32,7 @@ const RBtn = {
 function mountDialog(props: Record<string, unknown> = {}) {
   return mount(ScreenshotEditDialog, {
     props: { modelValue: true, isPublic: false, ...props },
-    global: { stubs: { RDialog, RForm, RSwitch, RBtn } },
+    global: { stubs: { RDialog, RForm, RSwitch, RButton } },
   });
 }
 

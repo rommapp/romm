@@ -13,7 +13,7 @@ interface Props {
   title?: string | undefined;
   hint?: string | undefined;
   iconSize?: string | number;
-  /** Size ladder shared with RBtn / RChip / RTag. */
+  /** Size ladder shared with RButton / RChip / RTag. */
   size?: "x-small" | "small" | "default" | "large" | "x-large";
   /** `plain` drops the box for a surface that already frames it (a table body). */
   variant?: "boxed" | "plain";
@@ -78,7 +78,7 @@ withDefaults(defineProps<Props>(), {
   }
 }
 
-/* Size ladder: same vocabulary as RBtn/RChip/RTag/RTabNav. Ramps both
+/* Size ladder: same vocabulary as RButton/RChip/RTag/RTabNav. Ramps both
    the box padding and the title typography step. */
 .r-empty-state--x-small {
   padding: var(--r-space-4) var(--r-space-3);

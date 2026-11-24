@@ -3,7 +3,7 @@
 // the per-row RMenu count proportional to the viewport, not the library.
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { RBtn, RDivider, RIcon, RMenu, RMenuItem, RSpinner } from "@/lib";
+import { RButton, RDivider, RIcon, RMenu, RMenuItem, RSpinner } from "@/lib";
 import useMusicFavorites from "@/stores/musicFavorites";
 import { formatBytes } from "@/utils";
 import type { PanelTrack } from "@/utils/soundtrackTracks";
@@ -75,7 +75,7 @@ const isPending = computed(() => favorites.isPending(props.track.id));
       <span v-if="track.fileSizeBytes != null" class="r-stp__row-size">
         {{ formatBytes(track.fileSizeBytes) }}
       </span>
-      <RBtn
+      <RButton
         v-if="favoritable"
         class="r-stp__row-fav"
         :class="{ 'r-stp__row-fav--on': isFavorite }"
@@ -94,7 +94,7 @@ const isPending = computed(() => favorites.isPending(props.track.id));
       />
       <RMenu location="bottom end" :offset="6" width="200px">
         <template #activator="{ props: activatorProps }">
-          <RBtn
+          <RButton
             v-bind="activatorProps"
             icon="mdi-dots-vertical"
             variant="text"

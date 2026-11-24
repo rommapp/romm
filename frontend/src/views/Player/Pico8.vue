@@ -22,7 +22,7 @@ import { usePlayerHero } from "@/composables/usePlayerHero";
 import { useSnackbar } from "@/composables/useSnackbar";
 import { usePlayingWhile } from "@/composables/useStageActive";
 import { useUnloadGuard } from "@/composables/useUnloadGuard";
-import { RBtn, RSpinner, RSwitch } from "@/lib";
+import { RButton, RSpinner, RSwitch } from "@/lib";
 import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
 import { getDownloadPath } from "@/utils";
@@ -392,7 +392,7 @@ onBeforeUnmount(releaseGame);
   >
     <template #stage-actions>
       <div class="r-pico8__actions">
-        <RBtn
+        <RButton
           variant="translucent"
           :icon="isFullscreen ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'"
           :aria-label="
@@ -403,7 +403,7 @@ onBeforeUnmount(releaseGame);
           "
           @click="toggleFullscreen"
         />
-        <RBtn
+        <RButton
           variant="translucent"
           icon="mdi-exit-to-app"
           :aria-label="t('play.quit')"
@@ -453,7 +453,7 @@ onBeforeUnmount(releaseGame);
           :aria-label="t('play.pico8-controls')"
         >
           <div class="r-pico8__dpad">
-            <RBtn
+            <RButton
               v-for="control in directionControls"
               :key="control.label"
               :icon="control.icon"
@@ -481,7 +481,7 @@ onBeforeUnmount(releaseGame);
           </div>
 
           <div class="r-pico8__face-buttons">
-            <RBtn
+            <RButton
               v-for="control in faceControls"
               :key="control.label"
               size="large"
@@ -504,7 +504,7 @@ onBeforeUnmount(releaseGame);
               @blur.stop="onControlKeyUp(control.bit)"
             >
               {{ control.label }}
-            </RBtn>
+            </RButton>
           </div>
         </div>
       </div>

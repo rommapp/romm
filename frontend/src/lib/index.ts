@@ -1,6 +1,6 @@
 // RomM v2 Component Library: barrel export.
 //
-// Only design-system *primitives* live here. Specializations (BackBtn,
+// Only design-system *primitives* live here. Specializations (BackButton,
 // PlatformTile, InfoPanel, …) belong under src/components/<feature>/
 // and are imported directly, not through this barrel.
 //
@@ -14,7 +14,7 @@
 export * from "./primitives/RAlert";
 export * from "./primitives/RAvatar";
 export * from "./primitives/RBadge";
-export * from "./primitives/RBtn";
+export * from "./primitives/RButton";
 export * from "./primitives/RCard";
 export * from "./primitives/RChip";
 export * from "./primitives/RDivider";

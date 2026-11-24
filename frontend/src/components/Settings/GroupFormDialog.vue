@@ -14,7 +14,7 @@ import type {
 } from "@/__generated__";
 import { useEmitterEvent } from "@/composables/useEmitterEvent";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { RBtn, RIcon, RSwitch, RTextField } from "@/lib";
+import { RButton, RIcon, RSwitch, RTextField } from "@/lib";
 import RDialog from "@/lib/overlays/RDialog/RDialog.vue";
 import permissionsApi from "@/services/api/permissions";
 import platformApi from "@/services/api/platform";
@@ -277,7 +277,7 @@ async function save() {
             {{ t("settings.group-color") }}
           </span>
           <div class="r-group-dialog__swatches">
-            <RBtn
+            <RButton
               v-for="(swatch, i) in palette"
               :key="swatch"
               variant="text"
@@ -296,7 +296,7 @@ async function save() {
                 size="14"
                 class="r-group-dialog__swatch-check"
               />
-            </RBtn>
+            </RButton>
           </div>
         </div>
 
@@ -341,7 +341,7 @@ async function save() {
       </div>
     </template>
     <template #footer>
-      <RBtn
+      <RButton
         variant="flat"
         color="primary"
         :loading="submitting"
@@ -349,7 +349,7 @@ async function save() {
         @click="save"
       >
         {{ t("common.apply") }}
-      </RBtn>
+      </RButton>
     </template>
   </RDialog>
 </template>

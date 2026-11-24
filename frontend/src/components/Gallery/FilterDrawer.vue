@@ -29,7 +29,7 @@ import { computed, inject } from "vue";
 import { useI18n } from "vue-i18n";
 import PlatformSelect from "@/components/shared/PlatformSelect.vue";
 import {
-  RBtn,
+  RButton,
   RDrawer,
   RIcon,
   RSelect,
@@ -538,7 +538,7 @@ function saveAsSmartCollection() {
         {{ activeCount }}
       </RTag>
       <div style="flex: 1" />
-      <RBtn
+      <RButton
         size="small"
         variant="outlined"
         color="primary"
@@ -547,7 +547,7 @@ function saveAsSmartCollection() {
         @click="saveAsSmartCollection"
       >
         {{ t("collection.save-as-smart") }}
-      </RBtn>
+      </RButton>
     </template>
 
     <!-- ── Boolean tri-state filters ────────────────────────── -->
@@ -679,18 +679,18 @@ function saveAsSmartCollection() {
     </section>
 
     <template #footer>
-      <RBtn
+      <RButton
         variant="outlined"
         prepend-icon="mdi-restore"
         :disabled="activeCount === 0"
         @click="resetAll"
       >
         {{ t("platform.reset-filters") }}
-      </RBtn>
+      </RButton>
       <div style="flex: 1" />
-      <RBtn variant="flat" color="primary" @click="close">
+      <RButton variant="flat" color="primary" @click="close">
         {{ t("common.close") }}
-      </RBtn>
+      </RButton>
     </template>
   </RDrawer>
 </template>

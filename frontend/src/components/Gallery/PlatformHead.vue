@@ -22,7 +22,7 @@ import {
   playTooltip,
   usePlatformPlayable,
 } from "@/composables/usePlatformPlayable";
-import { RBtn, RChip, RTabNav } from "@/lib";
+import { RButton, RChip, RTabNav } from "@/lib";
 import type { RTabNavItem } from "@/lib";
 import type { Platform } from "@/stores/platforms";
 import type { StatRow } from "@/types/stats";
@@ -177,7 +177,7 @@ const iconSize = computed(() => (xs.value ? 116 : 148));
          view the platform, it's a navigation shortcut, not an admin
          action, so it sits left of the gated Upload/Scan buttons. -->
     <template #actions>
-      <RBtn
+      <RButton
         variant="outlined"
         surface
         icon="mdi-shuffle-variant"
@@ -187,7 +187,7 @@ const iconSize = computed(() => (xs.value ? 116 : 148));
         :tooltip="labels.random"
         @click="$emit('random')"
       />
-      <RBtn
+      <RButton
         v-if="canDownload"
         variant="outlined"
         surface
@@ -198,7 +198,7 @@ const iconSize = computed(() => (xs.value ? 116 : 148));
         :tooltip="labels.download"
         @click="$emit('download')"
       />
-      <RBtn
+      <RButton
         v-if="canEdit"
         variant="outlined"
         surface
@@ -208,7 +208,7 @@ const iconSize = computed(() => (xs.value ? 116 : 148));
         :tooltip="labels.upload"
         @click="$emit('upload')"
       />
-      <RBtn
+      <RButton
         v-if="canEdit"
         variant="outlined"
         surface
@@ -218,7 +218,7 @@ const iconSize = computed(() => (xs.value ? 116 : 148));
         :tooltip="labels.addPhysical"
         @click="$emit('add-physical')"
       />
-      <RBtn
+      <RButton
         v-if="canScan"
         variant="outlined"
         surface

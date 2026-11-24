@@ -6,7 +6,7 @@ import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import PasswordField from "@/components/shared/PasswordField.vue";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { RBtn, RTextField } from "@/lib";
+import { RButton, RTextField } from "@/lib";
 import { refetchCSRFToken } from "@/services/api";
 import identityApi from "@/services/api/identity";
 import storeAuth from "@/stores/auth";
@@ -87,7 +87,7 @@ defineExpose({ loggingIn });
       name="password"
       :disabled="loggingIn"
     />
-    <RBtn
+    <RButton
       type="submit"
       variant="flat"
       color="primary"
@@ -97,7 +97,7 @@ defineExpose({ loggingIn });
       :disabled="loggingIn || blocking || !username || !password"
     >
       {{ t("login.login") }}
-    </RBtn>
+    </RButton>
 
     <div class="r-login-form__forgot">
       <a href="#" @click.prevent="emit('forgot')">

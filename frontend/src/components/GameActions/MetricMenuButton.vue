@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// MetricMenuBtn: picker for a per-user numeric metric on a ROM.
+// MetricMenuButton: picker for a per-user numeric metric on a ROM.
 // Powers all three score controls in the GameActions ribbon: rating,
 // difficulty (kind='rating'), and completion (kind='percent').
 //

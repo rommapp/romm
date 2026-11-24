@@ -9,7 +9,7 @@ import { useI18n } from "vue-i18n";
 import { useFetchState } from "@/composables/useFetchState";
 import { useReadingProgress } from "@/composables/useReadingProgress";
 import {
-  RBtn,
+  RButton,
   REmptyState,
   RIcon,
   RProgressLinear,
@@ -149,9 +149,9 @@ watch(
           :title="t('rom.manual-load-failed')"
         >
           <template #actions>
-            <RBtn variant="outlined" size="small" @click="load()">
+            <RButton variant="outlined" size="small" @click="load()">
               {{ t("common.try-again") }}
-            </RBtn>
+            </RButton>
           </template>
         </REmptyState>
         <div

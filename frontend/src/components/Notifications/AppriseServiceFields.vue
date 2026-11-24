@@ -5,7 +5,7 @@ import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import type { AppriseFieldSchema, AppriseServiceSchema } from "@/__generated__";
 import AppriseFieldInput from "@/components/Notifications/AppriseFieldInput.vue";
-import { RBtn, RCollapsible } from "@/lib";
+import { RButton, RCollapsible } from "@/lib";
 import {
   type AppriseFieldValue,
   emptyValue,
@@ -67,7 +67,7 @@ function setRemoved(key: string, drop: boolean) {
     />
   </div>
   <template v-if="advanced.length > 0">
-    <RBtn
+    <RButton
       class="r-apprise-fields__toggle"
       variant="text"
       size="small"
@@ -76,7 +76,7 @@ function setRemoved(key: string, drop: boolean) {
       @click="showAdvanced = !showAdvanced"
     >
       {{ t("notifications.channel-advanced") }}
-    </RBtn>
+    </RButton>
     <RCollapsible v-model="showAdvanced">
       <div class="r-apprise-fields r-apprise-fields--inset">
         <AppriseFieldInput

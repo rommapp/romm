@@ -11,7 +11,7 @@ import { useI18n } from "vue-i18n";
 import type { OverrideSchemaIO, PermAction, PermEntity } from "@/__generated__";
 import { useEmitterEvent } from "@/composables/useEmitterEvent";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { RBtn, RIcon, RSelect, RSpinner, RSwitch, RTextField } from "@/lib";
+import { RButton, RIcon, RSelect, RSpinner, RSwitch, RTextField } from "@/lib";
 import RDialog from "@/lib/overlays/RDialog/RDialog.vue";
 import permissionsApi from "@/services/api/permissions";
 import platformApi from "@/services/api/platform";
@@ -522,7 +522,7 @@ function close() {
             :inherited="inheritedAgeSettings"
           />
 
-          <RBtn
+          <RButton
             block
             variant="text"
             size="small"
@@ -534,7 +534,7 @@ function close() {
             @click="showAdvanced = !showAdvanced"
           >
             {{ t("settings.advanced-permissions") }}
-          </RBtn>
+          </RButton>
 
           <template v-if="showAdvanced">
             <div class="r-user-dialog__field">
@@ -562,7 +562,7 @@ function close() {
       </div>
     </template>
     <template #footer>
-      <RBtn
+      <RButton
         variant="flat"
         color="primary"
         :loading="submitting"
@@ -574,7 +574,7 @@ function close() {
         @click="save"
       >
         {{ t("common.apply") }}
-      </RBtn>
+      </RButton>
     </template>
   </RDialog>
 </template>

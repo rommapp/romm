@@ -58,7 +58,7 @@ import { useUnloadGuard } from "@/composables/useUnloadGuard";
 import { useUserLocalStorage } from "@/composables/useUserLocalStorage";
 import {
   RAlert,
-  RBtn,
+  RButton,
   RCard,
   RDialog,
   RIcon,
@@ -1497,7 +1497,7 @@ onBeforeUnmount(() => {
             {{ platformLabel }} · {{ t("play.stream-subtitle") }}
           </p>
         </div>
-        <RBtn
+        <RButton
           size="x-large"
           variant="flat"
           color="primary"
@@ -1516,17 +1516,17 @@ onBeforeUnmount(() => {
                 ? t("play.stream-try-again")
                 : t("play.play-on", { label: emulatorLabel })
           }}
-        </RBtn>
+        </RButton>
         <div class="r-stream__hero-links">
-          <RBtn
+          <RButton
             variant="text"
             size="small"
             prepend-icon="mdi-arrow-left"
             :to="romRoute"
           >
             {{ t("play.back-to-game-details") }}
-          </RBtn>
-          <RBtn
+          </RButton>
+          <RButton
             variant="text"
             size="small"
             prepend-icon="mdi-view-grid-outline"
@@ -1534,7 +1534,7 @@ onBeforeUnmount(() => {
             :disabled="!platformRoute"
           >
             {{ t("play.back-to-gallery") }}
-          </RBtn>
+          </RButton>
         </div>
       </RCard>
 
@@ -1587,7 +1587,7 @@ onBeforeUnmount(() => {
                 role="group"
                 :aria-label="t('play.states-view')"
               >
-                <RBtn
+                <RButton
                   v-for="view in STATE_LAYOUTS"
                   :key="view.value"
                   variant="text"
@@ -1759,7 +1759,7 @@ onBeforeUnmount(() => {
 
         <span class="r-stream__bar-spacer" />
 
-        <RBtn
+        <RButton
           :icon="isMuted ? 'mdi-volume-off' : 'mdi-volume-high'"
           variant="text"
           density="compact"
@@ -1779,7 +1779,7 @@ onBeforeUnmount(() => {
         <!-- States and the save-and-exit belong to the claim holder. An
              exit-state emulator has an autosave slot but refuses both. -->
         <template v-if="container?.supports_live_states && !isJoining">
-          <RBtn
+          <RButton
             icon="mdi-content-save-outline"
             variant="text"
             density="compact"
@@ -1788,7 +1788,7 @@ onBeforeUnmount(() => {
             :disabled="stateActionBusy"
             @click="handleSaveState"
           />
-          <RBtn
+          <RButton
             icon="mdi-restore"
             variant="text"
             density="compact"
@@ -1799,7 +1799,7 @@ onBeforeUnmount(() => {
           />
         </template>
 
-        <RBtn
+        <RButton
           v-if="canSwapDisc"
           icon="mdi-disc"
           variant="text"
@@ -1822,7 +1822,7 @@ onBeforeUnmount(() => {
           />
         </span>
 
-        <RBtn
+        <RButton
           :icon="isFullscreen ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'"
           variant="text"
           density="compact"
@@ -1833,7 +1833,7 @@ onBeforeUnmount(() => {
           "
           @click="toggleFullscreen"
         />
-        <RBtn
+        <RButton
           v-if="!isJoining"
           icon="mdi-content-save-move-outline"
           variant="text"
@@ -1843,7 +1843,7 @@ onBeforeUnmount(() => {
           :disabled="isSavingAndExiting"
           @click="handleSaveAndExit"
         />
-        <RBtn
+        <RButton
           :icon="isJoining ? 'mdi-exit-to-app' : 'mdi-stop'"
           variant="text"
           density="compact"
@@ -1889,14 +1889,14 @@ onBeforeUnmount(() => {
       </template>
       <template #footer>
         <!-- eslint-disable vuejs-accessibility/no-autofocus -- RDialog reads [autofocus] to place initial focus, and focusing the dialog's action on open is intentional modal UX -->
-        <RBtn
+        <RButton
           autofocus
           color="primary"
           variant="flat"
           @click="dismissEndedDialog"
         >
           {{ t("play.back-to-game-details") }}
-        </RBtn>
+        </RButton>
         <!-- eslint-enable vuejs-accessibility/no-autofocus -->
       </template>
     </RDialog>
@@ -1922,16 +1922,16 @@ onBeforeUnmount(() => {
         <!-- eslint-disable-next-line vuejs-accessibility/no-static-element-interactions -- arrow keys rove focus between this container's real buttons, which stay the interactive elements; the listener sits here to catch keydowns bubbling from either of them -->
         <div class="r-stream__exit-actions">
           <!-- eslint-disable vuejs-accessibility/no-autofocus -- RDialog reads [autofocus] to place initial focus, and the least destructive action is the intended target -->
-          <RBtn
+          <RButton
             autofocus
             variant="text"
             :disabled="isSavingAndExiting || isStopping"
             @click="exitKeepPlaying"
           >
             {{ t("play.keep-playing") }}
-          </RBtn>
+          </RButton>
           <!-- eslint-enable vuejs-accessibility/no-autofocus -->
-          <RBtn
+          <RButton
             v-if="isJoining"
             color="error"
             variant="text"
@@ -1939,8 +1939,8 @@ onBeforeUnmount(() => {
             @click="exitWithoutSaving"
           >
             {{ t("play.leave-session") }}
-          </RBtn>
-          <RBtn
+          </RButton>
+          <RButton
             v-else-if="playerState === 'loading'"
             color="error"
             variant="text"
@@ -1948,9 +1948,9 @@ onBeforeUnmount(() => {
             @click="exitWithoutSaving"
           >
             {{ t("play.cancel-launch") }}
-          </RBtn>
+          </RButton>
           <template v-else>
-            <RBtn
+            <RButton
               color="error"
               variant="text"
               :loading="isStopping"
@@ -1958,8 +1958,8 @@ onBeforeUnmount(() => {
               @click="exitWithoutSaving"
             >
               {{ t("play.exit-without-saving") }}
-            </RBtn>
-            <RBtn
+            </RButton>
+            <RButton
               color="primary"
               variant="flat"
               :loading="isSavingAndExiting"
@@ -1967,7 +1967,7 @@ onBeforeUnmount(() => {
               @click="exitSaveAndQuit"
             >
               {{ t("play.stream-save-and-exit") }}
-            </RBtn>
+            </RButton>
           </template>
         </div>
       </template>
@@ -1995,7 +1995,7 @@ onBeforeUnmount(() => {
         />
       </template>
       <template #footer>
-        <RBtn
+        <RButton
           color="primary"
           variant="flat"
           :loading="isSwappingDisc"
@@ -2003,7 +2003,7 @@ onBeforeUnmount(() => {
           @click="handleSwapDisc"
         >
           {{ t("play.swap-disc-confirm") }}
-        </RBtn>
+        </RButton>
       </template>
     </RDialog>
   </section>

@@ -178,7 +178,7 @@ describe("ChannelsPanel", () => {
 
     await wrapper
       .find(".r-channels__tools")
-      .findComponent({ name: "RBtn" })
+      .findComponent({ name: "RButton" })
       .trigger("click");
     await flushPromises();
 
@@ -203,7 +203,7 @@ describe("ChannelsPanel", () => {
 
     await wrapper
       .find(".r-channels__tools")
-      .findComponent({ name: "RBtn" })
+      .findComponent({ name: "RButton" })
       .trigger("click");
     wrapper
       .findComponent(ChannelLabelDialog)
@@ -232,7 +232,7 @@ describe("ChannelsPanel", () => {
 
     await wrapper
       .find(".r-channels__tools")
-      .findComponent({ name: "RBtn" })
+      .findComponent({ name: "RButton" })
       .trigger("click");
     wrapper
       .findComponent(ChannelLabelDialog)
@@ -403,7 +403,7 @@ describe("ChannelsPanel", () => {
     expect(wrapper.find(".r-channels__detached").text()).toContain("Old run");
     await wrapper
       .find(".r-channels__detached")
-      .findComponent({ name: "RBtn" })
+      .findComponent({ name: "RButton" })
       .trigger("click");
     await flushPromises();
 

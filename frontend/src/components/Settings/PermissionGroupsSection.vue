@@ -10,7 +10,7 @@ import type { PermissionGroupSchema } from "@/__generated__";
 import { useConfirm } from "@/composables/useConfirm";
 import { useSnackbar } from "@/composables/useSnackbar";
 import {
-  RBtn,
+  RButton,
   RIcon,
   RTable,
   RTag,
@@ -210,7 +210,7 @@ onMounted(fetchGroups);
         <div class="r-groups__actions">
           <RTooltip>
             <template #activator="{ props: tipProps }">
-              <RBtn
+              <RButton
                 v-bind="tipProps"
                 variant="text"
                 size="small"
@@ -228,7 +228,7 @@ onMounted(fetchGroups);
           </RTooltip>
           <RTooltip>
             <template #activator="{ props: tipProps }">
-              <RBtn
+              <RButton
                 v-bind="tipProps"
                 variant="text"
                 size="small"
@@ -246,14 +246,14 @@ onMounted(fetchGroups);
     </RTable>
 
     <div class="r-groups__footer">
-      <RBtn
+      <RButton
         variant="flat"
         color="primary"
         prepend-icon="mdi-plus"
         @click="emitter?.emit('showGroupFormDialog', null)"
       >
         {{ t("settings.new-group") }}
-      </RBtn>
+      </RButton>
     </div>
   </div>
 </template>

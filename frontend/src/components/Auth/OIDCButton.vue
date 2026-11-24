@@ -3,7 +3,7 @@
 // (falls back to a generic key if the icon can't be found).
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { RBtn, RIcon, RImage } from "@/lib";
+import { RButton, RIcon, RImage } from "@/lib";
 
 defineOptions({ inheritAttrs: false });
 
@@ -25,7 +25,7 @@ defineExpose({ login, loading });
 </script>
 
 <template>
-  <RBtn
+  <RButton
     variant="outlined"
     block
     :disabled="loading || blocking"
@@ -46,5 +46,5 @@ defineExpose({ login, loading });
       </RIcon>
     </template>
     {{ t("login.login-oidc", { oidc: provider || "OIDC" }) }}
-  </RBtn>
+  </RButton>
 </template>

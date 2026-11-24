@@ -7,7 +7,7 @@
 import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { RBtn, RIcon } from "@/lib";
+import { RButton, RIcon } from "@/lib";
 import storeUpload from "@/stores/upload";
 import { formatBytes } from "@/utils";
 
@@ -155,14 +155,14 @@ function clearFinished() {
       </ul>
 
       <footer v-if="!collapsed && hasClearable" class="r-upload__foot">
-        <RBtn
+        <RButton
           size="small"
           variant="text"
           color="primary"
           @click="clearFinished"
         >
           {{ t("common.clear-finished") }}
-        </RBtn>
+        </RButton>
       </footer>
     </div>
   </transition>

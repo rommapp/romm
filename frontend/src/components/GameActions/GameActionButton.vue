@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// GameActionBtn: single icon button for the per-ROM action set
+// GameActionButton: single icon button for the per-ROM action set
 // shared between the GameCard hover overlay and the GameDetails
 // header. One component, three sizes, auto-wires to `useGameActions`
 // so both surfaces stay in sync.
@@ -19,7 +19,7 @@
 //   more        → open MoreMenu (GameActionsList dropdown)
 //
 // Sizes (controls diameter + icon size + padding): same vocabulary as
-// RBtn / RChip / RTag:
+// RButton / RChip / RTag:
 //   x-small → 22px
 //   small   → 28px: GameCard hover overlay
 //   default → 40px: GameDetails header
@@ -80,7 +80,7 @@ export type GameAction =
 interface Props {
   rom: SimpleRom;
   action: GameAction;
-  /** Size ladder shared with RBtn / RChip / RTag. */
+  /** Size ladder shared with RButton / RChip / RTag. */
   size?: "x-small" | "small" | "default" | "large" | "x-large";
   /**
    * `glass`: dark scrim, designed to read on top of cover art

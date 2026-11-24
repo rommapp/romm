@@ -18,7 +18,7 @@ import type { RomFileCategory, RomFileSchema } from "@/__generated__";
 import HashChip from "@/components/shared/HashChip.vue";
 import MissingFSBadge from "@/components/shared/MissingFSBadge.vue";
 import { useBreakpoint } from "@/composables/useBreakpoint";
-import { RBtn, RCheckbox, RChip, RIcon } from "@/lib";
+import { RButton, RCheckbox, RChip, RIcon } from "@/lib";
 import { formatBytes } from "@/utils";
 
 defineOptions({ inheritAttrs: false });
@@ -225,7 +225,7 @@ const hasAnyHash = computed(
     </div>
 
     <div class="r-file-row__actions">
-      <RBtn
+      <RButton
         icon="mdi-download-outline"
         variant="text"
         size="small"
@@ -234,7 +234,7 @@ const hasAnyHash = computed(
         :aria-label="t('rom.download-named', { name: relativePath })"
         @click="emit('download')"
       />
-      <RBtn
+      <RButton
         icon="mdi-link-variant"
         variant="text"
         size="small"
@@ -243,7 +243,7 @@ const hasAnyHash = computed(
         :aria-label="t('rom.copy-link-for', { path: relativePath })"
         @click="emit('copyLink')"
       />
-      <RBtn
+      <RButton
         v-if="canDelete"
         icon="mdi-delete-outline"
         variant="text"

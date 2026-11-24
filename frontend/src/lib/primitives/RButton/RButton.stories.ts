@@ -2,11 +2,11 @@ import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { expect, userEvent, within } from "storybook/test";
 import { ref } from "vue";
 import { CONTRAST_TODO_PARAMETERS } from "@/utils/storyA11y";
-import RBtn from "./RBtn.vue";
+import RButton from "./RButton.vue";
 
-const meta: Meta<typeof RBtn> = {
-  title: "Primitives/RBtn",
-  component: RBtn,
+const meta: Meta<typeof RButton> = {
+  title: "Primitives/RButton",
+  component: RButton,
   parameters: CONTRAST_TODO_PARAMETERS,
   argTypes: {
     color: { control: "text" },
@@ -29,24 +29,24 @@ const meta: Meta<typeof RBtn> = {
 
 export default meta;
 
-type Story = StoryObj<typeof RBtn>;
+type Story = StoryObj<typeof RButton>;
 
 // ── Defaults ────────────────────────────────────────────────────────
 
 export const Default: Story = {
   render: (args) => ({
-    components: { RBtn },
+    components: { RButton },
     setup: () => ({ args }),
-    template: `<RBtn v-bind="args">Click me</RBtn>`,
+    template: `<RButton v-bind="args">Click me</RButton>`,
   }),
 };
 
 export const Primary: Story = {
   args: { color: "primary" },
   render: (args) => ({
-    components: { RBtn },
+    components: { RButton },
     setup: () => ({ args }),
-    template: `<RBtn v-bind="args">Primary action</RBtn>`,
+    template: `<RButton v-bind="args">Primary action</RButton>`,
   }),
 };
 
@@ -54,15 +54,15 @@ export const Primary: Story = {
 
 export const Variants: Story = {
   render: () => ({
-    components: { RBtn },
+    components: { RButton },
     template: `
       <div style="display:grid;grid-template-columns:repeat(3,auto);gap:14px 18px;justify-items:start">
-        <RBtn variant="flat" color="primary">flat</RBtn>
-        <RBtn variant="elevated" color="primary">elevated</RBtn>
-        <RBtn variant="translucent" color="primary">translucent</RBtn>
-        <RBtn variant="outlined" color="primary">outlined</RBtn>
-        <RBtn variant="text" color="primary">text</RBtn>
-        <RBtn variant="plain" color="primary">plain</RBtn>
+        <RButton variant="flat" color="primary">flat</RButton>
+        <RButton variant="elevated" color="primary">elevated</RButton>
+        <RButton variant="translucent" color="primary">translucent</RButton>
+        <RButton variant="outlined" color="primary">outlined</RButton>
+        <RButton variant="text" color="primary">text</RButton>
+        <RButton variant="plain" color="primary">plain</RButton>
       </div>
     `,
   }),
@@ -73,14 +73,14 @@ export const Variants: Story = {
 export const SizeLadder: Story = {
   name: "Size ladder",
   render: () => ({
-    components: { RBtn },
+    components: { RButton },
     template: `
       <div style="display:flex;align-items:flex-end;gap:14px">
-        <RBtn size="x-small" color="primary">x-small</RBtn>
-        <RBtn size="small" color="primary">small</RBtn>
-        <RBtn size="default" color="primary">default</RBtn>
-        <RBtn size="large" color="primary">large</RBtn>
-        <RBtn size="x-large" color="primary">x-large</RBtn>
+        <RButton size="x-small" color="primary">x-small</RButton>
+        <RButton size="small" color="primary">small</RButton>
+        <RButton size="default" color="primary">default</RButton>
+        <RButton size="large" color="primary">large</RButton>
+        <RButton size="x-large" color="primary">x-large</RButton>
       </div>
     `,
   }),
@@ -89,12 +89,12 @@ export const SizeLadder: Story = {
 export const Density: Story = {
   name: "Density compression",
   render: () => ({
-    components: { RBtn },
+    components: { RButton },
     template: `
       <div style="display:flex;align-items:center;gap:14px">
-        <RBtn density="default" color="primary">default</RBtn>
-        <RBtn density="comfortable" color="primary">comfortable</RBtn>
-        <RBtn density="compact" color="primary">compact</RBtn>
+        <RButton density="default" color="primary">default</RButton>
+        <RButton density="comfortable" color="primary">comfortable</RButton>
+        <RButton density="compact" color="primary">compact</RButton>
       </div>
     `,
   }),
@@ -105,17 +105,17 @@ export const Density: Story = {
 export const Tones: Story = {
   name: "Tones · flat",
   render: () => ({
-    components: { RBtn },
+    components: { RButton },
     template: `
       <div style="display:flex;flex-wrap:wrap;gap:10px">
-        <RBtn color="primary">primary</RBtn>
-        <RBtn color="secondary">secondary</RBtn>
-        <RBtn color="accent">accent</RBtn>
-        <RBtn color="success">success</RBtn>
-        <RBtn color="warning">warning</RBtn>
-        <RBtn color="danger">danger</RBtn>
-        <RBtn color="info">info</RBtn>
-        <RBtn>neutral</RBtn>
+        <RButton color="primary">primary</RButton>
+        <RButton color="secondary">secondary</RButton>
+        <RButton color="accent">accent</RButton>
+        <RButton color="success">success</RButton>
+        <RButton color="warning">warning</RButton>
+        <RButton color="danger">danger</RButton>
+        <RButton color="info">info</RButton>
+        <RButton>neutral</RButton>
       </div>
     `,
   }),
@@ -124,16 +124,16 @@ export const Tones: Story = {
 export const TonesTranslucent: Story = {
   name: "Tones · translucent",
   render: () => ({
-    components: { RBtn },
+    components: { RButton },
     template: `
       <div style="display:flex;flex-wrap:wrap;gap:10px">
-        <RBtn variant="translucent" color="primary">primary</RBtn>
-        <RBtn variant="translucent" color="secondary">secondary</RBtn>
-        <RBtn variant="translucent" color="accent">accent</RBtn>
-        <RBtn variant="translucent" color="success">success</RBtn>
-        <RBtn variant="translucent" color="warning">warning</RBtn>
-        <RBtn variant="translucent" color="danger">danger</RBtn>
-        <RBtn variant="translucent" color="info">info</RBtn>
+        <RButton variant="translucent" color="primary">primary</RButton>
+        <RButton variant="translucent" color="secondary">secondary</RButton>
+        <RButton variant="translucent" color="accent">accent</RButton>
+        <RButton variant="translucent" color="success">success</RButton>
+        <RButton variant="translucent" color="warning">warning</RButton>
+        <RButton variant="translucent" color="danger">danger</RButton>
+        <RButton variant="translucent" color="info">info</RButton>
       </div>
     `,
   }),
@@ -144,13 +144,13 @@ export const TonesTranslucent: Story = {
 export const WithIcons: Story = {
   name: "Prepend / append icons",
   render: () => ({
-    components: { RBtn },
+    components: { RButton },
     template: `
       <div style="display:flex;flex-wrap:wrap;gap:10px">
-        <RBtn color="primary" prepend-icon="mdi-login">Sign in</RBtn>
-        <RBtn color="success" prepend-icon="mdi-content-save">Save</RBtn>
-        <RBtn variant="outlined" append-icon="mdi-open-in-new">Open docs</RBtn>
-        <RBtn variant="translucent" color="primary" prepend-icon="mdi-filter" append-icon="mdi-menu-down">Filter</RBtn>
+        <RButton color="primary" prepend-icon="mdi-login">Sign in</RButton>
+        <RButton color="success" prepend-icon="mdi-content-save">Save</RButton>
+        <RButton variant="outlined" append-icon="mdi-open-in-new">Open docs</RButton>
+        <RButton variant="translucent" color="primary" prepend-icon="mdi-filter" append-icon="mdi-menu-down">Filter</RButton>
       </div>
     `,
   }),
@@ -159,14 +159,14 @@ export const WithIcons: Story = {
 export const IconOnly: Story = {
   name: "Icon-only buttons",
   render: () => ({
-    components: { RBtn },
+    components: { RButton },
     template: `
       <div style="display:flex;align-items:center;gap:10px">
-        <RBtn icon="mdi-pencil" variant="text" aria-label="Edit" />
-        <RBtn icon="mdi-delete" variant="text" color="danger" aria-label="Delete" />
-        <RBtn icon="mdi-heart" variant="translucent" color="primary" aria-label="Favorite" />
-        <RBtn icon="mdi-refresh" variant="outlined" aria-label="Refresh" />
-        <RBtn icon="mdi-plus" color="primary" aria-label="Add" />
+        <RButton icon="mdi-pencil" variant="text" aria-label="Edit" />
+        <RButton icon="mdi-delete" variant="text" color="danger" aria-label="Delete" />
+        <RButton icon="mdi-heart" variant="translucent" color="primary" aria-label="Favorite" />
+        <RButton icon="mdi-refresh" variant="outlined" aria-label="Refresh" />
+        <RButton icon="mdi-plus" color="primary" aria-label="Add" />
       </div>
     `,
   }),
@@ -175,14 +175,14 @@ export const IconOnly: Story = {
 export const IconSizeLadder: Story = {
   name: "Icon-only · size ladder",
   render: () => ({
-    components: { RBtn },
+    components: { RButton },
     template: `
       <div style="display:flex;align-items:center;gap:10px">
-        <RBtn icon="mdi-star" size="x-small" color="primary" aria-label="x-small" />
-        <RBtn icon="mdi-star" size="small" color="primary" aria-label="small" />
-        <RBtn icon="mdi-star" size="default" color="primary" aria-label="default" />
-        <RBtn icon="mdi-star" size="large" color="primary" aria-label="large" />
-        <RBtn icon="mdi-star" size="x-large" color="primary" aria-label="x-large" />
+        <RButton icon="mdi-star" size="x-small" color="primary" aria-label="x-small" />
+        <RButton icon="mdi-star" size="small" color="primary" aria-label="small" />
+        <RButton icon="mdi-star" size="default" color="primary" aria-label="default" />
+        <RButton icon="mdi-star" size="large" color="primary" aria-label="large" />
+        <RButton icon="mdi-star" size="x-large" color="primary" aria-label="x-large" />
       </div>
     `,
   }),
@@ -195,18 +195,18 @@ export const IconSizeLadder: Story = {
 export const IconSlotCustom: Story = {
   name: "Icon-mode · custom slot content",
   render: () => ({
-    components: { RBtn },
+    components: { RButton },
     template: `
       <div style="display:flex;align-items:center;gap:10px">
-        <RBtn icon variant="translucent" color="primary" aria-label="Image button" style="width:auto;min-width:0;padding:3px">
+        <RButton icon variant="translucent" color="primary" aria-label="Image button" style="width:auto;min-width:0;padding:3px">
           <img src="https://placehold.co/22x22/A66/fff?text=P" alt="Platform" style="display:block;width:22px;height:22px;border-radius:3px" />
-        </RBtn>
-        <RBtn icon variant="text" aria-label="Emoji button" style="width:auto;min-width:0;padding:3px">
+        </RButton>
+        <RButton icon variant="text" aria-label="Emoji button" style="width:auto;min-width:0;padding:3px">
           <span style="font-size:18px;line-height:1">🎮</span>
-        </RBtn>
-        <RBtn icon variant="outlined" aria-label="Rating 9" style="width:auto;min-width:0;padding:3px 8px">
+        </RButton>
+        <RButton icon variant="outlined" aria-label="Rating 9" style="width:auto;min-width:0;padding:3px 8px">
           <span style="display:inline-flex;align-items:center;gap:4px;font-size:12px">⭐ <span>9</span></span>
-        </RBtn>
+        </RButton>
       </div>
     `,
   }),
@@ -214,7 +214,7 @@ export const IconSlotCustom: Story = {
     docs: {
       description: {
         story:
-          "Pass `icon` as a flag and put custom content in the default slot. RBtn renders the content inside `.r-btn__icon-slot` with `line-height: 0` so descender gaps from text/icons don't shift the centering.",
+          "Pass `icon` as a flag and put custom content in the default slot. RButton renders the content inside `.r-button__icon-slot` with `line-height: 0` so descender gaps from text/icons don't shift the centering.",
       },
     },
   },
@@ -225,15 +225,15 @@ export const IconSlotCustom: Story = {
 export const Rounded: Story = {
   name: "Rounded ladder",
   render: () => ({
-    components: { RBtn },
+    components: { RButton },
     template: `
       <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
-        <RBtn :rounded="0" color="primary">0</RBtn>
-        <RBtn rounded="sm" color="primary">sm</RBtn>
-        <RBtn rounded="md" color="primary">md (default)</RBtn>
-        <RBtn rounded="lg" color="primary">lg</RBtn>
-        <RBtn rounded="xl" color="primary">xl</RBtn>
-        <RBtn rounded="full" color="primary">full / pill</RBtn>
+        <RButton :rounded="0" color="primary">0</RButton>
+        <RButton rounded="sm" color="primary">sm</RButton>
+        <RButton rounded="md" color="primary">md (default)</RButton>
+        <RButton rounded="lg" color="primary">lg</RButton>
+        <RButton rounded="xl" color="primary">xl</RButton>
+        <RButton rounded="full" color="primary">full / pill</RButton>
       </div>
     `,
   }),
@@ -244,7 +244,7 @@ export const Rounded: Story = {
 export const LoadingState: Story = {
   name: "Loading (interactive)",
   render: () => ({
-    components: { RBtn },
+    components: { RButton },
     setup() {
       const loading = ref(false);
       function run() {
@@ -257,10 +257,10 @@ export const LoadingState: Story = {
     },
     template: `
       <div style="display:flex;flex-direction:column;gap:14px;align-items:flex-start">
-        <RBtn color="primary" :loading="loading" prepend-icon="mdi-content-save" @click="run">
+        <RButton color="primary" :loading="loading" prepend-icon="mdi-content-save" @click="run">
           Save changes
-        </RBtn>
-        <RBtn variant="outlined" :loading="loading" @click="run">Submit</RBtn>
+        </RButton>
+        <RButton variant="outlined" :loading="loading" @click="run">Submit</RButton>
         <span style="font:12px/1.4 sans-serif;color:var(--r-color-fg-muted)">
           Click — spinner appears after the 200ms debounce; layout doesn't shift.
         </span>
@@ -274,22 +274,22 @@ export const LoadingState: Story = {
 export const Block: Story = {
   args: { block: true, prependIcon: "mdi-send", color: "primary" },
   render: (args) => ({
-    components: { RBtn },
+    components: { RButton },
     setup: () => ({ args }),
-    template: `<div style="width:360px"><RBtn v-bind="args">Submit</RBtn></div>`,
+    template: `<div style="width:360px"><RButton v-bind="args">Submit</RButton></div>`,
   }),
 };
 
 export const Disabled: Story = {
   render: () => ({
-    components: { RBtn },
+    components: { RButton },
     template: `
       <div style="display:flex;flex-wrap:wrap;gap:10px">
-        <RBtn disabled>disabled flat</RBtn>
-        <RBtn variant="outlined" disabled>disabled outlined</RBtn>
-        <RBtn variant="translucent" color="primary" disabled>disabled translucent</RBtn>
-        <RBtn variant="text" color="danger" disabled>disabled text</RBtn>
-        <RBtn icon="mdi-delete" variant="text" disabled aria-label="disabled icon" />
+        <RButton disabled>disabled flat</RButton>
+        <RButton variant="outlined" disabled>disabled outlined</RButton>
+        <RButton variant="translucent" color="primary" disabled>disabled translucent</RButton>
+        <RButton variant="text" color="danger" disabled>disabled text</RButton>
+        <RButton icon="mdi-delete" variant="text" disabled aria-label="disabled icon" />
       </div>
     `,
   }),
@@ -300,12 +300,12 @@ export const Disabled: Story = {
 export const BorderModifier: Story = {
   name: "Border modifier (chip-style activator)",
   render: () => ({
-    components: { RBtn },
+    components: { RButton },
     template: `
       <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
-        <RBtn variant="translucent" color="primary" border>translucent + border</RBtn>
-        <RBtn variant="text" color="primary" border>text + border</RBtn>
-        <RBtn variant="translucent" color="accent" border rounded="full">activator pill</RBtn>
+        <RButton variant="translucent" color="primary" border>translucent + border</RButton>
+        <RButton variant="text" color="primary" border>text + border</RButton>
+        <RButton variant="translucent" color="accent" border rounded="full">activator pill</RButton>
       </div>
     `,
   }),
@@ -316,14 +316,14 @@ export const BorderModifier: Story = {
 export const AsLink: Story = {
   name: "Polymorphic (href / to)",
   render: () => ({
-    components: { RBtn },
+    components: { RButton },
     template: `
       <div style="display:flex;flex-direction:column;gap:12px;align-items:flex-start">
-        <RBtn href="https://romm.app" target="_blank" append-icon="mdi-open-in-new" color="primary">
+        <RButton href="https://romm.app" target="_blank" append-icon="mdi-open-in-new" color="primary">
           External link (&lt;a&gt;)
-        </RBtn>
+        </RButton>
         <span style="font:12px/1.4 sans-serif;color:var(--r-color-fg-muted)">
-          With <code>to</code>, RBtn renders <code>&lt;router-link&gt;</code> — invisible in this story without a router, but the prop is accepted.
+          With <code>to</code>, RButton renders <code>&lt;router-link&gt;</code> — invisible in this story without a router, but the prop is accepted.
         </span>
       </div>
     `,
@@ -335,16 +335,16 @@ export const AsLink: Story = {
 export const Toolbar: Story = {
   name: "Toolbar row",
   render: () => ({
-    components: { RBtn },
+    components: { RButton },
     template: `
       <div style="display:inline-flex;align-items:center;gap:6px;padding:6px 8px;background:var(--r-color-surface);border-radius:10px">
-        <RBtn icon="mdi-format-bold" variant="text" size="small" aria-label="Bold" />
-        <RBtn icon="mdi-format-italic" variant="text" size="small" aria-label="Italic" />
-        <RBtn icon="mdi-format-underline" variant="text" size="small" aria-label="Underline" />
+        <RButton icon="mdi-format-bold" variant="text" size="small" aria-label="Bold" />
+        <RButton icon="mdi-format-italic" variant="text" size="small" aria-label="Italic" />
+        <RButton icon="mdi-format-underline" variant="text" size="small" aria-label="Underline" />
         <span style="width:1px;height:18px;background:var(--r-color-border);margin:0 4px"></span>
-        <RBtn icon="mdi-format-list-bulleted" variant="text" size="small" aria-label="List" />
-        <RBtn icon="mdi-format-quote-close" variant="text" size="small" aria-label="Quote" />
-        <RBtn icon="mdi-link-variant" variant="text" size="small" aria-label="Link" />
+        <RButton icon="mdi-format-list-bulleted" variant="text" size="small" aria-label="List" />
+        <RButton icon="mdi-format-quote-close" variant="text" size="small" aria-label="Quote" />
+        <RButton icon="mdi-link-variant" variant="text" size="small" aria-label="Link" />
       </div>
     `,
   }),
@@ -353,32 +353,32 @@ export const Toolbar: Story = {
 export const FormActions: Story = {
   name: "Form actions row",
   render: () => ({
-    components: { RBtn },
+    components: { RButton },
     template: `
       <div style="display:flex;gap:10px;justify-content:flex-end;padding:14px;background:var(--r-color-bg-elevated);border-radius:10px;width:420px">
-        <RBtn variant="text">Cancel</RBtn>
-        <RBtn variant="outlined">Save draft</RBtn>
-        <RBtn color="primary" prepend-icon="mdi-send">Publish</RBtn>
+        <RButton variant="text">Cancel</RButton>
+        <RButton variant="outlined">Save draft</RButton>
+        <RButton color="primary" prepend-icon="mdi-send">Publish</RButton>
       </div>
     `,
   }),
 };
 
 /**
- * `surface` gives an outlined icon-only RBtn the same tinted chrome as the
+ * `surface` gives an outlined icon-only RButton the same tinted chrome as the
  * `RSegmentedControl` beside it.
  */
 export const SurfaceWithSlider: Story = {
   name: "Surface modifier (icon button next to slider)",
   render: () => ({
-    components: { RBtn },
+    components: { RButton },
     template: `
       <div style="display:flex;gap:8px;align-items:center;padding:16px;background:var(--r-color-bg);width:max-content">
-        <RBtn variant="outlined" surface icon="mdi-filter-variant" rounded="circle" aria-label="Filters" />
+        <RButton variant="outlined" surface icon="mdi-filter-variant" rounded="circle" aria-label="Filters" />
         <div style="display:inline-flex;align-items:center;gap:2px;padding:2px;background:var(--r-color-bg-elevated);border:1px solid var(--r-color-border);border-radius:999px;font-size:11px;color:var(--r-color-fg-muted)">
           <span style="padding:4px 10px">Mock slider wrapper for comparison</span>
         </div>
-        <RBtn variant="outlined" surface icon="mdi-dots-vertical" rounded="circle" aria-label="More" />
+        <RButton variant="outlined" surface icon="mdi-dots-vertical" rounded="circle" aria-label="More" />
       </div>
       <p style="margin:8px 0 0 16px;font:12px monospace;color:var(--r-color-fg-muted);max-width:480px">
         \`surface\` paints --r-color-bg-elevated so the disc-shaped icon
@@ -395,15 +395,15 @@ export const SurfaceWithSlider: Story = {
 export const Active: Story = {
   name: "Active (toggle)",
   render: () => ({
-    components: { RBtn },
+    components: { RButton },
     setup: () => ({ shuffle: ref(false), mute: ref(true) }),
     template: `
       <div style="display:flex;gap:8px;align-items:center">
-        <RBtn variant="text" icon="mdi-shuffle" aria-label="Shuffle" :active="shuffle" @click="shuffle = !shuffle" />
-        <RBtn variant="text" color="danger" prepend-icon="mdi-volume-off" :active="mute" @click="mute = !mute">Mute</RBtn>
-        <RBtn variant="outlined" active>Always on</RBtn>
-        <RBtn variant="outlined">Not a toggle</RBtn>
-        <RBtn variant="outlined" aria-pressed="true">Manual pressed</RBtn>
+        <RButton variant="text" icon="mdi-shuffle" aria-label="Shuffle" :active="shuffle" @click="shuffle = !shuffle" />
+        <RButton variant="text" color="danger" prepend-icon="mdi-volume-off" :active="mute" @click="mute = !mute">Mute</RButton>
+        <RButton variant="outlined" active>Always on</RButton>
+        <RButton variant="outlined">Not a toggle</RButton>
+        <RButton variant="outlined" aria-pressed="true">Manual pressed</RButton>
       </div>
     `,
   }),
@@ -415,7 +415,7 @@ export const Active: Story = {
       await expect(shuffle).toHaveAttribute("aria-pressed", "false");
       await userEvent.click(shuffle);
       await expect(shuffle).toHaveAttribute("aria-pressed", "true");
-      await expect(shuffle).toHaveClass("r-btn--translucent");
+      await expect(shuffle).toHaveClass("r-button--translucent");
     });
 
     await step("leaves aria-pressed off buttons without active", async () => {

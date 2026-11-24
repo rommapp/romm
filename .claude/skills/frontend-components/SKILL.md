@@ -84,7 +84,7 @@ import type { SimpleRom } from "@/__generated__";
 import GameCard from "@/components/GameCard.vue";
 // 3. v2 composables / shared
 import { useCan } from "@/composables/useCan";
-import { RBtn, RDialog } from "@/lib";
+import { RButton, RDialog } from "@/lib";
 // 5. Canonical shared resources
 import storeAuth from "@/stores/auth";
 ```

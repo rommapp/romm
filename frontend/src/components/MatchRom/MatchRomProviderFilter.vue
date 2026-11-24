@@ -8,8 +8,8 @@
 //
 // Built as a feature composite with a real <button> root because the
 // design (image-fills-the-square + opacity-driven muted state +
-// brand-tinted active outline) doesn't fit RBtn's vocabulary
-// (content-padded scale, hover/focus chrome). Wrapping RBtn here
+// brand-tinted active outline) doesn't fit RButton's vocabulary
+// (content-padded scale, hover/focus chrome). Wrapping RButton here
 // would require !important overrides on the primitive: see the
 // "selectable surface" precedent we keep across the dialog flows.
 import { useI18n } from "vue-i18n";

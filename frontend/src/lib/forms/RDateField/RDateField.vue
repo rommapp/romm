@@ -27,7 +27,7 @@ import { computed, nextTick, ref, useId, watch } from "vue";
 import { usePopoverDismiss } from "@/composables/usePopoverDismiss";
 import { useChromeLabels } from "@/lib/a11y/chromeLabels";
 import { focusFromInput } from "@/utils/autofocus";
-import RBtn from "../../primitives/RBtn/RBtn.vue";
+import RButton from "../../primitives/RButton/RButton.vue";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 import RTextField from "../RTextField/RTextField.vue";
 
@@ -584,10 +584,10 @@ usePopoverDismiss(isOpen, close, {
           <!-- Footer shortcuts. Hidden when the consumer doesn't want
                quick-access buttons (e.g. embedded in a complex form). -->
           <div v-if="!hideFooter" class="r-date-cal__foot">
-            <RBtn variant="text" size="small" @click="selectToday">
+            <RButton variant="text" size="small" @click="selectToday">
               {{ todayText }}
-            </RBtn>
-            <RBtn
+            </RButton>
+            <RButton
               variant="text"
               size="small"
               color="danger"
@@ -595,7 +595,7 @@ usePopoverDismiss(isOpen, close, {
               @click="clearValue"
             >
               {{ clearText }}
-            </RBtn>
+            </RButton>
           </div>
         </div>
       </Transition>

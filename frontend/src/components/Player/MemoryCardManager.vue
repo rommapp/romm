@@ -22,7 +22,7 @@ import PublicBadge from "@/components/shared/PublicBadge.vue";
 import { useConfirm } from "@/composables/useConfirm";
 import { useFetchState } from "@/composables/useFetchState";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { RBtn, RChip, REmptyState, RIcon, RSpinner, RTooltip } from "@/lib";
+import { RButton, RChip, REmptyState, RIcon, RSpinner, RTooltip } from "@/lib";
 import memoryCardApi from "@/services/api/memory-card";
 import { formatBytes, formatRelativeDate } from "@/utils";
 import { errorMessage } from "@/utils/errorMessage";
@@ -319,7 +319,7 @@ const hasCards = computed(() => cards.value.length > 0);
       <span class="r-mc-mgr__count">
         {{ t("play.memory-card-count", { count: cards.length }) }}
       </span>
-      <RBtn
+      <RButton
         variant="text"
         size="small"
         prepend-icon="mdi-upload"
@@ -327,15 +327,15 @@ const hasCards = computed(() => cards.value.length > 0);
         @click="pickUpload"
       >
         {{ t("play.upload-memory-card") }}
-      </RBtn>
-      <RBtn
+      </RButton>
+      <RButton
         variant="text"
         size="small"
         prepend-icon="mdi-plus"
         @click="showCreate = true"
       >
         {{ t("play.new-memory-card") }}
-      </RBtn>
+      </RButton>
     </header>
 
     <ul v-if="hasCards" class="r-mc-mgr__list">
@@ -356,7 +356,7 @@ const hasCards = computed(() => cards.value.length > 0);
             </span>
           </div>
           <div class="r-mc-mgr__row-actions">
-            <RBtn
+            <RButton
               variant="text"
               size="small"
               icon="mdi-download"
@@ -365,7 +365,7 @@ const hasCards = computed(() => cards.value.length > 0);
               :tooltip="t('play.download-memory-card')"
               @click="downloadCard(card)"
             />
-            <RBtn
+            <RButton
               variant="text"
               size="small"
               icon="mdi-pencil-outline"
@@ -373,7 +373,7 @@ const hasCards = computed(() => cards.value.length > 0);
               :tooltip="t('play.edit-memory-card')"
               @click="editTarget = card"
             />
-            <RBtn
+            <RButton
               :variant="isExpanded(card.id) ? 'translucent' : 'text'"
               :color="isExpanded(card.id) ? 'primary' : undefined"
               size="small"
@@ -383,7 +383,7 @@ const hasCards = computed(() => cards.value.length > 0);
               :tooltip="t('play.memory-card-versions')"
               @click="toggleVersions(card)"
             />
-            <RBtn
+            <RButton
               variant="text"
               size="small"
               icon="mdi-delete-outline"
@@ -450,22 +450,22 @@ const hasCards = computed(() => cards.value.length > 0);
       :message="t('play.memory-cards-empty')"
     >
       <template #actions>
-        <RBtn
+        <RButton
           variant="flat"
           color="primary"
           prepend-icon="mdi-plus"
           @click="showCreate = true"
         >
           {{ t("play.new-memory-card") }}
-        </RBtn>
-        <RBtn
+        </RButton>
+        <RButton
           variant="text"
           prepend-icon="mdi-upload"
           :disabled="uploading"
           @click="pickUpload"
         >
           {{ t("play.upload-memory-card") }}
-        </RBtn>
+        </RButton>
       </template>
     </REmptyState>
 

@@ -2,7 +2,7 @@
 // SettingsSaveBar: sticky Discard/Save bar for a settings form with unsaved
 // edits. Pad the page bottom ~72px so it never covers the last controls.
 import { useI18n } from "vue-i18n";
-import { RBtn } from "@/lib";
+import { RButton } from "@/lib";
 
 interface Props {
   visible: boolean;
@@ -29,10 +29,10 @@ const { t } = useI18n();
     <div v-if="visible" class="r-settings-save-bar">
       <span class="r-settings-save-bar__label">{{ label }}</span>
       <div class="r-settings-save-bar__actions">
-        <RBtn variant="text" :disabled="saving" @click="emit('discard')">
+        <RButton variant="text" :disabled="saving" @click="emit('discard')">
           {{ t("common.discard") }}
-        </RBtn>
-        <RBtn
+        </RButton>
+        <RButton
           variant="flat"
           color="primary"
           prepend-icon="mdi-content-save-outline"
@@ -41,7 +41,7 @@ const { t } = useI18n();
           @click="emit('save')"
         >
           {{ t("common.save") }}
-        </RBtn>
+        </RButton>
       </div>
     </div>
   </Transition>

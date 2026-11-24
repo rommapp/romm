@@ -83,7 +83,7 @@ function mountDialog(emitter: Emitter<Events>): VueWrapper {
           template:
             "<div v-if='modelValue' data-test-dialog><slot name='content' /></div>",
         },
-        RBtn: true,
+        RButton: true,
         RIcon: true,
       },
     },

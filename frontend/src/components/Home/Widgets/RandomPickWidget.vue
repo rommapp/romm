@@ -12,7 +12,7 @@ import { useI18n } from "vue-i18n";
 import CachedPlatformIcon from "@/components/shared/CachedPlatformIcon.vue";
 import GameCover from "@/components/shared/GameCover.vue";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { RBtn, RChip } from "@/lib";
+import { RButton, RChip } from "@/lib";
 import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
 import type { SimpleRom } from "@/stores/roms";
@@ -103,7 +103,7 @@ onMounted(() => reroll({ notify: false }));
 <template>
   <WidgetCard :title="t('home.widget-random-pick')" :loading="loading">
     <template #action>
-      <RBtn
+      <RButton
         ref="rerollBtn"
         variant="text"
         size="small"
@@ -234,7 +234,7 @@ html:not([data-input="pad"]) .r-widget-pick__body:hover .r-widget-pick__name,
 }
 
 /* The die reads as a die only above the button's default glyph size. */
-.r-widget-pick__reroll :deep(.r-btn__icon) {
+.r-widget-pick__reroll :deep(.r-button__icon) {
   font-size: 19px;
 }
 

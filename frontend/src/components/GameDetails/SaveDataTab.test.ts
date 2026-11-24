@@ -73,7 +73,7 @@ function mountTab(
         AssetList: true,
         ChannelsPanel: true,
         RDropzone: { template: "<div><slot /></div>" },
-        RBtn: true,
+        RButton: true,
       },
     },
   });

@@ -10,7 +10,7 @@
 // single-segment permissions (`invite`, `reset`) keep their own label.
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { RBtn, RIcon, RMenu } from "@/lib";
+import { RButton, RIcon, RMenu } from "@/lib";
 import ScopeTree from "./ScopeTree.vue";
 
 interface Props {
@@ -48,7 +48,7 @@ const scopeLabel = computed(() =>
     :close-on-content-click="false"
   >
     <template #activator="{ props: menuProps }">
-      <RBtn
+      <RButton
         v-bind="menuProps"
         variant="translucent"
         size="small"
@@ -66,7 +66,7 @@ const scopeLabel = computed(() =>
           size="14"
           class="r-scope-cell__chevron r-chevron-toggle"
         />
-      </RBtn>
+      </RButton>
     </template>
 
     <!-- Panel width follows its content: ScopeTree's two-column grid

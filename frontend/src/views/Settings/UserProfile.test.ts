@@ -13,7 +13,7 @@ vi.mock("@/composables/useSnackbar", () => ({
   useSnackbar: () => ({ success: vi.fn(), error: vi.fn() }),
 }));
 
-const RBtn = {
+const RButton = {
   props: { prependIcon: { type: String, default: "" } },
   emits: ["click"],
   template: `<button type="button" :data-icon="prependIcon" @click="$emit('click')"><slot /></button>`,
@@ -29,7 +29,7 @@ function mountProfile() {
   return mount(UserProfile, {
     global: {
       stubs: {
-        RBtn,
+        RButton,
         RIcon: true,
         RTag: true,
         RTextField: true,

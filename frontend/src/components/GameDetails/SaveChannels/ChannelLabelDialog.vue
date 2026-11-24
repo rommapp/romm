@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { RBtn, RDialog, RForm, RSelect, RTextField } from "@/lib";
+import { RButton, RDialog, RForm, RSelect, RTextField } from "@/lib";
 import { CHANNEL_LABEL_MAX_LENGTH } from "@/services/api/snapshot";
 import { notBlank } from "@/utils/validation";
 
@@ -103,7 +103,7 @@ async function submit(): Promise<void> {
     </template>
 
     <template #footer>
-      <RBtn
+      <RButton
         variant="flat"
         color="primary"
         prepend-icon="mdi-check"
@@ -112,7 +112,7 @@ async function submit(): Promise<void> {
         @click="submit"
       >
         {{ confirmText }}
-      </RBtn>
+      </RButton>
     </template>
   </RDialog>
 </template>

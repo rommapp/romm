@@ -11,7 +11,7 @@ import { useIsAlive } from "@/composables/useIsAlive";
 import { useSnackbar } from "@/composables/useSnackbar";
 import {
   RAvatar,
-  RBtn,
+  RButton,
   REmptyState,
   RIcon,
   RSkeletonBlock,
@@ -286,7 +286,7 @@ async function remove(channel: NotificationChannelSchema) {
               :aria-label="t('notifications.channel-enabled')"
               @update:model-value="toggle(channel, $event)"
             />
-            <RBtn
+            <RButton
               variant="text"
               size="small"
               icon="mdi-send-check-outline"
@@ -295,14 +295,14 @@ async function remove(channel: NotificationChannelSchema) {
               :aria-label="t('notifications.channel-test')"
               @click="sendTest(channel)"
             />
-            <RBtn
+            <RButton
               variant="text"
               size="small"
               icon="mdi-pencil-outline"
               :aria-label="t('notifications.channel-edit')"
               @click="openDialog(channel)"
             />
-            <RBtn
+            <RButton
               variant="text"
               size="small"
               icon="mdi-delete-outline"
@@ -333,7 +333,7 @@ async function remove(channel: NotificationChannelSchema) {
               mono
               @keydown.enter="confirmCode(channel)"
             />
-            <RBtn
+            <RButton
               variant="flat"
               color="primary"
               size="small"
@@ -341,24 +341,24 @@ async function remove(channel: NotificationChannelSchema) {
               @click="confirmCode(channel)"
             >
               {{ t("common.confirm") }}
-            </RBtn>
-            <RBtn variant="text" size="small" @click="resendCode(channel)">
+            </RButton>
+            <RButton variant="text" size="small" @click="resendCode(channel)">
               {{ t("notifications.channel-resend") }}
-            </RBtn>
+            </RButton>
           </div>
         </div>
       </li>
     </ul>
 
     <div class="r-channels__footer">
-      <RBtn
+      <RButton
         variant="flat"
         color="primary"
         prepend-icon="mdi-plus"
         @click="openDialog(null)"
       >
         {{ t("notifications.channel-add") }}
-      </RBtn>
+      </RButton>
     </div>
 
     <NotificationChannelDialog
