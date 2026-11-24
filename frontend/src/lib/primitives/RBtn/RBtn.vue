@@ -421,7 +421,10 @@ const spinnerSize = computed(() => {
   pointer-events: none;
   transition: opacity var(--r-motion-fast) var(--r-motion-ease-out);
 }
-.r-btn:hover:not(.r-btn--disabled, :disabled)::before {
+/* Mouse-only: a touch browser keeps `:hover` on the last tapped element, so a
+   button that stays mounted would keep the overlay after a tap. */
+:where(html[data-input="mouse"])
+  .r-btn:hover:not(.r-btn--disabled, :disabled)::before {
   opacity: 0.1;
 }
 .r-btn:active:not(.r-btn--disabled, :disabled)::before {
@@ -640,7 +643,8 @@ const spinnerSize = computed(() => {
   color: var(--r-color-fg);
   box-shadow: 0 2px 6px color-mix(in srgb, black 18%, transparent);
 }
-.r-btn--elevated:hover:not(.r-btn--disabled, :disabled) {
+:where(html[data-input="mouse"])
+  .r-btn--elevated:hover:not(.r-btn--disabled, :disabled) {
   box-shadow: 0 4px 10px color-mix(in srgb, black 26%, transparent);
 }
 
@@ -688,7 +692,8 @@ const spinnerSize = computed(() => {
 .r-btn--border {
   border-color: color-mix(in srgb, currentColor 40%, transparent);
 }
-.r-btn--border:hover:not(.r-btn--disabled, :disabled) {
+:where(html[data-input="mouse"])
+  .r-btn--border:hover:not(.r-btn--disabled, :disabled) {
   border-color: color-mix(in srgb, currentColor 65%, transparent);
 }
 
