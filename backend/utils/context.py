@@ -23,6 +23,11 @@ _T = TypeVar("_T")
 
 ctx_aiohttp_session: ContextVar[aiohttp.ClientSession] = ContextVar("aiohttp_session")
 ctx_httpx_client: ContextVar[httpx2.AsyncClient] = ContextVar("httpx_client")
+# Sync callers cannot await the async client above, and opening a client per
+# call throws away every connection it just made. This one is created once for
+# the life of the app, and may only reach public addresses: everything the
+# plugin system fetches is a URL somebody else supplied.
+ctx_httpx_sync_client: ContextVar[httpx2.Client] = ContextVar("httpx_sync_client")
 
 
 def _validate_request_url_sync(request: httpx2.Request) -> None:
@@ -79,6 +84,29 @@ def create_httpx_client(
     return client
 
 
+_fallback_sync_client: httpx2.Client | None = None
+
+
+def sync_httpx_client() -> httpx2.Client:
+    """The app's shared public-only client.
+
+    Handlers are synchronous, so they cannot await the client set up for the
+    request, and opening one per call spends every connection it makes. This
+    returns the single client created at startup, with its pool shared by every
+    caller.
+
+    A test or a command-line run has no app to borrow one from, so the first
+    call creates it and later calls reuse it. Callers must not close it.
+    """
+    global _fallback_sync_client
+    try:
+        return ctx_httpx_sync_client.get()
+    except LookupError:
+        if _fallback_sync_client is None or _fallback_sync_client.is_closed:
+            _fallback_sync_client = create_httpx_client(allowlist=frozenset())
+        return _fallback_sync_client
+
+
 @asynccontextmanager
 async def set_context_var(var: ContextVar[_T], value: _T) -> AsyncGenerator[Token[_T]]:
     """Temporarily set a context variables."""
@@ -90,13 +118,15 @@ async def set_context_var(var: ContextVar[_T], value: _T) -> AsyncGenerator[Toke
 @asynccontextmanager
 async def initialize_context() -> AsyncGenerator[None]:
     """Initialize context variables."""
-    async with (
-        create_aiohttp_session() as aiohttp_session,
-        create_httpx_async_client() as httpx_client,
-        set_context_var(ctx_aiohttp_session, aiohttp_session),
-        set_context_var(ctx_httpx_client, httpx_client),
-    ):
-        yield
+    with create_httpx_client(allowlist=frozenset()) as sync_client:
+        async with (
+            create_aiohttp_session() as aiohttp_session,
+            create_httpx_async_client() as httpx_client,
+            set_context_var(ctx_aiohttp_session, aiohttp_session),
+            set_context_var(ctx_httpx_client, httpx_client),
+            set_context_var(ctx_httpx_sync_client, sync_client),
+        ):
+            yield
 
 
 async def set_context_middleware(
@@ -110,5 +140,6 @@ async def set_context_middleware(
     async with (
         set_context_var(ctx_aiohttp_session, request.app.state.aiohttp_session),
         set_context_var(ctx_httpx_client, request.app.state.httpx_client),
+        set_context_var(ctx_httpx_sync_client, request.app.state.httpx_sync_client),
     ):
         return await call_next(request)

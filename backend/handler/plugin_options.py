@@ -20,9 +20,8 @@ from endpoints.responses.plugin import (
     PluginSettingSchema,
 )
 from fastapi import status
-from utils.context import create_httpx_client
+from utils.context import sync_httpx_client
 
-from handler.plugin_facts import PUBLIC_ONLY
 from handler.plugin_handler import PluginRefused, PluginSchema
 
 logger = logging.getLogger(__name__)
@@ -182,16 +181,13 @@ def _fetch(url: str, params: dict[str, str]) -> Any:
     """
     # Public-only at connection time: an empty allowlist is what keeps a
     # private origin out even if the name resolved publicly a moment ago.
-    with (
-        create_httpx_client(allowlist=PUBLIC_ONLY) as client,
-        client.stream(
-            "GET",
-            url,
-            params=params,
-            timeout=OPTION_TIMEOUT,
-            follow_redirects=False,
-        ) as response,
-    ):
+    with sync_httpx_client().stream(
+        "GET",
+        url,
+        params=params,
+        timeout=OPTION_TIMEOUT,
+        follow_redirects=False,
+    ) as response:
         if response.status_code != status.HTTP_200_OK:
             raise PluginRefused(f"{url} answered {response.status_code}")
         # Read in chunks and stop at the limit: a source that streams megabytes

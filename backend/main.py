@@ -78,6 +78,7 @@ from utils import get_version
 from utils.context import (
     ctx_aiohttp_session,
     ctx_httpx_client,
+    ctx_httpx_sync_client,
     initialize_context,
     set_context_middleware,
 )
@@ -93,6 +94,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     async with initialize_context():
         app.state.aiohttp_session = ctx_aiohttp_session.get()
         app.state.httpx_client = ctx_httpx_client.get()
+        app.state.httpx_sync_client = ctx_httpx_sync_client.get()
         await start_restart_grace()
 
         # Relay backend log lines to admin Socket.IO clients in real time.

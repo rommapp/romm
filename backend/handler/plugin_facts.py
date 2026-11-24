@@ -26,7 +26,7 @@ from endpoints.responses.plugin import (
     PluginFactSchema,
     PluginSlot,
 )
-from utils.context import create_httpx_client
+from utils.context import sync_httpx_client
 from utils.ssrf import ValidationError, validate_url_for_http_request
 
 # `{setting.<key>}` in a template. Held here rather than imported from the
@@ -158,17 +158,15 @@ def _fetch(url: str) -> dict[str, Any]:
     body = bytearray()
     try:
         # The guarded client pins the address it resolved, so a name that
-        # answers one thing at validation cannot answer another at connect.
-        with (
-            create_httpx_client(allowlist=PUBLIC_ONLY) as client,
-            client.stream(
-                "GET",
-                url,
-                headers={"Accept": "application/json"},
-                timeout=FETCH_TIMEOUT_SECONDS,
-                follow_redirects=False,
-            ) as reply,
-        ):
+        # answers one thing at validation cannot answer another at connect. The
+        # client is the app's, so its pool is warm and it is not closed here.
+        with sync_httpx_client().stream(
+            "GET",
+            url,
+            headers={"Accept": "application/json"},
+            timeout=FETCH_TIMEOUT_SECONDS,
+            follow_redirects=False,
+        ) as reply:
             if reply.status_code != 200:
                 raise ValueError(f"The source answered {reply.status_code}")
             for chunk in reply.iter_bytes():

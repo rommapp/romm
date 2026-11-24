@@ -36,12 +36,11 @@ from endpoints.responses.plugin import (
     StorePluginSchema,
 )
 from logger.logger import log
-from utils.context import create_httpx_client
+from utils.context import sync_httpx_client
 
 from handler.plugin_facts import (
     MAX_FACTS,
     PATH_PATTERN,
-    PUBLIC_ONLY,
     SETTING_PLACEHOLDER,
     PluginFactSpec,
     forget_all,
@@ -1049,8 +1048,9 @@ def _parse_setting(raw: Any, plugin_id: str) -> PluginSettingSchema | None:
             else MAX_GROUPS
         )
         # A list starts empty, and an empty list is the same as none: the form
-        # adds the first entry when the user asks for one.
-        default = None
+        # adds the first entry when the user asks for one. The annotation holds
+        # the branches below to one variable without narrowing it to bool.
+        default: str | int | float | bool | None = None
 
     if kind != "groups":
         declared = raw.get("default")
@@ -1364,10 +1364,9 @@ def _fetch_json(url: str, limit: int, what: str) -> dict[str, Any]:
     if reason:
         raise PluginRefused(f"{what} cannot be fetched: {reason}")
     try:
-        with (
-            create_httpx_client(allowlist=PUBLIC_ONLY) as client,
-            client.stream("GET", url, timeout=10, follow_redirects=False) as response,
-        ):
+        with sync_httpx_client().stream(
+            "GET", url, timeout=10, follow_redirects=False
+        ) as response:
             if response.status_code != 200:
                 raise PluginRefused(f"{what} answered {response.status_code}")
             body = b""
