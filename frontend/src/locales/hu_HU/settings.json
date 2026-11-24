@@ -354,7 +354,7 @@
   "plugins-facts-hint": "Click to open the full report",
   "plugins-facts-more": "and {count} more emulators · {reports} reports",
   "plugins-facts-reports": "{count} reports",
-  "plugins-hint": "Plugins are manifests: small files that add actions to the library. They run nothing on the server and cannot reach past the URL they open.",
+  "plugins-hint": "Plugins add buttons to RomM that open things outside it, like a game in another app or a page about that game. A plugin is just a small settings file: nothing runs on your server, and every link is one you can see.",
   "plugins-homepage": "Homepage",
   "plugins-install": "Install",
   "plugins-installed": "Installed",
