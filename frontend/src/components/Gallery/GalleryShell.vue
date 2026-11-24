@@ -604,6 +604,12 @@ const currentLetter = computed(() =>
 watch(visibleLettersSet, (visible) => {
   letterPick.value = settleLetterPick(letterPick.value, visible);
 });
+watch(
+  () => galleryRoms.resultEpoch,
+  () => {
+    letterPick.value = null;
+  },
+);
 
 // Viewport-driven windowed fetch. The shell collects which positions are
 // currently visible (from the rows in `viewportRange`, for both grid and
@@ -712,7 +718,6 @@ function commitRefresh(apply: () => boolean): Promise<void> {
   return resultsTransition.run(() => {
     if (!apply()) return false;
     endLetterJump();
-    letterPick.value = null;
     // A new result reads from its first row, not the old scroll depth.
     scrollerRef.value?.scrollTo(0);
     return true;
