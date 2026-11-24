@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 from fastapi import status
 from fastapi.testclient import TestClient
-from tests.endpoints.test_permissions_visibility import _auth, _hide
+from tests.auth_helpers import hide, user_headers
 from tests.handler.recommendation.test_builder import make_rom
 
 from handler.database import db_rom_handler
@@ -366,10 +366,11 @@ def test_similar_roms_show_a_visible_version_of_a_hidden_one(
     library = build_library(platform)
     metroid_europe = _metroid_europe(platform)
     SimilarityBuilder().build()
-    _hide(PermEntity.ROMS, library["metroid"].id, viewer_user.id)
+    hide(PermEntity.ROMS, library["metroid"].id, user_id=viewer_user.id)
 
     body = client.get(
-        f"/api/roms/{library['metroid_2'].id}/similar", headers=_auth(viewer_user)
+        f"/api/roms/{library['metroid_2'].id}/similar",
+        headers=user_headers(viewer_user),
     ).json()
 
     returned_ids = [entry["rom"]["id"] for entry in body]
