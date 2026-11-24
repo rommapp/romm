@@ -2,11 +2,20 @@ import threading
 from datetime import datetime, timedelta, timezone
 
 import pytest
+from sqlalchemy import text
 
 from exceptions.database_exceptions import LastAdminError
-from handler.database import db_user_handler
-from handler.database.base_handler import sync_session
+from handler.database import (
+    db_device_handler,
+    db_play_session_handler,
+    db_user_handler,
+)
+from handler.database.base_handler import sync_engine, sync_session
+from models.device import Device
+from models.play_session import PlaySession
+from models.rom import Rom
 from models.user import Role, User
+from utils.database import is_postgresql
 from utils.datetime import to_utc
 
 
@@ -102,6 +111,45 @@ class TestKeepAnAdmin:
         assert not second.is_alive()
         assert [type(error) for error in errors] == [LastAdminError]
         assert (_role(admin_user), _role(other_admin)) == (Role.ADMIN, Role.USER)
+
+
+class TestDeleteUser:
+    def test_only_their_devices_and_play_sessions_go(
+        self, admin_user: User, editor_user: User, rom: Rom
+    ):
+        # A restored dump puts the unique key first, so InnoDB checks the user with it.
+        with sync_engine.connect() as conn:
+            if not is_postgresql(conn):
+                conn.execute(text("ALTER TABLE play_sessions FORCE"))
+        started = datetime.now(timezone.utc).replace(microsecond=0)
+        for user in (admin_user, editor_user):
+            device = db_device_handler.add_device(
+                Device(id=f"{user.username}-device", user_id=user.id, name="Handheld")
+            )
+            db_play_session_handler.add_sessions(
+                [
+                    PlaySession(
+                        user_id=user.id,
+                        device_id=device_id,
+                        rom_id=rom.id,
+                        start_time=started,
+                        end_time=started + timedelta(minutes=30),
+                        duration_ms=30 * 60 * 1000,
+                    )
+                    for device_id in (device.id, None)
+                ]
+            )
+
+        db_user_handler.delete_user(editor_user.id)
+
+        assert db_user_handler.get_user(editor_user.id) is None
+        assert db_device_handler.get_devices(user_id=editor_user.id) == []
+        assert db_play_session_handler.get_sessions(user_id=editor_user.id) == []
+        left = db_play_session_handler.get_sessions(user_id=admin_user.id)
+        assert {session.device_id for session in left} == {
+            f"{admin_user.username}-device",
+            None,
+        }
 
 
 class TestUpdateLastActive:

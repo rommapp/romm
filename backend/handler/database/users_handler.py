@@ -8,6 +8,7 @@ from sqlalchemy.sql import Delete, Select, Update
 
 from decorators.database import INJECTED_SESSION, begin_session
 from exceptions.database_exceptions import LastAdminError
+from models.device import Device
 from models.snapshot import Snapshot
 from models.user import Role, User
 
@@ -234,6 +235,13 @@ class DBUsersHandler(DBBaseHandler):
         session.execute(
             delete(Snapshot)
             .where(Snapshot.user_id == id)
+            .execution_options(synchronize_session=False)
+        )
+        # InnoDB can recheck a play session's user while clearing its device, so
+        # the devices go while the user is still there.
+        session.execute(
+            delete(Device)
+            .where(Device.user_id == id)
             .execution_options(synchronize_session=False)
         )
         return session.execute(
