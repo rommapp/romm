@@ -153,9 +153,13 @@ class FeedBuilder:
         affinity_rows = db_recommendation_handler.get_user_affinity(self.user_id)
 
         seeds, excluded = self._partition(affinity_rows)
-        if excluded:
-            # Playing the USA release rules out the Japanese one too.
-            excluded = db_rom_handler.get_sibling_group_members(list(excluded))
+        # Playing the USA release rules out the Japanese one too, but hiding a
+        # version hides only that version, as in the grouped gallery.
+        hidden = {row.rom_id for row in affinity_rows if row.hidden}
+        if excluded - hidden:
+            excluded = hidden | db_rom_handler.get_sibling_group_members(
+                list(excluded - hidden)
+            )
         if not seeds:
             return self._cold_start(limit, excluded)
 

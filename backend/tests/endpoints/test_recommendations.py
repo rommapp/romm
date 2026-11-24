@@ -340,6 +340,28 @@ def test_playing_one_version_excludes_the_others(
     assert metroid_europe.id not in returned_ids
 
 
+def test_hiding_one_version_keeps_the_others(
+    client: TestClient, access_token: str, admin_user: User, platform: Platform
+):
+    """Like the grouped gallery, hiding a version hides only that version."""
+    library = build_library(platform)
+    metroid_europe = _metroid_europe(platform)
+    SimilarityBuilder().build()
+    _play(library["metroid_2"], admin_user, rating=10)
+    rom_user = db_rom_handler.add_rom_user(metroid_europe.id, admin_user.id)
+    db_rom_handler.update_rom_user(rom_user.id, {"hidden": True})
+    invalidate_cached_feed(admin_user.id)
+
+    body = client.get(
+        "/api/recommendations",
+        headers={"Authorization": f"Bearer {access_token}"},
+    ).json()
+
+    returned_ids = [entry["rom"]["id"] for entry in body]
+    assert library["metroid"].id in returned_ids
+    assert metroid_europe.id not in returned_ids
+
+
 def test_similar_roms_show_the_users_main_version(
     client: TestClient, access_token: str, admin_user: User, platform: Platform
 ):
