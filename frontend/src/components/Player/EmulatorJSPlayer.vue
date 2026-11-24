@@ -566,7 +566,7 @@ function installAutoSaveSync() {
       if (written) {
         retryBackoff.reset();
         heldBackSave = null;
-        const now = Date.now();
+        const now = performance.now();
         if (shouldAnnounceAutoSync(saveSyncedShownAt, now)) {
           saveSyncedShownAt = now;
           displayMessage(t("play.save-synced"), {

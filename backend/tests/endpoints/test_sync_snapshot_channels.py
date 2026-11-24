@@ -10,10 +10,10 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 from tests._zipfile_shim import reload_zipfile
-from tests.factories import make_platform, make_rom
 from tests.handler.snapshots.pushes import (
     md5,
     part,
+    pokemon_red,
     push,
     red_ram,
     save_entry,
@@ -567,18 +567,8 @@ async def test_an_adopted_upload_takes_its_identity_from_sigil(
     legacy_device: Device,
 ):
     sigil = pytest.importorskip("sigil")
-    rom = make_rom(make_platform("gb"), "Pokemon Red")
+    rom, rom_file = pokemon_red(sigil.FEATURE_GB_SCRATCH_GEN1)
     db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
-    rom_file = db_rom_handler.add_rom_file(
-        RomFile(
-            rom_id=rom.id,
-            file_name="Pokemon Red.gb",
-            file_path=rom.fs_path,
-            file_size_bytes=1024,
-            sha1_hash="d" * 40,
-            sigil_features=sigil.FEATURE_GB_SCRATCH_GEN1,
-        )
-    )
     synced_to(legacy_device, held_save(await snapshot_push(admin_user, rom, rom_file)))
 
     response = upload(client, access_token, rom, legacy_device, red_ram())

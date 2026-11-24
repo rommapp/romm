@@ -5,8 +5,10 @@ import uuid
 from pathlib import Path
 
 from sqlalchemy import func, select
+from tests.factories import make_platform, make_rom
 
 from handler.auth.rom_visibility import UNRESTRICTED
+from handler.database import db_rom_handler
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_asset_handler
 from handler.snapshots.manifest import Manifest, SaveEntry
@@ -41,6 +43,22 @@ def red_ram(changes: dict[int, int] | None = None) -> bytes:
         ram[offset] = value
     ram[0x3523] = ~sum(ram[0x2598:0x3523]) & 0xFF
     return bytes(ram)
+
+
+def pokemon_red(features: int) -> tuple[Rom, RomFile]:
+    """A Pokemon Red ROM on gb, its file read by sigil with `features`."""
+    rom = make_rom(make_platform("gb"), "Pokemon Red")
+    rom_file = db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="Pokemon Red.gb",
+            file_path=rom.fs_path,
+            file_size_bytes=1024,
+            sha1_hash="b" * 40,
+            sigil_features=features,
+        )
+    )
+    return rom, rom_file
 
 
 def stored_files(base: Path) -> list[Path]:

@@ -9,7 +9,6 @@ from fastapi import UploadFile as StarletteUploadFile
 from sqlalchemy import select, update
 from tests._embedded_archives import EMBEDDINGS, embedded_archive
 from tests._zipfile_shim import reload_zipfile
-from tests.factories import make_platform, make_rom
 from tests.handler.snapshots.pushes import (
     SRAM,
     STATE_A,
@@ -18,6 +17,7 @@ from tests.handler.snapshots.pushes import (
     first_push,
     md5,
     part,
+    pokemon_red,
     push,
     push_save,
     red_ram,
@@ -27,7 +27,7 @@ from tests.handler.snapshots.pushes import (
 )
 
 from handler import asset_store
-from handler.database import db_rom_handler, db_snapshot_handler
+from handler.database import db_snapshot_handler
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_asset_handler
 from handler.filesystem.assets_handler import hash_zip_contents
@@ -988,21 +988,11 @@ async def test_a_clock_only_change_is_no_new_snapshot(
     [(0x0100, Outcome.UNCHANGED), (0x2600, Outcome.CREATED)],
     ids=["sprite buffer", "main data"],
 )
-async def test_a_scratch_only_change_is_no_new_snapshot(
+async def test_a_pokemon_save_is_new_only_when_more_than_scratch_ram_changed(
     admin_user: User, offset: int, outcome: Outcome
 ):
     sigil = pytest.importorskip("sigil")
-    rom = make_rom(make_platform("gb"), "Pokemon Red")
-    rom_file = db_rom_handler.add_rom_file(
-        RomFile(
-            rom_id=rom.id,
-            file_name="Pokemon Red.gb",
-            file_path=rom.fs_path,
-            file_size_bytes=1024,
-            sha1_hash="b" * 40,
-            sigil_features=sigil.FEATURE_GB_SCRATCH_GEN1,
-        )
-    )
+    rom, rom_file = pokemon_red(sigil.FEATURE_GB_SCRATCH_GEN1)
     saved, changed = red_ram(), red_ram({offset: 0x5A})
     first = await write_snapshot(
         push(

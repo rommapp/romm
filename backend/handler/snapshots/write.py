@@ -161,7 +161,7 @@ class _Plan:
     resolved: Resolved
     expected_current_id: int | None = None
     # The current snapshot this push adds no progress to: the same content, or
-    # a save whose clock alone moved.
+    # a save whose identity hash matches, a clock tick or a scratch write apart.
     same_as: int | None = None
     saves: dict[str, Save] = field(default_factory=dict)
     states: dict[str, State] = field(default_factory=dict)
@@ -226,7 +226,7 @@ async def _same_save_identity(
     plan.sent_save_identity = await identity_hash(
         await asyncio.to_thread(part_bytes, sent),
         platform_slug=write.rom.platform_slug,
-        features=write.rom_file.sigil_features or 0,
+        features=write.rom_file.sigil_features,
     )
     return plan.sent_save_identity == held.save.identity_hash
 
@@ -512,7 +512,7 @@ async def _store_part(
                 else await identity_hash_of_file(
                     fs_asset_handler.validate_path(path),
                     platform_slug=write.rom.platform_slug,
-                    features=write.rom_file.sigil_features or 0,
+                    features=write.rom_file.sigil_features,
                 )
             ),
             shape=entry.shape,

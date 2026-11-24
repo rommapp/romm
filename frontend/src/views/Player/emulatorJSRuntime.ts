@@ -165,8 +165,8 @@ export const SAVE_SYNC_POLL_MS = 1000;
 // Each tick copies and compares the whole SRAM, so the interval grows with it
 // past 1 MB (1 ms of work per second either way) rather than hitching big saves.
 const SAVE_SYNC_BYTES_PER_MS = 1024;
-/** Pokemon Gen 1 and 2 use SRAM as scratch space, so opening a menu uploads a
- * save. The notice for an automatic upload shows at most once per window. */
+/** The notice for an automatic upload shows at most once per window, since
+ * Pokemon Gen 1 and 2 write SRAM as scratch space whenever a menu opens. */
 export const SAVE_SYNCED_NOTICE_INTERVAL_MS = 5 * 60 * 1000;
 
 /**

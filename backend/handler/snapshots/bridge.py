@@ -56,7 +56,7 @@ async def hold_legacy_upload(
             "identity_hash": await identity_hash_of_file(
                 path,
                 platform_slug=rom.platform_slug,
-                features=rom_file.sigil_features or 0,
+                features=rom_file.sigil_features,
             ),
         },
         touch=False,

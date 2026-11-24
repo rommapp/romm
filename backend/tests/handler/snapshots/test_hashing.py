@@ -88,7 +88,22 @@ async def test_without_sigil_a_platform_with_a_rule_hashes_as_before(
 async def test_a_unit_sigil_has_no_rule_for_hashes_as_before():
     pytest.importorskip("sigil")
 
-    assert await _identity(b"only", "snes") == md5(b"only")
+    assert await _identity(b"only", "psx") == md5(b"only")
+
+
+class _RefusingBinding:
+    class SigilError(Exception):
+        pass
+
+    @classmethod
+    def unit_identity(cls, platform: str, features: int, unit: bytes) -> str:
+        raise cls.SigilError(platform)
+
+
+async def test_a_unit_sigil_refuses_hashes_as_before(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(hashing, "sigil_binding", lambda: _RefusingBinding)
+
+    assert await _identity(red_ram(), "gb") == md5(red_ram())
 
 
 async def test_a_raw_file_hashes_as_itself():

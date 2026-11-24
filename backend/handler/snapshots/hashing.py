@@ -1,5 +1,5 @@
-"""A save unit's identity hash: sigil's for a platform it has a rule for.
-Otherwise it is the content hash without the unit's clock members."""
+"""A save unit's identity hash, sigil's for a platform it has a rule for and
+otherwise the content hash without the unit's clock members."""
 
 import asyncio
 import hashlib
@@ -17,12 +17,14 @@ from handler.filesystem.assets_handler import (
 from logger.logger import log
 
 
-def _identity(content: bytes, platform_slug: str | None, features: int) -> str:
+def _identity(content: bytes, platform_slug: str | None, features: int | None) -> str:
     binding = sigil_binding()
     sigil_platform = SIGIL_RESTORE_PLATFORM_SLUGS.get(platform_slug or "")
     if binding is not None and sigil_platform is not None:
         try:
-            identity: str = binding.unit_identity(sigil_platform, features, content)
+            identity: str = binding.unit_identity(
+                sigil_platform, features or 0, content
+            )
             return identity
         except binding.SigilError:
             pass
@@ -43,15 +45,15 @@ def _identity(content: bytes, platform_slug: str | None, features: int) -> str:
 
 
 async def identity_hash(
-    content: bytes, *, platform_slug: str | None, features: int
+    content: bytes, *, platform_slug: str | None, features: int | None
 ) -> str:
     """The unit's identity as sigil gives it for the game's platform and cart
-    `features`. Otherwise it is the content hash without the clock members."""
+    `features`, or otherwise the content hash without the clock members."""
     return await asyncio.to_thread(_identity, content, platform_slug, features)
 
 
 async def identity_hash_of_file(
-    path: Path, *, platform_slug: str | None, features: int
+    path: Path, *, platform_slug: str | None, features: int | None
 ) -> str:
     return await identity_hash(
         await asyncio.to_thread(path.read_bytes),
