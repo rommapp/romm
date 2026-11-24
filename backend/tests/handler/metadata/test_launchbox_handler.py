@@ -308,6 +308,16 @@ class TestParseVideourl:
     def test_youtu_be_with_query(self):
         assert parse_videourl("https://youtu.be/abc123?t=30") == "abc123"
 
+    def test_youtube_watch_with_v_after_other_params(self):
+        assert (
+            parse_videourl("https://www.youtube.com/watch?feature=share&v=abc123")
+            == "abc123"
+        )
+
+    def test_fragment_is_not_part_of_the_id(self):
+        assert parse_videourl("https://www.youtube.com/watch?v=abc123#t=30") == "abc123"
+        assert parse_videourl("https://youtu.be/abc123#t=30") == "abc123"
+
     def test_non_youtube(self):
         assert parse_videourl("https://vimeo.com/123456") == ""
 

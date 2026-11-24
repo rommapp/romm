@@ -1,6 +1,7 @@
 import re
 import unicodedata
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 from handler.filesystem.base_handler import region_name_to_provider_shortcode
 from models.base import compute_file_name_no_ext, compute_file_name_no_tags
@@ -177,9 +178,13 @@ def parse_videourl(url: str | None) -> str:
     if not url:
         return ""
 
-    if "youtube.com/watch?v=" in url:
-        return url.split("v=")[-1].split("&")[0]
-    elif "youtu.be/" in url:
-        return url.split("/")[-1].split("?")[0]
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    if host == "youtu.be":
+        return parsed.path.lstrip("/").split("/")[0]
+    if (host == "youtube.com" or host.endswith(".youtube.com")) and (
+        parsed.path == "/watch"
+    ):
+        return next(iter(parse_qs(parsed.query).get("v", [])), "")
 
     return ""
