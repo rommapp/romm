@@ -58,9 +58,7 @@ SIGIL_RESTORE_PLATFORM_SLUGS: Final[dict[str, str]] = {
 NATIVE_SAVE_PLATFORM_SLUGS: Final = frozenset(
     {
         UPS.NES,
-        UPS.FAMICOM,
         UPS.SNES,
-        UPS.SFAM,
         UPS.GENESIS,
         UPS.SMS,
         UPS.GAMEGEAR,

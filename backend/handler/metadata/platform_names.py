@@ -66,7 +66,7 @@ def platform_abbreviation(slug: str) -> str:
 @functools.cache
 def platform_alternative_names(slug: str) -> tuple[str, ...]:
     """IGDB's and ScreenScraper's alternative names, then each provider's other names."""
-    # Providers map some variants onto their parent (Famicom onto NES), so skip
+    # Providers map some variants onto their parent (New 3DS onto 3DS), so skip
     # any name that another platform resolves to.
     slugs_by_name = _slugs_by_resolved_name()
     seen = {_name_key(resolve_platform_name(slug))}

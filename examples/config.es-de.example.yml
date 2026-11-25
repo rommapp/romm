@@ -22,10 +22,8 @@ exclude:
         - ".Trash*"
 
 system:
-  # ES-DE folder names are recognised automatically. The entry below overrides a
-  # folder RomM would otherwise match to its own platform.
-  platforms:
-    atari800: "atari8bit" # Atari 8-bit
+  # ES-DE folder names are recognised automatically.
+  platforms: {}
 
 scan:
   # Metadata priority during scans

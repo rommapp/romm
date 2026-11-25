@@ -56,9 +56,10 @@ IGDB_INDEXED_FORMAT_PLATFORMS: Final = IndexedFormatPlatforms(
 # Map each platform to its twin so searches can include both.
 # See https://github.com/rommapp/romm/issues/3462.
 SNES_IGDB_ID: Final = IGDB_PLATFORM_LIST[UPS.SNES]["id"]
-SUPER_FAMICOM_IGDB_ID: Final = IGDB_PLATFORM_LIST[UPS.SFAM]["id"]
+# Famicom and Super Famicom folders are filed under NES and SNES, so these have no list entry.
+SUPER_FAMICOM_IGDB_ID: Final = 58
 NES_IGDB_ID: Final = IGDB_PLATFORM_LIST[UPS.NES]["id"]
-FAMICOM_IGDB_ID: Final = IGDB_PLATFORM_LIST[UPS.FAMICOM]["id"]
+FAMICOM_IGDB_ID: Final = 99
 
 IGDB_REGIONAL_TWIN_PLATFORMS: Final[dict[int, int]] = {
     SNES_IGDB_ID: SUPER_FAMICOM_IGDB_ID,
@@ -370,11 +371,15 @@ def derive_player_count(
     if not multiplayer_modes:
         return "1"
 
+    # A regional twin's modes count, as a Famicom-only game is matched from nes.
+    platform_igdb_ids = (
+        _platform_igdb_ids_with_twin(platform_igdb_id) if platform_igdb_id else []
+    )
     relevant_modes = [
         mm
         for mm in multiplayer_modes
-        if not platform_igdb_id
-        or (mm.get("platform") and mm["platform"].get("igdb_id") == platform_igdb_id)
+        if not platform_igdb_ids
+        or (mm.get("platform") and mm["platform"].get("igdb_id") in platform_igdb_ids)
     ]
 
     if not relevant_modes:

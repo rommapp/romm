@@ -121,13 +121,13 @@ describe("jsDosBundleFileIds", () => {
 });
 
 describe("PICO-8 support", () => {
-  it("supports the pico platform and configured remaps", () => {
-    expect(isPico8EmulationSupported("pico", makeHeartbeat())).toBe(true);
+  it("supports the pico-8 platform and configured remaps", () => {
+    expect(isPico8EmulationSupported("pico-8", makeHeartbeat())).toBe(true);
     expect(
       isPico8EmulationSupported(
         "custom-pico",
         makeHeartbeat(),
-        makeConfig({ "custom-pico": "pico" }),
+        makeConfig({ "custom-pico": "pico-8" }),
       ),
     ).toBe(true);
     expect(isPico8EmulationSupported("snes", makeHeartbeat())).toBe(false);
@@ -135,7 +135,10 @@ describe("PICO-8 support", () => {
 
   it("respects the DISABLE_PICO8 admin toggle", () => {
     expect(
-      isPico8EmulationSupported("pico", makeHeartbeat({ DISABLE_PICO8: true })),
+      isPico8EmulationSupported(
+        "pico-8",
+        makeHeartbeat({ DISABLE_PICO8: true }),
+      ),
     ).toBe(false);
   });
 

@@ -116,8 +116,8 @@ def retroarch_aliases(romm_emulator: str | None) -> tuple[str | None, ...]:
     )
 
 
-_SNES = frozenset({UPS.SNES, UPS.SFAM, UPS.SATELLAVIEW, UPS.SUFAMI_TURBO})
-_NES = frozenset({UPS.NES, UPS.FAMICOM, UPS.FDS})
+_SNES = frozenset({UPS.SNES, UPS.SATELLAVIEW, UPS.SUFAMI_TURBO})
+_NES = frozenset({UPS.NES, UPS.FDS})
 _GB = frozenset({UPS.GB, UPS.GBC})
 _FINALBURN = ARCADE_SET_PLATFORMS | {UPS.NEOGEOAES, UPS.NEOGEOMVS}
 
@@ -135,9 +135,7 @@ RETROARCH_PLATFORMS_BY_ROMM_EMULATOR: dict[str, frozenset[str]] = {
     "vbam": _GB | {UPS.GBA},
     "genesis_plus_gx": frozenset({UPS.SG1000}),
     "blastem": frozenset({UPS.GENESIS}),
-    "picodrive": frozenset(
-        {UPS.GENESIS, UPS.SMS, UPS.SEGACD32, UPS.PICO, UPS.SEGA_PICO}
-    ),
+    "picodrive": frozenset({UPS.GENESIS, UPS.SMS, UPS.SEGACD32, UPS.SEGA_PICO}),
     "mupen64plus_next": frozenset({UPS.N64DD}),
     "mednafen_saturn": frozenset({UPS.SATURN}),
     "kronos": frozenset({UPS.SATURN, UPS.STV}),

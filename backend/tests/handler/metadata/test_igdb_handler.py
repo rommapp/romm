@@ -1481,6 +1481,11 @@ class TestDerivePlayerCount:
 
         assert derive_player_count(modes, platform_igdb_id=4) == "1"
 
+    def test_a_regional_twins_modes_count(self):
+        modes = [_mode(platform_igdb_id=SUPER_FAMICOM_IGDB_ID, offlinemax=2)]
+
+        assert derive_player_count(modes, platform_igdb_id=SNES_IGDB_ID) == "1-2"
+
 
 def _localized_game() -> Game:
     game = _make_game(1, "Pocket Monsters")

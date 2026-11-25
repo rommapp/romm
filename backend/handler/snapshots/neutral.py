@@ -35,9 +35,7 @@ _BACKUP_RAM = _Form(_names("backup.ram", "cart.ram"))
 
 NEUTRAL_FORMS: Final[dict[str, _Form]] = {
     UPS.NES: _BATTERY,
-    UPS.FAMICOM: _BATTERY,
     UPS.SNES: _BATTERY,
-    UPS.SFAM: _BATTERY,
     UPS.GENESIS: _BATTERY,
     UPS.SMS: _BATTERY,
     UPS.GAMEGEAR: _BATTERY,

@@ -7,6 +7,7 @@ from config.config_manager import Config
 from utils.platform_aliases import (
     PLATFORM_FS_ALIASES,
     PLATFORM_SLUG_FOLDERS,
+    SIBLING_FOLDERS,
     resolve_builtin_platform_slug,
     resolve_fs_folder,
     resolve_fs_slug,
@@ -14,6 +15,7 @@ from utils.platform_aliases import (
     unknown_binding_warning,
     unknown_binding_warnings,
 )
+from utils.platform_slugs import RETIRED_PLATFORM_SLUGS
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 EXAMPLE_CONFIGS = sorted((Path(__file__).parents[3] / "examples").glob("config.*.yml"))
@@ -48,9 +50,6 @@ def test_resolves_frontend_folder_names():
 
 def test_folder_without_alias_passes_through():
     config = _config()
-    # atari800 is a Batocera folder name that is also a RomM slug, so it can
-    # only be remapped through a config binding.
-    assert resolve_platform_slug("atari800", config) == "atari800"
     assert resolve_platform_slug("my-custom-folder", config) == "my-custom-folder"
 
 
@@ -68,11 +67,31 @@ def test_resolves_easyrpg_to_rpg_maker():
     assert resolve_fs_slug(UPS.RPG_MAKER.value, _config()) == "easyrpg"
 
 
-@pytest.mark.parametrize("folder", ["sgb", "sgb-msu1"])
-def test_super_game_boy_folders_stay_unidentified(folder: str):
-    """ES-DE and Batocera use sgb for the Super Game Boy, which has no RomM slug."""
-    assert resolve_builtin_platform_slug(folder) is None
-    assert resolve_platform_slug(folder, _config()) == folder
+@pytest.mark.parametrize(
+    ("folder", "slug"),
+    [
+        ("sgb", UPS.GB),
+        ("sgb-msu1", UPS.GB),
+        ("pico", UPS.SEGA_PICO),
+        ("pico8", UPS.PICO_8),
+        ("famicom", UPS.NES),
+        ("sfc", UPS.SNES),
+        ("sfam", UPS.SNES),
+        ("atari800", UPS.ATARI8BIT),
+        ("pc60", UPS.NEC_PC_6000_SERIES),
+        ("vemulator", UPS.VISUAL_MEMORY_UNIT_SLASH_VISUAL_MEMORY_SYSTEM),
+        ("mz2000", UPS.SHARP_MZ_80B20002500),
+        ("cave3rd", UPS.ARCADE),
+        ("exowin9x", UPS.WIN9X),
+        ("quake", UPS.QUAKE),
+        # RetroBat system names and folders that differ from Batocera's
+        ("gw", UPS.G_AND_W),
+        ("casloopy", UPS.CASIO_LOOPY),
+        ("pb", UPS.POWERBOMBERMAN),
+    ],
+)
+def test_resolves_batocera_and_retrobat_systems(folder: str, slug: UPS):
+    assert resolve_builtin_platform_slug(folder) == slug.value
 
 
 @pytest.mark.parametrize(
@@ -123,7 +142,7 @@ def test_warns_about_a_binding_to_an_unknown_name():
 
     assert warning is not None
     assert "system.platforms.snes-test is snse" in warning
-    assert warning.endswith("Did you mean snes, singe?")
+    assert warning.endswith("Did you mean snes, singe, bstone?")
 
 
 def test_warns_about_a_version_to_an_unknown_name():
@@ -210,6 +229,17 @@ def test_two_folders_differing_only_by_case_each_resolve_to_themselves():
 def test_reverse_map_agrees_with_alias_table():
     for slug, fs_slug in PLATFORM_SLUG_FOLDERS.items():
         assert PLATFORM_FS_ALIASES[fs_slug].value == slug
+
+
+@pytest.mark.parametrize("slug", [UPS.NES, UPS.NDS, UPS.MAME, UPS.DOS, UPS.GBA])
+def test_a_sibling_folder_never_stands_in_for_its_platform(slug: UPS):
+    assert slug.value not in PLATFORM_SLUG_FOLDERS
+
+
+def test_sibling_folders_and_retired_slugs_are_aliases():
+    assert SIBLING_FOLDERS <= PLATFORM_FS_ALIASES.keys()
+    for old_slug, slug in RETIRED_PLATFORM_SLUGS.items():
+        assert PLATFORM_FS_ALIASES[old_slug] == slug
 
 
 @pytest.mark.parametrize("config_file", EXAMPLE_CONFIGS, ids=lambda p: p.name)

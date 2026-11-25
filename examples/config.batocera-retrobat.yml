@@ -16,11 +16,8 @@ exclude:
       names: []
 filesystem: {}
 system:
-  # Batocera and RetroBat folder names are recognised automatically. The entries
-  # below override folders RomM would otherwise match to their own platform.
-  platforms:
-    atari800: atari8bit
-    pico: sega-pico
+  # Batocera and RetroBat folder names are recognised automatically.
+  platforms: {}
   versions: {}
 scan:
   gamelist:

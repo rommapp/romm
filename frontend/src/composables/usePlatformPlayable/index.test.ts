@@ -104,8 +104,8 @@ describe("usePlatformPlayable", () => {
   });
 
   it("resolves PICO-8 as a browser player", () => {
-    pico8Slugs.add("pico");
-    const { mode, emulator } = usePlatformPlayable(() => "pico");
+    pico8Slugs.add("pico-8");
+    const { mode, emulator } = usePlatformPlayable(() => "pico-8");
     expect(mode.value).toBe("browser");
     expect(emulator.value).toBe("pico8");
   });
