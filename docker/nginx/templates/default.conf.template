@@ -123,6 +123,11 @@ server {
         proxy_buffering off;
         proxy_read_timeout 300s;
     }
+    # The container healthcheck polls this every 30 seconds.
+    location ^~ /api/health/ {
+        access_log off;
+        proxy_pass http://wsgi_server;
+    }
     location ~ ^/(ws|netplay) {
         proxy_pass http://wsgi_server;
         proxy_http_version 1.1;

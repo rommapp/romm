@@ -421,6 +421,12 @@ VOLUME ["/romm", "/redis-data"]
 EXPOSE 8080 6379/tcp
 WORKDIR /romm
 
+# The shell form expands the port at probe time. The probe doesn't see the entrypoint's
+# exports, so it reads ROMM_PORT_FILE itself. Migrations run first, hence the long start period.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5m --retries=3 \
+    CMD port="${ROMM_PORT:-$(cat "${ROMM_PORT_FILE:-/dev/null}" 2>/dev/null)}"; \
+    wget -q --proxy off -O /dev/null "http://127.0.0.1:${port:-8080}/api/health/live"
+
 ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["/init"]
 
