@@ -1,5 +1,6 @@
 import contextlib
 import logging
+import os
 import sys
 from typing import TYPE_CHECKING, Any, Final, cast
 
@@ -10,6 +11,7 @@ from rq.exceptions import AbandonedJobError
 from rq.executions import Execution
 from rq.job import Job
 
+from config import OTEL_ENABLED
 from tasks.tasks import report_task_failure
 
 if TYPE_CHECKING:
@@ -60,6 +62,14 @@ class RomMWorker(Worker):
         _silence_periodic_noise(logging.getLogger(rq.scheduler.__name__))
         self.push_exc_handler(report_task_failure)
         self._inherited_db_pool: Pool | None = None
+        self._worker_pid = os.getpid()
+        self.monitored_job: tuple[Job, Queue] | None = None
+        # Imported only when telemetry is on, so a worker without it loads none
+        # of OpenTelemetry or psutil.
+        if OTEL_ENABLED:
+            from handler.rq_worker_telemetry import track
+
+            track(self)
 
     def heartbeat(
         self, timeout: int | None = None, pipeline: "Pipeline | None" = None
@@ -98,6 +108,22 @@ class RomMWorker(Worker):
             )
             worker_registration.register(self, pipeline)
             pipeline.execute()
+
+    def monitor_work_horse(self, job: Job, queue: Queue, execution: Execution) -> None:
+        self.monitored_job = (job, queue)
+        try:
+            super().monitor_work_horse(job, queue, execution)
+        finally:
+            self.monitored_job = None
+
+    def wait_for_horse(self) -> tuple[int | None, int | None, Any]:
+        pid, stat, rusage = super().wait_for_horse()
+        # rusage is None when something else already reaped the horse.
+        if OTEL_ENABLED and rusage is not None and self.monitored_job is not None:
+            from handler.rq_worker_telemetry import record_peak
+
+            record_peak(*self.monitored_job, stat, rusage)
+        return pid, stat, rusage
 
     def perform_job(self, job: Job, queue: Queue, execution: Execution) -> bool:
         engine = _database_engine()

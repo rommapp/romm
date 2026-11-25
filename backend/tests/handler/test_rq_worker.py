@@ -1,17 +1,23 @@
 import contextlib
 import logging
+import os
+import signal
 import sqlite3
 import sys
+import weakref
 from collections.abc import Iterator
 from contextlib import AbstractContextManager
 from dataclasses import replace
-from unittest.mock import MagicMock, call
+from types import SimpleNamespace
+from typing import cast
+from unittest.mock import MagicMock, PropertyMock, call
 
 import pytest
 import rq.scheduler
 from fakeredis import FakeRedis
 from rq import Queue, Worker
 from rq.exceptions import AbandonedJobError
+from rq.job import Job
 from rq.worker import WorkerStatus
 from rq.worker_registration import clean_worker_registry
 from sqlalchemy import create_engine, event
@@ -22,6 +28,11 @@ from handler.rq_worker import (
     PreloadingWorker,
     RomMWorker,
     _DropPeriodicNoiseFilter,
+)
+from handler.rq_worker_telemetry import (
+    _job_func_name,
+    _observe_horse_rss,
+    _stop_metrics_in_forked_child,
 )
 from tasks.registry import REAP_STREAMING_SESSIONS_SPEC
 from tasks.tasks import report_task_failure
@@ -192,6 +203,159 @@ def test_a_failing_callback_still_reaches_the_handlers(mocker) -> None:
     worker.handle_work_horse_killed(MagicMock(), 123, 9, None)
 
     handle_exception.assert_called_once()
+
+
+@pytest.fixture
+def telemetry_on(monkeypatch) -> None:
+    monkeypatch.setattr("handler.rq_worker.OTEL_ENABLED", True)
+
+
+def _monitoring(worker: RomMWorker) -> dict[str, str]:
+    job = cast(
+        Job, MagicMock(description="tasks.scheduled.scan_library.run(scan_type=1)")
+    )
+    worker.monitored_job = (job, Queue("scans", connection=FakeRedis(version=7)))
+    return {
+        "messaging.system": "rq",
+        "messaging.destination.name": "scans",
+        "rq.job.func_name": "tasks.scheduled.scan_library.run",
+    }
+
+
+@pytest.mark.parametrize(
+    "stat,killed", [(0, False), (signal.SIGKILL, True)], ids=["exited", "killed"]
+)
+def test_a_finished_horse_records_its_peak_memory(
+    mocker, telemetry_on, stat, killed
+) -> None:
+    mocker.patch(
+        "rq.Worker.wait_for_horse",
+        return_value=(123, stat, SimpleNamespace(ru_maxrss=2048)),
+    )
+    peak = mocker.patch("handler.rq_worker_telemetry._job_peak_rss")
+    worker = RomMWorker(["scans"], connection=FakeRedis(version=7))
+    attributes = _monitoring(worker)
+
+    worker.wait_for_horse()
+
+    peak.record.assert_called_once_with(
+        2048 * 1024, {**attributes, "rq.job.killed": killed}
+    )
+
+
+def test_an_already_reaped_horse_records_nothing(mocker, telemetry_on) -> None:
+    mocker.patch("rq.Worker.wait_for_horse", return_value=(None, None, None))
+    peak = mocker.patch("handler.rq_worker_telemetry._job_peak_rss")
+    worker = RomMWorker(["scans"], connection=FakeRedis(version=7))
+    _monitoring(worker)
+
+    worker.wait_for_horse()
+
+    peak.record.assert_not_called()
+
+
+def test_a_running_horse_reports_its_memory(monkeypatch) -> None:
+    worker = RomMWorker(["scans"], connection=FakeRedis(version=7))
+    monkeypatch.setattr(
+        "handler.rq_worker_telemetry._live_workers", weakref.WeakSet([worker])
+    )
+    attributes = _monitoring(worker)
+    worker._horse_pid = os.getpid()
+
+    (observation,) = _observe_horse_rss(MagicMock())
+
+    assert observation.attributes == attributes
+    assert observation.value > 0
+
+
+def test_naming_a_job_never_unpickles_its_arguments() -> None:
+    job = MagicMock(description="handler.scan.run(scan_type=<ScanType.QUICK>)")
+    type(job).func_name = PropertyMock(side_effect=AssertionError("unpickled"))
+
+    assert _job_func_name(cast(Job, job)) == "handler.scan.run"
+
+
+def test_a_stored_job_is_named_like_its_function() -> None:
+    queue = Queue("scans", connection=FakeRedis(version=7))
+    job_id = queue.enqueue("tasks.scheduled.scan_library.run", scan_type="quick").id
+
+    stored = Job.fetch(job_id, connection=queue.connection)
+
+    assert _job_func_name(stored) == "tasks.scheduled.scan_library.run"
+
+
+def test_a_job_without_a_description_is_unknown() -> None:
+    assert _job_func_name(cast(Job, MagicMock(description=None))) == "unknown"
+
+
+def test_an_idle_worker_reports_no_horse_memory(monkeypatch) -> None:
+    worker = RomMWorker(["scans"], connection=FakeRedis(version=7))
+    monkeypatch.setattr(
+        "handler.rq_worker_telemetry._live_workers", weakref.WeakSet([worker])
+    )
+    worker._horse_pid = os.getpid()
+
+    assert list(_observe_horse_rss(MagicMock())) == []
+
+
+def test_without_telemetry_a_job_records_nothing(mocker, monkeypatch) -> None:
+    # A developer's .env can turn telemetry on, so switch it off explicitly.
+    monkeypatch.setattr("handler.rq_worker.OTEL_ENABLED", False)
+    mocker.patch("rq.Worker.perform_job", return_value=True)
+    mocker.patch(
+        "rq.Worker.wait_for_horse",
+        return_value=(123, 0, SimpleNamespace(ru_maxrss=2048)),
+    )
+    peak = mocker.patch("handler.rq_worker_telemetry._job_peak_rss")
+    worker = RomMWorker(["scans"], connection=FakeRedis(version=7))
+    worker._worker_pid = -1
+    _monitoring(worker)
+
+    worker.wait_for_horse()
+
+    peak.record.assert_not_called()
+
+
+def _meter_provider(mocker) -> tuple[MagicMock, MagicMock]:
+    exporter = MagicMock()
+    provider = MagicMock(_all_metric_readers=[SimpleNamespace(_exporter=exporter)])
+    mocker.patch(
+        "handler.rq_worker_telemetry.metrics.get_meter_provider", return_value=provider
+    )
+    return provider, exporter
+
+
+def test_a_forked_child_of_a_worker_stops_exporting_metrics(
+    mocker, monkeypatch
+) -> None:
+    worker = RomMWorker(["default"], connection=FakeRedis(version=7))
+    worker._worker_pid = -1
+    monkeypatch.setattr(
+        "handler.rq_worker_telemetry._live_workers", weakref.WeakSet([worker])
+    )
+    provider, exporter = _meter_provider(mocker)
+
+    _stop_metrics_in_forked_child()
+
+    exporter.shutdown.assert_called_once_with()
+    provider.shutdown.assert_called_once_with(timeout_millis=1000)
+
+
+@pytest.mark.parametrize("has_worker", [True, False], ids=["worker", "no-worker"])
+def test_a_process_that_is_no_forked_child_keeps_its_metrics(
+    mocker, monkeypatch, has_worker
+) -> None:
+    workers = [RomMWorker(["default"], connection=FakeRedis(version=7))]
+    monkeypatch.setattr(
+        "handler.rq_worker_telemetry._live_workers",
+        weakref.WeakSet(workers if has_worker else []),
+    )
+    provider, exporter = _meter_provider(mocker)
+
+    _stop_metrics_in_forked_child()
+
+    exporter.shutdown.assert_not_called()
+    provider.shutdown.assert_not_called()
 
 
 class TestPreloadingWorker:

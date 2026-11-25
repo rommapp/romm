@@ -18,6 +18,15 @@ S6_ENV="/run/s6/container_environment"
 if ! printenv | grep -q '^OTEL_'; then
 	info_log "No OpenTelemetry environment variables found, disabling OpenTelemetry SDK"
 	printf 'true' >"${S6_ENV}/OTEL_SDK_DISABLED"
+else
+	# system.* repeats host-wide numbers in every process, and process.runtime.*
+	# duplicates process.*. RomM reports its own per-process memory and CPU.
+	printf '%s' "${OTEL_PYTHON_SYSTEM_METRICS_EXCLUDED_METRICS:-system.*,process.runtime.*}" >"${S6_ENV}/OTEL_PYTHON_SYSTEM_METRICS_EXCLUDED_METRICS"
+	printf '%s' "${OTEL_EXPERIMENTAL_RESOURCE_DETECTORS:-otel,process}" >"${S6_ENV}/OTEL_EXPERIMENTAL_RESOURCE_DETECTORS"
+	# These record URLs, query strings, SQL or Redis arguments, where provider keys
+	# and session values can sit. Telemetry carries none of them unless opted in.
+	printf '%s' "${OTEL_PYTHON_DISABLED_INSTRUMENTATIONS:-aiohttp-client,asgi,fastapi,httpx,redis,requests,sqlalchemy,urllib,urllib3}" >"${S6_ENV}/OTEL_PYTHON_DISABLED_INSTRUMENTATIONS"
+	printf '%s' "${OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED:-false}" >"${S6_ENV}/OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED"
 fi
 
 if [[ -z ${ROMM_AUTH_SECRET_KEY-} ]]; then

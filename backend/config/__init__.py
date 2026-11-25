@@ -535,6 +535,15 @@ STREAMING_STATE_HISTORY_LIMIT: Final[int] = safe_int(
     _get_env("STREAMING_STATE_HISTORY_LIMIT"), 50
 )
 
+# OPENTELEMETRY
+# The same rule as docker/init_scripts/init: any OTEL_ variable turns telemetry
+# on, unless OTEL_SDK_DISABLED is true. Off, RomM imports none of it.
+OTEL_ENABLED: Final[bool] = os.environ.get(
+    "OTEL_SDK_DISABLED", ""
+).lower() != "true" and any(
+    name.startswith("OTEL_") and name != "OTEL_SDK_DISABLED" for name in os.environ
+)
+
 # SENTRY
 SENTRY_DSN: Final[str | None] = _get_env("SENTRY_DSN")
 

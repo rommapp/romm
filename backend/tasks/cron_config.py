@@ -7,10 +7,17 @@ one off is a restart rather than an unschedule.
 from croniter import croniter
 from rq import cron
 
-from config import TASK_TIMEOUT
+from config import OTEL_ENABLED, TASK_TIMEOUT
 from logger.logger import log
 from tasks.registry import SCHEDULED_TASKS, enqueue_scheduled_scan
 from tasks.tasks import TaskType, run_task_by_name
+
+# rq cron is the one long-lived process each container runs exactly once, so
+# the gauges aren't reported once per API worker.
+if OTEL_ENABLED:
+    from handler.telemetry_handler import register_gauges
+
+    register_gauges()
 
 for name, task in SCHEDULED_TASKS.items():
     if not task.enabled or not task.cron_string:

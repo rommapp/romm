@@ -131,7 +131,11 @@ exec_rq_worker() {
 	export RQ_REDIS_URL
 	export PYTHONPATH="/backend:${PYTHONPATH-}"
 
-	exec rq worker \
+	# The service name is the log tag with underscores, such as rq_scan_worker.
+	declare -a wrap=()
+	otel_prefix wrap "${ROMM_LOG_TAG//-/_}"
+
+	exec "${wrap[@]}" rq worker \
 		--path /backend \
 		--worker-class "handler.rq_worker.${worker_class}" \
 		--connection-class handler.redis_handler.RomMRedis \

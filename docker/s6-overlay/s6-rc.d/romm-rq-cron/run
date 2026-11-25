@@ -19,7 +19,10 @@ RQ_REDIS_URL="$(build_redis_url)"
 export RQ_REDIS_URL
 export PYTHONPATH="/backend:${PYTHONPATH-}"
 
-exec rq cron \
+declare -a wrap=()
+otel_prefix wrap rq_cron
+
+exec "${wrap[@]}" rq cron \
 	--path /backend \
 	--connection-class handler.redis_handler.RomMRedis \
 	--logging-level "${LOGLEVEL}" \

@@ -76,3 +76,41 @@ def test_the_scheduler_and_worker_load_no_task_code(module):
     assert result.returncode == 0, result.stderr
     loaded = result.stdout.rpartition("LOADED:")[2].strip()
     assert loaded == "", f"{module} loads {loaded}"
+
+
+# RomM keeps each telemetry feature in a module with "telemetry" in its name,
+# imported only when config.OTEL_ENABLED is true. redis-py imports the
+# OpenTelemetry SDK on its own, so OpenTelemetry itself isn't checked here.
+ROMM_PACKAGES = ("adapters", "endpoints", "handler", "logger", "tasks", "utils")
+
+
+@pytest.mark.parametrize(
+    "module", ["main", "watcher", "tasks.cron_config", "handler.rq_worker"]
+)
+def test_without_otel_no_process_loads_romm_telemetry(module):
+    env = {k: v for k, v in os.environ.items() if not k.startswith("OTEL_")}
+    # config loads .env, which can bring OTEL_ settings back; load_dotenv never
+    # overrides a variable that is already set, so an explicit off wins.
+    env["OTEL_SDK_DISABLED"] = "true"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import importlib, sys\n"
+            "importlib.import_module(sys.argv[1])\n"
+            "packages = tuple(sys.argv[2:])\n"
+            "print('LOADED:' + ','.join(m for m in sys.modules\n"
+            "    if (m.split('.')[0] in packages and 'telemetry' in m.split('.')[-1])\n"
+            "    or m.startswith('opentelemetry.instrumentation')))\n",
+            module,
+            *ROMM_PACKAGES,
+        ],
+        cwd=BACKEND_ROOT,
+        env={**env, "PYTHONPATH": str(BACKEND_ROOT)},
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    loaded = result.stdout.rpartition("LOADED:")[2].strip()
+    assert loaded == "", f"{module} loads {loaded} with telemetry off"
