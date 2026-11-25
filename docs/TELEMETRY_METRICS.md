@@ -21,7 +21,7 @@ ROM, platform or user name. What we do not carry cannot leak.
 
 Status: **built** is in the code today. **planned** is designed and not built.
 
-```
+```text
 romm.*
 ├─ process.*          memory and CPU of every RomM process
 │   ├─ memory         rss, pss, uss, swap                  built  handler/telemetry_handler.py

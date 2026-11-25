@@ -536,8 +536,8 @@ STREAMING_STATE_HISTORY_LIMIT: Final[int] = safe_int(
 )
 
 # OPENTELEMETRY
-# The same rule as docker/init_scripts/init: any OTEL_ variable turns telemetry
-# on, unless OTEL_SDK_DISABLED is true. Off, RomM imports none of it.
+# Matches docker/s6-overlay/scripts/init: any OTEL_ variable turns telemetry on,
+# unless OTEL_SDK_DISABLED is true.
 OTEL_ENABLED: Final[bool] = os.environ.get(
     "OTEL_SDK_DISABLED", ""
 ).lower() != "true" and any(
