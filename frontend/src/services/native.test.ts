@@ -275,8 +275,8 @@ describe("nativeErrorMessage", () => {
   });
 });
 
-// The context bridge clones what it is handed, and cannot clone a Vue Proxy.
-// structuredClone refuses the same objects, so it stands in for the bridge.
+// structuredClone refuses a Vue Proxy as the context bridge does, so it stands
+// in for the bridge.
 describe("reactive requests", () => {
   it("probes with plain copies of reactive queries", async () => {
     const getPlatformSupportAll = vi.fn((batch: PlatformSupportQuery[]) => {

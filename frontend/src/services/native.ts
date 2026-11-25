@@ -14,10 +14,8 @@ function bridge(): RommNativeBridge | undefined {
   return window.rommNative;
 }
 
-/** A copy the bridge can carry. The page builds requests from reactive store
- *  state, and Electron's IPC cannot clone a Vue Proxy: the call rejects with
- *  "An object could not be cloned". Requests are plain JSON, so a round trip
- *  strips every Proxy, nested ones included. */
+/** Electron's IPC cannot clone a Vue Proxy, so requests built from reactive
+ *  state are copied to plain JSON first. */
 function plain<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
