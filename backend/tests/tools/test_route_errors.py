@@ -182,3 +182,19 @@ def test_skips_the_scope_guard_default_but_not_a_route_reason():
         },
     )(fixture_routes.route_with_a_default)
     assert stale(router.routes) == {f"{FIXTURE}:route_with_a_default": [403]}
+
+
+def test_counts_a_helper_response_but_not_its_errors_in_a_swallowing_try():
+    assert _raised(FIXTURE, "_refuse_or_respond") == [409]
+    assert _raised(
+        FIXTURE, "route_that_returns_a_helper_response_from_a_swallowing_try"
+    ) == [423]
+
+
+def test_skips_a_declared_raise_in_a_swallowing_try():
+    assert _raised(FIXTURE, "route_with_a_declared_raise_in_a_swallowing_try") == []
+
+
+def test_swallows_only_handlers_that_catch_fastapi_http_errors():
+    assert _raised(FIXTURE, "route_that_catches_an_unrelated_http_exception") == [409]
+    assert _raised(FIXTURE, "route_that_catches_starlette_http_errors") == []
