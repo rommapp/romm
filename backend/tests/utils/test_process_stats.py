@@ -56,6 +56,8 @@ from utils.process_stats import (
         (["nginx: worker process"], "nginx"),
         (["valkey-server *:6379"], "valkey"),
         (["/usr/lib/firefox/firefox", "-contentproc"], None),
+        (["s6-supervise", "romm-gunicorn"], None),
+        (["/command/s6-supervise", "romm-nginx"], None),
     ],
 )
 def test_process_role_names_each_romm_process(cmdline, role) -> None:

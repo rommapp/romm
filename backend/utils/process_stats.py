@@ -34,6 +34,9 @@ _ROLES: Final[tuple[tuple[re.Pattern[str], str], ...]] = (
 
 def process_role(cmdline: list[str]) -> str | None:
     """The part of RomM a command line runs, or None for any other process."""
+    # s6 supervisors carry their service's name, such as romm-gunicorn.
+    if cmdline and os.path.basename(cmdline[0]).startswith("s6-"):
+        return None
     command = " ".join(cmdline)
     return next((role for pattern, role in _ROLES if pattern.search(command)), None)
 
