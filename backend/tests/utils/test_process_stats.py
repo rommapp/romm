@@ -1,6 +1,7 @@
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import psutil
 import pytest
 
 from utils.process_stats import (
@@ -98,6 +99,28 @@ def test_a_python_child_of_a_romm_process_takes_its_role(mocker) -> None:
     )
 
     assert list(romm_processes()) == [(server, "api"), (spawned, "api")]
+
+
+def test_romm_processes_skips_a_zombie_child(mocker) -> None:
+    # A watcher script that exited and was never reaped: no command line, no memory.
+    watcher = MagicMock(
+        pid=10,
+        info={"cmdline": ["watchfiles", "python3 watcher.py"], "ppid": 1, "name": "x"},
+    )
+    zombie = MagicMock(
+        pid=11,
+        info={
+            "cmdline": [],
+            "ppid": 10,
+            "name": "python3",
+            "status": psutil.STATUS_ZOMBIE,
+        },
+    )
+    mocker.patch(
+        "utils.process_stats.psutil.process_iter", return_value=[watcher, zombie]
+    )
+
+    assert list(romm_processes()) == [(watcher, "watcher")]
 
 
 @pytest.mark.parametrize(

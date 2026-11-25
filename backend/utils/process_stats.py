@@ -45,15 +45,18 @@ def romm_processes() -> Iterator[tuple[psutil.Process, str]]:
     """Each running RomM process with its role, skipping every other process.
 
     A Python child of a RomM process takes its parent's role. A reloading dev
-    server runs its app in such a child, whose command line names nothing.
+    server runs its app in such a child, whose command line names nothing. A
+    zombie, an exited child its parent has not reaped, is skipped.
     """
-    processes = list(psutil.process_iter(["cmdline", "ppid", "name"]))
+    processes = list(psutil.process_iter(["cmdline", "ppid", "name", "status"]))
     roles = {
         proc.pid: role
         for proc in processes
         if (role := process_role(proc.info["cmdline"] or [])) is not None
     }
     for proc in processes:
+        if proc.info.get("status") == psutil.STATUS_ZOMBIE:
+            continue
         role = roles.get(proc.pid)
         if role is None and (proc.info.get("name") or "").startswith("python"):
             role = roles.get(proc.info["ppid"])
