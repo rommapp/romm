@@ -148,7 +148,7 @@ function mountView(): VueWrapper {
       stubs: {
         RButton: {
           name: "RButton",
-          props: { to: { type: String, default: undefined } },
+          props: { to: { type: [String, Object], default: undefined } },
           emits: ["click"],
           template: "<button @click=\"$emit('click')\"><slot /></button>",
         },
