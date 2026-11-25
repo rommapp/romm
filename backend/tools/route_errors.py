@@ -9,7 +9,7 @@ from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from functools import cache
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeGuard
 
 from fastapi.dependencies.utils import get_flat_params
 from fastapi.routing import APIRoute
@@ -32,9 +32,8 @@ RESPONSE_CLASSES = frozenset(
         "StreamingResponse",
     }
 )
-# Stands for a status the analyzer cannot read, such as one copied from an upstream
-# response. A route that reaches one fails the check until that line declares its
-# statuses with `RAISES_MARKER`.
+# A status the analyzer cannot read, such as one copied from an upstream response.
+# It fails the check until its line declares statuses with `RAISES_MARKER`.
 UNREADABLE_STATUS = 0
 # Marks code whose errors never reach the client. Put it at the end of the line, or
 # on the line above, with the reason after it.
@@ -466,34 +465,55 @@ def _offloaded(call: ast.Call) -> ast.Call | None:
     )
 
 
-BROAD_EXCEPTIONS = frozenset({"Exception", "BaseException", "HTTPException"})
+# The exception classes that catch FastAPI's `HTTPException`, by their full names.
+BROAD_EXCEPTIONS = frozenset(
+    {
+        "BaseException",
+        "Exception",
+        "fastapi.HTTPException",
+        "fastapi.exceptions.HTTPException",
+        "starlette.exceptions.HTTPException",
+    }
+)
 
 
-def _swallows_errors(node: ast.AST) -> bool:
+def _full_name(module: str, expr: ast.expr) -> str | None:
+    """The dotted name `expr` stands for in `module`, through its imports, such as `http.client.HTTPException`."""
+    if isinstance(expr, ast.Attribute):
+        base = _full_name(module, expr.value)
+        return f"{base}.{expr.attr}" if base else None
+    if not isinstance(expr, ast.Name):
+        return None
+    mod = load(module)
+    if mod is None or expr.id not in mod.imports:
+        return expr.id
+    src, attr = mod.imports[expr.id]
+    return f"{src}.{attr}" if attr else src
+
+
+def _swallows_errors(node: ast.AST, module: str) -> bool:
     """Whether `node` is a `try` whose first handler to catch an HTTP error never raises."""
     if not isinstance(node, (ast.Try, ast.TryStar)):
         return False
     for handler in node.handlers:
-        caught = (
+        classes = (
             handler.type.elts if isinstance(handler.type, ast.Tuple) else [handler.type]
         )
-        broad = handler.type is None or any(
-            (getattr(t, "id", None) or getattr(t, "attr", None)) in BROAD_EXCEPTIONS
-            for t in caught
+        broad = any(
+            cls is None or _full_name(module, cls) in BROAD_EXCEPTIONS
+            for cls in classes
         )
         if broad:
             return not any(isinstance(n, ast.Raise) for n in ast.walk(handler))
     return False
 
 
-def _sets_status(node: ast.AST, module: str) -> bool:
-    """Whether `node` builds a response or sets a `status_code`, which a swallowing `try` lets through."""
-    if isinstance(node, ast.Assign):
-        return any(
-            isinstance(target, ast.Attribute) and target.attr == "status_code"
-            for target in node.targets
-        )
-    return isinstance(node, ast.Call) and _builds_response(node, module)
+def _assigns_status(node: ast.AST) -> TypeGuard[ast.Assign]:
+    """Whether `node` sets a response's `status_code`."""
+    return isinstance(node, ast.Assign) and any(
+        isinstance(target, ast.Attribute) and target.attr == "status_code"
+        for target in node.targets
+    )
 
 
 def _returns_exceptions(node: ast.AST) -> bool:
@@ -509,41 +529,45 @@ def _returns_exceptions(node: ast.AST) -> bool:
     )
 
 
-def _body_nodes(fn: ast.AST, module: str) -> list[ast.AST]:
-    """Every node of a function except its decorators and the code whose errors never reach the caller."""
+def _body_nodes(
+    fn: ast.AST, module: str, swallowed: bool = False
+) -> list[tuple[ast.AST, bool]]:
+    """Every node of a function but its decorators and an ignored line's children, each with whether a `try` around it swallows its errors."""
     mod = load(module)
     ignored = mod.ignored if mod else set()
-    # Each node to visit carries whether it sits in the body of a `try` that swallows errors.
     roots: list[tuple[ast.AST, bool]] = [
-        (node, False)
+        (node, swallowed)
         for node in (
             [fn.args, *fn.body]
             if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef))
             else [fn]
         )
     ]
-    nodes: list[ast.AST] = []
+    nodes: list[tuple[ast.AST, bool]] = []
     while roots:
-        node, swallowed = roots.pop()
-        if getattr(node, "lineno", None) in ignored or _returns_exceptions(node):
+        node, inside = roots.pop()
+        if _returns_exceptions(node):
             continue
-        # Only a status the swallowed code returns can still reach the caller.
-        if not swallowed or _sets_status(node, module):
-            nodes.append(node)
-        if not swallowed and _swallows_errors(node):
+        nodes.append((node, inside))
+        if getattr(node, "lineno", None) in ignored:
+            continue
+        if not inside and _swallows_errors(node, module):
             roots.extend((stmt, True) for stmt in node.body)  # type: ignore[attr-defined]
             roots.extend(
                 (child, False)
                 for child in [*node.handlers, *node.orelse, *node.finalbody]  # type: ignore[attr-defined]
             )
             continue
-        roots.extend((child, swallowed) for child in ast.iter_child_nodes(node))
+        roots.extend((child, inside) for child in ast.iter_child_nodes(node))
     return nodes
 
 
-_memo: dict[Symbol, frozenset[int]] = {}
-# For each function, the parameters whose value becomes a raised or returned status.
-_forwarded: dict[Symbol, frozenset[str]] = {}
+# A symbol paired with whether only the statuses it returns count, as for a call
+# inside a `try` that swallows errors.
+Mode = tuple[Symbol, bool]
+_memo: dict[Mode, frozenset[int]] = {}
+# For each function and mode, the parameters whose value becomes a counted status.
+_forwarded: dict[Mode, frozenset[str]] = {}
 
 
 def _argument(call: ast.Call, callee: Symbol, param: str) -> ast.expr | None:
@@ -575,10 +599,10 @@ def _passed(
     return _codes(default, callee[1], None) if default is not None else Codes()
 
 
-def _injected(target: Symbol, stack: frozenset[Symbol]) -> frozenset[int]:
+def _injected(target: Symbol, stack: frozenset[Mode]) -> frozenset[int]:
     """The statuses of an endpoint or dependency. FastAPI fills its parameters from the request, so a status read from one is unreadable."""
     found = statuses(target, stack)
-    if _forwarded.get(target):
+    if _forwarded.get((target, False)):
         return found | {UNREADABLE_STATUS}
     return found
 
@@ -605,16 +629,20 @@ def _annotation_names(fn: ast.AST) -> list[ast.Name]:
     ]
 
 
-def statuses(sym: Symbol, stack: frozenset[Symbol] = frozenset()) -> frozenset[int]:
-    """Error statuses a function, class constructor or value can raise."""
-    if sym in _memo:
-        return _memo[sym]
-    if sym in stack:
+def statuses(
+    sym: Symbol, stack: frozenset[Mode] = frozenset(), returned: bool = False
+) -> frozenset[int]:
+    """Error statuses a function, class constructor or value can raise or return, or only return when `returned` is set."""
+    key = (sym, returned)
+    if key in _memo:
+        return _memo[key]
+    if key in stack:
         return frozenset()
-    stack = stack | {sym}
+    stack = stack | {key}
     kind, module, name = sym
     found: set[int] = set()
-    if kind == "value":
+    # A module-level exception or dependency can only raise.
+    if kind == "value" and not returned:
         value = load(module).assigns[name]  # type: ignore[union-attr]
         if isinstance(value, ast.Call):
             code = _http_exception_status(value)
@@ -628,12 +656,16 @@ def statuses(sym: Symbol, stack: frozenset[Symbol] = frozenset()) -> frozenset[i
     elif kind == "class":
         init = _method(sym, "__init__")
         if init:
-            found |= statuses(init, stack)
+            found |= statuses(init, stack, returned)
     elif kind == "func":
         located = _function_node(sym)
         forwarded: set[str] = set()
         if located:
             fn, owner = located
+            mod = load(module)
+            ignored = mod.ignored if mod else set()
+            # Declared lines whose raise a `try` swallows.
+            caught: set[int] = set()
 
             def add(codes: Codes) -> None:
                 found.update(codes.codes)
@@ -641,34 +673,42 @@ def statuses(sym: Symbol, stack: frozenset[Symbol] = frozenset()) -> frozenset[i
                 if codes.unreadable:
                     found.add(UNREADABLE_STATUS)
 
-            for node in _body_nodes(fn, module):
+            # Swallowed code only counts the responses it builds or returns.
+            for node, swallowed in _body_nodes(fn, module, returned):
+                if getattr(node, "lineno", None) in ignored:
+                    if swallowed and isinstance(node, ast.Raise):
+                        caught.add(node.lineno)
+                    continue
                 if isinstance(node, ast.Call):
                     status_expr = _status_expr(node, module, owner)
                     if status_expr is not None:
-                        add(_codes(status_expr, module, fn))
+                        if not swallowed or _builds_response(node, module, owner):
+                            add(_codes(status_expr, module, fn))
                         continue
                     call = _offloaded(node) or node
                     target = _resolve_expr(module, owner, call.func)
                     if target and target[0] != "module":
-                        found |= statuses(target, stack)
+                        found |= statuses(target, stack, swallowed)
                     callee = (
                         _method(target, "__init__")
                         if target and target[0] == "class"
                         else target
                     )
                     if callee and callee[0] == "func":
-                        for param in _forwarded.get(callee, frozenset()):
+                        for param in _forwarded.get((callee, swallowed), frozenset()):
                             add(_passed(call, callee, param, module, fn))
-                    dependency = _dependency(node)
+                    dependency = None if swallowed else _dependency(node)
                     target = (
                         _resolve_expr(module, owner, dependency) if dependency else None
                     )
                     if target and target[0] == "func":
                         found |= _injected(target, stack)
-                elif isinstance(node, ast.Assign) and _sets_status(node, module):
+                elif _assigns_status(node):
                     add(_codes(node.value, module, fn))
-                elif isinstance(node, ast.Raise) and isinstance(
-                    node.exc, (ast.Name, ast.Attribute)
+                elif (
+                    isinstance(node, ast.Raise)
+                    and not swallowed
+                    and isinstance(node.exc, (ast.Name, ast.Attribute))
                 ):
                     target = _resolve_expr(module, owner, node.exc)
                     if target and target[0] in ("value", "class"):
@@ -676,14 +716,14 @@ def statuses(sym: Symbol, stack: frozenset[Symbol] = frozenset()) -> frozenset[i
             for name_node in _annotation_names(fn):
                 target = _resolve_expr(module, owner, name_node)
                 if target and target[0] == "value":
-                    found |= statuses(target, stack)
-            mod = load(module)
+                    found |= statuses(target, stack, returned)
+            span = range(fn.lineno, (fn.end_lineno or fn.lineno) + 1)  # type: ignore[attr-defined]
             for line, codes in (mod.declared if mod else {}).items():
-                if fn.lineno <= line <= (fn.end_lineno or fn.lineno):  # type: ignore[attr-defined]
+                if line in span and line not in caught:
                     found |= codes
-        _forwarded[sym] = frozenset(forwarded)
+        _forwarded[key] = frozenset(forwarded)
     result = frozenset(c for c in found if c >= 400 or c == UNREADABLE_STATUS)
-    _memo[sym] = result
+    _memo[key] = result
     return result
 
 
