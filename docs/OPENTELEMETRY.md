@@ -43,6 +43,32 @@ reports as `romm-api`.
 
 ### Metrics
 
+Everything RomM sends today, grouped as the metric names are:
+
+```text
+romm.*
+├─ process.*          memory and CPU of every RomM process
+│   ├─ memory         rss, pss, uss, swap              bytes    handler/telemetry_handler.py
+│   ├─ cpu.time       user, system                     seconds  handler/telemetry_handler.py
+│   ├─ threads                                         count    handler/telemetry_handler.py
+│   ├─ open_fds                                        count    handler/telemetry_handler.py
+│   └─ disk.io        read, write                      bytes    handler/telemetry_handler.py
+│
+├─ rq.*
+│   ├─ job.peak_rss   queue, job function, killed      bytes    handler/rq_worker_telemetry.py
+│   ├─ horse.rss      queue, job function              bytes    handler/rq_worker_telemetry.py
+│   ├─ queue.depth    queue                            jobs     handler/telemetry_handler.py
+│   └─ workers                                         count    handler/telemetry_handler.py
+│
+└─ valkey.*
+    ├─ memory         used, peak, limit                bytes    handler/telemetry_handler.py
+    ├─ evicted_keys                                    count    handler/telemetry_handler.py
+    └─ keys           per database                     count    handler/telemetry_handler.py
+```
+
+[TELEMETRY_METRICS.md](TELEMETRY_METRICS.md) has the same tree with the metrics
+RomM plans to add. Move a metric from there to here when it ships.
+
 | Metric                     | What it measures                                                                                                                                         |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `romm.process.memory`      | The memory of every RomM process in the container, in bytes. The `process.memory.kind` attribute says which number it is: `rss`, `pss`, `uss` or `swap`. |
@@ -87,7 +113,7 @@ A role can have several processes, because some parts of RomM fork children.
 | `rq_cron`                                            | `main`             | Puts scheduled tasks on their queues. Forks nothing.                                                           |
 | `nginx`                                              | `master`, `worker` | nginx's master process and its workers.                                                                        |
 | `valkey`                                             | `main`             | The internal Valkey server, when no external one is configured.                                                |
-| `watcher`, `sync_watcher`                            | `main`, `worker`   | `watchfiles` (`main`) and the Python script it runs (`worker`).                                                |
+| `watcher`, `sync_watcher`                            | `main`, `worker`   | `watchfiles` (`main`), and the Python script it runs (`worker`) only while it handles a change.                |
 
 The kind is decided by `process_kind` in
 [`backend/utils/process_stats.py`](../backend/utils/process_stats.py): a process
@@ -205,8 +231,8 @@ Measure on your own container with `romm.process.memory` before and after.
 - A process that has exited stays on per-process charts for up to 5 minutes.
   OpenTelemetry pushes metrics and never marks a series as ended, so the chart
   keeps the last value for the query's lookback window.
-- RomM sends no request timings, query timings or traces. Planned metrics are
-  listed in [TELEMETRY_METRICS.md](TELEMETRY_METRICS.md).
+- RomM sends no request timings, query timings or traces. The metrics tree in
+  [TELEMETRY_METRICS.md](TELEMETRY_METRICS.md) shows what is planned.
 
 ## For contributors: keep telemetry off when it is off
 
