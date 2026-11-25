@@ -424,9 +424,7 @@ REGION_TO_IGDB_LOCALE: dict[str, str | None] = {
 
 
 def get_igdb_preferred_locale(rom: Rom | None = None) -> str | None:
-    """Get the IGDB locale from the ROM's region tags and scan.priority.region.
-
-    The ROM's tags come first unless scan.priority.region_mode is "prefer_config".
+    """Get the IGDB locale, preferring ROM tags unless region_mode is "prefer_config".
 
     Returns:
         IGDB region identifier (e.g., "ja-JP", "EU") or None for default
