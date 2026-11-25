@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { reactive } from "vue";
 import type {
+  LaunchRequest,
   PlatformSupportQuery,
   RommNativeBridge,
 } from "@/types/rommNative";
@@ -297,11 +298,11 @@ describe("reactive requests", () => {
   });
 
   it("launches with a plain copy of a reactive request", async () => {
-    const launch = vi.fn((request: unknown) => {
+    const launch = vi.fn((request: LaunchRequest) => {
       structuredClone(request);
-      return Promise.resolve({ launched: true });
+      return Promise.resolve({ romId: request.romId, emulator: "RetroArch" });
     });
-    installBridge({ launch } as unknown as Partial<RommNativeBridge>);
+    installBridge({ launch });
 
     const state = reactive({ cores: ["snes9x"] });
     await launchNative({
@@ -312,6 +313,8 @@ describe("reactive requests", () => {
       cores: state.cores,
     });
 
-    expect(launch).toHaveBeenCalledOnce();
+    expect(launch).toHaveBeenCalledWith(
+      expect.objectContaining({ romId: 1, cores: ["snes9x"] }),
+    );
   });
 });
