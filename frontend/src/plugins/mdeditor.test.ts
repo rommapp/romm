@@ -3,7 +3,10 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { MdPreview } from "md-editor-v3";
 import { describe, expect, it, vi } from "vitest";
 
-async function render(markdown: string): Promise<HTMLElement> {
+async function render(
+  markdown: string,
+  props: Record<string, unknown> = {},
+): Promise<HTMLElement> {
   const wrapper = mount(MdPreview, {
     // Skip image zoom: its debounced document lookup can outlive the test environment.
     props: {
@@ -15,6 +18,7 @@ async function render(markdown: string): Promise<HTMLElement> {
       noKatex: true,
       noMermaid: true,
       noEcharts: true,
+      ...props,
     },
     attachTo: document.body,
   });
@@ -49,7 +53,10 @@ describe("md-editor-v3", () => {
   });
 
   it("renders echarts fences as code without loading echarts", async () => {
-    const preview = await render('```echarts\n{ "series": [] }\n```');
+    const preview = await render('```echarts\n{ "series": [] }\n```', {
+      // The switch stays off here, so only the plugin keeps echarts from loading.
+      noEcharts: false,
+    });
 
     expect(preview.querySelector("code")?.textContent).toContain("series");
     expect(preview.querySelector(".md-editor-echarts")).toBeNull();
