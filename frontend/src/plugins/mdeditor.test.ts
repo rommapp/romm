@@ -2,22 +2,21 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { MdPreview } from "md-editor-v3";
 import { describe, expect, it, vi } from "vitest";
+import type { Component } from "vue";
+import Preview from "@/components/shared/markdownPreview";
 
 async function render(
   markdown: string,
+  // The production preview already turns off every CDN renderer (withoutCdn).
+  component: Component = Preview,
   props: Record<string, unknown> = {},
 ): Promise<HTMLElement> {
-  const wrapper = mount(MdPreview, {
+  const wrapper = mount(component, {
     // Skip image zoom: its debounced document lookup can outlive the test environment.
     props: {
       id: "mdeditor-test",
       modelValue: markdown,
       noImgZoomIn: true,
-      // Same switches as withoutCdn, so mounting does not try to fetch renderers from unpkg.
-      noHighlight: true,
-      noKatex: true,
-      noMermaid: true,
-      noEcharts: true,
       ...props,
     },
     attachTo: document.body,
@@ -53,10 +52,17 @@ describe("md-editor-v3", () => {
   });
 
   it("renders echarts fences as code without loading echarts", async () => {
-    const preview = await render('```echarts\n{ "series": [] }\n```', {
-      // The switch stays off here, so only the plugin keeps echarts from loading.
-      noEcharts: false,
-    });
+    const preview = await render(
+      '```echarts\n{ "series": [] }\n```',
+      MdPreview,
+      {
+        // The bare preview, so it is the plugin and not the noEcharts switch that keeps
+        // echarts from loading. The other renderers are switched off to keep unpkg out.
+        noHighlight: true,
+        noKatex: true,
+        noMermaid: true,
+      },
+    );
 
     expect(preview.querySelector("code")?.textContent).toContain("series");
     expect(preview.querySelector(".md-editor-echarts")).toBeNull();
