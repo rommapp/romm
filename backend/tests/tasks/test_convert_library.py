@@ -33,7 +33,6 @@ from models.rom import Rom, RomFile, RomFileCategory
 from models.user import User
 from tasks.manual import convert_library
 from tasks.manual.convert_library import ConvertLibraryTask
-from utils.zip_cache import ensure_zipfile_writable
 
 
 @pytest.fixture
@@ -155,7 +154,6 @@ def _archive_rom(
     library: Path, admin_user: User, platform: Platform, files: dict[str, bytes]
 ) -> Rom:
     data = io.BytesIO()
-    ensure_zipfile_writable()
     with zipfile.ZipFile(data, "w") as archive:
         for name, content in files.items():
             archive.writestr(name, content)
@@ -831,9 +829,9 @@ async def test_each_disc_and_playlist_channel_follows_its_own_file(
         admin_user,
         make_platform("psx"),
         {
-            "game (Disc 1).cue": b'FILE "game (Disc 1).bin" BINARY\n',
+            "game (Disc 1).cue": b'FILE "game (Disc 1).bin" BINARY\n  TRACK 01 MODE2/2352\n',
             "game (Disc 1).bin": b"1" * 50,
-            "game (Disc 2).cue": b'FILE "game (Disc 2).bin" BINARY\n',
+            "game (Disc 2).cue": b'FILE "game (Disc 2).bin" BINARY\n  TRACK 01 MODE2/2352\n',
             "game (Disc 2).bin": b"2" * 50,
             "game.m3u": b"game (Disc 1).cue\ngame (Disc 2).cue\n",
         },
@@ -867,7 +865,7 @@ async def test_a_channel_on_the_sync_file_moves_to_the_roms_new_sync_file(
         admin_user,
         make_platform("psx"),
         {
-            "game_disc1.cue": b'FILE "game_disc1.bin" BINARY\n',
+            "game_disc1.cue": b'FILE "game_disc1.bin" BINARY\n  TRACK 01 MODE2/2352\n',
             "game_disc1.bin": b"x" * 50,
             "game.m3u": b"game_disc1.cue\n",
         },
@@ -927,9 +925,9 @@ def _discs(library: Path, admin_user: User) -> Rom:
         admin_user,
         make_platform("psx"),
         {
-            "game (Disc 1).cue": b'FILE "game (Disc 1).bin" BINARY\n',
+            "game (Disc 1).cue": b'FILE "game (Disc 1).bin" BINARY\n  TRACK 01 MODE2/2352\n',
             "game (Disc 1).bin": b"1" * 50,
-            "game (Disc 2).cue": b'FILE "game (Disc 2).bin" BINARY\n',
+            "game (Disc 2).cue": b'FILE "game (Disc 2).bin" BINARY\n  TRACK 01 MODE2/2352\n',
             "game (Disc 2).bin": b"2" * 50,
             "game.m3u": b"game (Disc 1).cue\ngame (Disc 2).cue\n",
         },
@@ -972,7 +970,7 @@ async def test_a_sync_file_channel_keeps_its_disc_when_its_label_is_taken(
         admin_user,
         make_platform("psx"),
         {
-            "game_disc1.cue": b'FILE "game_disc1.bin" BINARY\n',
+            "game_disc1.cue": b'FILE "game_disc1.bin" BINARY\n  TRACK 01 MODE2/2352\n',
             "game_disc1.bin": b"x" * 50,
             "game.m3u": b"game_disc1.cue\n",
         },

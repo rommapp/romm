@@ -385,7 +385,7 @@ class TestReadInfos:
 
     @pytest.mark.parametrize(
         ("file_name", "expected"),
-        [("game.iso", {}), ("game.zip", {Path("/roms/game.zip"): RomConvertoInfo()})],
+        [("game.iso", {}), ("game.zip", {Path("/roms/game.zip"): None})],
     )
     async def test_timeout_stamps_only_archives(
         self, service: RomConvertoService, file_name: str, expected
@@ -438,15 +438,22 @@ class TestReadInfos:
         ):
             assert await service.read_infos([Path("/roms/game.iso")]) == {}
 
-    async def test_unrecognized_archive_returns_empty_info(
-        self, service: RomConvertoService
+    @pytest.mark.parametrize(
+        "record",
+        [
+            pytest.param({"ok": False, "error": "could not detect"}, id="miss"),
+            pytest.param({"info": {}}, id="no-ok"),
+        ],
+    )
+    async def test_unread_archive_maps_to_none(
+        self, service: RomConvertoService, record: dict[str, Any]
     ):
         path = Path("/roms/game.zip")
-        records = [{"path": str(path), "ok": False, "error": "could not detect"}]
+        records = [{"path": str(path), **record}]
         with patch.object(
             rom_converto, "_run", return_value=(0, json.dumps(records), "")
         ):
-            assert await service.read_infos([path]) == {path: RomConvertoInfo()}
+            assert await service.read_infos([path]) == {path: None}
 
     @pytest.mark.parametrize(
         "path",

@@ -544,7 +544,9 @@ class TestGetRomFilesWithConverto:
         assert by_name["Game (Disc 2).iso"].converto_read_at is None
 
     @pytest.mark.asyncio
-    async def test_unrecognized_psp_archive_is_not_reread(self, scan_env, mocker):
+    async def test_unrecognized_stored_psp_archive_is_not_reread(
+        self, scan_env, mocker
+    ):
         platform = make_platform("psp")
         rom = make_rom(platform, "Game")
         archive = scan_env.handler.base_path / "psp" / "roms" / "Game.zip"
@@ -560,18 +562,24 @@ class TestGetRomFilesWithConverto:
         run.assert_awaited_once()
         [first_file] = first.rom_files
         assert first_file.file_name == "Game.zip"
-        assert first_file.title_id is None
-        assert first_file.converto_read_at is not None
+        assert first_file.converto_read_at is None
+        # A fresh row is marked only once it is stored.
+        first_file.id = 1
+        stored = await scan_env.handler.get_rom_files(
+            rom, calculate_hashes=False, existing_files=first.rom_files
+        )
+        [stored_file] = stored.rom_files
+        assert stored_file.converto_read_at is not None
         run.reset_mock()
 
         rescan = await scan_env.handler.get_rom_files(
-            rom, calculate_hashes=False, existing_files=first.rom_files
+            rom, calculate_hashes=False, existing_files=stored.rom_files
         )
 
         run.assert_not_awaited()
         [reused_file] = rescan.rom_files
         assert reused_file.title_id is None
-        assert reused_file.converto_read_at == first_file.converto_read_at
+        assert reused_file.converto_read_at == stored_file.converto_read_at
 
     @pytest.mark.asyncio
     async def test_archive_without_an_inspectable_member_is_not_read(

@@ -18,7 +18,6 @@ import pytest
 from logger.logger import log
 from utils import archives
 from utils.archives import list_archive_members, read_archive_member
-from utils.zip_cache import ensure_zipfile_writable
 
 
 def _fake_7z_listing(names: list[str]) -> str:
@@ -91,7 +90,6 @@ def member_archive(tmp_path, request):
         ".DS_Store": b"keep metadata",
     }
     if suffix == ".zip":
-        ensure_zipfile_writable()
         with zipfile.ZipFile(path, "w") as archive:
             archive.writestr("folder/", b"")
             for name, data in members.items():
@@ -136,7 +134,6 @@ def test_archive_member_overflow_raises(member_archive):
 
 def test_zip_member_with_an_unbounded_codec_is_refused(tmp_path):
     path = tmp_path / "Game.zip"
-    ensure_zipfile_writable()
     with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_BZIP2) as archive:
         archive.writestr("Game.cue", b'FILE "Game.bin" BINARY\n')
 
