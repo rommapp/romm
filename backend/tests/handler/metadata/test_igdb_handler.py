@@ -235,6 +235,44 @@ class TestGetIGDBPreferredLocale:
 
         assert locale == "ja-JP"
 
+    def test_prefer_rom_tags_keeps_the_rom_s_region(self):
+        rom = MagicMock()
+        rom.regions = ["Japan"]
+        config = MagicMock(
+            SCAN_REGION_PRIORITY=["us", "jp"], SCAN_REGION_MODE="prefer_rom_tags"
+        )
+
+        with patch("handler.metadata.igdb_handler.cm.get_config", return_value=config):
+            locale = get_igdb_preferred_locale(rom)
+
+        assert locale == "ja-JP"
+
+    def test_prefer_config_outranks_the_rom_s_region(self):
+        """A Japan-tagged rom keeps the default title when the config puts us first."""
+        rom = MagicMock()
+        rom.regions = ["Japan"]
+        config = MagicMock(
+            SCAN_REGION_PRIORITY=["us", "jp"], SCAN_REGION_MODE="prefer_config"
+        )
+
+        with patch("handler.metadata.igdb_handler.cm.get_config", return_value=config):
+            locale = get_igdb_preferred_locale(rom)
+
+        assert locale is None
+
+    def test_prefer_config_falls_back_to_the_rom_s_region(self):
+        """Config regions IGDB has no locale for leave the choice to the rom's tags."""
+        rom = MagicMock()
+        rom.regions = ["Japan"]
+        config = MagicMock(
+            SCAN_REGION_PRIORITY=["fr"], SCAN_REGION_MODE="prefer_config"
+        )
+
+        with patch("handler.metadata.igdb_handler.cm.get_config", return_value=config):
+            locale = get_igdb_preferred_locale(rom)
+
+        assert locale == "ja-JP"
+
 
 class TestSearchRomGameTypeFilter:
     """Tests for _search_rom game_type filtering."""
