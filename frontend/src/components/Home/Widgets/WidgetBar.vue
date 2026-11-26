@@ -4,14 +4,28 @@
 // Home → Widgets), the visible set by per-widget toggles. The rail
 // itself disappears when every widget is off: no empty rail taking
 // up vertical space.
-import { computed } from "vue";
+import { computed, watch } from "vue";
 import { useUISettings } from "@/composables/useUISettings";
+import storeActivity from "@/stores/activity";
 import { parseWidgetOrder, WIDGETS } from "./widgets";
 
 defineOptions({ inheritAttrs: false });
 
 const settings = useUISettings();
-const { libraryStatsMode, widgetOrder } = settings;
+const { libraryStatsMode, widgetOrder, widgetPlayingNow } = settings;
+const activityStore = storeActivity();
+
+// The bar, not the card, keeps the activity list live: the card is unmounted
+// while nobody is playing, so it can't be the one listening for a session.
+watch(
+  widgetPlayingNow,
+  (enabled) => {
+    if (!enabled) return;
+    activityStore.initSocket();
+    void activityStore.fetchAll();
+  },
+  { immediate: true },
+);
 
 const statsMode = computed<"compact" | "extended">(() =>
   libraryStatsMode.value === "extended" ? "extended" : "compact",
@@ -25,7 +39,8 @@ const orderedWidgets = computed(() => {
   return order
     .map((id) => WIDGETS.find((w) => w.id === id))
     .filter((w): w is (typeof WIDGETS)[number] => Boolean(w))
-    .filter((w) => Boolean(settings[w.enabledKey].value));
+    .filter((w) => Boolean(settings[w.enabledKey].value))
+    .filter((w) => w.id !== "playingNow" || activityStore.activeCount > 0);
 });
 
 function widgetProps(id: string): Record<string, unknown> {

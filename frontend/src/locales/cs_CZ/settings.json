@@ -538,6 +538,8 @@
   "widget-library-stats-desc": "Číselný přehled vaší knihovny: hry, platformy, oblíbené a další.",
   "widget-library-stats-extended": "Rozšířené (uložené pozice, stavy, snímky obrazovky, disk)",
   "widget-library-stats-mode": "Podrobnosti statistik knihovny",
+  "widget-playing-now": "Právě se hraje",
+  "widget-playing-now-desc": "Zobrazí hru, kterou někdo právě hraje, s odkazem na Aktivní relace. Skryto, když nikdo nehraje.",
   "widget-random-pick": "Náhodný výběr",
   "widget-random-pick-desc": "Navrhne náhodnou ROM z vaší knihovny s tlačítkem pro nový výběr.",
   "widget-reorder-drag": "Přetažením změníte pořadí"
