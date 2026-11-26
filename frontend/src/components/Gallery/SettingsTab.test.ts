@@ -54,7 +54,7 @@ function mountTab(p: Platform, valid = true) {
           },
         },
         RIcon: true,
-        RBtn: { template: "<button><slot /></button>" },
+        RButton: { template: "<button><slot /></button>" },
         RTextField: {
           props: ["modelValue"],
           emits: ["update:modelValue"],

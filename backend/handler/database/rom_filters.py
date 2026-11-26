@@ -14,12 +14,13 @@ holds the same values in a few MB. See `RomFacets`.
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Annotated, Any, TypedDict
+from typing import Annotated, Any, Literal, TypedDict
 
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.orm import QueryableAttribute
 
 from logger.logger import log
+from models.collection import VirtualCollectionId
 from models.rom import RomFacets
 
 
@@ -111,7 +112,11 @@ _SCOPE_FIELDS: tuple[str, ...] = (
 # Grouping changes how rows collapse, not which rows match, and a logic
 # operator only matters when its own filter is set.
 _UNFILTERED_FIELDS: frozenset[str] = frozenset(
-    {"group_by_meta_id", *(f"{name}_logic" for name in _LIST_FIELDS)}
+    {
+        "group_by_meta_id",
+        "platforms_logic",
+        *(f"{name}_logic" for name in _LIST_FIELDS),
+    }
 )
 
 
@@ -122,20 +127,33 @@ class RomFilterParams(BaseModel):
 
     search_term: Annotated[
         str | None,
-        Field(description="Search term to filter roms."),
+        Field(
+            description=(
+                "Text to search for in rom names, file names and alternative"
+                " names. A CRC, MD5 or SHA-1 hash also finds the rom by its own"
+                " or its files' hashes. Separate alternatives with `|`. Only"
+                " matching roms are returned."
+            )
+        ),
     ] = None
     platform_ids: Annotated[
         list[int] | None,
         Field(
-            description="Platform internal ids. Multiple values are allowed by repeating the parameter, and results that match any of the values will be returned."
+            description="Platform internal ids. Multiple values are allowed by repeating the parameter, and results that match any of the values will be returned, or none of them when `platforms_logic` is 'none'."
         ),
     ] = None
+    platforms_logic: Annotated[
+        Literal["any", "none"],
+        Field(
+            description="Logic operator for the platforms filter: 'any' (OR) or 'none' (NOT). A rom has one platform, so 'all' is not accepted."
+        ),
+    ] = "any"
     collection_id: Annotated[
         int | None,
         Field(description="Collection internal id.", ge=1),
     ] = None
     virtual_collection_id: Annotated[
-        str | None,
+        VirtualCollectionId,
         Field(description="Virtual collection internal id."),
     ] = None
     smart_collection_id: Annotated[
@@ -197,7 +215,15 @@ class RomFilterParams(BaseModel):
     group_by_meta_id: Annotated[
         bool,
         Field(
-            description="Whether to group roms by metadata ID (IGDB / Moby / ScreenScraper / RetroAchievements / LaunchBox)."
+            description=(
+                "Whether to show one entry per game instead of one per file."
+                " Versions of the same game on a platform, such as other regions"
+                " or revisions, collapse into one entry: the one the user marked"
+                " as main, otherwise the best release. The others come back in"
+                " `sibling_roms`. A game is identified by its provider ID (IGDB,"
+                " ScreenScraper, MobyGames and the like), so roms with no match"
+                " are never grouped."
+            )
         ),
     ] = False
     genres: Annotated[
@@ -412,6 +438,18 @@ class RomFilterParams(BaseModel):
         """Whether anything picks a slice of the library smaller than all of it."""
         return any(getattr(self, field) for field in _SCOPE_FIELDS)
 
+    def has_only_platform_scope(self) -> bool:
+        """Whether included platforms are the only scope picked."""
+        return (
+            bool(self.platform_ids)
+            and self.platforms_logic == "any"
+            and not any(
+                getattr(self, field)
+                for field in _SCOPE_FIELDS
+                if field != "platform_ids"
+            )
+        )
+
     def has_filters(self) -> bool:
         """Whether anything narrows the results within that slice.
 
@@ -431,5 +469,6 @@ class RomFilterParams(BaseModel):
         so they are computed with the applied filters dropped.
         """
         return RomFilterParams(
-            **{field: getattr(self, field) for field in _SCOPE_FIELDS}
+            **{field: getattr(self, field) for field in _SCOPE_FIELDS},
+            platforms_logic=self.platforms_logic,
         )

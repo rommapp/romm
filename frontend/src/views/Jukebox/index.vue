@@ -8,7 +8,7 @@ import PageHeader from "@/components/shared/PageHeader.vue";
 import { useCan } from "@/composables/useCan";
 import { useJukeboxUrlState } from "@/composables/useJukeboxUrlState";
 import { useSoundtrackActions } from "@/composables/useSoundtrackActions";
-import { RBtn, RChip } from "@/lib";
+import { RButton, RChip } from "@/lib";
 import musicApi, { type MusicTrackFilters } from "@/services/api/music";
 import {
   JUKEBOX_MODE_LABEL_KEYS,
@@ -161,7 +161,7 @@ async function deleteSoundtrack(fileId: number, romId: number) {
     <PageHeadBand followed-by="panes" class="jukebox__header">
       <PageHeader :title="headerTitle" class="jukebox__title">
         <template v-if="mode !== 'home'" #prepend>
-          <RBtn
+          <RButton
             icon="mdi-arrow-left"
             variant="text"
             :tooltip="t('common.back')"

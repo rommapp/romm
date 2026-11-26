@@ -8,6 +8,7 @@ from sqlalchemy.sql import Delete, Select, Update
 
 from decorators.database import INJECTED_SESSION, begin_session
 from exceptions.database_exceptions import LastAdminError
+from models.device import Device
 from models.snapshot import Snapshot
 from models.user import Role, User
 
@@ -152,6 +153,27 @@ class DBUsersHandler(DBBaseHandler):
         return affected_rows(result) > 0
 
     @begin_session
+    def replace_avatar_path(
+        self,
+        id: int,
+        expected: str,
+        avatar_path: str,
+        session: Session = INJECTED_SESSION,
+    ) -> bool:
+        """Set the avatar path if the user's current one is still `expected`.
+
+        Returns:
+            Whether the avatar path was set.
+        """
+        result = session.execute(
+            update(User)
+            .where(User.id == id, User.avatar_path == expected)
+            .values(avatar_path=avatar_path)
+            .execution_options(synchronize_session=False)
+        )
+        return affected_rows(result) > 0
+
+    @begin_session
     def update_last_active(
         self,
         id: int,
@@ -213,6 +235,13 @@ class DBUsersHandler(DBBaseHandler):
         session.execute(
             delete(Snapshot)
             .where(Snapshot.user_id == id)
+            .execution_options(synchronize_session=False)
+        )
+        # InnoDB can recheck a play session's user while clearing its device, so
+        # the devices go while the user is still there.
+        session.execute(
+            delete(Device)
+            .where(Device.user_id == id)
             .execution_options(synchronize_session=False)
         )
         return session.execute(

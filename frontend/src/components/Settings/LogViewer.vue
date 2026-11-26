@@ -6,7 +6,13 @@ import { useI18n } from "vue-i18n";
 import { useClipboard } from "@/composables/useClipboard";
 import { useSnackbar } from "@/composables/useSnackbar";
 import { useSocketEvent } from "@/composables/useSocketEvent";
-import { RBtn, RSelect, RTextField, RTooltip, RVirtualScroller } from "@/lib";
+import {
+  RButton,
+  RSelect,
+  RTextField,
+  RTooltip,
+  RVirtualScroller,
+} from "@/lib";
 import api from "@/services/api";
 
 const { t } = useI18n();
@@ -292,7 +298,7 @@ function downloadLogs() {
           />
           <div class="r-logs__spacer" />
           <div class="r-logs__actions">
-            <RBtn
+            <RButton
               :icon="paused ? 'mdi-play' : 'mdi-pause'"
               variant="text"
               density="compact"
@@ -301,7 +307,7 @@ function downloadLogs() {
               :aria-label="paused ? t('logs.resume') : t('logs.pause')"
               @click="togglePause"
             />
-            <RBtn
+            <RButton
               icon="mdi-content-copy"
               variant="text"
               density="compact"
@@ -310,7 +316,7 @@ function downloadLogs() {
               :aria-label="t('logs.copy')"
               @click="copyLogs"
             />
-            <RBtn
+            <RButton
               icon="mdi-download"
               variant="text"
               density="compact"
@@ -319,7 +325,7 @@ function downloadLogs() {
               :aria-label="t('logs.download')"
               @click="downloadLogs"
             />
-            <RBtn
+            <RButton
               icon="mdi-notification-clear-all"
               variant="text"
               density="compact"
@@ -367,7 +373,7 @@ function downloadLogs() {
       </template>
     </RVirtualScroller>
 
-    <RBtn
+    <RButton
       v-if="!autoTail"
       class="r-logs__jump"
       variant="flat"
@@ -377,7 +383,7 @@ function downloadLogs() {
       @click="jumpToLatest"
     >
       {{ t("logs.jump-to-latest") }}
-    </RBtn>
+    </RButton>
   </div>
 </template>
 

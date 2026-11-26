@@ -23,7 +23,7 @@ import { useRoute } from "vue-router";
 import PlatformSelect from "@/components/shared/PlatformSelect.vue";
 import { useScanTrigger } from "@/composables/useScanTrigger";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { RBtn, RChip, RDropzone, RIcon } from "@/lib";
+import { RButton, RChip, RDropzone, RIcon } from "@/lib";
 import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
 import storeHeartbeat from "@/stores/heartbeat";
@@ -224,7 +224,7 @@ async function upload() {
           {{ t("common.platform") }}
         </template>
       </PlatformSelect>
-      <RBtn
+      <RButton
         variant="flat"
         color="primary"
         prepend-icon="mdi-cloud-upload-outline"
@@ -233,7 +233,7 @@ async function upload() {
         @click="upload"
       >
         {{ t("common.upload") }}
-      </RBtn>
+      </RButton>
     </div>
 
     <!-- Drop zone, CTA when empty, file list (with drag overlay) when
@@ -266,7 +266,7 @@ async function upload() {
             <RChip size="x-small" variant="translucent">
               {{ formatBytes(f.size) }}
             </RChip>
-            <RBtn
+            <RButton
               variant="text"
               size="x-small"
               icon="mdi-close"
@@ -280,14 +280,14 @@ async function upload() {
           <span>
             {{ t("common.upload-files-selected", { count: files.length }) }}
           </span>
-          <RBtn
+          <RButton
             variant="flat"
             color="primary"
             prepend-icon="mdi-plus"
             @click="uploadDz?.open()"
           >
             {{ t("common.add") }}
-          </RBtn>
+          </RButton>
         </footer>
       </div>
     </RDropzone>

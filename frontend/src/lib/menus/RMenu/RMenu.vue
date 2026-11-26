@@ -9,7 +9,7 @@
 //
 //   <RMenu>
 //     <template #activator="{ props }">
-//       <RBtn v-bind="props">Open</RBtn>
+//       <RButton v-bind="props">Open</RButton>
 //     </template>
 //     <RMenuItem>Item</RMenuItem>
 //     <RDivider />

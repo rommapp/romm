@@ -908,7 +908,9 @@ class FSResourcesHandler(FSHandler):
                             ):
                                 return False
 
-                            await self._write_response(response, directory, filename)
+                            await self._write_response(
+                                response, directory, filename, decode_gzip=True
+                            )
                 except httpx2.TransportError as exc:
                     log.error(f"Unable to fetch media file at {url_media}: {str(exc)}")
                     return False

@@ -20,7 +20,7 @@ import MemoryCardDialog, {
 import MemoryCardManager from "@/components/Player/MemoryCardManager.vue";
 import { useFetchState } from "@/composables/useFetchState";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { RBtn, RDialog, RSelect } from "@/lib";
+import { RButton, RDialog, RSelect } from "@/lib";
 import memoryCardApi from "@/services/api/memory-card";
 import { errorMessage } from "@/utils/errorMessage";
 
@@ -153,14 +153,14 @@ async function submitCreate({
         :info="t('play.memory-card-hint')"
         @update:model-value="onSelect"
       />
-      <RBtn
+      <RButton
         icon="mdi-plus"
         variant="text"
         :tooltip="t('play.new-memory-card')"
         :disabled="loading"
         @click="showCreate = true"
       />
-      <RBtn
+      <RButton
         icon="mdi-cog-outline"
         variant="text"
         :tooltip="t('play.manage-memory-cards')"
@@ -196,9 +196,9 @@ async function submitCreate({
         />
       </template>
       <template #footer>
-        <RBtn variant="text" @click="showManage = false">
+        <RButton variant="text" @click="showManage = false">
           {{ t("common.close") }}
-        </RBtn>
+        </RButton>
       </template>
     </RDialog>
   </div>

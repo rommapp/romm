@@ -10,7 +10,7 @@ import { useI18n } from "vue-i18n";
 import SettingsSection from "@/components/Settings/SettingsSection.vue";
 import { useSnackbar } from "@/composables/useSnackbar";
 import { useSocketEvent } from "@/composables/useSocketEvent";
-import { RBtn, RTag, RTextField } from "@/lib";
+import { RButton, RTag, RTextField } from "@/lib";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
 
@@ -32,9 +32,8 @@ watch(
 
 // The sync runs as a background job, so its outcome arrives over the socket.
 useSocketEvent<{ ok: boolean }>("ra:synced", ({ ok }) => {
-  if (ok) {
-    void auth.fetchCurrentUser();
-  } else {
+  void auth.fetchCurrentUser();
+  if (!ok) {
     snackbar.error(t("settings.ra-sync-failed"), { icon: "mdi-close-circle" });
   }
 });
@@ -66,6 +65,7 @@ async function saveAndSync() {
         id: auth.user.id,
         ra_username: trimmed,
       });
+      await auth.fetchCurrentUser();
     }
     // Username change → full sync; same username → incremental refresh.
     await syncProfile(!usernameChanged);
@@ -115,7 +115,7 @@ async function saveAndSync() {
       </RTextField>
     </div>
     <div class="r-ra__actions">
-      <RBtn
+      <RButton
         variant="flat"
         color="primary"
         :loading="submitting"
@@ -124,7 +124,7 @@ async function saveAndSync() {
         @click="saveAndSync"
       >
         {{ isDirty ? t("common.save") : t("common.sync") }}
-      </RBtn>
+      </RButton>
     </div>
   </SettingsSection>
 </template>

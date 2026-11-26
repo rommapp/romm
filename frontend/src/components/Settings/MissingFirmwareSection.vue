@@ -12,7 +12,7 @@ import { useLoadingPhase } from "@/composables/useLoadingPhase";
 import { useSnackbar } from "@/composables/useSnackbar";
 import { useTaskCompletion } from "@/composables/useTaskCompletion";
 import {
-  RBtn,
+  RButton,
   REmptyState,
   RIcon,
   RMenu,
@@ -160,7 +160,7 @@ async function cleanupAll() {
         />
         <RMenu location="bottom end" :offset="6" width="240px">
           <template #activator="{ props: activatorProps }">
-            <RBtn
+            <RButton
               v-bind="activatorProps"
               variant="outlined"
               surface

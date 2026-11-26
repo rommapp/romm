@@ -29,7 +29,9 @@ class DeviceAuthInitPayload(BaseModel):
 
 class DeviceAuthInitResponse(BaseModel):
     device_code: str
+    """The secret code the device polls with."""
     user_code: str
+    """The short code the user enters or scans to approve the device."""
     verification_path: str = Field(
         description=(
             "Relative web-UI path (/pair/device). The client joins it with the "
@@ -40,7 +42,9 @@ class DeviceAuthInitResponse(BaseModel):
         description="Same path with ?user_code= appended, for QR display."
     )
     expires_in: int
+    """How long the codes stay valid, in seconds."""
     interval: int
+    """How often the device should poll, in seconds."""
 
 
 class DeviceAuthPendingSchema(BaseModel):

@@ -38,7 +38,7 @@ interface Props {
     | "warning"
     | "info"
     | "plain";
-  /** Size ladder shared with RBtn / RChip. */
+  /** Size ladder shared with RButton / RChip. */
   size?: "x-small" | "small" | "default" | "large" | "x-large";
 }
 
@@ -96,7 +96,7 @@ withDefaults(defineProps<Props>(), {
   border-color: var(--r-tag-border);
 }
 
-/* Size ladder: matches RBtn/RChip vocabulary so a single mental model
+/* Size ladder: matches RButton/RChip vocabulary so a single mental model
    carries across primitives. Steps mirror the typography token scale. */
 .r-tag--x-small {
   padding: 1px 7px;

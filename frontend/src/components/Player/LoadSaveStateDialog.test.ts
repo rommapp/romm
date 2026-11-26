@@ -64,7 +64,13 @@ function openDialog() {
   const wrapper = mount(LoadSaveStateDialog, {
     global: {
       provide: { emitter },
-      stubs: { RDialog, RSegmentedControl, AssetList, AssetStrip, RBtn: true },
+      stubs: {
+        RDialog,
+        RSegmentedControl,
+        AssetList,
+        AssetStrip,
+        RButton: true,
+      },
     },
   });
   const open = async () => {

@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Annotated, Any
 
+from pydantic import AfterValidator
 from sqlalchemy import ForeignKey, Index, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -165,8 +166,15 @@ class VirtualCollection(BaseModel):
 
     @classmethod
     def from_id(cls, id_: str) -> tuple[str, str]:
-        data = json.loads(base64.urlsafe_b64decode(id_).decode())
-        return data["name"], data["type"]
+        """Decode an id into its name and type, raising ValueError when malformed."""
+        try:
+            data = json.loads(base64.urlsafe_b64decode(id_).decode())
+            name, type_ = data["name"], data["type"]
+        except (ValueError, TypeError, KeyError) as exc:
+            raise ValueError(f"Invalid virtual collection id: {id_!r}") from exc
+        if not isinstance(name, str) or not isinstance(type_, str):
+            raise ValueError(f"Invalid virtual collection id: {id_!r}")
+        return name, type_
 
     @property
     def rom_count(self) -> int:
@@ -257,3 +265,15 @@ class SmartCollection(BaseModel):
 
     def __repr__(self) -> str:
         return self.name
+
+
+def _validate_virtual_collection_id(id_: str | None) -> str | None:
+    if id_ is not None:
+        VirtualCollection.from_id(id_)
+    return id_
+
+
+# A request parameter naming a virtual collection; a malformed id is a 422.
+VirtualCollectionId = Annotated[
+    str | None, AfterValidator(_validate_virtual_collection_id)
+]

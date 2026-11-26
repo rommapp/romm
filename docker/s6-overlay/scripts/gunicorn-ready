@@ -1,0 +1,24 @@
+#!/command/with-contenv bash
+# Hold nginx back until the upstream it proxies to is listening. Non-fatal: a
+# slow backend should still end up behind a running nginx.
+
+set -o errexit
+set -o nounset
+set -o pipefail
+shopt -s inherit_errexit
+
+ROMM_LOG_TAG="gunicorn"
+# shellcheck source=SCRIPTDIR/lib.sh
+source /etc/s6-overlay/scripts/lib.sh
+
+port="${DEV_PORT:-5000}"
+wait_seconds="${WEB_SERVER_GUNICORN_WAIT_SECONDS:-30}"
+
+debug_log "Waiting for gunicorn on 127.0.0.1:${port}..."
+if wait_for_tcp 127.0.0.1 "${port}" "${wait_seconds}"; then
+	debug_log "Gunicorn is ready and accepting connections"
+else
+	warn_log "Gunicorn did not become ready after waiting ${wait_seconds}s!"
+fi
+
+exit 0

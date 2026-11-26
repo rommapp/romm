@@ -14,8 +14,9 @@ from __future__ import annotations
 import enum
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field, field_validator
 
+from endpoints.responses.base import BaseModel
 from handler.auth.permissions import ResolvedPermissions
 from models.permission import (
     MAX_AGE_LIMIT,
@@ -171,6 +172,7 @@ class GrantSchemaIO(BaseModel):
     entity: PermEntity
     action: PermAction
     own_only: bool = False
+    """Whether the grant covers only things the user owns."""
 
 
 def _reject_ownerless_own_only[T: GrantSchemaIO | OverrideSchemaIO](
@@ -235,7 +237,9 @@ class OverrideSchemaIO(BaseModel):
     entity: PermEntity
     action: PermAction
     granted: bool
+    """True grants the action and false denies it."""
     own_only: bool = False
+    """Whether the override covers only things the user owns."""
 
 
 class HiddenEntitySchema(BaseModel):
@@ -248,7 +252,9 @@ class HiddenEntityCreate(BaseModel):
     entity_id: int
     # Exactly one principal must be set (validated by the endpoint).
     user_id: int | None = None
+    """The user to hide it from. Set exactly one of `user_id` and `group_id`."""
     group_id: int | None = None
+    """The group to hide it from. Set exactly one of `user_id` and `group_id`."""
 
 
 class UserPermissionsSchema(BaseModel):

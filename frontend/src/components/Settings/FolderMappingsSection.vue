@@ -9,7 +9,7 @@
 // hairline rows, hover tint, skeleton loading state), same chrome as
 // every other table surface in the app (gallery list, missing games,
 // excluded). Editable Platform / Type cells open `RMenu` pickers via
-// `RBtn` activators.
+// `RButton` activators.
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -19,7 +19,7 @@ import type { Row, RowType } from "@/components/Settings/folderMappingRow";
 import { prefetchPlatformIcons } from "@/composables/usePlatformIconCache";
 import { useSnackbar } from "@/composables/useSnackbar";
 import {
-  RBtn,
+  RButton,
   RDialog,
   RIcon,
   RTable,
@@ -351,7 +351,7 @@ onMounted(async () => {
       <!-- Next to the "Type" label, where alias / variant raise the question;
            same info button as the Scan view. -->
       <template #header.type>
-        <RBtn
+        <RButton
           variant="text"
           size="small"
           icon="mdi-information-outline"
@@ -382,7 +382,7 @@ onMounted(async () => {
       </template>
 
       <template #cell.actions="{ row }">
-        <RBtn
+        <RButton
           v-if="canEdit && (row as Row).type !== 'auto' && (row as Row).slug"
           variant="text"
           size="small"
@@ -430,14 +430,14 @@ onMounted(async () => {
       </template>
       <template #footer>
         <div style="flex: 1" />
-        <RBtn
+        <RButton
           variant="flat"
           color="primary"
           prepend-icon="mdi-check"
           @click="helpOpen = false"
         >
           {{ t("common.got-it") }}
-        </RBtn>
+        </RButton>
       </template>
     </RDialog>
   </div>
@@ -504,7 +504,7 @@ html[data-bp~="xs"]
   padding-inline-end: 0;
 }
 
-/* Delete row action: danger-tinted icon RBtn. */
+/* Delete row action: danger-tinted icon RButton. */
 .r-mappings__delete-btn {
   color: color-mix(in srgb, var(--r-color-danger) 70%, transparent) !important;
 }

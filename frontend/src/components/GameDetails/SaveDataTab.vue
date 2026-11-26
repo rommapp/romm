@@ -43,7 +43,7 @@ import { useIdSelection } from "@/composables/useIdSelection";
 import { useRomSync } from "@/composables/useRomSync";
 import { useSnackbar } from "@/composables/useSnackbar";
 import { useSubtabQuery } from "@/composables/useSubtabQuery";
-import { RBtn, RDropzone } from "@/lib";
+import { RButton, RDropzone } from "@/lib";
 import saveApi from "@/services/api/save";
 import stateApi from "@/services/api/state";
 import storeAuth from "@/stores/auth";
@@ -603,7 +603,7 @@ const labelSuggestions = computed(() =>
       variant="menu"
     >
       <template #actions>
-        <RBtn
+        <RButton
           v-if="pickerRowUpload"
           variant="outlined"
           size="small"
@@ -614,7 +614,7 @@ const labelSuggestions = computed(() =>
           @click="openUpload(pickerRowUpload.type)"
         >
           {{ t("common.upload") }}
-        </RBtn>
+        </RButton>
       </template>
     </SubtabNav>
     <aside v-else class="r-saves__sidebar">
@@ -645,7 +645,7 @@ const labelSuggestions = computed(() =>
                 {{ t("channels.backups") }}
               </h4>
             </div>
-            <RBtn
+            <RButton
               v-if="myBackupSaves.length > 0 && !smAndDown"
               variant="outlined"
               size="small"
@@ -655,7 +655,7 @@ const labelSuggestions = computed(() =>
               @click="openUpload('save')"
             >
               {{ t("common.upload") }}
-            </RBtn>
+            </RButton>
           </header>
 
           <RDropzone
@@ -767,7 +767,7 @@ const labelSuggestions = computed(() =>
                 {{ t("rom.states-section-mine") }}
               </h3>
             </div>
-            <RBtn
+            <RButton
               v-if="myBackupStates.length > 0 && !smAndDown"
               variant="outlined"
               size="small"
@@ -777,7 +777,7 @@ const labelSuggestions = computed(() =>
               @click="openUpload('state')"
             >
               {{ t("common.upload") }}
-            </RBtn>
+            </RButton>
           </header>
 
           <RDropzone

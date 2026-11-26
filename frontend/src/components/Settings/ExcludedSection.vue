@@ -14,7 +14,7 @@ import { useI18n } from "vue-i18n";
 import { useCan } from "@/composables/useCan";
 import { useSnackbar } from "@/composables/useSnackbar";
 import {
-  RBtn,
+  RButton,
   REmptyState,
   RIcon,
   RTable,
@@ -323,7 +323,7 @@ function onSort({ key, dir }: RTableSortPayload) {
         </span>
       </template>
       <template #cell.actions="{ row }">
-        <RBtn
+        <RButton
           v-if="canEdit"
           variant="text"
           size="small"
@@ -336,7 +336,7 @@ function onSort({ key, dir }: RTableSortPayload) {
       </template>
     </RTable>
     <div>
-      <RBtn
+      <RButton
         v-if="canEdit"
         variant="flat"
         :block="false"
@@ -345,7 +345,7 @@ function onSort({ key, dir }: RTableSortPayload) {
         @click="openCreate"
       >
         {{ t("common.add") }}
-      </RBtn>
+      </RButton>
     </div>
 
     <!-- Defaults (read-only) -->
@@ -421,7 +421,7 @@ function onSort({ key, dir }: RTableSortPayload) {
         </RTextField>
       </template>
       <template #footer>
-        <RBtn
+        <RButton
           variant="flat"
           color="primary"
           :loading="submitting"
@@ -429,7 +429,7 @@ function onSort({ key, dir }: RTableSortPayload) {
           @click="submitExclusion"
         >
           {{ t("common.confirm") }}
-        </RBtn>
+        </RButton>
       </template>
     </RDialog>
   </div>

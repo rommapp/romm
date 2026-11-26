@@ -4,7 +4,7 @@
 /* eslint-disable */
 export type EarnedAchievement = {
     /**
-     * The badge name, which several achievements can share. Use `ra_id`.
+     * The badge name. Several achievements can share one, so use `ra_id` to identify an achievement.
      * @deprecated
      */
     id: string;

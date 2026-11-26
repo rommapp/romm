@@ -17,7 +17,7 @@ const RMenuItem = {
 };
 
 const stubs = {
-  RBtn: { template: `<button class="trigger"><slot /></button>` },
+  RButton: { template: `<button class="trigger"><slot /></button>` },
   RDivider: true,
   RIcon: true,
   RMenu,

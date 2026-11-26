@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { ref } from "vue";
-import RBtn from "../RBtn/RBtn.vue";
+import RButton from "../RButton/RButton.vue";
 import RSteps from "./RSteps.vue";
 
 const meta: Meta<typeof RSteps> = {
@@ -43,7 +43,7 @@ export const Labelled: Story = {
 export const Interactive: Story = {
   args: { total: 3, direction: "forward" },
   render: (args) => ({
-    components: { RSteps, RBtn },
+    components: { RSteps, RButton },
     setup: () => {
       const current = ref(1);
       const direction = ref<"forward" | "back">("forward");
@@ -59,8 +59,8 @@ export const Interactive: Story = {
       <div style="display: flex; flex-direction: column; align-items: center; gap: 24px;">
         <RSteps v-bind="args" :current="current" :direction="direction" />
         <div style="display: flex; gap: 8px;">
-          <RBtn variant="text" prepend-icon="mdi-chevron-left" :disabled="current === 1" @click="go(-1)">Previous</RBtn>
-          <RBtn variant="flat" color="primary" append-icon="mdi-chevron-right" :disabled="current === 3" @click="go(1)">Next</RBtn>
+          <RButton variant="text" prepend-icon="mdi-chevron-left" :disabled="current === 1" @click="go(-1)">Previous</RButton>
+          <RButton variant="flat" color="primary" append-icon="mdi-chevron-right" :disabled="current === 3" @click="go(1)">Next</RButton>
         </div>
       </div>
     `,

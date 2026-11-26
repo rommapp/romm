@@ -7,7 +7,7 @@ import { useI18n } from "vue-i18n";
 import { useEmitterEvent } from "@/composables/useEmitterEvent";
 import { useRomSync } from "@/composables/useRomSync";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { RBtn, RDialog, RIcon } from "@/lib";
+import { RButton, RDialog, RIcon } from "@/lib";
 import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
@@ -94,7 +94,7 @@ function closeDialog() {
       </div>
     </template>
     <template #footer>
-      <RBtn
+      <RButton
         variant="translucent"
         color="error"
         prepend-icon="mdi-delete"
@@ -103,7 +103,7 @@ function closeDialog() {
         @click="deleteManual"
       >
         {{ t("rom.delete-manual-button") }}
-      </RBtn>
+      </RButton>
     </template>
   </RDialog>
 </template>

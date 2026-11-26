@@ -34,7 +34,23 @@ def get_notifications(request: Request) -> list[NotificationSchema]:
     ]
 
 
-@protected_route(router.post, "", [Scope.ME_WRITE], status_code=status.HTTP_201_CREATED)
+@protected_route(
+    router.post,
+    "",
+    [Scope.ME_WRITE],
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        status.HTTP_403_FORBIDDEN: {
+            "description": (
+                "The notification is for other users, and the caller is not an admin"
+                " or lacks the `users.write` scope."
+            )
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "A user in `recipients` does not exist or is disabled."
+        },
+    },
+)
 async def create_notification(
     request: Request, payload: NotificationCreatePayload
 ) -> list[NotificationSchema]:
@@ -83,8 +99,21 @@ async def mark_notifications_read(
     )
 
 
-@protected_route(router.delete, "/{notification_id}", [Scope.ME_WRITE])
-async def dismiss_notification(request: Request, notification_id: int) -> None:
+@protected_route(
+    router.delete,
+    "/{notification_id}",
+    [Scope.ME_WRITE],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no notification with this ID."
+        }
+    },
+)
+async def dismiss_notification(
+    request: Request,
+    notification_id: int,
+) -> None:
+    """Dismiss one of the caller's notifications."""
     rows = db_notification_handler.delete_notifications(
         request.user.id, [notification_id]
     )
@@ -100,6 +129,7 @@ async def dismiss_notification(request: Request, notification_id: int) -> None:
 
 @protected_route(router.delete, "", [Scope.ME_WRITE])
 async def dismiss_all_notifications(request: Request) -> None:
+    """Dismiss all of the caller's notifications."""
     db_notification_handler.delete_notifications(request.user.id)
     await socket_handler.emit_to_user(
         request.user.id, NOTIFICATIONS_DISMISSED_EVENT, {"ids": None}

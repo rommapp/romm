@@ -49,7 +49,7 @@ const RSelect = {
   emits: ["update:modelValue"],
   template: `<select :value="modelValue" @change="$emit('update:modelValue', $event.target.value)"><option v-for="item in items" :key="item.name" :value="item.name">{{ item.name }}</option></select>`,
 };
-const RBtn = {
+const RButton = {
   props: { disabled: { type: Boolean, default: false } },
   emits: ["click"],
   template: `<button :disabled="disabled" @click="$emit('click')"><slot /></button>`,
@@ -115,7 +115,7 @@ describe("PatcherTab", () => {
       global: {
         stubs: {
           RAlert: true,
-          RBtn,
+          RButton,
           RCheckbox: true,
           RDropzone: true,
           RExpandTransition: { template: "<div><slot /></div>" },

@@ -24,7 +24,9 @@ import {
   type SmartCollection,
   type VirtualCollection,
 } from "@/stores/collections";
-import storeGalleryFilter from "@/stores/galleryFilter";
+import storeGalleryFilter, {
+  type PlatformFilterLogic,
+} from "@/stores/galleryFilter";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import type { ExtractPiniaStoreType } from "@/types";
 import { playtimeHoursToSeconds } from "@/utils/time";
@@ -184,18 +186,33 @@ function nextFrame(): Promise<void> {
 
 async function applyItemsBatched(
   byPosition: Map<number, SimpleRom>,
-  items: SimpleRom[],
-  baseOffset: number,
+  entries: [position: number, rom: SimpleRom][],
   isStillRelevant: () => boolean,
 ): Promise<void> {
-  for (let i = 0; i < items.length; i += APPLY_BATCH_SIZE) {
+  for (let i = 0; i < entries.length; i += APPLY_BATCH_SIZE) {
     if (!isStillRelevant()) return;
-    const end = Math.min(i + APPLY_BATCH_SIZE, items.length);
+    const end = Math.min(i + APPLY_BATCH_SIZE, entries.length);
     for (let j = i; j < end; j++) {
-      byPosition.set(baseOffset + j, items[j]!);
+      const [position, rom] = entries[j]!;
+      byPosition.set(position, rom);
     }
-    if (end < items.length) await nextFrame();
+    if (end < entries.length) await nextFrame();
   }
+}
+
+/** Pair each rom of a window fetched by id with its position in the index.
+ * The backend drops ids that went missing or hidden since the index was
+ * built, so the response can't be placed by sequence. */
+export function placeById(
+  items: SimpleRom[],
+  ids: number[],
+  baseOffset: number,
+): [number, SimpleRom][] {
+  const positionOf = new Map(ids.map((id, i) => [id, baseOffset + i]));
+  return items.flatMap((rom): [number, SimpleRom][] => {
+    const position = positionOf.get(rom.id);
+    return position === undefined ? [] : [[position, rom]];
+  });
 }
 
 /** Which whole-library sidecars a bootstrap asks the backend to compute.
@@ -486,16 +503,20 @@ export default defineStore("v2GalleryRoms", {
       // Determine platform IDs from the gallery context, falling back to
       // the gallery-filter store's platform multi-select.
       let platformIds: number[] | null = null;
+      // Only the multi-select can exclude; a platform route always includes.
+      let platformsLogic: PlatformFilterLogic = "any";
       if (this.currentPlatform) {
         platformIds = [this.currentPlatform.id];
       } else if (galleryFilter.selectedPlatforms.length > 0) {
         platformIds = galleryFilter.selectedPlatforms.map((p) => p.id);
+        platformsLogic = galleryFilter.platformsLogic;
       } else if (galleryFilter.selectedPlatform) {
         platformIds = [galleryFilter.selectedPlatform.id];
       }
       return {
         searchTerm: galleryFilter.searchTerm,
         platformIds,
+        platformsLogic,
         collectionId: this.currentCollection?.id ?? null,
         virtualCollectionId: this.currentVirtualCollection?.id ?? null,
         smartCollectionId: this.currentSmartCollection?.id ?? null,
@@ -703,11 +724,20 @@ export default defineStore("v2GalleryRoms", {
       // another name for a total the bootstrap already gave us, so opt out of
       // that too and keep the window fetch to just its page of covers.
       const withAggregations = !this.metadataLoaded;
+      // With the whole ordered index in hand, a window loads by id and the
+      // backend skips the filtered, offset-paged query.
+      const windowIds =
+        !withAggregations &&
+        this.romIdIndex.length > 0 &&
+        this.romIdIndex.length === this.total
+          ? this.romIdIndex.slice(offset, offset + WINDOW_SIZE)
+          : null;
 
       try {
         const response = await romApi.getRoms({
           ...params,
           ...(withAggregations ? {} : SKIP_AGGREGATES),
+          ...(windowIds ? { romIds: windowIds } : {}),
           signal: controller.signal,
         });
         // Re-check identity: invalidateWindows / resetGallery / a context
@@ -746,8 +776,12 @@ export default defineStore("v2GalleryRoms", {
         // row (8 items) so input dispatches between paints.
         await applyItemsBatched(
           this.byPosition,
-          data.items,
-          offset,
+          windowIds
+            ? placeById(data.items, windowIds, offset)
+            : data.items.map((rom, i): [number, SimpleRom] => [
+                offset + i,
+                rom,
+              ]),
           () => inFlightControllers.get(ctrlKey) === controller,
         );
 

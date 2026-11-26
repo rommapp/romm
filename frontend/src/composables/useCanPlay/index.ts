@@ -1,7 +1,5 @@
 // useCanPlay: reactive "can this ROM be played in the browser?" check.
-// v1 duplicated this logic across GameCard, GameDetails and the play menu
-// inside PlayBtn.vue; v2 lifts it to a composable so the card overlay
-// and the menu item agree with the details-header CTA.
+// Keeps the card overlay, the play menu and the details-header CTA in agreement.
 //
 // "Playable" means EJS, js-dos, PICO-8, EasyRPG, or Ruffle can run the platform on this
 // server (admin toggles + platform support + WebGL availability) and there
@@ -21,10 +19,10 @@ import { useNativeStore } from "@/stores/native";
 import type { SimpleRom } from "@/stores/roms";
 import { useStreamingStore } from "@/stores/streaming";
 import {
+  hasJsDosBundle,
   isEasyRpgEmulationSupported,
   isEasyRpgGame,
   isEJSEmulationSupported,
-  isJsDosBundle,
   isJsDosEmulationSupported,
   isPico8EmulationSupported,
   isPico8Rom,
@@ -64,7 +62,7 @@ export function useCanPlay(getRom: () => SimpleRom | null | undefined): {
   // offer Play on files the player panics on.
   const onJsDosPlatform = supportedBy(isJsDosEmulationSupported);
   const canPlayJsDos = computed(
-    () => onJsDosPlatform.value && isJsDosBundle(getRom()),
+    () => onJsDosPlatform.value && hasJsDosBundle(getRom()),
   );
 
   const onPico8Platform = supportedBy(isPico8EmulationSupported);

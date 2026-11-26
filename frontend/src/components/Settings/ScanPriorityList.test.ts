@@ -19,12 +19,12 @@ const CODES = [
   { value: "jp", label: "jp" },
 ];
 
-// Stub RBtn as a plain <button> and RTextField as a plain <input> so
+// Stub RButton as a plain <button> and RTextField as a plain <input> so
 // clicks, typing and the disabled state work without pulling in the full
 // primitives; RIcon renders nothing.
 const STUBS = {
   RIcon: true,
-  RBtn: {
+  RButton: {
     props: ["disabled"],
     emits: ["click"],
     template:

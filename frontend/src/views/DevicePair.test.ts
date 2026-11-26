@@ -21,7 +21,7 @@ async function mountApproved() {
   const wrapper = mount(DevicePair, {
     global: {
       stubs: {
-        RBtn: {
+        RButton: {
           emits: ["click"],
           template: "<button @click=\"$emit('click')\"><slot /></button>",
         },

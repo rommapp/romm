@@ -85,7 +85,7 @@ const openHandler = (romsToAdd: SimpleRom[]) => {
 };
 useEmitterEvent("showManageCollectionsDialog", openHandler);
 
-// Notify any GameActionBtn that opened us so it can drop its pinned-hover
+// Notify any GameActionButton that opened us so it can drop its pinned-hover
 // state: covers every close path (X, scrim, Escape, programmatic close).
 watch(show, (open) => {
   if (!open) emitter?.emit("closeManageCollectionsDialog", null);

@@ -12,7 +12,7 @@ export type ClientSaveState = {
      */
     file_name: string;
     /**
-     * Save slot name. Saves are paired between client and server on (rom_id, slot), so provide a stable slot name (e.g. 'autosave') to keep a save in sync across negotiations. A null slot is treated as an archival, manual-upload save: it is never paired with slotted server saves, so a null-slot client save always negotiates as an 'upload' even when an identical file already exists on the server under a slot.
+     * The save slot name. Client and server saves pair on (rom_id, slot), so a stable name such as `autosave` keeps a save in sync across negotiations. A null slot marks an archival, manual-upload save that never pairs with a slotted server save, so it always negotiates as an `upload`, even when the server holds an identical file in a slot.
      */
     slot?: (string | null);
     /**

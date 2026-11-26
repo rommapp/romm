@@ -27,8 +27,8 @@ vi.mock("@/composables/useSnackbar", () => ({
   useSnackbar: () => ({ success: vi.fn(), error: vi.fn() }),
 }));
 
-const RBtnStub = {
-  name: "RBtn",
+const RButtonStub = {
+  name: "RButton",
   props: ["disabled", "prependIcon"],
   template: "<button :disabled='disabled'><slot /></button>",
 };
@@ -52,7 +52,7 @@ async function mountSection() {
   const wrapper = mount(StreamingSection, {
     global: {
       stubs: {
-        RBtn: RBtnStub,
+        RButton: RButtonStub,
         RIcon: true,
         RSpinner: true,
       },
@@ -64,7 +64,7 @@ async function mountSection() {
 
 function desktopButton(wrapper: Awaited<ReturnType<typeof mountSection>>) {
   return wrapper
-    .findAllComponents(RBtnStub)
+    .findAllComponents(RButtonStub)
     .find((btn) => btn.props("prependIcon") === "mdi-desktop-classic");
 }
 

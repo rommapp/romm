@@ -121,7 +121,7 @@ function mountBar(
         RTooltip: {
           template: "<div><slot name='activator' :props='{}' /></div>",
         },
-        RBtn: {
+        RButton: {
           emits: ["click"],
           template: "<button @click=\"$emit('click')\"><slot /></button>",
         },

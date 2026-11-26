@@ -5,10 +5,11 @@ import uuid
 from collections.abc import Iterable
 from typing import Annotated, Any, Self
 
-from fastapi import HTTPException, Query, Request, status
+from fastapi import HTTPException
+from fastapi import Path as PathVar
+from fastapi import Query, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import (
-    BaseModel,
     Field,
     StringConstraints,
     ValidationError,
@@ -17,6 +18,7 @@ from pydantic import (
 from starlette.datastructures import UploadFile
 
 from decorators.auth import protected_route
+from endpoints.responses.base import BaseModel
 from endpoints.responses.snapshots import (
     MissingContentSchema,
     SnapshotConflictSchema,
@@ -83,6 +85,11 @@ FEED_DEVICE_DESCRIPTION = (
     "current for a device records it as the current the device knows, which a "
     "push without `expected_current_id` expects. Naming one takes `devices.write`."
 )
+SnapshotIdPath = Annotated[int, PathVar(description="The ID of the snapshot.")]
+DEVICE_FORBIDDEN = (
+    "The request sets `device_id` to a device other than the client token's own,"
+    " and the caller lacks the `devices.write` scope."
+)
 SCREENSHOT_SUFFIX = ":screenshot"
 SAVE_SCREENSHOT_PART = "save_screenshot"
 STATE_PART_PATTERN = re.compile(r"^state:([^:]+):([^:]+)$")
@@ -121,14 +128,8 @@ class ManifestPayload(BaseModel):
     label: str | None = Field(
         default=None, min_length=1, max_length=CHANNEL_LABEL_MAX_LENGTH
     )
-    expected_current_id: int | None = Field(
-        default=None,
-        description=(
-            "The current snapshot the push builds on; null expects an empty channel. "
-            "Left out, the push expects the latest current its device knows from a "
-            "feed, push or download, else its parent, else an empty channel."
-        ),
-    )
+    expected_current_id: int | None = None
+    """The ID of the snapshot the push expects to be the channel's current one. Null means the push expects an empty channel. If left out, the server uses the latest current snapshot the device has seen through a feed, push or download, or else `parent_snapshot_id`, or else expects an empty channel."""
     parent_snapshot_id: int | None = None
     save: SaveEntryPayload | None = None
     states: dict[CoreName, dict[SlotName, ContentHash]] = {}
@@ -316,13 +317,51 @@ def required_device(request: Request, device_id: str | None) -> Device:
     return device
 
 
-@protected_route(router.get, "", [Scope.ASSETS_READ])
+@protected_route(
+    router.get,
+    "",
+    [Scope.ASSETS_READ],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The cursor is not a snapshot ID."
+        },
+        status.HTTP_403_FORBIDDEN: {"description": DEVICE_FORBIDDEN},
+        status.HTTP_404_NOT_FOUND: {
+            "description": (
+                "No channel the caller can read has this `channel_id`, or the caller"
+                " has no device with this `device_id`."
+            )
+        },
+    },
+)
 def get_snapshots(
     request: Request,
-    channel_id: uuid.UUID,
+    channel_id: Annotated[
+        uuid.UUID,
+        Query(
+            description=(
+                "The ID of the channel whose history to list. A channel is one"
+                " playthrough of one rom file."
+            )
+        ),
+    ],
     save_target: str | None = None,
-    limit: Annotated[int, Query(ge=1, le=HISTORY_PAGE_MAX)] = 50,
-    cursor: str | None = None,
+    limit: Annotated[
+        int,
+        Query(
+            ge=1,
+            le=HISTORY_PAGE_MAX,
+        ),
+    ] = 50,
+    cursor: Annotated[
+        str | None,
+        Query(
+            description=(
+                "The ID of the last snapshot on the previous page. The response"
+                " holds the snapshots older than it. Omit it for the first page."
+            )
+        ),
+    ] = None,
     device_id: Annotated[str | None, Query(description=FEED_DEVICE_DESCRIPTION)] = None,
 ) -> list[SnapshotSchema]:
     """One channel's history, newest first. A first page that shows the current records it as the device's latest known."""
@@ -352,10 +391,29 @@ def get_snapshots(
     return build_snapshot_schemas(page, viewer)
 
 
-@protected_route(router.get, "/{id}", [Scope.ASSETS_READ])
+@protected_route(
+    router.get,
+    "/{id}",
+    [Scope.ASSETS_READ],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": (
+                "`hold` is true, but the request names no device and its client"
+                " token is not bound to one."
+            )
+        },
+        status.HTTP_403_FORBIDDEN: {"description": DEVICE_FORBIDDEN},
+        status.HTTP_404_NOT_FOUND: {
+            "description": (
+                "No snapshot the caller can read has this ID, or the caller has no"
+                " device with this `device_id`."
+            )
+        },
+    },
+)
 def get_snapshot(
     request: Request,
-    id: int,
+    id: SnapshotIdPath,
     device_id: Annotated[
         str | None,
         Query(
@@ -544,12 +602,48 @@ def _respond(result: WriteResult, viewer: User) -> JSONResponse:
     status_code=status.HTTP_201_CREATED,
     responses={
         status.HTTP_200_OK: {"model": SnapshotSchema},
-        status.HTTP_400_BAD_REQUEST: {"model": MissingContentSchema},
-        status.HTTP_403_FORBIDDEN: {},
-        status.HTTP_409_CONFLICT: {"model": SnapshotConflictSchema},
+        status.HTTP_400_BAD_REQUEST: {
+            "model": MissingContentSchema,
+            "description": (
+                "The `manifest` part is missing, a part has an unknown name, or the"
+                " manifest names content that the server lacks and the push did not"
+                " upload, which the response lists in `missing`."
+            ),
+        },
+        status.HTTP_403_FORBIDDEN: {"description": DEVICE_FORBIDDEN},
+        status.HTTP_404_NOT_FOUND: {
+            "description": (
+                "No rom file, channel, parent snapshot or `copy_of` save that the"
+                " caller can see has the given ID, the copied save's file is"
+                " missing, or the caller has no device with this `device_id`."
+            )
+        },
+        status.HTTP_409_CONFLICT: {
+            "model": SnapshotConflictSchema,
+            "description": (
+                "The channel has a newer snapshot than the one the push expected, so"
+                " the push is kept as a branch, or the push would replace a hardcore save and"
+                " `approve_hardcore_downgrade` is false."
+            ),
+        },
+        status.HTTP_413_CONTENT_TOO_LARGE: {
+            "description": "An uploaded part is larger than the server allows."
+        },
     },
 )
-async def push_snapshot(request: Request, device_id: str | None = None) -> JSONResponse:
+async def push_snapshot(
+    request: Request,
+    device_id: Annotated[
+        str | None,
+        Query(
+            description=(
+                "The ID of the device pushing the snapshot. Defaults to the"
+                " device bound to the client token. Any other device needs the"
+                " `devices.write` scope."
+            )
+        ),
+    ] = None,
+) -> JSONResponse:
     """Write a snapshot into a channel: a `manifest` part plus `save`, `state:<core>:<slot>` and screenshot parts for hashes the server lacks."""
     viewer = request.user
     device = request_device(request, device_id)
@@ -634,9 +728,24 @@ async def push_snapshot(request: Request, device_id: str | None = None) -> JSONR
     return _respond(result, viewer)
 
 
-@protected_route(router.patch, "/{id}", [Scope.ASSETS_WRITE])
+@protected_route(
+    router.patch,
+    "/{id}",
+    [Scope.ASSETS_WRITE],
+    responses={
+        status.HTTP_403_FORBIDDEN: {
+            "description": (
+                "The request sets `is_public` on a snapshot that the caller does not"
+                " own or that is not archival."
+            )
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No snapshot the caller can read has this ID."
+        },
+    },
+)
 def update_snapshot(
-    request: Request, id: int, payload: SnapshotUpdatePayload
+    request: Request, id: SnapshotIdPath, payload: SnapshotUpdatePayload
 ) -> SnapshotSchema:
     """Pin or unpin a snapshot for the caller, which any reader may do, or share
     an archival one, which only its owner may do."""

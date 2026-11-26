@@ -18,7 +18,7 @@ import { useSnackbar } from "@/composables/useSnackbar";
 import { useVisiblePoll } from "@/composables/useVisiblePoll";
 import { useWebpSupport } from "@/composables/useWebpSupport";
 import {
-  RBtn,
+  RButton,
   RDialog,
   REmptyState,
   RIcon,
@@ -345,7 +345,7 @@ function elapsedLabel(startedAt: string): string {
               </template>
             </span>
           </div>
-          <RBtn
+          <RButton
             variant="outlined"
             size="small"
             color="danger"
@@ -354,7 +354,7 @@ function elapsedLabel(startedAt: string): string {
             @click="promptRelease(session)"
           >
             {{ t("activity.release-session") }}
-          </RBtn>
+          </RButton>
         </li>
       </ul>
     </section>
@@ -383,9 +383,9 @@ function elapsedLabel(startedAt: string): string {
         </RTextField>
       </template>
       <template #footer>
-        <RBtn variant="flat" color="danger" @click="confirmRelease">
+        <RButton variant="flat" color="danger" @click="confirmRelease">
           {{ t("activity.release-session") }}
-        </RBtn>
+        </RButton>
       </template>
     </RDialog>
   </div>

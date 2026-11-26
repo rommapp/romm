@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from "vue-i18n";
-import { RBtn, REmptyState } from "@/lib";
+import { RButton, REmptyState } from "@/lib";
 import { ROUTES } from "@/plugins/router";
 
 const { t } = useI18n();
@@ -17,13 +17,13 @@ const { t } = useI18n();
         <h1 class="r-notfound__title">{{ t("emptyStates.404-title") }}</h1>
       </template>
       <template #actions>
-        <RBtn
+        <RButton
           color="primary"
           prepend-icon="mdi-home-outline"
           :to="{ name: ROUTES.HOME }"
         >
           {{ t("common.home") }}
-        </RBtn>
+        </RButton>
       </template>
     </REmptyState>
   </section>

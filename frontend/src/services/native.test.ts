@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { reactive } from "vue";
 import type {
+  LaunchRequest,
   PlatformSupportQuery,
   RommNativeBridge,
 } from "@/types/rommNative";
@@ -11,6 +13,7 @@ import {
   fetchPlatformSupport,
   hasCapability,
   isNativeShell,
+  launchNative,
   nativeErrorMessage,
   openNativeSettings,
 } from "./native";
@@ -270,5 +273,48 @@ describe("nativeErrorMessage", () => {
 
   it("falls back to the value itself when there is no message", () => {
     expect(nativeErrorMessage("plain")).toBe("plain");
+  });
+});
+
+// structuredClone refuses a Vue Proxy as the context bridge does, so it stands
+// in for the bridge.
+describe("reactive requests", () => {
+  it("probes with plain copies of reactive queries", async () => {
+    const getPlatformSupportAll = vi.fn((batch: PlatformSupportQuery[]) => {
+      structuredClone(batch);
+      return Promise.resolve(supported(batch));
+    });
+    installBridge({ getPlatformSupportAll });
+
+    const state = reactive({ cores: ["snes9x", "bsnes"] });
+    const answers = await fetchPlatformSupport([
+      { platformSlug: "snes", cores: state.cores },
+    ]);
+
+    expect(answers.snes?.supported).toBe(true);
+    expect(getPlatformSupportAll).toHaveBeenCalledWith([
+      { platformSlug: "snes", cores: ["snes9x", "bsnes"] },
+    ]);
+  });
+
+  it("launches with a plain copy of a reactive request", async () => {
+    const launch = vi.fn((request: LaunchRequest) => {
+      structuredClone(request);
+      return Promise.resolve({ romId: request.romId, emulator: "RetroArch" });
+    });
+    installBridge({ launch });
+
+    const state = reactive({ cores: ["snes9x"] });
+    await launchNative({
+      romId: 1,
+      downloadPath: "/api/roms/1/content/a.sfc",
+      fileName: "a.sfc",
+      platformSlug: "snes",
+      cores: state.cores,
+    });
+
+    expect(launch).toHaveBeenCalledWith(
+      expect.objectContaining({ romId: 1, cores: ["snes9x"] }),
+    );
   });
 });
