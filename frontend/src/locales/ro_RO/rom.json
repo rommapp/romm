@@ -451,6 +451,7 @@
   "tab-notes": "Notițe",
   "tab-overview": "Prezentare",
   "title-id": "ID titlu",
+  "title-id-missing-nup": "Din acest fișier NUP nu a fost citit niciun Title ID. Extragerea Title ID poate fi dezactivată sau fișierul poate fi incomplet ori corupt.",
   "title-id-missing-switch": "RomM nu decriptează fișierele Switch, așa că dump-urile criptate nu primesc Title ID. Dump-urile decriptate sau un client care are cheile tale pot identifica acest joc.",
   "tracks-n": "{n} piesă | {n} piese",
   "tracks-summary": "{count} piese · {duration}",

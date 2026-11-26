@@ -1051,6 +1051,11 @@ class TestResolveOperation:
     ):
         assert resolve_operation(platform, target, file_name) is None
 
+    @pytest.mark.parametrize("platform", ["switch", "switch-2"])
+    @pytest.mark.parametrize("target", ["nsp", "nsz", "xci", "xcz"])
+    def test_nup_has_no_operation(self, platform: str, target: str):
+        assert resolve_operation(platform, target, "Game.nup") is None
+
     @pytest.mark.parametrize(
         "platform",
         [
