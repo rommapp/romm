@@ -180,7 +180,7 @@ def parse_videourl(url: str | None) -> str:
 
     try:
         parsed = urlparse(url)
-        # LaunchBox video URLs are typed by hand and can omit the scheme.
+        # LaunchBox video URLs can omit the scheme.
         if not parsed.netloc:
             parsed = urlparse(f"//{url}")
     except ValueError:
