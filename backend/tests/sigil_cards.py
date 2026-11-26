@@ -18,6 +18,8 @@ SATURN_VOLUME = 32 * 1024
 # Past the archive block's save fields and its empty block list's terminator.
 SATURN_DATA_OFFSET = 0x24
 SATURN_DATA = SATURN_BLOCK - SATURN_DATA_OFFSET
+SATURN_CART = 512 * 1024
+SATURN_CART_BLOCK = 512
 
 
 def ps1_card(
@@ -49,18 +51,24 @@ def ps1_card(
     return bytes(card)
 
 
-def saturn_volume(saves: list[tuple[str, int]]) -> bytes:
-    """A 32 KiB Saturn internal backup RAM volume: `saves` is (name, fill byte)
-    each, one block apiece holding SATURN_DATA bytes."""
-    volume = bytearray(SATURN_VOLUME)
-    volume[:SATURN_BLOCK] = b"BackUpRam Format" * (SATURN_BLOCK // 16)
+def saturn_volume(
+    saves: list[tuple[str, int]],
+    size: int = SATURN_VOLUME,
+    block_size: int = SATURN_BLOCK,
+) -> bytes:
+    """A Saturn backup RAM volume, by default the 32 KiB internal one (a 4 Mbit
+    cart is SATURN_CART bytes in SATURN_CART_BLOCK blocks): `saves` is (name,
+    fill byte) each, one block apiece filled past SATURN_DATA_OFFSET."""
+    data = block_size - SATURN_DATA_OFFSET
+    volume = bytearray(size)
+    volume[:block_size] = b"BackUpRam Format" * (block_size // 16)
     for block, (name, fill) in enumerate(saves, start=2):
-        archive = bytearray(SATURN_BLOCK)
+        archive = bytearray(block_size)
         archive[0:4] = struct.pack(">I", 0x80000000)
         archive[4:15] = name.encode("ascii").ljust(11, b"\0")
-        archive[0x1E:0x22] = struct.pack(">I", SATURN_DATA)
-        archive[SATURN_DATA_OFFSET:] = bytes([fill]) * SATURN_DATA
-        volume[block * SATURN_BLOCK : (block + 1) * SATURN_BLOCK] = archive
+        archive[0x1E:0x22] = struct.pack(">I", data)
+        archive[SATURN_DATA_OFFSET:] = bytes([fill]) * data
+        volume[block * block_size : (block + 1) * block_size] = archive
     return bytes(volume)
 
 

@@ -11,6 +11,8 @@ from tests._zipfile_shim import reload_zipfile
 from tests.sigil_cards import (
     PS1_BLOCK,
     SATURN_BLOCK,
+    SATURN_CART,
+    SATURN_CART_BLOCK,
     SATURN_DATA,
     SATURN_DATA_OFFSET,
     ps1_card,
@@ -18,7 +20,7 @@ from tests.sigil_cards import (
     xbox_drive,
 )
 
-from adapters.services.sigil import SigilGame
+from adapters.services.sigil import SigilGame, SigilService
 from adapters.services.sigil_restore import (
     ContainerMismatch,
     RefusalCode,
@@ -30,6 +32,9 @@ from adapters.services.sigil_restore import (
     restore_layouts,
     restore_per_game,
 )
+from models.platform import Platform
+from models.rom import Rom
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 SEGACD_BLOCK = 64
 SEGACD_VOLUME = 0x2000
@@ -213,6 +218,25 @@ def target(core: str, content_path: str, **options: str) -> RestoreTarget:
     )
 
 
+def rom_game(
+    binding: ModuleType, slug: str, title_id: str = "", save_id: str = ""
+) -> SigilGame:
+    """A ROM on RomM's `slug` read back through its platform map, so a slug sigil
+    doesn't take for that platform fails the test restoring it."""
+    rom = Rom(
+        id=1,
+        fs_name="Game",
+        fs_path=f"{slug}/roms",
+        title_id=title_id or None,
+        save_target=save_id or None,
+        platform=Platform(name=slug, slug=slug, fs_slug=slug),
+    )
+    game = SigilService.stored_game(rom, [])
+    assert game is not None
+    assert isinstance(game.result, binding.SigilResult)
+    return game
+
+
 @pytest.mark.asyncio
 async def test_a_per_game_ps1_card_is_built_from_nothing(binding, tmp_path: Path):
     game = cross(binding)
@@ -292,10 +316,7 @@ async def test_a_ps1_shared_card_merge_keeps_another_games_save(
 
 
 def xbox_game(binding: ModuleType, title_id: str, save_id: str) -> SigilGame:
-    return SigilGame(
-        result=binding.SigilResult.persisted("xbox", title_id, save_id, 0),
-        game_ids=(title_id,),
-    )
+    return rom_game(binding, UPS.XBOX, title_id, save_id)
 
 
 def xbox_unit(save_id: str, files: dict[str, bytes]) -> bytes:
@@ -344,7 +365,7 @@ async def test_an_xbox_save_names_the_drive_image_the_client_must_send(binding):
 
 @pytest.mark.asyncio
 async def test_an_xbox_save_for_xemu_needs_the_drive_images_path(binding):
-    """xemu has no default drive image, so a request that names none is told to."""
+    """xemu has no default drive image, so sigil names the setting a request lacks."""
     halo = xbox_game(binding, "MS-004", "4D530004")
     unit = xbox_unit("4D530004", {"0A1B2C3D4E5F/blam.sav": b"checkpoint"})
 
@@ -352,7 +373,26 @@ async def test_an_xbox_save_for_xemu_needs_the_drive_images_path(binding):
         await restore_per_game(unit, halo, target("xemu", "Halo (USA).iso"))
 
     assert excinfo.value.code is RefusalCode.INVALID_ARG
-    assert "hdd_path" in str(excinfo.value)
+    assert excinfo.value.problem == "hdd_path"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("core", ["xemu", "x1box"])
+async def test_companions_on_an_xbox_drive_keep_their_own_refusal(binding, core: str):
+    halo = xbox_game(binding, "MS-004", "4D530004")
+    unit = xbox_unit("4D530004", {"0A1B2C3D4E5F/blam.sav": b"checkpoint"})
+
+    with pytest.raises(SigilRefusal) as excinfo:
+        await restore_per_game(
+            unit,
+            halo,
+            target(core, "Halo (USA).iso"),
+            [RestoreCompanion(game_ids=("EM-009",), unit=unit)],
+        )
+
+    assert excinfo.value.code is RefusalCode.INVALID_ARG
+    assert excinfo.value.problem == ""
+    assert "companions" in str(excinfo.value)
 
 
 @pytest.mark.asyncio
@@ -545,6 +585,33 @@ async def test_a_shared_saturn_volume_merge_replaces_a_companions_old_save(
 
 
 @pytest.mark.asyncio
+async def test_a_volume_the_core_keeps_no_file_for_is_refused_by_name(
+    binding, tmp_path: Path
+):
+    """The unit member with nowhere to go is no shared file the client could send."""
+    rayman = saturn_game(binding)
+    unit = collected(
+        binding,
+        rayman,
+        "mednafen_saturn",
+        "Rayman (USA) (R2).cue",
+        {
+            "Rayman (USA) (R2).srm": saturn_volume([("RAYMAN_NTS", 0x11)]),
+            "Rayman (USA) (R2).bcr": saturn_volume(
+                [("RAYMAN_CRT", 0x22)], SATURN_CART, SATURN_CART_BLOCK
+            ),
+        },
+        tmp_path,
+    )
+
+    with pytest.raises(SigilRefusal) as excinfo:
+        await restore_per_game(unit, rayman, target("yabause", "Rayman (USA) (R2).cue"))
+
+    assert excinfo.value.code is RefusalCode.NO_TARGET
+    assert excinfo.value.problem == "cart.ram"
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("core", "save_id", "written"),
     [
@@ -623,9 +690,7 @@ async def test_a_gb_clock_is_written_in_the_cores_format(
 
 
 @pytest.mark.asyncio
-async def test_companions_on_a_cartridge_are_refused_naming_both_cases(
-    binding, tmp_path: Path
-):
+async def test_companions_on_a_cartridge_are_refused(binding, tmp_path: Path):
     game = gb_clock_game(binding)
     unit = collected(
         binding,
@@ -645,8 +710,7 @@ async def test_companions_on_a_cartridge_are_refused_naming_both_cases(
         )
 
     assert excinfo.value.code is RefusalCode.INVALID_ARG
-    assert "profiles" in str(excinfo.value)
-    assert "cartridges" in str(excinfo.value)
+    assert "memory cards and volumes" in str(excinfo.value)
 
 
 def test_a_zip_unit_lists_each_volume(binding, tmp_path: Path):

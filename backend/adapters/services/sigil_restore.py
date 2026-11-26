@@ -17,14 +17,6 @@ from utils.memory_cards import MEMORY_CARD_MAX_BYTES
 # Saves on these carry no game id, so a merge claims the unit's save names.
 VOLUME_PLATFORMS: Final = frozenset({"saturn", "segacd", "dreamcast"})
 
-# Saves on these sit inside the emulator's hard-disk image, which sigil never
-# makes: a restore into an empty save root is refused naming the image.
-DRIVE_IMAGE_PLATFORMS: Final = frozenset({"xbox"})
-
-# The core option that names the image. xemu has no default for it, so sigil
-# takes no drive from a request without it.
-DRIVE_IMAGE_OPTION: Final = "hdd_path"
-
 _UNMANAGED: Final = "unmanaged"
 
 
@@ -154,8 +146,8 @@ def _refusal(exc: Exception, companions: Sequence[RestoreCompanion]) -> SigilRef
     message = str(exc)
     if code is RefusalCode.INVALID_ARG and companions:
         message = (
-            "companions only go on cards and volumes: layouts with profiles and "
-            "cartridges (N64, GB, GBC) take none"
+            "companions only go on memory cards and volumes, and this emulator "
+            "keeps its saves on neither"
         )
     profiles = tuple(
         RestoreProfile(id=p.id, name=p.name) for p in getattr(exc, "profiles", ())
@@ -181,15 +173,35 @@ def _sync_kwargs(game: SigilGame, target: RestoreTarget, root: Path) -> dict[str
     }
 
 
-def _locate(binding: Any, game: SigilGame, target: RestoreTarget, root: Path) -> Any:
+def _locate(
+    binding: Any,
+    game: SigilGame,
+    target: RestoreTarget,
+    root: Path,
+    listing: Sequence[str] | None = None,
+) -> Any:
     return binding.locate_saves(
         game.result,
         target.core,
         target.content_path,
         save_root=root,
+        listing=listing,
         options=dict(target.options),
         profile=target.profile,
     )
+
+
+def _shared_file(
+    binding: Any, game: SigilGame, target: RestoreTarget, root: Path, path: str
+) -> bool:
+    """Whether sigil counts `path` under the save root as a file every game shares."""
+    if not path:
+        return False
+    try:
+        located = _locate(binding, game, target, root, listing=[path])
+    except binding.SigilError:
+        return False
+    return path in located.unkeyed
 
 
 def _restore(
@@ -232,18 +244,11 @@ def _restore_per_game(
         try:
             _restore(unit, game, target, root, companions)
         except SigilRefusal as refusal:
-            if game.result.platform not in DRIVE_IMAGE_PLATFORMS:
-                raise
-            if refusal.code is RefusalCode.NO_TARGET and refusal.problem:
-                raise SharedContainerRequired(refusal.problem) from refusal
-            if refusal.code is RefusalCode.INVALID_ARG and not target.options.get(
-                DRIVE_IMAGE_OPTION
+            # A refusal naming a file every game shares asks for the client's own.
+            if refusal.code is RefusalCode.NO_TARGET and _shared_file(
+                binding, game, target, root, refusal.problem
             ):
-                raise SigilRefusal(
-                    RefusalCode.INVALID_ARG,
-                    f"{target.core} keeps every game's saves in one hard-disk image "
-                    f"and has no default one: send its path as {DRIVE_IMAGE_OPTION}",
-                ) from refusal
+                raise SharedContainerRequired(refusal.problem) from refusal
             raise
         written = _files_under(root)
         if not written:
@@ -311,6 +316,49 @@ def _selecting_options(
     return options
 
 
+def _merge(
+    unit: bytes,
+    game: SigilGame,
+    target: RestoreTarget,
+    companions: Sequence[RestoreCompanion],
+    root: Path,
+    scratch: Path,
+) -> Any:
+    """Merge the unit into what the save root holds; return what sigil locates there.
+
+    Raises:
+        SigilRefusal: sigil refused the merge and wrote nothing.
+    """
+    binding = _binding()
+    try:
+        located = _locate(binding, game, target, root)
+        if game.result.platform in VOLUME_PLATFORMS:
+            # A managed merge would drop every other game's saves on the volume.
+            seen = binding.collect(
+                **_sync_kwargs(game, target, root),
+                mode=_UNMANAGED,
+                claimed=_unit_save_names(unit, scratch),
+                companions=[
+                    binding.SigilCompanion(game_ids=c.game_ids) for c in companions
+                ],
+            )
+            _restore(
+                unit,
+                game,
+                target,
+                root,
+                companions,
+                mode=_UNMANAGED,
+                state=seen.state,
+                overwrite_local=True,
+            )
+        else:
+            _restore(unit, game, target, root, companions, overwrite_local=True)
+    except binding.SigilError as exc:
+        raise _refusal(exc, companions) from exc
+    return located
+
+
 def _merge_into_container(
     unit: bytes,
     game: SigilGame,
@@ -319,7 +367,6 @@ def _merge_into_container(
     container_path: str,
     container: bytes,
 ) -> RestoredFiles:
-    binding = _binding()
     with tempfile.TemporaryDirectory(prefix="romm-restore-") as tmp:
         root = Path(tmp, "root")
         scratch = Path(tmp, "scratch")
@@ -331,40 +378,16 @@ def _merge_into_container(
         sent.write_bytes(container)
         # Sigil writes only a file whose bytes change, and writing sets the mtime.
         os.utime(sent, ns=(0, 0))
-        if game.result.platform in DRIVE_IMAGE_PLATFORMS and not target.options.get(
-            DRIVE_IMAGE_OPTION
-        ):
-            # The client named its image by sending it.
-            target = replace(
-                target, options={**target.options, DRIVE_IMAGE_OPTION: container_path}
-            )
 
         try:
-            located = _locate(binding, game, target, root)
-            if game.result.platform in VOLUME_PLATFORMS:
-                # A managed merge would drop every other game's saves on the volume.
-                seen = binding.collect(
-                    **_sync_kwargs(game, target, root),
-                    mode=_UNMANAGED,
-                    claimed=_unit_save_names(unit, scratch),
-                    companions=[
-                        binding.SigilCompanion(game_ids=c.game_ids) for c in companions
-                    ],
-                )
-                _restore(
-                    unit,
-                    game,
-                    target,
-                    root,
-                    companions,
-                    mode=_UNMANAGED,
-                    state=seen.state,
-                    overwrite_local=True,
-                )
-            else:
-                _restore(unit, game, target, root, companions, overwrite_local=True)
-        except binding.SigilError as exc:
-            raise _refusal(exc, companions) from exc
+            located = _merge(unit, game, target, companions, root, scratch)
+        except SigilRefusal as refusal:
+            option = refusal.problem if refusal.code is RefusalCode.INVALID_ARG else ""
+            if not option or target.options.get(option):
+                raise
+            # The option names the file the saves go in, which the client sent.
+            target = replace(target, options={**target.options, option: container_path})
+            located = _merge(unit, game, target, companions, root, scratch)
 
         written = tuple(
             path
@@ -414,7 +437,8 @@ async def merge_into_container(
 
     Args:
         container_path: where the container sits under the save root; the caller
-            has checked it stays inside.
+            has checked it stays inside. An option sigil refuses for lacking
+            is taken to name it.
 
     Raises:
         ContainerMismatch: the restore wrote anywhere but `container_path`.
