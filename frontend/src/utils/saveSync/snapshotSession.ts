@@ -133,13 +133,23 @@ export type SnapshotContent =
     };
 
 export type PushOutcome =
-  | { kind: "current"; snapshot: SnapshotSchema }
+  | {
+      kind: "current";
+      snapshot: SnapshotSchema;
+      /** The server already held this save, so it made no new snapshot. */
+      unchanged: boolean;
+    }
   | {
       kind: "branched";
       snapshot: SnapshotSchema;
       /** Another device moved the channel on, or its current is hardcore. */
       reason: "moved" | "hardcore";
     };
+
+/** Whether a push made a snapshot, as the channel's new current or as a branch. */
+export function madeSnapshot(outcome: PushOutcome): boolean {
+  return outcome.kind === "branched" || !outcome.unchanged;
+}
 
 function requestOf(push: SnapshotPush) {
   return {
@@ -295,8 +305,14 @@ export async function sendPush(push: SnapshotPush): Promise<PushOutcome> {
   let reason: "moved" | "hardcore" = "moved";
   for (let fallbacks = 0; ; fallbacks++) {
     try {
-      const { data } = await snapshotApi.pushSnapshot(requestOf(attempt));
-      return { kind: "current", snapshot: data };
+      const { data, status } = await snapshotApi.pushSnapshot(
+        requestOf(attempt),
+      );
+      return {
+        kind: "current",
+        snapshot: data,
+        unchanged: status === 200,
+      };
     } catch (error) {
       const conflict = conflictOf(error);
       if (conflict) {
