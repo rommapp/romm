@@ -1,7 +1,6 @@
 import re
 import unicodedata
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
 
 from handler.filesystem.base_handler import region_name_to_provider_shortcode
 from models.base import compute_file_name_no_ext, compute_file_name_no_tags
@@ -172,24 +171,3 @@ def parse_playmode(play_mode: str | None) -> bool:
         return False
     pm = play_mode.lower()
     return bool(re.search(r"\b(cooperative|coop|co-op)\b", pm))
-
-
-def parse_videourl(url: str | None) -> str:
-    if not url:
-        return ""
-
-    try:
-        parsed = urlparse(url)
-        # LaunchBox video URLs can omit the scheme.
-        if not parsed.netloc:
-            parsed = urlparse(f"//{url}")
-    except ValueError:
-        return ""
-    host = (parsed.hostname or "").removeprefix("www.")
-    if host == "youtu.be":
-        return parsed.path.lstrip("/").split("/")[0]
-    is_youtube = host == "youtube.com" or host.endswith(".youtube.com")
-    if is_youtube and parsed.path == "/watch":
-        return parse_qs(parsed.query).get("v", [""])[0]
-
-    return ""

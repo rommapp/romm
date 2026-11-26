@@ -9,6 +9,7 @@ from handler.filesystem.base_handler import region_name_to_provider_shortcode
 from handler.metadata.ss_handler import get_preferred_media_types
 from utils.database import safe_str_to_bool
 from utils.html_text import html_to_text
+from utils.urls import youtube_id_from_url
 
 if TYPE_CHECKING:
     from models.rom import Rom
@@ -31,7 +32,6 @@ from .utils import (
     parse_list,
     parse_playmode,
     parse_release_date,
-    parse_videourl,
     sanitize_filename,
 )
 
@@ -693,7 +693,7 @@ def build_launchbox_metadata(
             "max_players": max_players,
             "release_type": release_type,
             "cooperative": cooperative,
-            "youtube_video_id": parse_videourl(video_url),
+            "youtube_video_id": youtube_id_from_url(video_url) or "",
             "community_rating": community_rating,
             "community_rating_count": community_rating_count,
             "wikipedia_url": wikipedia_url,

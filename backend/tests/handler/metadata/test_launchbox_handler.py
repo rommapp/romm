@@ -56,7 +56,6 @@ from handler.metadata.launchbox_handler.utils import (
     launchbox_region_to_shortcode,
     parse_playmode,
     parse_release_date,
-    parse_videourl,
     sanitize_filename,
 )
 from handler.redis_handler import async_cache
@@ -290,53 +289,6 @@ class TestParsePlaymode:
 
     def test_empty(self):
         assert parse_playmode("") is False
-
-
-class TestParseVideourl:
-    def test_youtube_watch(self):
-        assert (
-            parse_videourl("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
-            == "dQw4w9WgXcQ"
-        )
-
-    def test_youtube_watch_with_extra_params(self):
-        assert parse_videourl("https://www.youtube.com/watch?v=abc123&t=30") == "abc123"
-
-    def test_youtu_be(self):
-        assert parse_videourl("https://youtu.be/dQw4w9WgXcQ") == "dQw4w9WgXcQ"
-
-    def test_youtu_be_with_query(self):
-        assert parse_videourl("https://youtu.be/abc123?t=30") == "abc123"
-
-    def test_youtube_watch_with_v_after_other_params(self):
-        assert (
-            parse_videourl("https://www.youtube.com/watch?feature=share&v=abc123")
-            == "abc123"
-        )
-
-    def test_fragment_is_not_part_of_the_id(self):
-        assert parse_videourl("https://www.youtube.com/watch?v=abc123#t=30") == "abc123"
-        assert parse_videourl("https://youtu.be/abc123#t=30") == "abc123"
-
-    def test_url_without_scheme(self):
-        assert parse_videourl("www.youtube.com/watch?v=abc123") == "abc123"
-        assert parse_videourl("youtube.com/watch?v=abc123") == "abc123"
-        assert parse_videourl("youtu.be/abc123") == "abc123"
-
-    def test_youtu_be_with_www(self):
-        assert parse_videourl("https://www.youtu.be/abc123") == "abc123"
-
-    def test_malformed_url_has_no_id(self):
-        assert parse_videourl("https://[youtube.com/watch?v=abc123") == ""
-
-    def test_non_youtube(self):
-        assert parse_videourl("https://vimeo.com/123456") == ""
-
-    def test_none(self):
-        assert parse_videourl(None) == ""
-
-    def test_empty(self):
-        assert parse_videourl("") == ""
 
 
 # ===========================================================================
@@ -1079,9 +1031,9 @@ class TestBuildLaunchboxMetadata:
         assert meta.get("cooperative", None) is True
 
     def test_youtube_video_id_extracted(self):
-        local = {"VideoUrl": "https://www.youtube.com/watch?v=abc123"}
+        local = {"VideoUrl": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}
         meta = build_launchbox_metadata(local=local, remote=None, images=[])
-        assert meta.get("youtube_video_id", None) == "abc123"
+        assert meta.get("youtube_video_id", None) == "dQw4w9WgXcQ"
 
     def test_companies_deduplicated(self):
         local = {"Developer": "Nintendo", "Publisher": "Nintendo"}

@@ -10,6 +10,7 @@ from utils.urls import (
     rom_content_url,
     rom_id_from_content_url,
     romfile_content_url,
+    youtube_id_from_url,
 )
 
 REQUEST = Request(
@@ -83,3 +84,37 @@ def test_get_public_base_url(
 ) -> None:
     mocker.patch("utils.urls.config.ROMM_BASE_URL", base_url)
     assert get_public_base_url() == expected
+
+
+@pytest.mark.parametrize(
+    ("url", "video_id"),
+    [
+        ("https://www.youtube.com/watch?v=dQw4w9WgXcQ", "dQw4w9WgXcQ"),
+        ("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=30", "dQw4w9WgXcQ"),
+        ("https://www.youtube.com/watch?feature=share&v=dQw4w9WgXcQ", "dQw4w9WgXcQ"),
+        ("https://www.youtube.com/watch?v=dQw4w9WgXcQ#t=30", "dQw4w9WgXcQ"),
+        ("https://m.youtube.com/watch?v=dQw4w9WgXcQ", "dQw4w9WgXcQ"),
+        ("https://youtu.be/dQw4w9WgXcQ", "dQw4w9WgXcQ"),
+        ("https://youtu.be/dQw4w9WgXcQ?t=30", "dQw4w9WgXcQ"),
+        ("https://youtu.be/dQw4w9WgXcQ#t=30", "dQw4w9WgXcQ"),
+        ("https://www.youtu.be/dQw4w9WgXcQ", "dQw4w9WgXcQ"),
+        ("https://www.youtube.com/embed/dQw4w9WgXcQ", "dQw4w9WgXcQ"),
+        ("https://youtube.com/shorts/dQw4w9WgXcQ", "dQw4w9WgXcQ"),
+        ("https://www.youtube.com/live/dQw4w9WgXcQ", "dQw4w9WgXcQ"),
+        ("https://www.youtube.com/v/dQw4w9WgXcQ", "dQw4w9WgXcQ"),
+        ("https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ", "dQw4w9WgXcQ"),
+        ("www.youtube.com/watch?v=dQw4w9WgXcQ", "dQw4w9WgXcQ"),
+        ("youtube.com/watch?v=dQw4w9WgXcQ", "dQw4w9WgXcQ"),
+        ("youtu.be/dQw4w9WgXcQ", "dQw4w9WgXcQ"),
+        (" https://youtu.be/dQw4w9WgXcQ ", "dQw4w9WgXcQ"),
+        ("https://www.youtube.com/watch?v=abc123", None),
+        ("https://www.youtube.com/user/futurecrew", None),
+        ("https://youtu.be/", None),
+        ("https://[youtube.com/watch?v=dQw4w9WgXcQ", None),
+        ("https://vimeo.com/123456", None),
+        ("", None),
+        (None, None),
+    ],
+)
+def test_youtube_id_from_url(url: str | None, video_id: str | None) -> None:
+    assert youtube_id_from_url(url) == video_id
