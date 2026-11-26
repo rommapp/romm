@@ -208,6 +208,19 @@ const emit = defineEmits<{
 
 const slots = useSlots();
 const attrs = useAttrs();
+
+// Listeners stay on the root so a click anywhere in the field reaches them.
+const isRootAttr = (key: string) =>
+  key === "class" ||
+  key === "style" ||
+  key.startsWith("data-") ||
+  /^on[A-Z]/.test(key);
+const rootAttrs = computed(() =>
+  Object.fromEntries(Object.entries(attrs).filter(([k]) => isRootAttr(k))),
+);
+const inputAttrs = computed(() =>
+  Object.fromEntries(Object.entries(attrs).filter(([k]) => !isRootAttr(k))),
+);
 const inputRef = ref<HTMLInputElement | HTMLTextAreaElement | null>(null);
 // Stable id for `aria-describedby`. The instance uid is unique per mounted
 // component, which is plenty for aria wiring.
@@ -351,8 +364,10 @@ const hasSubtitle = computed(() => !!props.subtitle || !!slots.subtitle);
 const effectivePlaceholder = computed(
   () => props.placeholder ?? (!props.prefixLabel ? props.label : undefined),
 );
-const effectiveAriaLabel = computed(() =>
-  !props.prefixLabel ? props.label : undefined,
+const effectiveAriaLabel = computed(
+  () =>
+    (attrs["aria-label"] as string | undefined) ??
+    (!props.prefixLabel ? props.label : undefined),
 );
 
 // True when the parent is subscribed to a click on the adornment.
@@ -410,7 +425,7 @@ function onAppendInnerClick(evt: MouseEvent) {
        plain <div> to avoid nested labels and `label-has-for` lints. -->
   <component
     :is="prefixLabel ? 'label' : 'div'"
-    v-bind="attrs"
+    v-bind="rootAttrs"
     class="r-text-field"
     :class="[
       `r-text-field--variant-${variant}`,
@@ -502,6 +517,7 @@ function onAppendInnerClick(evt: MouseEvent) {
         :aria-label="effectiveAriaLabel"
         :aria-invalid="hasError || undefined"
         :aria-describedby="showDetails ? `${fieldId}-details` : undefined"
+        v-bind="inputAttrs"
         @input="onInput"
         @focus="onFocus"
         @blur="onBlur"
@@ -531,6 +547,7 @@ function onAppendInnerClick(evt: MouseEvent) {
         :aria-expanded="popup ? popup.expanded : undefined"
         :aria-controls="popup?.controls"
         :aria-activedescendant="popup?.activedescendant"
+        v-bind="inputAttrs"
         @input="onInput"
         @focus="onFocus"
         @blur="onBlur"

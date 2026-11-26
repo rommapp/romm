@@ -137,6 +137,65 @@ describe("RTextField native input attributes", () => {
   });
 });
 
+describe("RTextField attribute routing", () => {
+  it("sends unknown attributes to the input", () => {
+    const wrapper = mount(RTextField, {
+      props: { modelValue: "" },
+      attrs: { "aria-label": "Search", spellcheck: "false", title: "Hint" },
+    });
+    const input = wrapper.get("input");
+    expect(input.attributes("aria-label")).toBe("Search");
+    expect(input.attributes("spellcheck")).toBe("false");
+    expect(input.attributes("title")).toBe("Hint");
+    const outer = wrapper.get(".r-text-field");
+    expect(outer.attributes("aria-label")).toBeUndefined();
+    expect(outer.attributes("spellcheck")).toBeUndefined();
+    wrapper.unmount();
+  });
+
+  it("keeps class, style, data attributes and listeners on the root", async () => {
+    const onClick = vi.fn();
+    const wrapper = mount(RTextField, {
+      props: { modelValue: "" },
+      attrs: {
+        class: "mine",
+        style: "width: 10px",
+        "data-testid": "field",
+        onClick,
+      },
+    });
+    const outer = wrapper.get(".r-text-field");
+    expect(outer.classes()).toContain("mine");
+    expect(outer.attributes("style")).toContain("width: 10px");
+    expect(outer.attributes("data-testid")).toBe("field");
+    expect(wrapper.get("input").attributes("data-testid")).toBeUndefined();
+    await outer.trigger("click");
+    expect(onClick).toHaveBeenCalledOnce();
+    wrapper.unmount();
+  });
+
+  it("lets an aria-label attribute replace the one derived from label", () => {
+    const wrapper = mount(RTextField, {
+      props: { modelValue: "", label: "Name" },
+      attrs: { "aria-label": "Search names" },
+    });
+    expect(wrapper.get("input").attributes("aria-label")).toBe("Search names");
+    wrapper.unmount();
+  });
+
+  it("routes the same way for a multiline field", () => {
+    const wrapper = mount(RTextField, {
+      props: { modelValue: "", multiline: true },
+      attrs: { spellcheck: "false", "data-testid": "field" },
+    });
+    expect(wrapper.get("textarea").attributes("spellcheck")).toBe("false");
+    expect(wrapper.get(".r-text-field").attributes("data-testid")).toBe(
+      "field",
+    );
+    wrapper.unmount();
+  });
+});
+
 describe("RTextField rules", () => {
   const required = (v: string) => !!v || "Required";
 
