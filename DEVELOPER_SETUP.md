@@ -223,6 +223,25 @@ That seeds 2,000 roms in under a minute. It prints the seed it used and a login 
 
 The seeded roms have no files under `library/`, so a scan would mark them missing. The frontend's `assets/romm/resources` symlink should point at the same resources folder, so the UI shows the seeded covers.
 
+## Pull request previews
+
+`.github/workflows/preview.yml` deploys each pull request from a branch of this repository to its own [Fly.io](https://fly.io) app at `https://romm-pr-<number>.fly.dev`, comments the link on the PR, and destroys the app when the PR closes. A nightly run removes any preview whose teardown was missed. Fork PRs get no preview, since their runs get no secrets.
+
+The image is the `preview-image` stage of `docker/Dockerfile`: the full image plus a bundled PostgreSQL. On boot, `docker/preview/preview-entrypoint.sh` migrates and seeds 500 roms with `generate_test_data.py`, then starts RomM as usual. Log in as `admin_1`. Previews stop when idle and boot from a clean disk, so each wake re-seeds the same library in about a minute. Machine size and region live in `docker/preview/fly.toml`.
+
+To run one locally:
+
+```sh
+docker build -f docker/Dockerfile --target preview-image -t romm:preview .
+docker run --rm -p 8080:8080 romm:preview
+```
+
+Repository settings it reads:
+
+- `FLY_API_TOKEN` (secret): a token that can create and destroy apps in the preview org. Without it the workflow does nothing.
+- `PREVIEW_PASSWORD` (secret, optional): the password of every seeded user. Defaults to `password`.
+- `FLY_PREVIEW_ORG` (variable, optional): the Fly organization slug. Defaults to `personal`.
+
 ## Setting up the linter
 
 We use [Trunk](https://trunk.io) for linting, which combines multiple linters and formatters with sensible defaults and a single configuration file. You'll need to install the Trunk CLI to use it.

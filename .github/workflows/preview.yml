@@ -1,0 +1,200 @@
+name: Pull Request Preview
+
+# Deploys each same-repo pull request to its own Fly.io app, seeded with dummy
+# data, and destroys it when the pull request closes. Does nothing until the
+# FLY_API_TOKEN secret is set. Fork PRs are skipped: they get no secrets.
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+    paths:
+      - "docker/**"
+      - "backend/**"
+      - "frontend/**"
+      - pyproject.toml
+      - uv.lock
+      - .python-version
+      - .github/workflows/preview.yml
+      - .github/scripts/preview_comment.sh
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  APP: romm-pr-${{ github.event.pull_request.number }}
+  FLY_ORG: ${{ vars.FLY_PREVIEW_ORG || 'personal' }}
+
+jobs:
+  deploy:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.action != 'closed' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Check for a Fly token
+        id: fly
+        env:
+          HAS_TOKEN: ${{ secrets.FLY_API_TOKEN != '' }}
+        run: |
+          echo "enabled=${HAS_TOKEN}" >> "$GITHUB_OUTPUT"
+          if [[ ${HAS_TOKEN} != "true" ]]; then
+            echo "::notice::FLY_API_TOKEN is not set, skipping the preview"
+          fi
+
+      - name: Checkout code
+        if: steps.fly.outputs.enabled == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up flyctl
+        if: steps.fly.outputs.enabled == 'true'
+        uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # 1.6
+
+      - name: Create the app and set its secrets
+        if: steps.fly.outputs.enabled == 'true'
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          PREVIEW_PASSWORD: ${{ secrets.PREVIEW_PASSWORD }}
+        run: |
+          if ! flyctl status --app "$APP" >/dev/null 2>&1; then
+            flyctl apps create "$APP" --org "$FLY_ORG"
+          fi
+          secrets=("ROMM_AUTH_SECRET_KEY=$(openssl rand -hex 32)")
+          if [[ -n ${PREVIEW_PASSWORD} ]]; then
+            secrets+=("PREVIEW_PASSWORD=${PREVIEW_PASSWORD}")
+          fi
+          flyctl secrets set --app "$APP" --stage "${secrets[@]}"
+          flyctl auth docker
+
+      - name: Set up Docker Buildx
+        if: steps.fly.outputs.enabled == 'true'
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # Reads the public release cache and writes nothing back, like docker-pr.yml.
+      - name: Build and push the preview image
+        if: steps.fly.outputs.enabled == 'true'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          file: docker/Dockerfile
+          context: .
+          platforms: linux/amd64
+          target: preview-image
+          push: true
+          tags: registry.fly.io/${{ env.APP }}:${{ github.event.pull_request.head.sha }}
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/romm-buildcache:release-amd64
+
+      - name: Deploy
+        if: steps.fly.outputs.enabled == 'true'
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          IMAGE: registry.fly.io/${{ env.APP }}:${{ github.event.pull_request.head.sha }}
+        run: |
+          flyctl deploy --app "$APP" --config docker/preview/fly.toml --image "$IMAGE" \
+            --ha=false --wait-timeout 10m
+
+      - name: Comment the preview URL
+        if: steps.fly.outputs.enabled == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          HAS_PASSWORD: ${{ secrets.PREVIEW_PASSWORD != '' }}
+        run: |
+          if [[ ${HAS_PASSWORD} == "true" ]]; then
+            password="the \`PREVIEW_PASSWORD\` secret"
+          else
+            password="\`password\`"
+          fi
+          bash .github/scripts/preview_comment.sh "$PR" "### Preview
+
+          https://${APP}.fly.dev, built from ${SHA}.
+
+          Log in as \`admin_1\` with ${password}. The library is dummy data with no rom files, and it resets whenever the preview wakes from idle (about a minute)."
+
+  teardown:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.action == 'closed' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Check for a Fly token
+        id: fly
+        env:
+          HAS_TOKEN: ${{ secrets.FLY_API_TOKEN != '' }}
+        run: echo "enabled=${HAS_TOKEN}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout code
+        if: steps.fly.outputs.enabled == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up flyctl
+        if: steps.fly.outputs.enabled == 'true'
+        uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # 1.6
+
+      - name: Destroy the app
+        if: steps.fly.outputs.enabled == 'true'
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          if flyctl status --app "$APP" >/dev/null 2>&1; then
+            flyctl apps destroy "$APP" --yes
+            bash .github/scripts/preview_comment.sh "$PR" "### Preview
+
+          Removed because the pull request was closed."
+          fi
+
+  # Catches previews whose teardown never ran (a cancelled or failed run).
+  sweep:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Check for a Fly token
+        id: fly
+        env:
+          HAS_TOKEN: ${{ secrets.FLY_API_TOKEN != '' }}
+        run: echo "enabled=${HAS_TOKEN}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up flyctl
+        if: steps.fly.outputs.enabled == 'true'
+        uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # 1.6
+
+      - name: Destroy previews of closed pull requests
+        if: steps.fly.outputs.enabled == 'true'
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          flyctl apps list --org "$FLY_ORG" --json |
+            jq -r '.[] | (.Name // .name) | select(test("^romm-pr-[0-9]+$"))' |
+            while read -r app; do
+              state=$(gh pr view "${app#romm-pr-}" --repo "$GITHUB_REPOSITORY" --json state --jq .state)
+              if [[ ${state} != "OPEN" ]]; then
+                echo "Destroying ${app} (pull request ${state})"
+                flyctl apps destroy "$app" --yes
+              fi
+            done
