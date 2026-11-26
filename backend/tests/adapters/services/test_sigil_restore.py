@@ -17,7 +17,7 @@ from tests.sigil_cards import (
     saturn_volume,
 )
 
-from adapters.services.sigil import SigilGame
+from adapters.services.sigil import SigilGame, SigilService
 from adapters.services.sigil_restore import (
     ContainerMismatch,
     RefusalCode,
@@ -29,6 +29,9 @@ from adapters.services.sigil_restore import (
     restore_layouts,
     restore_per_game,
 )
+from models.platform import Platform
+from models.rom import Rom
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 SEGACD_BLOCK = 64
 SEGACD_VOLUME = 0x2000
@@ -212,6 +215,25 @@ def target(core: str, content_path: str, **options: str) -> RestoreTarget:
     )
 
 
+def rom_game(
+    binding: ModuleType, slug: str, title_id: str = "", save_id: str = ""
+) -> SigilGame:
+    """A ROM on RomM's `slug` read back through its platform map, so a slug sigil
+    doesn't take for that platform fails the test restoring it."""
+    rom = Rom(
+        id=1,
+        fs_name="Game",
+        fs_path=f"{slug}/roms",
+        title_id=title_id or None,
+        save_target=save_id or None,
+        platform=Platform(name=slug, slug=slug, fs_slug=slug),
+    )
+    game = SigilService.stored_game(rom, [])
+    assert game is not None
+    assert isinstance(game.result, binding.SigilResult)
+    return game
+
+
 @pytest.mark.asyncio
 async def test_a_per_game_ps1_card_is_built_from_nothing(binding, tmp_path: Path):
     game = cross(binding)
@@ -254,6 +276,23 @@ async def test_a_shared_card_target_names_the_container(binding, tmp_path: Path)
         )
 
     assert excinfo.value.container_path == "pcsx-card1.mcd"
+
+
+@pytest.mark.asyncio
+async def test_a_gba_save_restores_at_each_cores_size(binding):
+    """gpSP keeps 128 KiB and VBA Next 136 KiB for every chip; mGBA keeps the chip."""
+    game = rom_game(binding, UPS.GBA)
+    sram = bytes(range(256)) * 128
+
+    gpsp = await restore_per_game(sram, game, target("gpsp", "Game.gba"))
+    vba_next = await restore_per_game(sram, game, target("vba_next", "Game.gba"))
+    mgba = await restore_per_game(sram, game, target("mgba", "Game.gba"))
+
+    assert gpsp == {"Game.srm": sram + b"\xff" * (128 * 1024 - len(sram))}
+    assert list(vba_next) == ["Game.srm"]
+    assert len(vba_next["Game.srm"]) == 136 * 1024
+    assert vba_next["Game.srm"][: len(sram)] == sram
+    assert mgba == {"Game.srm": sram}
 
 
 @pytest.mark.asyncio
