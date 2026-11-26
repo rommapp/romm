@@ -28,11 +28,7 @@ def stats(
         ),
     ] = False,
 ) -> StatsReturn:
-    """Endpoint to return the current RomM stats
-
-    Returns:
-        dict: Dictionary with all the stats
-    """
+    """Get library statistics, counting only what the caller can see."""
 
     visibility = get_rom_visibility_filter(request)
 

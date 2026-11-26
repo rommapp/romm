@@ -14,7 +14,7 @@ import SettingsSection from "@/components/Settings/SettingsSection.vue";
 import { useConfirm } from "@/composables/useConfirm";
 import { useFetchState } from "@/composables/useFetchState";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { RBtn, REmptyState, RIcon, RSpinner } from "@/lib";
+import { RButton, REmptyState, RIcon, RSpinner } from "@/lib";
 import { ROUTES } from "@/plugins/router";
 import streamingApi, {
   type AdminStreamingContainer,
@@ -135,7 +135,7 @@ function sessionState(container: AdminStreamingContainer): string {
     icon="mdi-monitor-dashboard"
   >
     <template #header-actions>
-      <RBtn
+      <RButton
         icon="mdi-refresh"
         variant="text"
         density="compact"
@@ -187,7 +187,7 @@ function sessionState(container: AdminStreamingContainer): string {
         </div>
 
         <div class="r-streaming__actions">
-          <RBtn
+          <RButton
             v-if="container.supports_desktop"
             variant="outlined"
             density="compact"
@@ -200,8 +200,8 @@ function sessionState(container: AdminStreamingContainer): string {
             @click="openDesktop(container)"
           >
             {{ t("settings.streaming-open-desktop") }}
-          </RBtn>
-          <RBtn
+          </RButton>
+          <RButton
             variant="text"
             density="compact"
             color="error"
@@ -211,7 +211,7 @@ function sessionState(container: AdminStreamingContainer): string {
             @click="release(container)"
           >
             {{ t("settings.streaming-release") }}
-          </RBtn>
+          </RButton>
         </div>
       </div>
     </template>

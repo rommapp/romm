@@ -6,7 +6,7 @@ import ConfirmDialog from "./ConfirmDialog.vue";
 
 vi.mock("vue-i18n");
 
-const RBtnStub = {
+const RButtonStub = {
   props: { disabled: { type: Boolean, default: false } },
   template: "<button :disabled='disabled'><slot /></button>",
 };
@@ -21,7 +21,7 @@ function mountDialog(emitter: Emitter<Events>): VueWrapper {
           template:
             "<div v-if='modelValue'><slot name='content' /><slot name='footer-start' /><slot name='footer' /></div>",
         },
-        RBtn: RBtnStub,
+        RButton: RButtonStub,
         RTextField: {
           props: { modelValue: { type: String, default: "" } },
           emits: ["update:modelValue"],

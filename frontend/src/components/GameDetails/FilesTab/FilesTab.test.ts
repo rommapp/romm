@@ -103,7 +103,7 @@ function mountTab(r = rom()) {
         RCheckbox: true,
         REmptyState: true,
         RIcon: true,
-        RBtn: {
+        RButton: {
           props: ["disabled", "icon"],
           emits: ["click"],
           template: `<button class="btn" :data-icon="icon" :disabled="disabled" @click="$emit('click')"><slot /></button>`,

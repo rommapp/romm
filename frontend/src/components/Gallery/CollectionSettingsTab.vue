@@ -39,7 +39,7 @@ import VisibilitySwitch from "@/components/shared/VisibilitySwitch.vue";
 import { useEmitterEvent } from "@/composables/useEmitterEvent";
 import { useSnackbar } from "@/composables/useSnackbar";
 import { useWebpSupport } from "@/composables/useWebpSupport";
-import { RBtn, RChip, RIcon, RTag, RTextField } from "@/lib";
+import { RButton, RChip, RIcon, RTag, RTextField } from "@/lib";
 import collectionApi, {
   type UpdatedCollection,
 } from "@/services/api/collection";
@@ -386,21 +386,21 @@ async function setVisibility(next: boolean) {
           />
         </div>
         <div v-if="canEdit" class="r-coll-set__cover-actions">
-          <RBtn
+          <RButton
             icon="mdi-image-search-outline"
             variant="outlined"
             density="compact"
             :tooltip="t('rom.search-cover', 'Search cover')"
             @click="openSearchCover"
           />
-          <RBtn
+          <RButton
             icon="mdi-pencil"
             variant="outlined"
             density="compact"
             :tooltip="t('rom.upload-cover', 'Upload cover')"
             @click="triggerFileInput"
           />
-          <RBtn
+          <RButton
             icon="mdi-delete"
             variant="outlined"
             density="compact"
@@ -458,10 +458,10 @@ async function setVisibility(next: boolean) {
           />
         </div>
         <div v-if="canEdit && dirty" class="r-coll-set__form-actions">
-          <RBtn variant="text" :disabled="saving" @click="discard">
+          <RButton variant="text" :disabled="saving" @click="discard">
             {{ t("common.discard", "Discard") }}
-          </RBtn>
-          <RBtn
+          </RButton>
+          <RButton
             variant="flat"
             color="primary"
             prepend-icon="mdi-check"
@@ -470,7 +470,7 @@ async function setVisibility(next: boolean) {
             @click="save"
           >
             {{ t("common.apply", "Apply") }}
-          </RBtn>
+          </RButton>
         </div>
       </div>
     </section>
@@ -528,7 +528,7 @@ async function setVisibility(next: boolean) {
         )
       "
     >
-      <RBtn
+      <RButton
         variant="outlined"
         color="danger"
         prepend-icon="mdi-delete-outline"
@@ -537,7 +537,7 @@ async function setVisibility(next: boolean) {
         @click="emit('delete')"
       >
         {{ t("common.delete", "Delete") }}
-      </RBtn>
+      </RButton>
     </DangerZone>
   </div>
 </template>

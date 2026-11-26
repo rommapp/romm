@@ -72,7 +72,7 @@ async function openPairing(expiresIn: number) {
           template:
             '<div v-if="modelValue"><slot name="content" /><slot name="footer" /></div>',
         },
-        RBtn: {
+        RButton: {
           emits: ["click"],
           template: "<button @click=\"$emit('click')\"><slot /></button>",
         },

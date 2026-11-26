@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { ref } from "vue";
 import { CONTRAST_TODO_PARAMETERS } from "@/utils/storyA11y";
-import RBtn from "../../primitives/RBtn/RBtn.vue";
+import RButton from "../../primitives/RButton/RButton.vue";
 import RSelect from "../RSelect/RSelect.vue";
 import RTextField from "../RTextField/RTextField.vue";
 import RForm from "./RForm.vue";
@@ -21,7 +21,7 @@ type Story = StoryObj<typeof RForm>;
 export const Basic: Story = {
   name: "Basic · live validity",
   render: () => ({
-    components: { RForm, RTextField, RBtn },
+    components: { RForm, RTextField, RButton },
     setup() {
       const valid = ref(true);
       const name = ref("");
@@ -43,7 +43,7 @@ export const Basic: Story = {
           <div style="display:flex;flex-direction:column;gap:12px">
             <RTextField v-model="name" prefix-label="stacked" label="Name" :rules="nameRules" placeholder="Your name" />
             <RTextField v-model="email" prefix-label="stacked" label="Email" :rules="emailRules" placeholder="you@example.com" />
-            <RBtn type="submit" color="primary" :disabled="!valid">Submit</RBtn>
+            <RButton type="submit" color="primary" :disabled="!valid">Submit</RButton>
             <div style="font:11px sans-serif;color:var(--r-color-fg-muted)">
               Submit is enabled while the form is valid — type something invalid (e.g., a bad email) and it disables live.
             </div>
@@ -60,7 +60,7 @@ export const Basic: Story = {
 export const EnterToSubmit: Story = {
   name: "Enter-to-submit",
   render: () => ({
-    components: { RForm, RTextField, RBtn },
+    components: { RForm, RTextField, RButton },
     setup() {
       const valid = ref(true);
       const value = ref("");
@@ -78,7 +78,7 @@ export const EnterToSubmit: Story = {
         <RForm v-model="valid" @submit="onSubmit">
           <div style="display:flex;flex-direction:column;gap:12px">
             <RTextField v-model="value" prefix-label="stacked" label="Search" :rules="rules" placeholder="Type 3+ chars and press Enter" />
-            <RBtn type="submit" color="primary" :disabled="!valid">Submit</RBtn>
+            <RButton type="submit" color="primary" :disabled="!valid">Submit</RButton>
             <div style="font:11px sans-serif;color:var(--r-color-fg-muted)">Submitted: {{ submitted }} time(s)</div>
           </div>
         </RForm>
@@ -92,7 +92,7 @@ export const EnterToSubmit: Story = {
 export const MixedFields: Story = {
   name: "Mixed fields (RTextField + RSelect)",
   render: () => ({
-    components: { RForm, RTextField, RSelect, RBtn },
+    components: { RForm, RTextField, RSelect, RButton },
     setup() {
       const valid = ref(true);
       const name = ref("");
@@ -125,7 +125,7 @@ export const MixedFields: Story = {
           <div style="display:flex;flex-direction:column;gap:12px">
             <RTextField v-model="name" prefix-label="stacked" label="Display name" :rules="nameRules" placeholder="Jane Doe" />
             <RSelect v-model="role" :items="roles" prefix-label="stacked" label="Role" :rules="roleRules" placeholder="Pick a role" />
-            <RBtn type="submit" color="primary" :disabled="!valid">Create user</RBtn>
+            <RButton type="submit" color="primary" :disabled="!valid">Create user</RButton>
             <div v-if="submitted" style="color:var(--r-color-success);font:12px sans-serif">Created: {{ submitted }}</div>
           </div>
         </RForm>
@@ -139,7 +139,7 @@ export const MixedFields: Story = {
 export const ScrollToError: Story = {
   name: "Scroll-to-error",
   render: () => ({
-    components: { RForm, RTextField, RBtn },
+    components: { RForm, RTextField, RButton },
     setup() {
       const valid = ref(true);
       const fields = ref<string[]>(["", "", "", "", "", "", "", ""]);
@@ -164,7 +164,7 @@ export const ScrollToError: Story = {
               :label="'Field ' + (i + 1)"
               :rules="rules"
             />
-            <RBtn color="primary" @click="trigger">Validate all</RBtn>
+            <RButton color="primary" @click="trigger">Validate all</RButton>
           </div>
         </RForm>
       </div>
@@ -177,7 +177,7 @@ export const ScrollToError: Story = {
 export const ResetForm: Story = {
   name: "Reset",
   render: () => ({
-    components: { RForm, RTextField, RBtn },
+    components: { RForm, RTextField, RButton },
     setup() {
       const valid = ref(true);
       const name = ref("");
@@ -196,8 +196,8 @@ export const ResetForm: Story = {
             <RTextField v-model="name" prefix-label="stacked" label="Name" :rules="rules" placeholder="Jane" />
             <RTextField v-model="email" prefix-label="stacked" label="Email" :rules="rules" placeholder="you@example.com" />
             <div style="display:flex;gap:8px">
-              <RBtn variant="text" @click="clearAll">Reset errors</RBtn>
-              <RBtn color="primary" type="submit" :disabled="!valid">Submit</RBtn>
+              <RButton variant="text" @click="clearAll">Reset errors</RButton>
+              <RButton color="primary" type="submit" :disabled="!valid">Submit</RButton>
             </div>
             <div style="font:11px sans-serif;color:var(--r-color-fg-muted)">
               Trigger errors (blur both fields empty), then click Reset to clear them.

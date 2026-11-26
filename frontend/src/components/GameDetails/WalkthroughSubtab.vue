@@ -14,7 +14,7 @@ import {
 } from "@/composables/useRomFileUpload";
 import { useRomSync } from "@/composables/useRomSync";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { RBtn, RDropzone, RSelect, RTextField } from "@/lib";
+import { RButton, RDropzone, RSelect, RTextField } from "@/lib";
 import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
 import { versionedRomFileUrl } from "@/utils/romFiles";
@@ -220,7 +220,7 @@ async function requestDelete() {
           hide-details
           @keyup.enter="addFromUrl"
         />
-        <RBtn
+        <RButton
           variant="outlined"
           size="small"
           prepend-icon="mdi-link-variant"
@@ -229,7 +229,7 @@ async function requestDelete() {
           @click="addFromUrl"
         >
           {{ t("rom.add-walkthrough-from-url") }}
-        </RBtn>
+        </RButton>
       </div>
     </header>
 
@@ -289,7 +289,7 @@ async function requestDelete() {
     </RDropzone>
 
     <div v-if="canUpload && !hideUpload">
-      <RBtn
+      <RButton
         block
         variant="outlined"
         size="small"
@@ -297,7 +297,7 @@ async function requestDelete() {
         @click="openUpload"
       >
         {{ t("common.upload") }}
-      </RBtn>
+      </RButton>
     </div>
   </div>
 </template>

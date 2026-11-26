@@ -35,12 +35,32 @@ export function czechPluralIndex(choice: number, choicesLength: number) {
   return choice >= 2 && choice <= 4 ? 2 : 3;
 }
 
+// Four-form messages reserve their first segment for an explicit zero.
+export function ukrainianPluralIndex(choice: number, choicesLength: number) {
+  if (choicesLength <= 1) return 0;
+  const count = Math.abs(choice);
+  if (choicesLength === 2) return count === 1 ? 0 : 1;
+  if (choicesLength === 4 && count === 0) return 0;
+  const offset = choicesLength === 4 ? 1 : 0;
+  const ones = count % 10;
+  const lastTwo = count % 100;
+  if (ones === 1 && lastTwo !== 11) return offset;
+  if (
+    Number.isInteger(count) &&
+    ones >= 2 &&
+    ones <= 4 &&
+    (lastTwo < 12 || lastTwo > 14)
+  )
+    return offset + 1;
+  return offset + 2;
+}
+
 const i18n = createI18n({
   legacy: false,
   locale: FALLBACK_LOCALE,
   fallbackLocale: FALLBACK_LOCALE,
   messages: {},
-  pluralRules: { cs_CZ: czechPluralIndex },
+  pluralRules: { cs_CZ: czechPluralIndex, uk_UA: ukrainianPluralIndex },
 });
 
 // Picks the first available locale matching the browser's preferences, exact

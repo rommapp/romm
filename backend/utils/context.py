@@ -1,3 +1,4 @@
+import ssl
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from contextvars import ContextVar, Token
@@ -40,10 +41,12 @@ def create_aiohttp_session() -> aiohttp.ClientSession:
 
 def create_httpx_async_client(
     allowlist: frozenset[tuple[str, int]] = INTERNAL_ORIGIN_ALLOWLIST,
+    verify: ssl.SSLContext | bool = True,
 ) -> httpx2.AsyncClient:
     """An SSRF-guarded client that lets only `allowlist` origins reach private addresses."""
     client = httpx2.AsyncClient(
         trust_env=has_proxy_env(),
+        verify=verify,
         event_hooks={
             "request": [partial(_validate_request_url_async, allowlist=allowlist)]
         },

@@ -7,7 +7,7 @@ import { useI18n } from "vue-i18n";
 import type { NotificationLevel } from "@/__generated__";
 import SettingsSection from "@/components/Settings/SettingsSection.vue";
 import { TONE_ICONS, useSnackbar } from "@/composables/useSnackbar";
-import { RBtn, RForm, RIcon, RSelect, RTextField } from "@/lib";
+import { RButton, RForm, RIcon, RSelect, RTextField } from "@/lib";
 import notificationApi from "@/services/api/notification";
 import storeUsers from "@/stores/users";
 import {
@@ -200,7 +200,7 @@ async function send() {
       </RTextField>
 
       <div class="r-send-notification__actions">
-        <RBtn
+        <RButton
           variant="flat"
           color="primary"
           prepend-icon="mdi-send-outline"
@@ -209,7 +209,7 @@ async function send() {
           @click="send"
         >
           {{ t("notifications.send") }}
-        </RBtn>
+        </RButton>
       </div>
     </RForm>
   </SettingsSection>

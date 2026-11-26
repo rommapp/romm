@@ -15,7 +15,7 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute, useRouter } from "vue-router";
 import { useGalleryProvenance } from "@/composables/useGalleryProvenance";
-import { RBtn } from "@/lib";
+import { RButton } from "@/lib";
 import { ROUTES } from "@/plugins/router";
 import storeGalleryRoms from "@/stores/galleryRoms";
 
@@ -88,7 +88,7 @@ function go(position: number | null) {
     class="prev-next-nav"
     :class="{ 'prev-next-nav--around': $slots.default }"
   >
-    <RBtn
+    <RButton
       v-if="visible"
       variant="outlined"
       size="small"
@@ -101,7 +101,7 @@ function go(position: number | null) {
       @click="go(prevPosition)"
     />
     <slot />
-    <RBtn
+    <RButton
       v-if="visible"
       variant="outlined"
       size="small"

@@ -7,7 +7,7 @@ from fastapi import BackgroundTasks, Depends, HTTPException, Request, status
 from pydantic import Field
 
 from decorators.auth import protected_route
-from endpoints.play_sessions import PlaySessionEntry, assert_batch_size
+from endpoints.play_sessions import MAX_BATCH_SIZE, PlaySessionEntry, assert_batch_size
 from endpoints.responses.base import PAGE_QUERY, BaseModel, PageParams
 from endpoints.responses.play_session import (
     PlaySessionIngestResponse,
@@ -67,6 +67,7 @@ router.include_router(retroarch_router)
 
 # A hung broker must not pin the background task forever.
 CONFLICT_NOTIFY_TIMEOUT_S = 2.0
+SYNC_SESSION_NOT_FOUND = "The caller has no sync session with this ID that it can see."
 
 
 class ClientSaveState(BaseModel):
@@ -179,7 +180,22 @@ def _require_sync_session(request: Request, session_id: int) -> SyncSession:
     return sync_session
 
 
-@protected_route(router.post, "/negotiate", [Scope.ASSETS_READ, Scope.DEVICES_READ])
+@protected_route(
+    router.post,
+    "/negotiate",
+    [Scope.ASSETS_READ, Scope.DEVICES_READ],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": (
+                "The payload has no `device_id` and the client token is not bound to"
+                " a device, or sync is disabled for the device."
+            )
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no device with this `device_id` that it can see."
+        },
+    },
+)
 def negotiate_sync(
     request: Request,
     payload: SyncNegotiatePayload,
@@ -489,7 +505,26 @@ def negotiate_sync(
     )
 
 
-@protected_route(router.post, "/sessions/{session_id}/complete", [Scope.DEVICES_WRITE])
+@protected_route(
+    router.post,
+    "/sessions/{session_id}/complete",
+    [Scope.DEVICES_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": (
+                f"The payload has more than {MAX_BATCH_SIZE} play sessions, or the"
+                " sync session is already completed, cancelled or failed."
+            )
+        },
+        status.HTTP_403_FORBIDDEN: {
+            "description": (
+                "The payload has play sessions, and the caller lacks the"
+                " `roms.user.write` scope."
+            )
+        },
+        status.HTTP_404_NOT_FOUND: {"description": SYNC_SESSION_NOT_FOUND},
+    },
+)
 def complete_sync_session(
     request: Request,
     session_id: int,
@@ -562,7 +597,16 @@ def complete_sync_session(
     )
 
 
-@protected_route(router.get, "/sessions", [Scope.DEVICES_READ])
+@protected_route(
+    router.get,
+    "/sessions",
+    [Scope.DEVICES_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The client token is bound to a device other than `device_id`."
+        }
+    },
+)
 def get_sync_sessions(
     request: Request,
     page: Annotated[PageParams, Depends(PAGE_QUERY)],
@@ -580,7 +624,12 @@ def get_sync_sessions(
     return [SyncSessionSchema.model_validate(s) for s in sessions]
 
 
-@protected_route(router.get, "/sessions/{session_id}", [Scope.DEVICES_READ])
+@protected_route(
+    router.get,
+    "/sessions/{session_id}",
+    [Scope.DEVICES_READ],
+    responses={status.HTTP_404_NOT_FOUND: {"description": SYNC_SESSION_NOT_FOUND}},
+)
 def get_sync_session(
     request: Request,
     session_id: int,
@@ -592,7 +641,22 @@ def get_sync_session(
 # --- Push-Pull Mode Endpoints ---
 
 
-@protected_route(router.post, "/devices/{device_id}/push-pull", [Scope.DEVICES_WRITE])
+@protected_route(
+    router.post,
+    "/devices/{device_id}/push-pull",
+    [Scope.DEVICES_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": (
+                "The device is not in `push_pull` sync mode, or sync is disabled for"
+                " it."
+            )
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no device with this ID that it can see."
+        },
+    },
+)
 def trigger_push_pull(
     request: Request,
     device_id: str,

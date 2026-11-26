@@ -1,5 +1,5 @@
 - worktree test database: A backend test run in a git worktree uses its own temporary database, never the shared romm_test.
-  when: command uv run pytest
+  when: explicit
   step: set ROMM_TEST_DB_TAG to a tag unique to the worktree before running pytest
   step: select the tests affected by the change; never run the whole suite locally
   step: leave the shared romm_test alone: never stamp or downgrade it

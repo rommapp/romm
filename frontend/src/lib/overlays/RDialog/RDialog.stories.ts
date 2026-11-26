@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 import { ref } from "vue";
-import RBtn from "@/lib/primitives/RBtn/RBtn.vue";
+import RButton from "@/lib/primitives/RButton/RButton.vue";
 import REmptyState from "@/lib/primitives/REmptyState/REmptyState.vue";
 import RProgressCircular from "@/lib/primitives/RProgressCircular/RProgressCircular.vue";
 import RDialog from "./RDialog.vue";
@@ -27,14 +27,14 @@ type Story = StoryObj<typeof RDialog>;
 export const Basic: Story = {
   args: { width: "420", icon: "mdi-information" },
   render: (args) => ({
-    components: { RDialog, RBtn },
+    components: { RDialog, RButton },
     setup() {
       const open = ref(false);
       return { args, open };
     },
     template: `
       <div style="padding: 48px; min-height: 300px;">
-        <RBtn @click="open = true">Open dialog</RBtn>
+        <RButton @click="open = true">Open dialog</RButton>
         <RDialog v-bind="args" v-model="open" cancelable>
           <template #header>
             <span>Dialog title</span>
@@ -43,7 +43,7 @@ export const Basic: Story = {
             <p>This is the dialog body. Keep content concise and actionable.</p>
           </template>
           <template #footer>
-            <RBtn color="primary" @click="open = false">Confirm</RBtn>
+            <RButton color="primary" @click="open = false">Confirm</RButton>
           </template>
         </RDialog>
       </div>
@@ -88,14 +88,14 @@ export const Loading: Story = {
   name: "Loading (composed)",
   args: { width: "420", height: "240", icon: "mdi-loading" },
   render: (args) => ({
-    components: { RDialog, RBtn, RProgressCircular },
+    components: { RDialog, RButton, RProgressCircular },
     setup() {
       const open = ref(false);
       return { args, open };
     },
     template: `
       <div style="padding: 48px; min-height: 300px;">
-        <RBtn @click="open = true">Open loading dialog</RBtn>
+        <RButton @click="open = true">Open loading dialog</RButton>
         <RDialog v-bind="args" v-model="open">
           <template #header>
             <span>Fetching…</span>
@@ -115,14 +115,14 @@ export const EmptyState: Story = {
   name: "Empty state (composed)",
   args: { width: "420", height: "320", icon: "mdi-search-web" },
   render: (args) => ({
-    components: { RDialog, RBtn, REmptyState },
+    components: { RDialog, RButton, REmptyState },
     setup() {
       const open = ref(false);
       return { args, open };
     },
     template: `
       <div style="padding: 48px; min-height: 300px;">
-        <RBtn @click="open = true">Open empty dialog</RBtn>
+        <RButton @click="open = true">Open empty dialog</RButton>
         <RDialog v-bind="args" v-model="open">
           <template #header>
             <span>Match metadata</span>
@@ -144,14 +144,14 @@ export const EmptyState: Story = {
 export const WithToolbarAndFooter: Story = {
   args: { width: "520", icon: "mdi-pencil" },
   render: (args) => ({
-    components: { RDialog, RBtn },
+    components: { RDialog, RButton },
     setup() {
       const open = ref(false);
       return { args, open };
     },
     template: `
       <div style="padding: 48px; min-height: 300px;">
-        <RBtn @click="open = true">Open full dialog</RBtn>
+        <RButton @click="open = true">Open full dialog</RButton>
         <RDialog v-bind="args" v-model="open" cancelable>
           <template #header><span>Edit ROM</span></template>
           <template #toolbar>
@@ -161,7 +161,7 @@ export const WithToolbarAndFooter: Story = {
             <p>Body content with form fields would go here.</p>
           </template>
           <template #footer>
-            <RBtn color="primary" @click="open = false">Save</RBtn>
+            <RButton color="primary" @click="open = false">Save</RButton>
           </template>
         </RDialog>
       </div>

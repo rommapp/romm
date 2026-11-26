@@ -493,6 +493,7 @@ async def _store_part(
         "user_id": plan.owner.id,
         "emulator": write.manifest.emulator,
         "emulator_version": write.manifest.emulator_version,
+        "origin_device_id": write.origin_device_id or write.device_id,
     }
     row: Save | State
     if is_save:
@@ -507,7 +508,6 @@ async def _store_part(
             ),
             shape=entry.shape,
             format=entry.format,
-            origin_device_id=write.origin_device_id or write.device_id,
             core=write.manifest.core,
             core_version=write.manifest.core_version,
         )

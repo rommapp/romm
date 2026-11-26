@@ -762,7 +762,7 @@ html[data-bp~="sm-and-down"] .r-home-empty__divider {
 /* Each choice is a router-link rendered as a card. The "feel" is
    close to a primary CTA: brand-tinted halo on hover, the trailing
    chevron in the CTA line nudges right so the click target reads
-   actionable without needing a separate <RBtn>. */
+   actionable without needing a separate <RButton>. */
 .r-home-empty__choice {
   display: flex;
   flex-direction: column;

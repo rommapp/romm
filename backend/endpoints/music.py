@@ -40,6 +40,9 @@ class MusicTrackIdsPayload(BaseModel):
     rom_file_ids: list[int]
 
 
+TRACK_IDS_400 = "Some of the IDs are not music tracks the caller can see."
+
+
 def resolve_track_ids(rom_file_ids: list[int], perms: ResolvedPermissions) -> list[int]:
     """Validate rom_file ids as music tracks the requester may see.
 
@@ -148,7 +151,12 @@ def get_music_favorites(
     return _track_page(request, params, filters, only_favorites=True)
 
 
-@protected_route(router.post, "/favorites", [Scope.PLAYLISTS_WRITE])
+@protected_route(
+    router.post,
+    "/favorites",
+    [Scope.PLAYLISTS_WRITE],
+    responses={status.HTTP_400_BAD_REQUEST: {"description": TRACK_IDS_400}},
+)
 def add_music_favorites(
     request: Request, payload: MusicTrackIdsPayload
 ) -> dict[str, Any]:
@@ -159,7 +167,12 @@ def add_music_favorites(
     return {"added": added}
 
 
-@protected_route(router.delete, "/favorites", [Scope.PLAYLISTS_WRITE])
+@protected_route(
+    router.delete,
+    "/favorites",
+    [Scope.PLAYLISTS_WRITE],
+    responses={status.HTTP_400_BAD_REQUEST: {"description": TRACK_IDS_400}},
+)
 def remove_music_favorites(
     request: Request, payload: MusicTrackIdsPayload
 ) -> dict[str, Any]:

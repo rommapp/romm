@@ -7,7 +7,7 @@ import AssetList from "./AssetList.vue";
 vi.mock("vue-i18n");
 vi.mock("@/stores/streaming", () => import("@/test-utils/streamingStore"));
 
-const RBtn = {
+const RButton = {
   emits: ["click"],
   template: `<button class="fold" @click="$emit('click')"><slot /></button>`,
 };
@@ -21,7 +21,7 @@ const RCheckbox = {
   template: `<input type="checkbox" class="check" :checked="modelValue" @change="$emit('update:modelValue', !modelValue)" />`,
 };
 const stubs = {
-  RBtn,
+  RButton,
   RTag,
   RCheckbox,
   RIcon: true,

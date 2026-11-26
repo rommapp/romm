@@ -17,7 +17,7 @@ import ControllerPad from "@/components/ControllerDebug/ControllerPad.vue";
 import type { GamepadSnapshot } from "@/components/ControllerDebug/types";
 import SettingsSection from "@/components/Settings/SettingsSection.vue";
 import { useInputModality } from "@/composables/useInputModality";
-import { RBtn, RIcon } from "@/lib";
+import { RButton, RIcon } from "@/lib";
 import { ROUTES } from "@/plugins/routeNames";
 
 defineOptions({ inheritAttrs: false });
@@ -283,7 +283,7 @@ function formatTime(t: number) {
       icon="mdi-console-line"
     >
       <template #header-actions>
-        <RBtn
+        <RButton
           size="small"
           variant="text"
           prepend-icon="mdi-delete-outline"
@@ -291,7 +291,7 @@ function formatTime(t: number) {
           @click="clearLog"
         >
           Clear
-        </RBtn>
+        </RButton>
       </template>
       <p class="r-ctrl__log-hint">
         <strong>synthetic</strong> = dispatched by <code>useGamepad</code>.

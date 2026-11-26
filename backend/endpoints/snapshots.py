@@ -86,6 +86,10 @@ FEED_DEVICE_DESCRIPTION = (
     "push without `expected_current_id` expects. Naming one takes `devices.write`."
 )
 SnapshotIdPath = Annotated[int, PathVar(description="The ID of the snapshot.")]
+DEVICE_FORBIDDEN = (
+    "The request sets `device_id` to a device other than the client token's own,"
+    " and the caller lacks the `devices.write` scope."
+)
 SCREENSHOT_SUFFIX = ":screenshot"
 SAVE_SCREENSHOT_PART = "save_screenshot"
 STATE_PART_PATTERN = re.compile(r"^state:([^:]+):([^:]+)$")
@@ -313,7 +317,23 @@ def required_device(request: Request, device_id: str | None) -> Device:
     return device
 
 
-@protected_route(router.get, "", [Scope.ASSETS_READ])
+@protected_route(
+    router.get,
+    "",
+    [Scope.ASSETS_READ],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The cursor is not a snapshot ID."
+        },
+        status.HTTP_403_FORBIDDEN: {"description": DEVICE_FORBIDDEN},
+        status.HTTP_404_NOT_FOUND: {
+            "description": (
+                "No channel the caller can read has this `channel_id`, or the caller"
+                " has no device with this `device_id`."
+            )
+        },
+    },
+)
 def get_snapshots(
     request: Request,
     channel_id: Annotated[
@@ -371,7 +391,26 @@ def get_snapshots(
     return build_snapshot_schemas(page, viewer)
 
 
-@protected_route(router.get, "/{id}", [Scope.ASSETS_READ])
+@protected_route(
+    router.get,
+    "/{id}",
+    [Scope.ASSETS_READ],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": (
+                "`hold` is true, but the request names no device and its client"
+                " token is not bound to one."
+            )
+        },
+        status.HTTP_403_FORBIDDEN: {"description": DEVICE_FORBIDDEN},
+        status.HTTP_404_NOT_FOUND: {
+            "description": (
+                "No snapshot the caller can read has this ID, or the caller has no"
+                " device with this `device_id`."
+            )
+        },
+    },
+)
 def get_snapshot(
     request: Request,
     id: SnapshotIdPath,
@@ -563,9 +602,33 @@ def _respond(result: WriteResult, viewer: User) -> JSONResponse:
     status_code=status.HTTP_201_CREATED,
     responses={
         status.HTTP_200_OK: {"model": SnapshotSchema},
-        status.HTTP_400_BAD_REQUEST: {"model": MissingContentSchema},
-        status.HTTP_403_FORBIDDEN: {},
-        status.HTTP_409_CONFLICT: {"model": SnapshotConflictSchema},
+        status.HTTP_400_BAD_REQUEST: {
+            "model": MissingContentSchema,
+            "description": (
+                "The `manifest` part is missing, a part has an unknown name, or the"
+                " manifest names content that the server lacks and the push did not"
+                " upload, which the response lists in `missing`."
+            ),
+        },
+        status.HTTP_403_FORBIDDEN: {"description": DEVICE_FORBIDDEN},
+        status.HTTP_404_NOT_FOUND: {
+            "description": (
+                "No rom file, channel, parent snapshot or `copy_of` save that the"
+                " caller can see has the given ID, the copied save's file is"
+                " missing, or the caller has no device with this `device_id`."
+            )
+        },
+        status.HTTP_409_CONFLICT: {
+            "model": SnapshotConflictSchema,
+            "description": (
+                "The channel has a newer snapshot than the one the push expected, so"
+                " the push is kept as a branch, or the push would replace a hardcore save and"
+                " `approve_hardcore_downgrade` is false."
+            ),
+        },
+        status.HTTP_413_CONTENT_TOO_LARGE: {
+            "description": "An uploaded part is larger than the server allows."
+        },
     },
 )
 async def push_snapshot(
@@ -665,7 +728,22 @@ async def push_snapshot(
     return _respond(result, viewer)
 
 
-@protected_route(router.patch, "/{id}", [Scope.ASSETS_WRITE])
+@protected_route(
+    router.patch,
+    "/{id}",
+    [Scope.ASSETS_WRITE],
+    responses={
+        status.HTTP_403_FORBIDDEN: {
+            "description": (
+                "The request sets `is_public` on a snapshot that the caller does not"
+                " own or that is not archival."
+            )
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No snapshot the caller can read has this ID."
+        },
+    },
+)
 def update_snapshot(
     request: Request, id: SnapshotIdPath, payload: SnapshotUpdatePayload
 ) -> SnapshotSchema:

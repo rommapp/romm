@@ -11,9 +11,9 @@
 //   * username: community items (others' public shots) show an owner chip
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import MediaPinBtn from "@/components/GameDetails/MediaPinBtn.vue";
+import MediaPinButton from "@/components/GameDetails/MediaPinButton.vue";
 import PublicBadge from "@/components/shared/PublicBadge.vue";
-import { RAvatar, RBtn, RCarousel } from "@/lib";
+import { RAvatar, RButton, RCarousel } from "@/lib";
 import { userAvatarUrl } from "@/utils/userAvatar";
 
 defineOptions({ inheritAttrs: false });
@@ -112,7 +112,7 @@ function canEdit(shot: ScreenshotItem): boolean {
       />
 
       <div class="r-det-shots__actions">
-        <RBtn
+        <RButton
           v-if="canEdit(shot)"
           icon="mdi-pencil-outline"
           size="small"
@@ -122,7 +122,7 @@ function canEdit(shot: ScreenshotItem): boolean {
           :tooltip="t('rom.edit-screenshot')"
           @click="emit('edit', shot)"
         />
-        <RBtn
+        <RButton
           v-if="canDelete(shot)"
           icon="mdi-delete"
           size="small"
@@ -134,7 +134,7 @@ function canEdit(shot: ScreenshotItem): boolean {
         />
       </div>
 
-      <MediaPinBtn
+      <MediaPinButton
         v-if="isPinned"
         class="r-det-shots__pin"
         :pinned="isPinned(shot.pinKey)"

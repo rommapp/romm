@@ -11,7 +11,7 @@ import { useConfirm } from "@/composables/useConfirm";
 import { useGridNav } from "@/composables/useGridNav";
 import { useLoadingPhase } from "@/composables/useLoadingPhase";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { RAvatar, RBtn, REmptyState, RSkeletonBlock } from "@/lib";
+import { RAvatar, RButton, REmptyState, RSkeletonBlock } from "@/lib";
 import storeNotificationInbox from "@/stores/notificationInbox";
 import { focusFromInput } from "@/utils/autofocus";
 import { describeNotification } from "@/utils/notifications";
@@ -111,7 +111,7 @@ async function dismissAll() {
 <template>
   <div class="r-notifications">
     <div v-if="notifications.length > 0" class="r-notifications__head">
-      <RBtn
+      <RButton
         variant="outlined"
         size="small"
         prepend-icon="mdi-notification-clear-all"
@@ -119,7 +119,7 @@ async function dismissAll() {
         @click="dismissAll"
       >
         {{ t("notifications.dismiss-all") }}
-      </RBtn>
+      </RButton>
     </div>
 
     <div v-if="phase === 'skeleton'" class="r-notifications__list">
@@ -180,7 +180,7 @@ async function dismissAll() {
             class="r-notification__time"
           />
         </component>
-        <RBtn
+        <RButton
           variant="text"
           size="small"
           icon="mdi-close"
@@ -293,7 +293,7 @@ a.r-notification__main:hover {
   color: var(--r-color-fg-secondary);
 }
 
-/* Centered by margins rather than a transform, which RBtn's press effect owns. */
+/* Centered by margins rather than a transform, which RButton's press effect owns. */
 .r-notification .r-notification__dismiss {
   position: absolute;
   top: 0;

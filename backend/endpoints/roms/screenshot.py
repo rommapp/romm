@@ -6,7 +6,7 @@ from fastapi import Request, status
 from fastapi.responses import Response
 
 from decorators.auth import protected_route
-from endpoints.roms.upload import receive_rom_file
+from endpoints.roms.upload import ROM_FILE_UPLOAD_RESPONSES, receive_rom_file
 from handler.auth.constants import Scope
 from handler.auth.dependencies import visible_rom_or_404
 from handler.database import db_rom_handler
@@ -26,7 +26,12 @@ router = APIRouter()
     "/{id}/screenshots",
     [Scope.ROMS_WRITE],
     status_code=status.HTTP_201_CREATED,
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        **ROM_FILE_UPLOAD_RESPONSES,
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID."
+        },
+    },
 )
 async def add_rom_screenshots(
     request: Request,
@@ -54,7 +59,14 @@ async def add_rom_screenshots(
     router.delete,
     "/{id}/screenshots/{file_id}",
     [Scope.ROMS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID, or the rom has no screenshot with this file ID."
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "The screenshot could not be removed from disk."
+        },
+    },
 )
 async def delete_rom_screenshot(
     request: Request,

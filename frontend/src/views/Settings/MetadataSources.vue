@@ -19,7 +19,7 @@ import { useI18n } from "vue-i18n";
 import SettingsSection from "@/components/Settings/SettingsSection.vue";
 import MetadataProviderCard from "@/components/shared/MetadataProviderCard/MetadataProviderCard.vue";
 import type { ProviderCardStatus } from "@/components/shared/MetadataProviderCard/types";
-import { RAlert, RBtn } from "@/lib";
+import { RAlert, RButton } from "@/lib";
 import storeConfig from "@/stores/config";
 import storeHeartbeat from "@/stores/heartbeat";
 import {
@@ -176,7 +176,7 @@ onMounted(() => {
           :dimmed="statusOf(source) === 'missing'"
         >
           <template #actions>
-            <RBtn
+            <RButton
               v-if="source.requiresKey"
               variant="translucent"
               size="small"
@@ -186,8 +186,8 @@ onMounted(() => {
               rel="noopener noreferrer"
             >
               {{ t("settings.metadata-get-key") }}
-            </RBtn>
-            <RBtn
+            </RButton>
+            <RButton
               variant="text"
               size="small"
               prepend-icon="mdi-open-in-new"
@@ -196,7 +196,7 @@ onMounted(() => {
               rel="noopener noreferrer"
             >
               {{ t("settings.metadata-website") }}
-            </RBtn>
+            </RButton>
           </template>
         </MetadataProviderCard>
       </div>

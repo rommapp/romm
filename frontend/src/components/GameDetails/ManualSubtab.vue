@@ -13,7 +13,7 @@ import { useI18n } from "vue-i18n";
 import { useCan } from "@/composables/useCan";
 import { useRomSync } from "@/composables/useRomSync";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { RBtn, RDropzone, REmptyState, RSelect } from "@/lib";
+import { RButton, RDropzone, REmptyState, RSelect } from "@/lib";
 import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
@@ -196,7 +196,7 @@ function requestDeleteManual() {
         hide-details
         class="r-manual__select"
       />
-      <RBtn
+      <RButton
         v-if="canUploadMore && !hideUpload"
         variant="outlined"
         size="small"
@@ -205,7 +205,7 @@ function requestDeleteManual() {
         @click="openUpload"
       >
         {{ t("common.upload") }}
-      </RBtn>
+      </RButton>
     </header>
 
     <REmptyState
@@ -224,7 +224,7 @@ function requestDeleteManual() {
       @files="handleManualFiles"
     >
       <template v-if="rom.url_manual" #actions>
-        <RBtn
+        <RButton
           variant="outlined"
           prepend-icon="mdi-cloud-download-outline"
           :loading="redownloadingManual"
@@ -232,7 +232,7 @@ function requestDeleteManual() {
           @click.stop="redownloadManual"
         >
           {{ t("rom.redownload") }}
-        </RBtn>
+        </RButton>
       </template>
     </RDropzone>
 

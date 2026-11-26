@@ -221,13 +221,7 @@ def _build_task_status_response(
 
 @protected_route(router.get, "", [Scope.TASKS_RUN])
 async def list_tasks(request: Request) -> GroupedTasksDict:
-    """List all available tasks grouped by task type.
-
-    Args:
-        request (Request): FastAPI Request object
-    Returns:
-        GroupedTasksDict: Dictionary with tasks grouped by their type (scheduled, manual, watcher)
-    """
+    """List the tasks an admin can see, grouped into scheduled, manual and file watcher tasks."""
     # Initialize the grouped tasks dictionary
     grouped_tasks: GroupedTasksDict = {
         "scheduled": [],
@@ -260,13 +254,7 @@ async def list_tasks(request: Request) -> GroupedTasksDict:
 
 @protected_route(router.get, "/status", [Scope.TASKS_RUN])
 async def get_tasks_status(request: Request) -> list[TaskStatusResponse]:
-    """Get all active, queued, completed, and failed tasks.
-
-    Args:
-        request (Request): FastAPI Request object
-    Returns:
-        list[TaskStatusResponse]: List of all tasks with their current status
-    """
+    """List running, queued, finished and failed tasks, the most recent first."""
     all_tasks: list[TaskStatusResponse] = []
 
     # Get currently running jobs from workers
@@ -304,7 +292,12 @@ async def get_tasks_status(request: Request) -> list[TaskStatusResponse]:
     return all_tasks
 
 
-@protected_route(router.get, "/{task_id}", [Scope.TASKS_RUN])
+@protected_route(
+    router.get,
+    "/{task_id}",
+    [Scope.TASKS_RUN],
+    responses={status.HTTP_404_NOT_FOUND: {"description": "No task has this job ID."}},
+)
 async def get_task_by_id(
     request: Request,
     task_id: Annotated[
@@ -312,11 +305,7 @@ async def get_task_by_id(
         PathVar(description="The job ID of the task, as returned when it started."),
     ],
 ) -> TaskStatusResponse:
-    """Get the status of a task by its job ID.
-
-    Returns:
-        TaskStatusResponse: Task status information
-    """
+    """Get the status of a task by its job ID."""
     try:
         job = Job.fetch(task_id, connection=redis_client)
     except Exception as e:
@@ -331,7 +320,28 @@ async def get_task_by_id(
 TASK_KWARGS = Body(default=None)
 
 
-@protected_route(router.post, "/run/{task_name}", [Scope.TASKS_RUN])
+@protected_route(
+    router.post,
+    "/run/{task_name}",
+    [Scope.TASKS_RUN],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The task cannot be run on demand, or it is disabled."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No task in the task list has this name."
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": (
+                "The task allows one run at a time, and a run is already queued"
+                " or in progress."
+            )
+        },
+        status.HTTP_503_SERVICE_UNAVAILABLE: {
+            "description": "No task worker is running to take the job."
+        },
+    },
+)
 async def run_single_task(
     request: Request,
     task_name: Annotated[
@@ -345,15 +355,7 @@ async def run_single_task(
     ],
     task_kwargs: dict[str, Any] | None = TASK_KWARGS,
 ) -> TaskExecutionResponse:
-    """Run a single task endpoint.
-
-    Args:
-        request (Request): FastAPI Request object
-        task_name (str): Name of the task to run
-        task_kwargs (dict | None): Optional keyword arguments forwarded to the task's run() method
-    Returns:
-        TaskExecutionResponse: Task execution response with details
-    """
+    """Queue a run of one task. Any JSON object in the body is passed to the task as keyword arguments."""
     task_instance = RUNNABLE_TASKS.get(task_name)
     if task_instance is None:
         raise HTTPException(
@@ -415,19 +417,22 @@ SCAN_PAYLOAD = Body(default_factory=ScanPayload)
     "/scan",
     [Scope.TASKS_RUN],
     status_code=status.HTTP_202_ACCEPTED,
+    responses={
+        status.HTTP_409_CONFLICT: {
+            "description": (
+                "The scan does not name specific roms, and a library scan is"
+                " already queued or running."
+            )
+        },
+        status.HTTP_503_SERVICE_UNAVAILABLE: {
+            "description": "No scan worker is running to take the job."
+        },
+    },
 )
 async def start_scan(
     request: Request, payload: ScanPayload = SCAN_PAYLOAD
 ) -> TaskExecutionResponse:
-    """Queue a scan, for clients that authenticate without a session cookie.
-
-    Args:
-        request (Request): FastAPI Request object
-        payload (ScanPayload): What to scan and which metadata sources to use,
-            a quick scan of the whole library when the body is left out
-    Returns:
-        TaskExecutionResponse: The queued scan, to follow on `GET /api/tasks/{task_id}`
-    """
+    """Queue a scan for clients without a session cookie. An empty body runs a quick scan of the whole library. Follow its progress on `GET /api/tasks/{task_id}`."""
     try:
         job = await queue_scan(payload, started_by_user_id=request.user.id)
     except NoScanWorkerException as e:

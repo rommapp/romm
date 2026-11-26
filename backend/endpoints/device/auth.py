@@ -68,7 +68,15 @@ def _device_code_prefix(device_code: str) -> str:
     return device_code[:8]
 
 
-@router.post("/init", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/init",
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        status.HTTP_429_TOO_MANY_REQUESTS: {
+            "description": "This IP address started too many pairing flows recently."
+        },
+    },
+)
 def device_auth_init(
     request: Request, payload: DeviceAuthInitPayload
 ) -> DeviceAuthInitResponse:
@@ -110,7 +118,19 @@ def device_auth_init(
     )
 
 
-@protected_route(router.get, "/pending/{user_code}", [Scope.ME_READ])
+@protected_route(
+    router.get,
+    "/pending/{user_code}",
+    [Scope.ME_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The code is unknown or has expired."
+        },
+        status.HTTP_410_GONE: {
+            "description": "The code was already approved or denied."
+        },
+    },
+)
 def get_pending(
     request: Request,
     user_code: str = PathVar(
@@ -157,7 +177,25 @@ def get_pending(
     )
 
 
-@protected_route(router.post, "/approve", [Scope.ME_WRITE])
+@protected_route(
+    router.post,
+    "/approve",
+    [Scope.ME_WRITE],
+    responses={
+        status.HTTP_403_FORBIDDEN: {
+            "description": (
+                "No scope is approved, or an approved scope was not requested by the"
+                " device or is not held by the caller."
+            )
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The code is unknown or has expired."
+        },
+        status.HTTP_410_GONE: {
+            "description": "The code was already approved or denied."
+        },
+    },
+)
 def approve(
     request: Request, payload: DeviceAuthApprovePayload
 ) -> DeviceAuthApproveResponse:
@@ -323,7 +361,23 @@ def deny(request: Request, payload: DeviceAuthDenyPayload) -> None:
     )
 
 
-@router.post("/token")
+@router.post(
+    "/token",
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": (
+                "The `detail` is `authorization_pending` while the user has not"
+                " answered, `slow_down` when the device polls faster than its"
+                " interval, `access_denied` when the user denied the request, and"
+                " `expired_token` when the device code is unknown, expired or"
+                " already used."
+            )
+        },
+        status.HTTP_429_TOO_MANY_REQUESTS: {
+            "description": "This IP address polled too many times recently."
+        },
+    },
+)
 def token(request: Request, payload: DeviceAuthTokenPayload) -> DeviceAuthTokenResponse:
     """Device-facing polling endpoint. Open, rate-limited per-IP and per-code."""
     check_token_poll_rate_limit(request)

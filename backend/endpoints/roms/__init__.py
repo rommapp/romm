@@ -1126,6 +1126,14 @@ def _bulk_download_target(
     router.get,
     "/download",
     [Scope.ROMS_READ],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The `rom_ids` value is not a comma-separated list of IDs, or the request names no roms, platform or collection."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see matches the request."
+        },
+    },
 )
 async def download_roms(
     request: Request,
@@ -1297,7 +1305,12 @@ async def download_roms(
     router.get,
     "/by-metadata-provider",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}, status.HTTP_400_BAD_REQUEST: {}},
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"description": "No metadata ID is given."},
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see matches the metadata IDs."
+        },
+    },
 )
 def get_rom_by_metadata_provider(
     request: Request,
@@ -1414,19 +1427,17 @@ def get_rom_filters(request: Request) -> RomFiltersDict:
     router.get,
     "/{id}/simple",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID."
+        },
+    },
 )
 def get_rom_simple(
     request: Request,
     id: RomIdPath,
 ) -> SimpleRomSchema:
-    """Retrieve a rom by ID with the lightweight schema — no eager-loaded
-    `user_saves` / `user_states` / `user_screenshots` / `user_collections` /
-    `all_user_notes` arrays. Designed for the v2 gallery card which only
-    needs the indicator flags (`has_notes`, `ra_id`, status, etc.) already
-    present on `SimpleRomSchema`. The full `DetailedRomSchema` is only
-    fetched on user-driven detail interactions (game details page, quick-
-    note dialog open, achievements panel)."""
+    """Retrieve a rom by ID with the lightweight schema, which leaves out the caller's saves, states, screenshots, collections and notes."""
 
     rom = visible_rom_or_404(request, db_rom_handler.get_rom_simple(id), id)
 
@@ -1437,7 +1448,11 @@ def get_rom_simple(
     router.get,
     "/{id}/similar",
     [Scope.ROMS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID."
+        },
+    },
 )
 def get_similar_roms(
     request: Request,
@@ -1468,7 +1483,11 @@ def get_similar_roms(
     router.get,
     "/{id}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID."
+        },
+    },
 )
 def get_rom(
     request: Request,
@@ -1485,9 +1504,11 @@ CONTENT_RESPONSES: Final[dict[int | str, dict[str, Any]]] = {
     status.HTTP_202_ACCEPTED: {
         "description": "The requested format is converting; retry after Retry-After."
     },
-    status.HTTP_404_NOT_FOUND: {},
+    status.HTTP_404_NOT_FOUND: {
+        "description": "No rom the caller can see has this ID, or the rom has no file to serve."
+    },
     status.HTTP_406_NOT_ACCEPTABLE: {
-        "description": "No requested format can be served for this download."
+        "description": "No requested format can be served, or a format is requested for more than one file."
     },
 }
 
@@ -1899,7 +1920,17 @@ class PhysicalRomCreateForm(BaseModel):
     router.post,
     "/physical",
     [Scope.ROMS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "No name is given and the UPC does not match a game title."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No platform the caller can see has this ID."
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "A game with this name has already been added to the platform."
+        },
+    },
 )
 async def create_physical_rom(
     request: Request,
@@ -2134,7 +2165,20 @@ async def _refetch_changed_matches(
     router.put,
     "/{id}",
     [Scope.ROMS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The new file name is not valid, a cover, manual or screenshot URL is not accepted, or the artwork is not a supported image."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID."
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "A file with the new file name already exists."
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "The file could not be renamed on disk, or the update could not be saved."
+        },
+    },
 )
 async def update_rom(
     request: Request,
@@ -2533,7 +2577,11 @@ async def convert_rom_to_folder(
     router.post,
     "/delete",
     [Scope.ROMS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_403_FORBIDDEN: {
+            "description": "The caller is not allowed to delete roms."
+        },
+    },
 )
 async def delete_roms(
     request: Request,
@@ -2652,7 +2700,14 @@ async def delete_roms(
     router.put,
     "/{id}/props",
     [Scope.ROMS_USER_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The request sets both `update_last_played` and `remove_last_played`."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID."
+        },
+    },
 )
 async def update_rom_user(
     request: Request,
@@ -2713,7 +2768,11 @@ class RomIdentityData(BaseModel):
     router.put,
     "/{id}/identity",
     [Scope.ROMS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID."
+        },
+    },
 )
 async def update_rom_identity(
     request: Request,

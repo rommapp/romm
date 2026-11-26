@@ -3,7 +3,7 @@
 // 000X43LKR3") to every checked save or state at once.
 import { ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { RBtn, RComboboxField, RDialog, RForm } from "@/lib";
+import { RButton, RComboboxField, RDialog, RForm } from "@/lib";
 
 const props = withDefaults(
   defineProps<{
@@ -76,7 +76,7 @@ function submit(): void {
     </template>
 
     <template #footer>
-      <RBtn
+      <RButton
         variant="flat"
         color="primary"
         prepend-icon="mdi-check"
@@ -85,7 +85,7 @@ function submit(): void {
         @click="submit"
       >
         {{ t("common.save") }}
-      </RBtn>
+      </RButton>
     </template>
   </RDialog>
 </template>

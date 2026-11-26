@@ -11,7 +11,7 @@ from fastapi import Request, status
 from fastapi.responses import Response
 
 from decorators.auth import protected_route
-from endpoints.roms.upload import receive_rom_file
+from endpoints.roms.upload import ROM_FILE_UPLOAD_RESPONSES, receive_rom_file
 from exceptions.fs_exceptions import (
     RomAlreadyExistsException,
     RomListedByPlaylistException,
@@ -54,8 +54,10 @@ def _decode_header(value: str | None) -> str | None:
     [Scope.ROMS_WRITE],
     status_code=status.HTTP_201_CREATED,
     responses={
-        status.HTTP_404_NOT_FOUND: {},
-        status.HTTP_400_BAD_REQUEST: {},
+        **ROM_FILE_UPLOAD_RESPONSES,
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID."
+        },
     },
 )
 async def add_rom_walkthrough_file(
@@ -102,9 +104,24 @@ async def add_rom_walkthrough_file(
     [Scope.ROMS_WRITE],
     status_code=status.HTTP_201_CREATED,
     responses={
-        status.HTTP_404_NOT_FOUND: {},
-        status.HTTP_400_BAD_REQUEST: {},
-        status.HTTP_502_BAD_GATEWAY: {},
+        status.HTTP_400_BAD_REQUEST: {
+            "description": (
+                "The URL is not an https GameFAQs URL, or the rom's single file cannot"
+                " move into a folder because a playlist lists it."
+            )
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID."
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "The rom's single file cannot move into a folder of its own because one with that name exists."
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "The walkthrough could not be saved."
+        },
+        status.HTTP_502_BAD_GATEWAY: {
+            "description": "GameFAQs could not be reached or did not return a guide."
+        },
     },
 )
 async def add_rom_gamefaqs_walkthrough(
@@ -220,7 +237,14 @@ async def add_rom_gamefaqs_walkthrough(
     router.delete,
     "/{id}/walkthroughs/files/{file_id}",
     [Scope.ROMS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID, or the rom has no walkthrough file with this `file_id`."
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "The walkthrough file could not be removed from disk."
+        },
+    },
 )
 async def delete_rom_walkthrough_file(
     request: Request,

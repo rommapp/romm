@@ -60,7 +60,19 @@ async def get_rom_activity(
     return _visible_activity(request, entries)
 
 
-@protected_route(router.post, "/heartbeat", [Scope.ROMS_USER_WRITE])
+@protected_route(
+    router.post,
+    "/heartbeat",
+    [Scope.ROMS_USER_WRITE],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": (
+                "The caller has no device with this ID that it can see, or no rom"
+                " the caller can see has this ID."
+            )
+        }
+    },
+)
 async def device_heartbeat(
     request: Request, payload: DeviceHeartbeatPayload
 ) -> ActivityEntrySchema:
@@ -102,6 +114,11 @@ async def device_heartbeat(
     "/heartbeat",
     [Scope.ROMS_USER_WRITE],
     status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller uses a token bound to a different device."
+        }
+    },
 )
 async def clear_device_activity(
     request: Request,

@@ -31,7 +31,7 @@ vi.mock("@/lib", () => {
   return {
     RAlert: slotHost("div"),
     RAvatar: slotHost("span"),
-    RBtn: slotHost("button"),
+    RButton: slotHost("button"),
     RDialog: defineComponent({
       template: "<div><slot name='toolbar' /><slot name='content' /></div>",
     }),

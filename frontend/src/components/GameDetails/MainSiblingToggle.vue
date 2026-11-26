@@ -15,7 +15,7 @@ import { useI18n } from "vue-i18n";
 import type { RomUserData } from "@/__generated__";
 import { useRomSync } from "@/composables/useRomSync";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { RBtn, RIcon } from "@/lib";
+import { RButton, RIcon } from "@/lib";
 import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
 
@@ -63,7 +63,7 @@ async function toggle() {
 </script>
 
 <template>
-  <RBtn
+  <RButton
     v-if="visible"
     variant="outlined"
     size="small"
@@ -81,7 +81,7 @@ async function toggle() {
       :icon="isMain ? 'mdi-bookmark-box' : 'mdi-bookmark-box-outline'"
       size="18"
     />
-  </RBtn>
+  </RButton>
 </template>
 
 <style scoped>

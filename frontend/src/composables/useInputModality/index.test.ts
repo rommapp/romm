@@ -12,6 +12,13 @@ async function loadFresh() {
 
 function tap() {
   window.dispatchEvent(new Event("touchstart"));
+  window.dispatchEvent(
+    new PointerEvent("pointerdown", { pointerType: "touch" }),
+  );
+}
+
+function mouse(type: "pointerdown" | "pointermove") {
+  window.dispatchEvent(new PointerEvent(type, { pointerType: "mouse" }));
 }
 
 describe("isNavigationKey", () => {
@@ -54,18 +61,29 @@ describe("useInputModality", () => {
     const { modality } = await loadFresh();
 
     tap();
-    window.dispatchEvent(new Event("mousedown"));
-    window.dispatchEvent(new Event("mousemove"));
+    window.dispatchEvent(new MouseEvent("mousedown"));
+    window.dispatchEvent(new MouseEvent("mousemove"));
+    window.dispatchEvent(
+      new PointerEvent("pointermove", { pointerType: "touch" }),
+    );
 
     expect(modality.value).toBe("touch");
   });
 
-  it("follows a real mouse once the tap window has passed", async () => {
+  it("follows a real mouse right after a tap", async () => {
     const { modality } = await loadFresh();
 
     tap();
-    vi.advanceTimersByTime(1000);
-    window.dispatchEvent(new Event("mousedown"));
+    mouse("pointermove");
+
+    expect(modality.value).toBe("mouse");
+  });
+
+  it("switches back to the mouse from a gamepad on a click only", async () => {
+    const { modality, setModality } = await loadFresh();
+
+    setModality("pad");
+    mouse("pointerdown");
 
     expect(modality.value).toBe("mouse");
   });
@@ -74,7 +92,7 @@ describe("useInputModality", () => {
     const { modality, setModality } = await loadFresh();
 
     setModality("pad");
-    window.dispatchEvent(new Event("mousemove"));
+    mouse("pointermove");
 
     expect(modality.value).toBe("pad");
   });

@@ -9,7 +9,7 @@ import AmbientArt from "@/components/Soundtrack/AmbientArt.vue";
 import NowPlayingChips from "@/components/Soundtrack/NowPlayingChips.vue";
 import SeekBar from "@/components/Soundtrack/SeekBar.vue";
 import VolumeControl from "@/components/Soundtrack/VolumeControl.vue";
-import { RBtn, RSpinner } from "@/lib";
+import { RButton, RSpinner } from "@/lib";
 import { ROUTES } from "@/plugins/router";
 import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
 import { nowPlayingCaption, playerCoverUrl } from "@/utils/soundtrackTracks";
@@ -76,7 +76,7 @@ function openRom() {
       </div>
 
       <div class="r-np-card__actions">
-        <RBtn
+        <RButton
           icon="mdi-open-in-new"
           variant="text"
           size="small"
@@ -84,7 +84,7 @@ function openRom() {
           :aria-label="t('rom.soundtrack-open-rom-tooltip')"
           @click="openRom"
         />
-        <RBtn
+        <RButton
           icon="mdi-close"
           variant="text"
           size="small"
@@ -96,7 +96,7 @@ function openRom() {
     </div>
 
     <div class="r-np-card__transport">
-      <RBtn
+      <RButton
         icon="mdi-shuffle"
         variant="text"
         size="small"
@@ -105,7 +105,7 @@ function openRom() {
         :aria-label="t('common.shuffle')"
         @click="store.toggleShuffle()"
       />
-      <RBtn
+      <RButton
         icon="mdi-skip-previous"
         variant="text"
         size="small"
@@ -114,7 +114,7 @@ function openRom() {
         :aria-label="t('rom.soundtrack-previous')"
         @click="store.previous()"
       />
-      <RBtn
+      <RButton
         :icon="isPlaying ? 'mdi-pause' : 'mdi-play'"
         variant="flat"
         color="primary"
@@ -126,7 +126,7 @@ function openRom() {
         "
         @click="store.togglePlayPause()"
       />
-      <RBtn
+      <RButton
         icon="mdi-skip-next"
         variant="text"
         size="small"

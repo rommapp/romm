@@ -2,8 +2,10 @@ import pytest
 from tests.factories import make_save
 
 from handler.database import db_rom_handler, db_save_handler, db_snapshot_handler
+from handler.snapshots.file_key import FileKey
 from handler.snapshots.legacy import channel_label, may_load, sync_file
 from models.assets import Save
+from models.channel import Channel
 from models.rom import Rom, RomFile, RomFileCategory
 from models.user import User
 
@@ -105,6 +107,72 @@ def test_a_slot_spelled_in_another_case_shares_its_channel(
 
     assert first.channel_id is not None
     assert later.channel_id == first.channel_id
+
+
+def _channel(user: User, rom: Rom, key: FileKey) -> Channel:
+    """A `default` channel a snapshot client made, with no slotted save linking it."""
+    return db_snapshot_handler.add_channel(
+        key.new_channel(user.id, rom.id, rom.platform_id, "default")
+    )
+
+
+def _add_cue(rom: Rom) -> RomFile:
+    """A cue sheet added beside the game's file, which makes it the ROM's sync file."""
+    cue = db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="game.cue",
+            file_path=rom.fs_path,
+            file_size_bytes=80,
+            sha1_hash="e" * 40,
+        )
+    )
+    chosen = sync_file(db_rom_handler.rom_files_for_rom_id(rom.id))
+    assert chosen is not None and chosen.id == cue.id
+    return cue
+
+
+def test_a_slot_keeps_its_channel_when_an_added_file_moves_the_sync_file(
+    rom: Rom, admin_user: User, game_file: RomFile
+):
+    channel = _channel(admin_user, rom, FileKey.of_file(game_file))
+    _add_cue(rom)
+
+    save = make_save(rom, admin_user, "a.srm", slot="autosave")
+
+    assert save.channel_id == channel.id
+
+
+def test_a_slot_takes_the_channel_on_the_sync_file_first(
+    rom: Rom, admin_user: User, game_file: RomFile
+):
+    _channel(admin_user, rom, FileKey.of_file(game_file))
+    on_cue = _channel(admin_user, rom, FileKey.of_file(_add_cue(rom)))
+
+    save = make_save(rom, admin_user, "a.srm", slot="autosave")
+
+    assert save.channel_id == on_cue.id
+
+
+def test_another_roms_channel_on_a_copy_of_the_file_is_not_the_slots(
+    rom: Rom, second_rom: Rom, admin_user: User, game_file: RomFile
+):
+    theirs = _channel(admin_user, second_rom, FileKey.of_file(game_file))
+    _add_cue(rom)
+
+    save = make_save(rom, admin_user, "a.srm", slot="autosave")
+
+    assert save.channel_id is not None and save.channel_id != theirs.id
+
+
+def test_a_channel_on_a_file_the_rom_no_longer_holds_is_not_the_slots(
+    rom: Rom, admin_user: User, game_file: RomFile
+):
+    gone = _channel(admin_user, rom, FileKey(sha1="f" * 40, name="old.sfc", size=1024))
+
+    save = make_save(rom, admin_user, "a.srm", slot="autosave")
+
+    assert save.channel_id is not None and save.channel_id != gone.id
 
 
 def test_moving_a_save_out_of_its_slot_makes_it_a_backup(

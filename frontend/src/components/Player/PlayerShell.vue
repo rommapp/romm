@@ -9,7 +9,7 @@ import GameCover from "@/components/shared/GameCover.vue";
 import { usePlayFocus } from "@/composables/usePlayFocus";
 import { usePlayerNav } from "@/composables/usePlayerNav";
 import { useStageActive } from "@/composables/useStageActive";
-import { RBtn, RCard, RSpinner } from "@/lib";
+import { RButton, RCard, RSpinner } from "@/lib";
 import type { DetailedRom, SimpleRom } from "@/stores/roms";
 
 interface Props {
@@ -70,7 +70,7 @@ usePlayFocus(
         <div class="r-player__settings">
           <slot name="settings" />
 
-          <RBtn
+          <RButton
             size="large"
             variant="flat"
             color="primary"
@@ -82,9 +82,9 @@ usePlayFocus(
             @click="emit('play')"
           >
             {{ t("play.play") }}
-          </RBtn>
+          </RButton>
 
-          <RBtn
+          <RButton
             block
             variant="text"
             size="small"
@@ -92,8 +92,8 @@ usePlayFocus(
             :to="romRoute"
           >
             {{ t("play.back-to-game-details") }}
-          </RBtn>
-          <RBtn
+          </RButton>
+          <RButton
             block
             variant="text"
             size="small"
@@ -102,7 +102,7 @@ usePlayFocus(
             :disabled="!platformRoute"
           >
             {{ t("play.back-to-gallery") }}
-          </RBtn>
+          </RButton>
         </div>
       </RCard>
 
@@ -114,7 +114,7 @@ usePlayFocus(
     <div v-else class="r-player__stage-wrap">
       <slot name="stage" />
       <slot v-if="$slots['stage-actions']" name="stage-actions" />
-      <RBtn
+      <RButton
         v-else
         class="r-player__quit"
         variant="translucent"
@@ -124,7 +124,7 @@ usePlayFocus(
         @click="emit('quit')"
       >
         {{ t("play.quit") }}
-      </RBtn>
+      </RButton>
     </div>
   </section>
 

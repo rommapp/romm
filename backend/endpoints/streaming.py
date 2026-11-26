@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Annotated, Any, Literal, NamedTuple
 
-from fastapi import BackgroundTasks, Body, HTTPException, Query, Request
+from fastapi import BackgroundTasks, Body, HTTPException, Query, Request, status
 from pydantic import Field
 
 from decorators.auth import protected_route
@@ -195,6 +195,22 @@ class LoadStateRequest(BaseModel):
 
 
 CLAIMED_AT_MAX_LENGTH = 64
+
+# Errors from resolving the claim a session route acts on.
+_CLAIM_ERRORS: dict[int | str, dict[str, Any]] = {
+    status.HTTP_403_FORBIDDEN: {
+        "description": "Another user holds the session, and the caller is not an admin."
+    },
+    status.HTTP_404_NOT_FOUND: {
+        "description": "No container with the given key serves this platform."
+    },
+    status.HTTP_409_CONFLICT: {
+        "description": "Several sessions are active on the platform, none of them belonging to the admin caller, and the request names no container."
+    },
+}
+_CONTROL_NOT_FOUND = {
+    "description": "No session on this platform matches the request, or no container with the given key serves the platform."
+}
 
 # A claim is named by its container and the stamp it was taken at.
 ContainerQuery = Annotated[
@@ -441,7 +457,7 @@ def _streamable_rom(
     "/states/{rom_id}",
     [Scope.ROMS_READ, Scope.ASSETS_READ],
     responses={
-        404: {
+        status.HTTP_404_NOT_FOUND: {
             "description": "No rom the caller can see has this ID, or no container serves its platform."
         },
     },
@@ -791,8 +807,9 @@ async def _hydrate_saves(
 
     Returns:
         The container path of an uploaded archive (for the protocols that
-        restore one as part of the launch), and whether `import_state`
-        specifically made it onto the container.
+        restore one as part of the launch), whether `import_state`
+        specifically made it onto the container, and the native archive
+        it restores.
     """
     if card is not None:
         # Whole-card sync: hydrate (or wipe to blank) is REQUIRED. If it fails
@@ -849,10 +866,14 @@ async def _hydrate_saves(
         # last session ended on, which the card does not.
         # Best-effort: a failed upload just means the container keeps its own.
         try:
-            path = await saves.hydrate_saves_to_webstation(
-                request.user.id, rom.id, container, save
+            restored = await asyncio.to_thread(
+                saves.restorable_for, request.user.id, rom.id, container, save
             )
-            return imports.ImportHydration(path)
+            path = await saves.hydrate_saves_to_webstation(rom.id, container, restored)
+            restored_id, restored_hash = saves.restored_ref(restored, path)
+            return imports.ImportHydration(
+                path, restored_save_id=restored_id, restored_save_hash=restored_hash
+            )
         except Exception:
             log.exception("save hydration failed, continuing launch")
     elif card is None:
@@ -872,18 +893,28 @@ async def _hydrate_saves(
     # The prompt for a card the container still holds is a real body the client
     # parses, so it is declared rather than left as an undocumented `detail`.
     responses={
-        400: {"description": "The chosen disc is not a disc of this ROM."},
-        403: {"description": "The caller may not start a streaming session."},
-        404: {
-            "description": "No rom the caller can see has this ID, or no container serves its platform."
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The chosen disc is not a disc of this rom, or the container cannot restore the chosen state or save."
         },
-        409: {
+        status.HTTP_403_FORBIDDEN: {
+            "description": "The caller is not allowed to start a streaming session."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID, no container serves its platform, or the chosen state, save or memory card is not one the caller can use for this rom."
+        },
+        status.HTTP_409_CONFLICT: {
             "model": ContainerBusyDetail,
-            "description": "Every container in the platform's first pool is occupied.",
+            "description": "Every container in the platform's first pool is occupied, or the caller already has a session on this platform.",
         },
-        428: {
+        status.HTTP_428_PRECONDITION_REQUIRED: {
             "model": MemoryCardImportRequired,
             "description": "The container holds a memory card that needs a decision first.",
+        },
+        status.HTTP_502_BAD_GATEWAY: {
+            "description": "The container's memory card could not be imported or prepared."
+        },
+        status.HTTP_503_SERVICE_UNAVAILABLE: {
+            "description": "The container could not be reached to check whether it accepts the chosen state or save."
         },
     },
     status_code=202,
@@ -1166,6 +1197,9 @@ async def claim_session(
         rom_language=rom_language,
         gui_language=gui_language,
         archive_path=hydrated.path,
+        restored_save_id=hydrated.restored_save_id,
+        restored_save_hash=hydrated.restored_save_hash,
+        restored_without_state=hydrated.restored_without_state,
         native_fallback=hydrated.native_fallback,
         resume_state=resume_state,
         resume_slot=resume_slot,
@@ -1189,7 +1223,10 @@ async def claim_session(
 
 
 @protected_route(
-    router.post, "/sessions/{platform}/save-and-exit", [Scope.ROMS_USER_WRITE]
+    router.post,
+    "/sessions/{platform}/save-and-exit",
+    [Scope.ROMS_USER_WRITE],
+    responses=_CLAIM_ERRORS,
 )
 async def save_and_exit_session(
     request: Request,
@@ -1198,14 +1235,9 @@ async def save_and_exit_session(
     container_key: ContainerQuery = None,
     claimed_at: ClaimedAtQuery = None,
 ) -> SaveAndExitResponse:
-    """Save game state then release the session.
-
-    Args:
-        req: `wait` true (the default) blocks until the broker confirms the save
-            and kill, false has the broker do both in the background.
-        container_key: the claimed container, as on release.
-        claimed_at: the claim's stamp, as on release.
-    """
+    """Save the game, then release the session. With `wait` true (the default)
+    the request blocks until the broker confirms the save and the stop, and with
+    `wait` false the broker does both in the background."""
     target = await access.resolve_claim(
         platform, request, container_key, claimed_at, game_only=True
     )
@@ -1312,7 +1344,16 @@ async def save_and_exit_session(
     )
 
 
-@protected_route(router.post, "/sessions/{platform}/heartbeat", [Scope.ROMS_USER_WRITE])
+@protected_route(
+    router.post,
+    "/sessions/{platform}/heartbeat",
+    [Scope.ROMS_USER_WRITE],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No container serves this platform, or no container with the given key serves it."
+        }
+    },
+)
 async def heartbeat_session(
     request: Request,
     platform: str,
@@ -1370,20 +1411,23 @@ async def heartbeat_session(
     )
 
 
-@protected_route(router.get, "/sessions/{platform}/status", [Scope.ROMS_READ])
+@protected_route(
+    router.get,
+    "/sessions/{platform}/status",
+    [Scope.ROMS_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": "No container serves this platform."}
+    },
+)
 async def session_status(
     request: Request,
     platform: str,
     claimed_at: ClaimedAtQuery = None,
 ) -> SessionStatusSchema:
-    """Does the caller still hold this platform's session?
+    """Report whether the caller still holds this platform's session.
 
-    Unlike the heartbeat this has no side effects, so a client can call it on
-    mount or after a reconnect without extending a claim it may not own.
-
-    Args:
-        claimed_at: the claim's stamp, so a tab never adopts a claim that
-            replaced its own.
+    Unlike the heartbeat, this route has no side effects, so a client can call it
+    on mount or after a reconnect without extending a session it may not hold.
     """
     return SessionStatusSchema(
         **await _session_status(platform, request, claimed_at=claimed_at)
@@ -1395,11 +1439,18 @@ async def session_status(
     "/sessions/{platform}/join",
     [Scope.ROMS_READ],
     responses={
-        403: {
-            "description": "The caller may not join sessions, or the session is not open for joining."
+        status.HTTP_403_FORBIDDEN: {
+            "description": "The caller is not allowed to join sessions, or the session is not open for joining."
         },
-        404: {"description": "The platform has no active session the caller can see."},
-        409: {"description": "The container does not support joining."},
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The platform has no active session the caller can see, or no container with the given key serves it."
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "The container does not support joining."
+        },
+        status.HTTP_502_BAD_GATEWAY: {
+            "description": "The session's broker refused the join."
+        },
     },
 )
 async def join_session(
@@ -1485,7 +1536,18 @@ async def join_session(
     )
 
 
-@protected_route(router.post, "/sessions/{platform}/volume", [Scope.ROMS_USER_WRITE])
+@protected_route(
+    router.post,
+    "/sessions/{platform}/volume",
+    [Scope.ROMS_USER_WRITE],
+    responses={
+        **_CLAIM_ERRORS,
+        status.HTTP_404_NOT_FOUND: _CONTROL_NOT_FOUND,
+        status.HTTP_502_BAD_GATEWAY: {
+            "description": "The broker failed to set the volume."
+        },
+    },
+)
 async def set_volume(
     request: Request,
     platform: str,
@@ -1506,7 +1568,18 @@ async def set_volume(
     return VolumeResponse(status="ok", level=req.level, platform=platform)
 
 
-@protected_route(router.post, "/sessions/{platform}/mute", [Scope.ROMS_USER_WRITE])
+@protected_route(
+    router.post,
+    "/sessions/{platform}/mute",
+    [Scope.ROMS_USER_WRITE],
+    responses={
+        **_CLAIM_ERRORS,
+        status.HTTP_404_NOT_FOUND: _CONTROL_NOT_FOUND,
+        status.HTTP_502_BAD_GATEWAY: {
+            "description": "The broker failed to set the mute state."
+        },
+    },
+)
 async def set_mute(
     request: Request,
     platform: str,
@@ -1528,7 +1601,16 @@ async def set_mute(
 
 
 @protected_route(
-    router.post, "/sessions/{platform}/save-state", [Scope.ROMS_USER_WRITE]
+    router.post,
+    "/sessions/{platform}/save-state",
+    [Scope.ROMS_USER_WRITE],
+    responses={
+        **_CLAIM_ERRORS,
+        status.HTTP_404_NOT_FOUND: _CONTROL_NOT_FOUND,
+        status.HTTP_502_BAD_GATEWAY: {
+            "description": "The broker failed to save the state."
+        },
+    },
 )
 async def save_state(
     request: Request,
@@ -1571,7 +1653,16 @@ async def save_state(
 
 
 @protected_route(
-    router.post, "/sessions/{platform}/load-state", [Scope.ROMS_USER_WRITE]
+    router.post,
+    "/sessions/{platform}/load-state",
+    [Scope.ROMS_USER_WRITE],
+    responses={
+        **_CLAIM_ERRORS,
+        status.HTTP_404_NOT_FOUND: _CONTROL_NOT_FOUND,
+        status.HTTP_502_BAD_GATEWAY: {
+            "description": "The broker failed to load the state."
+        },
+    },
 )
 async def load_state(
     request: Request,
@@ -1594,7 +1685,26 @@ async def load_state(
     return LoadStateResponse(status="ok", loaded=True, slot=req.slot, platform=platform)
 
 
-@protected_route(router.post, "/sessions/{platform}/swap-disc", [Scope.ROMS_USER_WRITE])
+@protected_route(
+    router.post,
+    "/sessions/{platform}/swap-disc",
+    [Scope.ROMS_USER_WRITE],
+    responses={
+        **_CLAIM_ERRORS,
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The container cannot swap discs, or the file is not a disc in the rom's playlist."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No session on this platform matches the request, no container with the given key serves the platform, or the file is not part of the session's rom."
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "The session is not running a rom, or several sessions are active on the platform, none of them belonging to the admin caller, and the request names no container."
+        },
+        status.HTTP_502_BAD_GATEWAY: {
+            "description": "The broker failed to swap the disc."
+        },
+    },
+)
 async def swap_disc(
     request: Request,
     platform: str,
@@ -1641,7 +1751,12 @@ async def swap_disc(
     return SwapDiscResponse(status="ok", file_id=req.file_id, platform=platform)
 
 
-@protected_route(router.delete, "/sessions/{platform}", [Scope.ROMS_USER_WRITE])
+@protected_route(
+    router.delete,
+    "/sessions/{platform}",
+    [Scope.ROMS_USER_WRITE],
+    responses=_CLAIM_ERRORS,
+)
 async def release_session(
     request: Request,
     platform: str,
@@ -1661,17 +1776,9 @@ async def release_session(
         ),
     ),
 ) -> ReleaseSessionResponse:
-    """Release a session and tell the broker to stop the emulator.
-
-    Args:
-        reason: why an admin ended someone else's session, shown to that player.
-        container_key: which pool member to release: the holder sends the one it
-            claimed, an admin the key `GET /streaming/sessions` reports.
-        claimed_at: the stamp binding this release to one claim; admin panels end
-            whatever is running and send none.
-        save: false for a player leaving deliberately without saving; on by
-            default because a closing tab chose nothing and would lose recent play.
-    """
+    """Release a session and tell the broker to stop the emulator. An admin ends
+    another player's session by sending the container key that
+    `GET /streaming/sessions` reports."""
     target = await access.resolve_claim(
         platform, request, container_key, claimed_at, game_only=False
     )
@@ -1700,7 +1807,14 @@ async def release_session(
     return ReleaseSessionResponse(status="released", platform=platform)
 
 
-@protected_route(router.get, "/containers", [Scope.ROMS_READ])
+@protected_route(
+    router.get,
+    "/containers",
+    [Scope.ROMS_READ],
+    responses={
+        status.HTTP_403_FORBIDDEN: {"description": "The caller is not an admin."}
+    },
+)
 async def list_containers(request: Request) -> AdminContainersResponse:
     """Admin view, one row per configured container with whatever it is running.
 
@@ -1757,17 +1871,21 @@ async def list_containers(request: Request) -> AdminContainersResponse:
     "/desktop",
     [Scope.ROMS_USER_WRITE],
     responses={
-        400: {
+        status.HTTP_400_BAD_REQUEST: {
             "description": "The container's broker does not serve a desktop session."
         },
-        403: {"description": "The caller is not an admin."},
-        404: {"description": "No container has this key."},
-        409: {
+        status.HTTP_403_FORBIDDEN: {"description": "The caller is not an admin."},
+        status.HTTP_404_NOT_FOUND: {"description": "No container has this key."},
+        status.HTTP_409_CONFLICT: {
             "model": ContainerBusyDetail,
             "description": "The container is occupied.",
         },
-        502: {"description": "The broker rejected the activation."},
-        503: {"description": "The broker is unreachable."},
+        status.HTTP_502_BAD_GATEWAY: {
+            "description": "The broker rejected the activation."
+        },
+        status.HTTP_503_SERVICE_UNAVAILABLE: {
+            "description": "The broker is unreachable."
+        },
     },
 )
 async def claim_desktop_session(
@@ -1905,7 +2023,14 @@ async def list_joinable_sessions(
     return JoinableSessionsResponse(sessions=sessions)
 
 
-@protected_route(router.get, "/sessions", [Scope.ROMS_READ])
+@protected_route(
+    router.get,
+    "/sessions",
+    [Scope.ROMS_READ],
+    responses={
+        status.HTTP_403_FORBIDDEN: {"description": "The caller is not an admin."}
+    },
+)
 async def list_sessions(request: Request) -> AdminSessionsResponse:
     """Admin view, active sessions across all configured containers.
 
@@ -1938,7 +2063,14 @@ async def list_sessions(request: Request) -> AdminSessionsResponse:
     return AdminSessionsResponse(sessions=sessions)
 
 
-@protected_route(router.delete, "/sessions", [Scope.ROMS_USER_WRITE])
+@protected_route(
+    router.delete,
+    "/sessions",
+    [Scope.ROMS_USER_WRITE],
+    responses={
+        status.HTTP_403_FORBIDDEN: {"description": "The caller is not an admin."}
+    },
+)
 async def force_release_all(
     request: Request,
     reason: str | None = Query(
@@ -1958,6 +2090,7 @@ async def force_release_all(
     # deleting only the Redis keys would leave the games running.
     grouped = containers_by_key()
 
+    # route-errors: ignore, the gather below logs each teardown's error instead of raising it.
     async def _teardown(container_key: str) -> None:
         session = await get_session(container_key)
         container = container_for_session(

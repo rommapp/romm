@@ -36,7 +36,7 @@ const RDialog = {
   emits: ["close"],
   template: `<div v-if="modelValue"><slot name="toolbar" /><slot name="content" /></div>`,
 };
-const RBtn = {
+const RButton = {
   emits: ["click"],
   template: `<button type="button" @click="$emit('click')"><slot /></button>`,
 };
@@ -84,7 +84,7 @@ describe("MatchRomDialog", () => {
         provide: { emitter },
         stubs: {
           RDialog,
-          RBtn,
+          RButton,
           MatchRomBodyGrid,
           RTextField: true,
           RSelect: true,

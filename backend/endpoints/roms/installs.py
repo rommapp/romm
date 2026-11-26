@@ -19,7 +19,11 @@ router = APIRouter()
     router.get,
     "/{id}/installs",
     [Scope.DEVICES_READ, Scope.ROMS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Installing on devices is disabled on this server, or no rom the caller can see has this ID."
+        },
+    },
 )
 async def get_rom_installs(
     request: Request,

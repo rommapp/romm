@@ -14,7 +14,7 @@ import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import { usePageTitle } from "@/composables/usePageTitle";
-import { RBtn, RChip, RIcon, RSelect, RSpinner, RTextField } from "@/lib";
+import { RButton, RChip, RIcon, RSelect, RSpinner, RTextField } from "@/lib";
 import deviceAuthApi, {
   type DeviceAuthPendingSchema,
 } from "@/services/api/device-auth";
@@ -266,10 +266,14 @@ async function deny() {
       />
 
       <div class="r-devpair__actions">
-        <RBtn variant="text" :disabled="status === 'submitting'" @click="deny">
+        <RButton
+          variant="text"
+          :disabled="status === 'submitting'"
+          @click="deny"
+        >
           {{ t("settings.device-auth-deny") }}
-        </RBtn>
-        <RBtn
+        </RButton>
+        <RButton
           variant="flat"
           color="primary"
           :loading="status === 'submitting'"
@@ -277,7 +281,7 @@ async function deny() {
           @click="approve"
         >
           {{ t("settings.device-auth-approve") }}
-        </RBtn>
+        </RButton>
       </div>
     </div>
   </div>

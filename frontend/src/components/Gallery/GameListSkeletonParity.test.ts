@@ -56,7 +56,7 @@ function mountHydratedRow() {
     props: { rom: rom() },
     global: {
       stubs: {
-        GameActionBtn: true,
+        GameActionButton: true,
         GameCard: true,
         RCheckbox: true,
         RChip: true,

@@ -1,6 +1,6 @@
 from typing import Annotated, Dict, TypedDict
 
-from fastapi import Query, Request
+from fastapi import Query, Request, status
 
 from decorators.auth import protected_route
 from handler.auth.constants import Scope
@@ -52,7 +52,16 @@ class RoomsResponse(TypedDict):
     hasPassword: bool
 
 
-@protected_route(router.get, "/list", [Scope.ROMS_READ])
+@protected_route(
+    router.get,
+    "/list",
+    [Scope.ROMS_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID."
+        }
+    },
+)
 async def get_rooms(
     request: Request,
     game_id: Annotated[

@@ -16,7 +16,7 @@ import AppriseServiceFields from "@/components/Notifications/AppriseServiceField
 import { useCan } from "@/composables/useCan";
 import {
   RAlert,
-  RBtn,
+  RButton,
   RCheckbox,
   RDialog,
   RForm,
@@ -516,7 +516,7 @@ async function save() {
               :stored="storedSecrets"
               :highlighted="filledFields"
             />
-            <RBtn
+            <RButton
               v-if="service.setup_url"
               class="r-channel-dialog__guide"
               variant="text"
@@ -531,7 +531,7 @@ async function save() {
                   service: service.name,
                 })
               }}
-            </RBtn>
+            </RButton>
           </template>
         </template>
 
@@ -584,7 +584,7 @@ async function save() {
     </template>
 
     <template #footer>
-      <RBtn
+      <RButton
         variant="flat"
         color="primary"
         prepend-icon="mdi-content-save-outline"
@@ -592,7 +592,7 @@ async function save() {
         @click="save"
       >
         {{ t("common.save") }}
-      </RBtn>
+      </RButton>
     </template>
   </RDialog>
 </template>

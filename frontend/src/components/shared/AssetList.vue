@@ -22,7 +22,7 @@ import AssetTimestamp from "@/components/shared/AssetTimestamp.vue";
 import PublicBadge from "@/components/shared/PublicBadge.vue";
 import { useBreakpoint } from "@/composables/useBreakpoint";
 import { useGroupFold } from "@/composables/useGroupFold";
-import { RBtn, RCheckbox, REmptyState, RIcon } from "@/lib";
+import { RButton, RCheckbox, REmptyState, RIcon } from "@/lib";
 import { AUTOSAVE_SLOT } from "@/services/api/save";
 import {
   byFavoriteFirst,
@@ -329,7 +329,7 @@ const fadeIndex = computed(() =>
           </li>
         </ul>
 
-        <RBtn
+        <RButton
           v-if="grouped && !checkable && group.hidden.length > 0"
           class="r-asset-list__fold"
           variant="text"
@@ -345,7 +345,7 @@ const fadeIndex = computed(() =>
               ? t("play.hide-older-versions")
               : t("play.show-older-versions", group.hidden.length)
           }}
-        </RBtn>
+        </RButton>
       </li>
     </ul>
 

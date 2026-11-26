@@ -144,7 +144,7 @@ describe("Pico8 frame loop", () => {
   async function play() {
     const wrapper = mount(Pico8, {
       global: {
-        stubs: { PlayerShell, RBtn: true, RSpinner: true, RSwitch: true },
+        stubs: { PlayerShell, RButton: true, RSpinner: true, RSwitch: true },
       },
     });
     await flushPromises();
@@ -233,7 +233,7 @@ describe("Pico8 cart data", () => {
       global: {
         stubs: {
           PlayerShell: PlayerShellWithQuit,
-          RBtn: {
+          RButton: {
             props: { ariaLabel: { type: String, default: "" } },
             emits: ["click"],
             template: `<button :data-label="ariaLabel" @click="$emit('click')" />`,

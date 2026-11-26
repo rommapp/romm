@@ -48,7 +48,7 @@ import { useGallerySelectAll } from "@/composables/useGallerySelectAll";
 import { useRomSync } from "@/composables/useRomSync";
 import { useSnackbar } from "@/composables/useSnackbar";
 import {
-  RBtn,
+  RButton,
   RIcon,
   RMenu,
   RMenuItem,
@@ -395,7 +395,7 @@ function clear() {
              sole grid-mode affordance (list mode has the header checkbox). -->
         <RTooltip :text="selectAllLabel">
           <template #activator="{ props: tipProps }">
-            <RBtn
+            <RButton
               v-bind="tipProps"
               icon="mdi-select-all"
               variant="text"
@@ -420,7 +420,7 @@ function clear() {
         :text="t('gallery.selection-download')"
       >
         <template #activator="{ props: tipProps }">
-          <RBtn
+          <RButton
             v-bind="tipProps"
             icon="mdi-download"
             variant="text"
@@ -432,7 +432,7 @@ function clear() {
 
       <RTooltip :text="favoriteLabel">
         <template #activator="{ props: tipProps }">
-          <RBtn
+          <RButton
             v-bind="tipProps"
             :icon="favoriteIcon"
             variant="text"
@@ -445,7 +445,7 @@ function clear() {
 
       <!-- Set status: opens a picker that toggles one play-status across
            the whole selection. Mirrors the per-ROM status menu
-           (GameActionBtn) and the favourite button's all-or-nothing
+           (GameActionButton) and the favourite button's all-or-nothing
            model: a row reads active only when every selected ROM already
            has it; clicking flips it on (if any is missing it) or off (if
            all have it). Stays open on click so the active marks update
@@ -458,7 +458,7 @@ function clear() {
         :close-on-content-click="false"
       >
         <template #activator="{ props: activatorProps }">
-          <RBtn
+          <RButton
             v-bind="activatorProps"
             icon="mdi-list-status"
             variant="text"
@@ -533,7 +533,7 @@ function clear() {
 
       <RTooltip :text="t('gallery.selection-collections')">
         <template #activator="{ props: tipProps }">
-          <RBtn
+          <RButton
             v-bind="tipProps"
             icon="mdi-bookmark-outline"
             variant="text"
@@ -548,7 +548,7 @@ function clear() {
         :text="t('gallery.selection-refresh-metadata')"
       >
         <template #activator="{ props: tipProps }">
-          <RBtn
+          <RButton
             v-bind="tipProps"
             icon="mdi-refresh"
             variant="text"
@@ -560,7 +560,7 @@ function clear() {
 
       <RTooltip v-if="canDelete" :text="t('gallery.selection-delete')">
         <template #activator="{ props: tipProps }">
-          <RBtn
+          <RButton
             v-bind="tipProps"
             icon="mdi-delete-outline"
             variant="text"
@@ -576,7 +576,7 @@ function clear() {
       <template #append>
         <RTooltip :text="t('gallery.selection-clear')">
           <template #activator="{ props: tipProps }">
-            <RBtn
+            <RButton
               v-bind="tipProps"
               icon="mdi-close"
               variant="text"

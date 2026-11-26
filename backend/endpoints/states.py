@@ -42,7 +42,7 @@ from logger.logger import log
 from models.assets import EMULATOR_MAX_LENGTH, EMULATOR_VERSION_MAX_LENGTH, State
 from models.base import FILE_NAME_MAX_LENGTH
 from utils.assets import normalize_asset_labels
-from utils.auth import resolve_device
+from utils.auth import DEVICE_WRITE_FORBIDDEN, resolve_device
 from utils.router import APIRouter, RomIdQuery
 from utils.uploads import (
     check_asset_upload_size,
@@ -77,8 +77,37 @@ STATE_SCREENSHOT_UPDATE = File(default=None, description="Updated screenshot fil
 
 StateIdPath = Annotated[int, PathVar(description="The ID of the state.")]
 
+OWNED_STATE_NOT_FOUND = "The caller has no state with this ID that it can see."
+STATE_FILE_TOO_LARGE = "The state file or screenshot is larger than the server allows."
+STATE_IN_CHANNEL = "The state belongs to a sync channel."
 
-@protected_route(router.post, "", [Scope.ASSETS_WRITE])
+
+@protected_route(
+    router.post,
+    "",
+    [Scope.ASSETS_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": (
+                "The state file has no name, the state or screenshot file name is"
+                " not valid, or `emulator` is not a valid folder name."
+            )
+        },
+        status.HTTP_403_FORBIDDEN: {"description": DEVICE_WRITE_FORBIDDEN},
+        status.HTTP_404_NOT_FOUND: {
+            "description": (
+                "No rom the caller can see has this ID, or the caller has no device"
+                " with this `device_id`."
+            )
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": (
+                "The upload would replace a state that belongs to a sync channel."
+            )
+        },
+        status.HTTP_413_CONTENT_TOO_LARGE: {"description": STATE_FILE_TOO_LARGE},
+    },
+)
 async def add_state(
     request: Request,
     rom_id: RomIdQuery,
@@ -216,20 +245,18 @@ def get_states(
 def get_state_identifiers(
     request: Request,
 ) -> list[int]:
-    """Get state identifiers endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-
-    Returns:
-        list[int]: List of state IDs
-    """
+    """Retrieve the IDs of the caller's states."""
     return db_state_handler.get_state_ids(
         user_id=request.user.id, visibility=get_rom_visibility_filter(request)
     )
 
 
-@protected_route(router.get, "/{id}", [Scope.ASSETS_READ])
+@protected_route(
+    router.get,
+    "/{id}",
+    [Scope.ASSETS_READ],
+    responses={status.HTTP_404_NOT_FOUND: {"description": OWNED_STATE_NOT_FOUND}},
+)
 def get_state(request: Request, id: StateIdPath) -> StateSchema:
     """Retrieve a state by ID."""
     state = owned_rom_asset_or_404(
@@ -239,7 +266,19 @@ def get_state(request: Request, id: StateIdPath) -> StateSchema:
     return StateSchema.model_validate(state)
 
 
-@protected_route(router.get, "/{id}/content", [Scope.ASSETS_READ])
+@protected_route(
+    router.get,
+    "/{id}/content",
+    [Scope.ASSETS_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": (
+                "No state the caller can read has this ID, or the state's file is"
+                " missing."
+            )
+        }
+    },
+)
 def download_state(request: Request, id: StateIdPath) -> FileResponse:
     """Download a state file. Owner can download any of their states; everyone
     else only public ones."""
@@ -264,7 +303,30 @@ def download_state(request: Request, id: StateIdPath) -> FileResponse:
     return build_asset_file_response(file_path, filename=state.file_name)
 
 
-@protected_route(router.put, "/{id}", [Scope.ASSETS_WRITE])
+@protected_route(
+    router.put,
+    "/{id}",
+    [Scope.ASSETS_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The screenshot file name is not valid."
+        },
+        status.HTTP_403_FORBIDDEN: {"description": DEVICE_WRITE_FORBIDDEN},
+        status.HTTP_404_NOT_FOUND: {
+            "description": (
+                "The caller has no state with this ID that it can see, or no device"
+                " with this `device_id`."
+            )
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": (
+                "The request uploads a state file, and the state belongs to a sync"
+                " channel."
+            )
+        },
+        status.HTTP_413_CONTENT_TOO_LARGE: {"description": STATE_FILE_TOO_LARGE},
+    },
+)
 async def update_state(
     request: Request,
     id: StateIdPath,
@@ -336,7 +398,10 @@ async def update_state(
     router.put,
     "/{id}/visibility",
     [Scope.ASSETS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": OWNED_STATE_NOT_FOUND},
+        status.HTTP_409_CONFLICT: {"description": STATE_IN_CHANNEL},
+    },
 )
 def update_state_visibility(
     request: Request,
@@ -373,7 +438,7 @@ def update_state_visibility(
     router.put,
     "/{id}/favorite",
     [Scope.ASSETS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={status.HTTP_404_NOT_FOUND: {"description": OWNED_STATE_NOT_FOUND}},
 )
 def update_state_favorite(
     request: Request,
@@ -397,7 +462,7 @@ def update_state_favorite(
     router.put,
     "/{id}/labels",
     [Scope.ASSETS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={status.HTTP_404_NOT_FOUND: {"description": OWNED_STATE_NOT_FOUND}},
 )
 def update_state_labels(
     request: Request,
@@ -427,9 +492,21 @@ def update_state_labels(
     "/{id}/file-name",
     [Scope.ASSETS_WRITE],
     responses={
-        status.HTTP_400_BAD_REQUEST: {},
-        status.HTTP_404_NOT_FOUND: {},
-        status.HTTP_409_CONFLICT: {},
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The new file name is not valid or has no name before the extension."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": (
+                "The caller has no state with this ID that it can see, or the"
+                " state's file is missing."
+            )
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": (
+                "Another state of the rom, or a screenshot that is not this state's,"
+                " already has the new name."
+            )
+        },
     },
 )
 async def rename_state(
@@ -456,8 +533,13 @@ async def rename_state(
     "/delete",
     [Scope.ASSETS_WRITE],
     responses={
-        status.HTTP_400_BAD_REQUEST: {},
-        status.HTTP_404_NOT_FOUND: {},
+        status.HTTP_400_BAD_REQUEST: {"description": "The list of states is empty."},
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no state that it can see with one of the given IDs."
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "One of the states belongs to a sync channel."
+        },
     },
 )
 async def delete_states(

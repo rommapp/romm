@@ -149,7 +149,7 @@ function morphNameForRoute(route: RouteLocationNormalized): string | null {
 }
 
 // Install a router guard that morphs the leaving view's hero element
-// back into the matching tile in the destination view: covers BackBtn,
+// back into the matching tile in the destination view: covers BackButton,
 // navbar clicks, and the browser back button (all flow through the same
 // Vue Router pipeline). Source-route mapping lives in `morphNameForRoute`
 // so the guard stays generic across rom/platform/collection.

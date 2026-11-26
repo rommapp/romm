@@ -5,9 +5,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import type { SnapshotSchema } from "@/__generated__";
 import AssetPreview from "@/components/Player/AssetPreview.vue";
-import { RAlert, RBtn, RSelect, RSegmentedControl } from "@/lib";
+import { RAlert, RButton, RSelect, RSegmentedControl } from "@/lib";
 import type { DetailedRom } from "@/stores/roms";
 import { propOf } from "@/test-utils/propOf";
+import { createTestRouter } from "@/test-utils/router";
 import type { Events } from "@/types/emitter";
 import type { LaunchState, SaveSyncOutcome } from "@/types/rommNative";
 import { saveFixture, stateFixture } from "@/utils/assets.fixtures";
@@ -38,7 +39,8 @@ const mocks = vi.hoisted(() => ({
   honoursDisc: false,
   // A box, like syncOutcome: the preference is a ref the view keeps, so a test
   // that flips it has to write through the same object.
-  fullscreen: { value: false },
+  // Not reactive, but it has to pass for a ref where the template binds it.
+  fullscreen: { __v_isRef: true, value: false },
   // A box rather than the value: the store's getter has to read something the
   // watcher can track, so the mock swaps this for a reactive object.
   syncOutcome: { value: null as SaveSyncOutcome | null },
@@ -50,6 +52,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("vue-router", async (importOriginal) => ({
   ...(await importOriginal<typeof import("vue-router")>()),
   useRoute: () => mocks.route,
+  onBeforeRouteLeave: vi.fn(),
 }));
 
 vi.mock("@/services/api/snapshot", () => ({
@@ -239,6 +242,7 @@ async function launchScreen(): Promise<VueWrapper> {
   const wrapper = mount(EmulatorJS, {
     shallow: true,
     global: {
+      plugins: [createTestRouter()],
       renderStubDefaultSlot: true,
       stubs: { GameCover: GameCoverStub },
     },
@@ -253,20 +257,20 @@ function playLabels(wrapper: VueWrapper): string[] {
 
 function playDisabled(wrapper: VueWrapper): unknown[] {
   return wrapper
-    .findAllComponents(RBtn)
+    .findAllComponents(RButton)
     .filter((btn) => btn.classes().includes("r-ejs__play"))
     .map((btn) => btn.props("disabled"));
 }
 
 function cancelBtn(wrapper: VueWrapper) {
   return wrapper
-    .findAllComponents(RBtn)
+    .findAllComponents(RButton)
     .find((btn) => btn.classes().includes("r-ejs__native-cancel"));
 }
 
 function playIcons(wrapper: VueWrapper): unknown[] {
   return wrapper
-    .findAllComponents(RBtn)
+    .findAllComponents(RButton)
     .filter((btn) => btn.classes().includes("r-ejs__play"))
     .map((btn) => btn.props("prependIcon"));
 }
@@ -820,6 +824,7 @@ describe("EmulatorJS emitter listeners", () => {
     const wrapper = mount(EmulatorJS, {
       shallow: true,
       global: {
+        plugins: [createTestRouter()],
         provide: { emitter },
         stubs: { GameCover: GameCoverStub },
       },

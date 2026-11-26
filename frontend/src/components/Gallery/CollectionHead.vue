@@ -14,7 +14,7 @@ import { useI18n } from "vue-i18n";
 import CollectionMosaic from "@/components/Collections/CollectionMosaic.vue";
 import InfoPanel from "@/components/Gallery/InfoPanel.vue";
 import Stat from "@/components/shared/Stat.vue";
-import { RBtn, RChip, RTabNav } from "@/lib";
+import { RButton, RChip, RTabNav } from "@/lib";
 import type { RTabNavItem } from "@/lib";
 import type {
   Collection,
@@ -82,7 +82,7 @@ defineEmits<{
     </template>
 
     <template #actions>
-      <RBtn
+      <RButton
         variant="outlined"
         surface
         icon="mdi-shuffle-variant"
@@ -93,7 +93,7 @@ defineEmits<{
         :tooltip="t('platform.random-rom')"
         @click="$emit('random')"
       />
-      <RBtn
+      <RButton
         v-if="canDownload"
         variant="outlined"
         surface

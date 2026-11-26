@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import storeUpload from "@/stores/upload";
+import { runInScope } from "@/test-utils/effectScope";
 import { ROM_UPLOAD_FOLDERS, useRomFileUpload } from "./index";
 
 const { uploadRoms, refetchRom, confirmFn, snackbar } = vi.hoisted(() => ({
@@ -40,7 +41,7 @@ describe("useRomFileUpload", () => {
   });
 
   it("uploads into the folder, reports and refetches the rom", async () => {
-    const { uploadFiles } = useRomFileUpload();
+    const { uploadFiles } = runInScope(() => useRomFileUpload());
 
     const outcome = await uploadFiles(
       folderRom,
@@ -65,7 +66,7 @@ describe("useRomFileUpload", () => {
 
   it("asks before promoting a single-file rom and respects a no", async () => {
     confirmFn.mockResolvedValue(false);
-    const { uploadFiles } = useRomFileUpload();
+    const { uploadFiles } = runInScope(() => useRomFileUpload());
 
     const outcome = await uploadFiles(singleFileRom, "", files);
 
@@ -84,7 +85,7 @@ describe("useRomFileUpload", () => {
         { status: "rejected", reason: exists },
       ])
       .mockResolvedValueOnce([{ status: "fulfilled", value: null }]);
-    const { uploadFiles } = useRomFileUpload();
+    const { uploadFiles } = runInScope(() => useRomFileUpload());
 
     const outcome = await uploadFiles(folderRom, "soundtrack", both);
 
@@ -106,7 +107,7 @@ describe("useRomFileUpload", () => {
   it("drops a file the user declines to overwrite without complaint", async () => {
     uploadRoms.mockResolvedValue([{ status: "rejected", reason: exists }]);
     confirmFn.mockResolvedValue(false);
-    const { uploadFiles } = useRomFileUpload();
+    const { uploadFiles } = runInScope(() => useRomFileUpload());
 
     const outcome = await uploadFiles(folderRom, "soundtrack", files);
 
@@ -126,7 +127,7 @@ describe("useRomFileUpload", () => {
     ]);
     const uploadStore = storeUpload();
     uploadStore.start("track.mp3");
-    const { uploadFiles } = useRomFileUpload();
+    const { uploadFiles } = runInScope(() => useRomFileUpload());
 
     const outcome = await uploadFiles(folderRom, "soundtrack", files);
 
@@ -150,7 +151,7 @@ describe("useRomFileUpload", () => {
           release = () => resolve([{ status: "fulfilled", value: null }]);
         }),
     );
-    const { uploading, uploadFiles } = useRomFileUpload();
+    const { uploading, uploadFiles } = runInScope(() => useRomFileUpload());
 
     const pending = uploadFiles(folderRom, "", files);
     expect(uploading.value).toBe(true);

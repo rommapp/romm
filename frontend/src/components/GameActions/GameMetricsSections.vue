@@ -2,7 +2,7 @@
 // GameMetricsSections: the three per-user metric editors (completion,
 // rating, difficulty) stacked as sections under a "Your progress"
 // header. Mounted inside the Status button's mobile sheet (see
-// GameActionBtn `withMetrics`) so phones edit scores there instead of
+// GameActionButton `withMetrics`) so phones edit scores there instead of
 // via the desktop ribbon pills. Writes via useGameActions.setScore.
 import { toRef } from "vue";
 import { useI18n } from "vue-i18n";

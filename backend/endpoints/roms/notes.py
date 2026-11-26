@@ -22,7 +22,11 @@ DEFAULT_TAGS = Query(None, description="Filter by tags")
     router.get,
     "/{id}/notes",
     [Scope.ROMS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID."
+        },
+    },
 )
 async def get_rom_notes(
     request: Request,
@@ -52,7 +56,11 @@ async def get_rom_notes(
     router.get,
     "/{id}/notes/identifiers",
     [Scope.ROMS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID."
+        },
+    },
 )
 async def get_rom_note_identifiers(
     request: Request,
@@ -71,7 +79,11 @@ async def get_rom_note_identifiers(
     router.post,
     "/{id}/notes",
     [Scope.ROMS_USER_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID."
+        },
+    },
 )
 async def create_rom_note(
     request: Request,
@@ -101,7 +113,11 @@ async def create_rom_note(
     router.put,
     "/{id}/notes/{note_id}",
     [Scope.ROMS_USER_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID, or the caller has no note with this note ID on the rom."
+        },
+    },
 )
 async def update_rom_note(
     request: Request,
@@ -139,7 +155,11 @@ async def update_rom_note(
     router.delete,
     "/{id}/notes/{note_id}",
     [Scope.ROMS_USER_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID, or the caller has no note with this note ID on the rom."
+        },
+    },
 )
 async def delete_rom_note(
     request: Request,

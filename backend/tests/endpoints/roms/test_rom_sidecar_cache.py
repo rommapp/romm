@@ -521,6 +521,28 @@ def test_grouped_platform_page_with_another_scope_stays_live(
     assert _page_ids(body) == [rom.id]
 
 
+def test_grouped_excluded_platform_page_skips_its_platform_key(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    platform: Platform,
+    other_platform: Platform,
+    rom: Rom,
+):
+    """Excluding one platform must not read that platform's cached list."""
+    _seed_rom_id_index(_platform_key(admin_user.id, other_platform.id), [424242])
+
+    body = _get_roms(
+        client,
+        access_token,
+        **GROUPED_PAGE,
+        platform_ids=other_platform.id,
+        platforms_logic="none",
+    )
+
+    assert _page_ids(body) == [rom.id]
+
+
 @pytest.mark.parametrize("platform_count", [2, 0])
 def test_grouped_index_skips_unbounded_platform_keys(
     client: TestClient,

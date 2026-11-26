@@ -101,6 +101,7 @@ PYTHONPATH="/app/backend:${PYTHONPATH-}" \
 	RQ_REDIS_URL="${REDIS_URL}" \
 	rq cron \
 	--path /app/backend \
+	--connection-class handler.redis_handler.RomMRedis \
 	--logging-level "${LOGLEVEL:-INFO}" \
 	tasks.cron_config &
 
@@ -120,7 +121,9 @@ start_rq_worker() {
 		rq worker \
 		--path /app/backend \
 		--worker-class "handler.rq_worker.${worker_class}" \
+		--connection-class handler.redis_handler.RomMRedis \
 		--pid "/tmp/${name}.pid" \
+		--results-ttl "${TASK_RESULT_TTL:-86400}" \
 		--logging_level "${LOGLEVEL:-INFO}" \
 		--with-scheduler \
 		"$@" &

@@ -1,7 +1,5 @@
 // useCanPlay: reactive "can this ROM be played in the browser?" check.
-// v1 duplicated this logic across GameCard, GameDetails and the play menu
-// inside PlayBtn.vue; v2 lifts it to a composable so the card overlay
-// and the menu item agree with the details-header CTA.
+// Keeps the card overlay, the play menu and the details-header CTA in agreement.
 //
 // "Playable" means EJS, js-dos, PICO-8, EasyRPG, or Ruffle can run the platform on this
 // server (admin toggles + platform support + WebGL availability) and there

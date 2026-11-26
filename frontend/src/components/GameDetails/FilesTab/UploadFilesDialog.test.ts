@@ -40,7 +40,7 @@ const RDropzone = {
   },
   template: `<button class="dropzone" @click="pick" />`,
 };
-const RBtn = {
+const RButton = {
   props: ["disabled"],
   emits: ["click"],
   template: `<button class="btn" :disabled="disabled" @click="$emit('click')"><slot /></button>`,
@@ -62,7 +62,7 @@ function mountDialog() {
         RSelect,
         RTextField,
         RDropzone,
-        RBtn,
+        RButton,
         RChip: true,
         RIcon: true,
       },

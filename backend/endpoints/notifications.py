@@ -34,7 +34,23 @@ def get_notifications(request: Request) -> list[NotificationSchema]:
     ]
 
 
-@protected_route(router.post, "", [Scope.ME_WRITE], status_code=status.HTTP_201_CREATED)
+@protected_route(
+    router.post,
+    "",
+    [Scope.ME_WRITE],
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        status.HTTP_403_FORBIDDEN: {
+            "description": (
+                "The notification is for other users, and the caller is not an admin"
+                " or lacks the `users.write` scope."
+            )
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "A user in `recipients` does not exist or is disabled."
+        },
+    },
+)
 async def create_notification(
     request: Request, payload: NotificationCreatePayload
 ) -> list[NotificationSchema]:

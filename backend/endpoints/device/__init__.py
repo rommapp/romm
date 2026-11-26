@@ -196,14 +196,32 @@ def get_devices(request: Request) -> list[DeviceSchema]:
     ]
 
 
-@protected_route(router.get, "/{device_id}", [Scope.DEVICES_READ])
+@protected_route(
+    router.get,
+    "/{device_id}",
+    [Scope.DEVICES_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no device with this ID that it can see."
+        }
+    },
+)
 def get_device(request: Request, device_id: str) -> DeviceSchema:
     """Get one of the caller's devices."""
     device = require_device(request, device_id)
     return DeviceSchema.model_validate(device)
 
 
-@protected_route(router.put, "/{device_id}", [Scope.DEVICES_WRITE])
+@protected_route(
+    router.put,
+    "/{device_id}",
+    [Scope.DEVICES_WRITE],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no device with this ID that it can see."
+        }
+    },
+)
 def update_device(
     request: Request,
     device_id: str,
@@ -228,6 +246,11 @@ def update_device(
     "/{device_id}",
     [Scope.DEVICES_WRITE],
     status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no device with this ID that it can see."
+        }
+    },
 )
 async def delete_device(request: Request, device_id: str) -> None:
     """Delete a device and the client tokens bound to it."""

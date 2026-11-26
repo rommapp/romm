@@ -718,6 +718,41 @@ describe("galleryRoms length filter", () => {
   });
 });
 
+describe("galleryRoms platform exclusion", () => {
+  beforeEach(() => {
+    getRoms.mockReset();
+    getRoms.mockImplementation(() => Promise.resolve(windowResponse()));
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+      cb(0);
+      return 0;
+    });
+  });
+
+  it("sends the multi-select's logic with its platforms", () => {
+    const filter = storeGalleryFilter();
+    filter.setSelectedFilterPlatforms([platformFixture({ id: 4 })]);
+    filter.setPlatformsLogic("none");
+
+    storeGalleryRoms().syncVisibleWindows([0]);
+
+    expect(getRoms.mock.calls[0]![0].platformIds).toEqual([4]);
+    expect(getRoms.mock.calls[0]![0].platformsLogic).toBe("none");
+  });
+
+  it("always includes the platform of a platform route", () => {
+    const filter = storeGalleryFilter();
+    filter.setSelectedFilterPlatforms([platformFixture({ id: 4 })]);
+    filter.setPlatformsLogic("none");
+    const roms = storeGalleryRoms();
+    roms.setCurrentPlatform(platformFixture({ id: 9 }));
+
+    roms.syncVisibleWindows([0]);
+
+    expect(getRoms.mock.calls[0]![0].platformIds).toEqual([9]);
+    expect(getRoms.mock.calls[0]![0].platformsLogic).toBe("any");
+  });
+});
+
 describe("galleryRoms relevance order", () => {
   beforeEach(() => {
     getRoms.mockReset();

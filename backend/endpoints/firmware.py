@@ -48,22 +48,28 @@ FirmwareFileNamePath = Annotated[
         description="A file name to end the URL with, which EmulatorJS needs because of a bug. It does not change the name of the downloaded file."
     ),
 ]
+FIRMWARE_CONTENT_404 = "No firmware the caller can see has this ID, or its file is missing from the filesystem."
 
 
-@protected_route(router.post, "", [Scope.FIRMWARE_WRITE])
+@protected_route(
+    router.post,
+    "",
+    [Scope.FIRMWARE_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The name of an uploaded file is not a valid file name."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No platform the caller can see has this ID."
+        },
+    },
+)
 async def add_firmware(
     request: Request,
     platform_id: int,
     files: list[UploadFile] = File(...),  # noqa: B008
 ) -> AddFirmwareResponse:
-    """Upload firmware files endpoint
-
-    Raises:
-        HTTPException
-
-    Returns:
-        AddFirmwareResponse: Standard message response
-    """
+    """Upload firmware files to a platform, replacing any file with the same name."""
 
     # Platform-hide cascades to firmware; 404-mask uploads to hidden platforms.
     db_platform = visible_platform_or_404(
@@ -161,14 +167,7 @@ def get_platform_firmware(
         Query(description="Whether the firmware is missing from the filesystem."),
     ] = None,
 ) -> list[FirmwareSchema]:
-    """Get firmware endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-
-    Returns:
-        list[FirmwareSchema]: Firmware stored in the database
-    """
+    """List the firmware the caller can see, from every platform or from `platform_id` only."""
     perms = get_permissions(request)
     return [
         FirmwareSchema.model_validate(f)
@@ -184,14 +183,7 @@ def get_platform_firmware(
 def get_firmware_identifiers(
     request: Request,
 ) -> list[int]:
-    """Get firmware identifiers endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-
-    Returns:
-        list[int]: List of firmware IDs
-    """
+    """List the IDs of the firmware the caller can see."""
     perms = get_permissions(request)
     return db_firmware_handler.list_firmware_ids(
         hidden_platform_ids=perms.hidden_platform_ids,
@@ -202,13 +194,14 @@ def get_firmware_identifiers(
     router.get,
     "/{id}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.FIRMWARE_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No firmware the caller can see has this ID."
+        }
+    },
 )
 def get_firmware(request: Request, id: FirmwareIdPath) -> FirmwareSchema:
-    """Get firmware endpoint
-
-    Returns:
-        FirmwareSchema: Firmware stored in the database
-    """
+    """Get a firmware file's details."""
     firmware = visible_firmware_or_404(
         request, db_firmware_handler.get_firmware(id), id
     )
@@ -246,15 +239,12 @@ def _resolve_firmware_content(request: Request, id: int) -> tuple[Firmware, Path
     router.head,
     "/{id}/content/{file_name}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.FIRMWARE_READ],
+    responses={status.HTTP_404_NOT_FOUND: {"description": FIRMWARE_CONTENT_404}},
 )
 def head_firmware_content(
     request: Request, id: FirmwareIdPath, file_name: FirmwareFileNamePath
 ) -> FileResponse:
-    """Head firmware content endpoint
-
-    Returns:
-        FileResponse: Returns the response with headers
-    """
+    """Get the headers of a firmware file download, without its content."""
 
     firmware, firmware_path = _resolve_firmware_content(request, id)
 
@@ -271,24 +261,30 @@ def head_firmware_content(
     router.get,
     "/{id}/content/{file_name}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.FIRMWARE_READ],
+    responses={status.HTTP_404_NOT_FOUND: {"description": FIRMWARE_CONTENT_404}},
 )
 def get_firmware_content(
     request: Request,
     id: FirmwareIdPath,
     file_name: FirmwareFileNamePath,
 ) -> FileResponse:
-    """Download firmware endpoint
-
-    Returns:
-        FileResponse: Returns the firmware file
-    """
+    """Download a firmware file."""
 
     firmware, firmware_path = _resolve_firmware_content(request, id)
 
     return FileResponse(path=firmware_path, filename=firmware.file_name)
 
 
-@protected_route(router.post, "/delete", [Scope.FIRMWARE_WRITE])
+@protected_route(
+    router.post,
+    "/delete",
+    [Scope.FIRMWARE_WRITE],
+    responses={
+        status.HTTP_403_FORBIDDEN: {
+            "description": "The caller is not allowed to delete firmware."
+        }
+    },
+)
 async def delete_firmware(
     request: Request,
     firmware: Annotated[

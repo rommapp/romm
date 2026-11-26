@@ -93,7 +93,16 @@ def _resolved(
     return resolved
 
 
-@protected_route(router.get, "/roms", [Scope.ROMS_READ])
+@protected_route(
+    router.get,
+    "/roms",
+    [Scope.ROMS_READ],
+    responses={
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "No metadata provider is enabled, or `search_by` is `id` and `search_term` is not a number."
+        }
+    },
+)
 async def search_rom(
     request: Request,
     rom_id: Annotated[
@@ -118,11 +127,7 @@ async def search_rom(
         str, Query(description="What to search by: `name` or `id`.")
     ] = "name",
 ) -> list[SearchRomSchema]:
-    """Search for rom in metadata providers
-
-    Returns:
-        list[SearchRomSchema]: List of matched roms
-    """
+    """Search the enabled metadata providers for games that match a rom, by title or by provider ID."""
 
     if (
         not meta_igdb_handler.is_enabled()
@@ -349,7 +354,19 @@ async def search_rom(
     return [SearchRomSchema.model_validate(m_rom) for m_rom in matched_roms]
 
 
-@protected_route(router.get, "/cover", [Scope.ROMS_READ])
+@protected_route(
+    router.get,
+    "/cover",
+    [Scope.ROMS_READ],
+    responses={
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "SteamGridDB rejected the server's API key."
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "No cover art provider is enabled."
+        },
+    },
+)
 async def search_cover(
     request: Request,
     search_term: str = "",
@@ -362,8 +379,12 @@ async def search_cover(
             detail="No cover art providers enabled",
         )
 
+    # An age-restricted caller gets no NSFW artwork, whatever the client asks for.
+    sfw_only = get_rom_visibility_filter(request).has_age_rule
     lookups = {
-        MetadataSource.SGDB: meta_sgdb_handler.get_details(search_term=search_term),
+        MetadataSource.SGDB: meta_sgdb_handler.get_details(
+            search_term=search_term, sfw_only=sfw_only
+        ),
         MetadataSource.STEAM: meta_steam_handler.get_details(search_term=search_term),
     }
     gathered = await asyncio.gather(*lookups.values(), return_exceptions=True)
@@ -378,7 +399,7 @@ async def search_cover(
         isinstance(sgdb_result, HTTPException)
         and sgdb_result.status_code == status.HTTP_401_UNAUTHORIZED
     ):
-        raise sgdb_result
+        raise sgdb_result  # route-errors: raises 401
 
     ordered_sources = get_priority_ordered_metadata_sources(
         metadata_sources=list(lookups.keys()), priority_type="url_cover"

@@ -6,7 +6,7 @@ import AuthBackLink from "@/components/shared/AuthBackLink.vue";
 import AuthCard from "@/components/shared/AuthCard.vue";
 import PasswordField from "@/components/shared/PasswordField.vue";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { RBtn, RForm, RTextField } from "@/lib";
+import { RButton, RForm, RTextField } from "@/lib";
 import userApi from "@/services/api/user";
 import storeUsers from "@/stores/users";
 import { errorMessage } from "@/utils/errorMessage";
@@ -86,7 +86,7 @@ onBeforeMount(() => {
         :rules="usersStore.passwordRules"
         :disabled="submitting"
       />
-      <RBtn
+      <RButton
         type="submit"
         variant="flat"
         color="primary"
@@ -96,7 +96,7 @@ onBeforeMount(() => {
         :disabled="submitting || !username || !email || !password"
       >
         {{ t("common.create") }}
-      </RBtn>
+      </RButton>
     </RForm>
 
     <AuthBackLink />

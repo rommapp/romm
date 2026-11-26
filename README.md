@@ -127,6 +127,7 @@ Here are some cool projects maintained by members of our community. Please note 
 ### Sync
 
 - [RetroArch Sync][romm-retroarch-sync]: Sync RetroArch library with RomM by [@Covin90](https://github.com/Covin90)
+- [Syncthing sync][syncthing-sync]: Docker service that pushes a Syncthing library to RomM by [@amn-96](https://github.com/amn-96)
 
 ### Integrations
 
@@ -221,4 +222,5 @@ Here are a few projects that we think you might like:
 [romm-ios-app]: https://github.com/ilyas-hallak/romm-ios-app
 [romp]: https://github.com/RompEmu/RomP
 [rommps]: https://github.com/s0liton/RommPS
+[syncthing-sync]: https://github.com/amn-96/romm_syncthing_sync
 [argosy-launcher]: https://github.com/rommapp/argosy-launcher

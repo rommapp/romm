@@ -70,7 +70,9 @@ scan:
 
 emulatorjs:
   debug: true
-  cache_limit: 1000
+  cache:
+    enabled: false
+    limit: 1000
   disable_auto_unload: true
   disable_batch_bootup: true
   auto_save_sync: false

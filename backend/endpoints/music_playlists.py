@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from decorators.auth import protected_route
 from endpoints.music import (
     MUSIC_PAGE_QUERY,
+    TRACK_IDS_400,
     MusicPage,
     MusicPageParams,
     MusicTrackIdsPayload,
@@ -32,6 +33,9 @@ from models.music import (
 from utils.router import APIRouter
 
 router = APIRouter(prefix="/music/playlists", tags=["music"])
+
+PLAYLIST_404 = {"description": "No playlist the caller can see has this ID."}
+NOT_OWNER_403 = {"description": "The playlist is public, but another user owns it."}
 
 
 class MusicPlaylistCreateRequest(BaseModel):
@@ -62,14 +66,12 @@ def _get_visible_playlist(request: Request, id: int) -> MusicPlaylist:
     if not playlist:
         raise MusicPlaylistNotFoundException(id)
     if playlist.user_id != request.user.id and not playlist.is_public:
-        raise MusicPlaylistPermissionError(id)
+        raise MusicPlaylistNotFoundException(id)
     return playlist
 
 
 def _get_owned_playlist(request: Request, id: int) -> MusicPlaylist:
-    playlist = db_music_playlist_handler.get_playlist(id)
-    if not playlist:
-        raise MusicPlaylistNotFoundException(id)
+    playlist = _get_visible_playlist(request, id)
     if playlist.user_id != request.user.id:
         raise MusicPlaylistPermissionError(id)
     return playlist
@@ -115,7 +117,14 @@ def add_playlist(
     return _playlist_schema(playlist, 0)
 
 
-@protected_route(router.get, "/{id}", [Scope.PLAYLISTS_READ])
+@protected_route(
+    router.get,
+    "/{id}",
+    [Scope.PLAYLISTS_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: PLAYLIST_404,
+    },
+)
 def get_playlist(
     request: Request,
     id: Annotated[int, PathVar(description="Playlist internal id.", ge=1)],
@@ -136,10 +145,8 @@ def get_playlist(
         status.HTTP_400_BAD_REQUEST: {
             "description": "You already have another playlist with the new name."
         },
-        status.HTTP_403_FORBIDDEN: {
-            "description": "The playlist belongs to another user."
-        },
-        status.HTTP_404_NOT_FOUND: {"description": "No playlist has this ID."},
+        status.HTTP_403_FORBIDDEN: NOT_OWNER_403,
+        status.HTTP_404_NOT_FOUND: PLAYLIST_404,
     },
 )
 def update_playlist(
@@ -171,7 +178,15 @@ def update_playlist(
     return _playlist_schema(playlist, counts.get(id, 0))
 
 
-@protected_route(router.delete, "/{id}", [Scope.PLAYLISTS_WRITE])
+@protected_route(
+    router.delete,
+    "/{id}",
+    [Scope.PLAYLISTS_WRITE],
+    responses={
+        status.HTTP_403_FORBIDDEN: NOT_OWNER_403,
+        status.HTTP_404_NOT_FOUND: PLAYLIST_404,
+    },
+)
 def delete_playlist(
     request: Request,
     id: Annotated[int, PathVar(description="Playlist internal id.", ge=1)],
@@ -182,7 +197,14 @@ def delete_playlist(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@protected_route(router.get, "/{id}/tracks", [Scope.PLAYLISTS_READ])
+@protected_route(
+    router.get,
+    "/{id}/tracks",
+    [Scope.PLAYLISTS_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: PLAYLIST_404,
+    },
+)
 def get_playlist_tracks(
     request: Request,
     params: Annotated[MusicPageParams, Depends(MUSIC_PAGE_QUERY)],
@@ -211,7 +233,16 @@ def get_playlist_tracks(
     )
 
 
-@protected_route(router.post, "/{id}/tracks", [Scope.PLAYLISTS_WRITE])
+@protected_route(
+    router.post,
+    "/{id}/tracks",
+    [Scope.PLAYLISTS_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"description": TRACK_IDS_400},
+        status.HTTP_403_FORBIDDEN: NOT_OWNER_403,
+        status.HTTP_404_NOT_FOUND: PLAYLIST_404,
+    },
+)
 def add_playlist_tracks(
     request: Request,
     id: Annotated[int, PathVar(description="Playlist internal id.", ge=1)],
@@ -225,7 +256,16 @@ def add_playlist_tracks(
     return {"added": added}
 
 
-@protected_route(router.delete, "/{id}/tracks", [Scope.PLAYLISTS_WRITE])
+@protected_route(
+    router.delete,
+    "/{id}/tracks",
+    [Scope.PLAYLISTS_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"description": TRACK_IDS_400},
+        status.HTTP_403_FORBIDDEN: NOT_OWNER_403,
+        status.HTTP_404_NOT_FOUND: PLAYLIST_404,
+    },
+)
 def remove_playlist_tracks(
     request: Request,
     id: Annotated[int, PathVar(description="Playlist internal id.", ge=1)],
@@ -241,7 +281,18 @@ def remove_playlist_tracks(
     return {"removed": removed}
 
 
-@protected_route(router.put, "/{id}/tracks/order", [Scope.PLAYLISTS_WRITE])
+@protected_route(
+    router.put,
+    "/{id}/tracks/order",
+    [Scope.PLAYLISTS_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "Some of the IDs are not music tracks the caller can see, or are not in the playlist."
+        },
+        status.HTTP_403_FORBIDDEN: NOT_OWNER_403,
+        status.HTTP_404_NOT_FOUND: PLAYLIST_404,
+    },
+)
 def set_playlist_track_order(
     request: Request,
     id: Annotated[int, PathVar(description="Playlist internal id.", ge=1)],

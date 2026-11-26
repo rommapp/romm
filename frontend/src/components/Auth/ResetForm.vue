@@ -4,7 +4,7 @@
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { RBtn, RTextField } from "@/lib";
+import { RButton, RTextField } from "@/lib";
 import identityApi from "@/services/api/identity";
 import storeHeartbeat from "@/stores/heartbeat";
 
@@ -56,7 +56,7 @@ async function submit() {
       prepend-inner-icon="mdi-account"
       :disabled="sending"
     />
-    <RBtn
+    <RButton
       type="submit"
       variant="flat"
       color="primary"
@@ -66,8 +66,8 @@ async function submit() {
       :disabled="sending || !forgotUser"
     >
       {{ t("login.send-reset-link") }}
-    </RBtn>
-    <RBtn
+    </RButton>
+    <RButton
       variant="outlined"
       block
       prepend-icon="mdi-chevron-left"
@@ -77,7 +77,7 @@ async function submit() {
       "
     >
       {{ t("common.cancel") }}
-    </RBtn>
+    </RButton>
   </form>
 </template>
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// VersionSwitcher: RBtn + RMenu pair that lets the user navigate
+// VersionSwitcher: RButton + RMenu pair that lets the user navigate
 // between sibling ROMs of the same game (different region / revision /
 // language). Renders nothing when the rom has no siblings.
 //
@@ -10,7 +10,7 @@
 // which file they're on without scanning filenames.
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { RBtn, RIcon, RMenu, RMenuItem } from "@/lib";
+import { RButton, RIcon, RMenu, RMenuItem } from "@/lib";
 import type { DetailedRom } from "@/stores/roms";
 
 defineOptions({ inheritAttrs: false });
@@ -50,7 +50,7 @@ const mainTooltip = computed(() => t("rom.default-version"));
 <template>
   <RMenu v-if="visible" location="bottom start" :offset="6">
     <template #activator="{ props: activatorProps }">
-      <RBtn
+      <RButton
         v-bind="activatorProps"
         variant="outlined"
         size="small"
@@ -61,7 +61,7 @@ const mainTooltip = computed(() => t("rom.default-version"));
         <RIcon icon="mdi-card-multiple-outline" size="16" />
         <span class="version-switcher__label">{{ currentLabel }}</span>
         <RIcon icon="mdi-menu-down" size="16" />
-      </RBtn>
+      </RButton>
     </template>
 
     <RMenuItem

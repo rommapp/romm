@@ -338,11 +338,11 @@ class RomFileSchema(BaseModel):
     """The details of a manual or walkthrough file."""
 
     @model_validator(mode="after")
-    def default_category_for_non_nested(self) -> RomFileSchema:
+    def default_category_to_game(self) -> RomFileSchema:
         # Rows scanned before patch formats were classified still carry their folder's.
         if is_patch_file_name(self.file_name):
             self.category = RomFileCategory.PATCH
-        elif self.category is None and self.is_top_level:
+        elif self.category is None:
             self.category = RomFileCategory.GAME
         return self
 

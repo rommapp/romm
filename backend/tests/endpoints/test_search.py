@@ -11,6 +11,7 @@ import pytest
 from fastapi import HTTPException, status
 
 from exceptions.endpoint_exceptions import SGDBInvalidAPIKeyException
+from handler.auth.rom_visibility import RomVisibilityFilter
 from handler.metadata.base_handler import CoverResource, CoverResult
 from handler.metadata.igdb_handler import IGDBRom
 from handler.metadata.moby_handler import MobyGamesRom
@@ -268,3 +269,34 @@ def test_cover_search_needs_one_cover_provider(client, access_token):
         )
 
     assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+
+
+@pytest.mark.parametrize(
+    "visibility, sfw_only",
+    [
+        (RomVisibilityFilter(), False),
+        (RomVisibilityFilter(age_limit=10), True),
+        (RomVisibilityFilter(hide_unrated_roms=True), True),
+    ],
+)
+def test_an_age_rule_keeps_nsfw_covers_out_of_the_search(
+    client, access_token, visibility, sfw_only
+):
+    sgdb_details = AsyncMock(return_value=[])
+    with (
+        patch("endpoints.search.meta_sgdb_handler.is_enabled", return_value=True),
+        patch("endpoints.search.meta_steam_handler.is_enabled", return_value=True),
+        patch("endpoints.search.meta_sgdb_handler.get_details", new=sgdb_details),
+        patch(
+            "endpoints.search.meta_steam_handler.get_details",
+            new=AsyncMock(return_value=[]),
+        ),
+        patch("endpoints.search.get_rom_visibility_filter", return_value=visibility),
+    ):
+        response = client.get(
+            "/api/search/cover?search_term=Blur",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    sgdb_details.assert_awaited_once_with(search_term="Blur", sfw_only=sfw_only)
