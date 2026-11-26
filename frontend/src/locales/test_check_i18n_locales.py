@@ -1,6 +1,6 @@
 import unittest
 
-from check_i18n_locales import placeholder_mismatches
+from check_i18n_locales import mixed_script_words, placeholder_mismatches
 
 
 class PlaceholderMismatchesTest(unittest.TestCase):
@@ -25,6 +25,29 @@ class PlaceholderMismatchesTest(unittest.TestCase):
 
     def test_skips_keys_missing_from_translation(self) -> None:
         self.assertEqual(placeholder_mismatches({"a": "{x}"}, {}), [])
+
+
+class MixedScriptWordsTest(unittest.TestCase):
+    def test_reports_latin_glued_to_cyrillic(self) -> None:
+        lang = {"rom": {"hashes": "ХешісCity in Germany"}, "a": "зупиненоName"}
+        self.assertEqual(
+            mixed_script_words(lang),
+            [("rom.hashes", "ХешісCity"), ("a", "зупиненоName")],
+        )
+
+    def test_reports_cyrillic_glued_to_latin(self) -> None:
+        self.assertEqual(mixed_script_words({"a": "RomМ"}), [("a", "RomМ")])
+
+    def test_separated_words_pass(self) -> None:
+        lang = {
+            "a": "Відкрити в RomM",
+            "b": "QR-код, PICO-8 і 3D-коробка",
+            "c": "Ігор: {count}",
+        }
+        self.assertEqual(mixed_script_words(lang), [])
+
+    def test_placeholders_do_not_join_words(self) -> None:
+        self.assertEqual(mixed_script_words({"a": "Гра{name}Ok"}), [])
 
 
 if __name__ == "__main__":

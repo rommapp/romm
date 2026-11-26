@@ -1,7 +1,7 @@
 <script setup lang="ts" generic="I extends SubtabNavItem">
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { RBtn, RDivider, RIcon, RMenu, RMenuItem } from "@/lib";
+import { RButton, RDivider, RIcon, RMenu, RMenuItem } from "@/lib";
 import { shouldAutofocusSearch } from "@/utils/autofocus";
 import { tabId, tabPanelId } from "@/utils/tabIds";
 
@@ -117,7 +117,7 @@ function select(id: I["id"]) {
       :search-auto-focus="shouldAutofocusSearch()"
     >
       <template #activator="{ props: activatorProps }">
-        <RBtn
+        <RButton
           v-bind="activatorProps"
           variant="outlined"
           size="small"
@@ -131,7 +131,7 @@ function select(id: I["id"]) {
           <span v-if="active?.badge" class="r-subtab-nav__badge">
             {{ active.badge }}
           </span>
-        </RBtn>
+        </RButton>
       </template>
 
       <template v-for="(item, index) in menuItems" :key="item.id">
@@ -262,8 +262,8 @@ html[data-input="pad"] .r-subtab-nav__btn:focus-visible {
   flex: 1;
   min-width: 0;
 }
-.r-subtab-nav__trigger :deep(.r-btn__content),
-.r-subtab-nav__trigger :deep(.r-btn__label) {
+.r-subtab-nav__trigger :deep(.r-button__content),
+.r-subtab-nav__trigger :deep(.r-button__label) {
   flex: 1;
   min-width: 0;
 }

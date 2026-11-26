@@ -2,6 +2,7 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
 import type { NotificationChannelSchema } from "@/__generated__";
+import { createTestRouter } from "@/test-utils/router";
 import { makeChannel as channel } from "@/utils/notificationChannels.fixtures";
 import NotificationChannelsSection from "./NotificationChannelsSection.vue";
 
@@ -35,7 +36,10 @@ const DialogStub = defineComponent({ emits: ["saved"], template: "<div />" });
 async function mountWith(channels: NotificationChannelSchema[]) {
   api.getChannels.mockResolvedValue({ data: channels });
   const wrapper = mount(NotificationChannelsSection, {
-    global: { stubs: { NotificationChannelDialog: DialogStub } },
+    global: {
+      plugins: [createTestRouter()],
+      stubs: { NotificationChannelDialog: DialogStub },
+    },
   });
   await flushPromises();
   return wrapper;

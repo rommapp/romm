@@ -12,11 +12,11 @@ export type UploadTargetPayload = {
      */
     rom_id?: (number | null);
     /**
-     * Subfolder inside the ROM's folder, relative and forward-slashed. Empty for the root.
+     * A subfolder of the ROM's folder, as a relative path with forward slashes. Empty for the ROM's folder itself.
      */
     folder?: string;
     /**
-     * The file name. Takes precedence over the header, which cannot carry characters outside Latin-1.
+     * The file name. Overrides the `x-upload-filename` header, which can only hold Latin-1 characters.
      */
     filename?: (string | null);
     /**

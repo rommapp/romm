@@ -14,7 +14,7 @@ function mountStep(avatar?: File) {
     props: { modelValue: draft(avatar) },
     global: {
       stubs: {
-        RBtn: true,
+        RButton: true,
         RForm: { template: "<form><slot /></form>" },
         RIcon: true,
         RTextField: true,

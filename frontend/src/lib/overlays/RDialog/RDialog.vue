@@ -26,7 +26,7 @@ import {
   watch,
 } from "vue";
 import { useChromeLabels } from "@/lib/a11y/chromeLabels";
-import RBtn from "@/lib/primitives/RBtn/RBtn.vue";
+import RButton from "@/lib/primitives/RButton/RButton.vue";
 import RIcon from "@/lib/primitives/RIcon/RIcon.vue";
 import { focusFromInput } from "@/utils/autofocus";
 import { createBodyScrollLock, overlayCount } from "../bodyScrollLock";
@@ -301,14 +301,14 @@ const panelStyle = computed(() => {
             class="r-dialog__footer"
           >
             <template v-if="cancelable || slots['footer-start']">
-              <RBtn
+              <RButton
                 v-if="cancelable"
                 variant="outlined"
                 :disabled="cancelDisabled"
                 @click="closeDialog"
               >
                 {{ cancelText ?? labels.cancel }}
-              </RBtn>
+              </RButton>
               <slot name="footer-start" />
               <span class="r-dialog__footer-spacer" aria-hidden="true" />
             </template>

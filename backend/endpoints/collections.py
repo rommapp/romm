@@ -7,11 +7,11 @@ from typing import Annotated, Any, Final, TypeVar
 from fastapi import Body, File, Form, HTTPException
 from fastapi import Path as PathVar
 from fastapi import Query, Request, UploadFile, status
-from pydantic import BaseModel as PydanticBaseModel
 from pydantic import TypeAdapter
 from pydantic import ValidationError as PydanticValidationError
 
 from decorators.auth import protected_route
+from endpoints.responses.base import BaseModel
 from endpoints.responses.collection import (
     CollectionSchema,
     SmartCollectionSchema,
@@ -142,26 +142,88 @@ def _check_criteria_collection(
         raise CollectionNotFoundInDatabaseException(collection_id)
 
 
-@protected_route(router.post, "", [Scope.COLLECTIONS_WRITE])
+def _visible_or_404[C: (Collection, SmartCollection)](
+    request: Request, collection: C | None, id: int
+) -> C:
+    """Return `collection` if the caller owns it or it is public. Otherwise raise the same 404 as for a missing one."""
+    if not collection or (
+        collection.user_id != request.user.id and not collection.is_public
+    ):
+        raise CollectionNotFoundInDatabaseException(id)
+    return collection
+
+
+def _owned_or_error[C: (Collection, SmartCollection)](
+    request: Request, collection: C | None, id: int
+) -> C:
+    """Return `collection` if the caller owns it. Raise 403 if it is public but another user owns it."""
+    collection = _visible_or_404(request, collection, id)
+    if collection.user_id != request.user.id:
+        raise CollectionPermissionError(id)
+    return collection
+
+
+CollectionIdPath = Annotated[int, PathVar(description="The ID of the collection.")]
+SmartCollectionIdPath = Annotated[
+    int, PathVar(description="The ID of the smart collection.")
+]
+VirtualCollectionIdPath = Annotated[
+    str,
+    PathVar(
+        description="The ID of the virtual collection, as returned by `GET /collections/virtual`."
+    ),
+]
+IsPublicUpdateQuery = Annotated[
+    bool | None,
+    Query(
+        description=(
+            "Whether other users can see the collection. Leave it out to keep"
+            " the current setting."
+        )
+    ),
+]
+COLLECTION_NAME_FORM = "The name of the collection."
+COLLECTION_DESCRIPTION_FORM = "The description of the collection."
+
+ARTWORK_400 = "The cover URL is a local file URL, the artwork is not a PNG, JPEG, WebP, GIF or JPEG XL image, or its dimensions are too large."
+FILTER_CRITERIA_400 = "The filter criteria are not a JSON object."
+CRITERIA_COLLECTION_404 = "The filter criteria name a collection the caller cannot see."
+COLLECTION_404 = {"description": "No collection the caller can see has this ID."}
+SMART_COLLECTION_404 = {
+    "description": "No smart collection the caller can see has this ID."
+}
+NOT_OWNER_403 = {"description": "The collection is public, but another user owns it."}
+NAME_TAKEN_409 = {"description": "The caller already has a collection with this name."}
+SMART_NAME_TAKEN_409 = {
+    "description": "The caller already has a smart collection with this name."
+}
+
+
+@protected_route(
+    router.post,
+    "",
+    [Scope.COLLECTIONS_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"description": ARTWORK_400},
+        status.HTTP_409_CONFLICT: NAME_TAKEN_409,
+    },
+)
 async def add_collection(
     request: Request,
     is_public: bool | None = None,
     is_favorite: bool | None = None,
     artwork: UploadFile | None = COLLECTION_ARTWORK_FILE,
-    name: str = Form(default="", max_length=COLLECTION_NAME_MAX_LENGTH),
-    description: str = Form(default=""),
+    name: str = Form(
+        default="",
+        max_length=COLLECTION_NAME_MAX_LENGTH,
+        description=COLLECTION_NAME_FORM,
+    ),
+    description: str = Form(default="", description=COLLECTION_DESCRIPTION_FORM),
     url_cover: str = Form(
         default="", description="Remote URL to fetch and use as cover artwork."
     ),
 ) -> CollectionSchema:
-    """Create collection endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-
-    Returns:
-        CollectionSchema: Just created collection
-    """
+    """Create a collection for the caller, with artwork from an upload or from `url_cover`."""
     reject_local_file_url("url_cover", url_cover, None)
     cleaned_data = {
         "name": name,
@@ -219,25 +281,31 @@ async def add_collection(
     return CollectionSchema.model_validate(created_collection)
 
 
-@protected_route(router.post, "/smart", [Scope.COLLECTIONS_WRITE])
+@protected_route(
+    router.post,
+    "/smart",
+    [Scope.COLLECTIONS_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"description": FILTER_CRITERIA_400},
+        status.HTTP_404_NOT_FOUND: {"description": CRITERIA_COLLECTION_404},
+        status.HTTP_409_CONFLICT: SMART_NAME_TAKEN_409,
+    },
+)
 async def add_smart_collection(
     request: Request,
     is_public: bool | None = None,
-    name: str = Form(default="", max_length=COLLECTION_NAME_MAX_LENGTH),
-    description: str = Form(default=""),
+    name: str = Form(
+        default="",
+        max_length=COLLECTION_NAME_MAX_LENGTH,
+        description=COLLECTION_NAME_FORM,
+    ),
+    description: str = Form(default="", description=COLLECTION_DESCRIPTION_FORM),
     filter_criteria: str = Form(
         default="{}",
         description="Smart collection filters as a JSON string.",
     ),
 ) -> SmartCollectionSchema:
-    """Create smart collection endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-
-    Returns:
-        SmartCollectionSchema: Just created smart collection
-    """
+    """Create a smart collection for the caller, holding the roms that match its filter criteria."""
     parsed_filter_criteria = _parse_filter_criteria(filter_criteria)
     _check_criteria_collection(parsed_filter_criteria, request.user.id)
 
@@ -281,15 +349,7 @@ def get_collections(
         ),
     ] = None,
 ) -> list[CollectionSchema]:
-    """Get collections endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-        updated_after: Filter collections updated after this datetime
-
-    Returns:
-        list[CollectionSchema]: List of collections
-    """
+    """List the caller's collections and other users' public collections."""
 
     collections = db_collection_handler.get_collections(updated_after=updated_after)
 
@@ -302,14 +362,7 @@ def get_collections(
 def get_collection_identifiers(
     request: Request,
 ) -> list[int]:
-    """Get collections identifiers endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-
-    Returns:
-        list[int]: List of collection IDs
-    """
+    """List the IDs of the caller's collections and of other users' public collections."""
 
     rows = db_collection_handler.get_collection_ids()
 
@@ -319,17 +372,28 @@ def get_collection_identifiers(
 @protected_route(router.get, "/virtual", [Scope.COLLECTIONS_READ])
 def get_virtual_collections(
     request: Request,
-    type: str,
-    limit: int | None = None,
+    type: Annotated[
+        str,
+        Query(
+            description=(
+                "The kind of collection: `genre`, `franchise`, `collection`,"
+                " `mode`, `company`, `publisher`, `developer` or `all`. Virtual"
+                " collections are generated from the library's metadata, one for"
+                " each distinct value."
+            )
+        ),
+    ],
+    limit: Annotated[
+        int | None,
+        Query(
+            description=(
+                "The maximum number of collections to return, sorted by name."
+                " Leave it out to return all of them."
+            )
+        ),
+    ] = None,
 ) -> list[VirtualCollectionSchema]:
-    """Get virtual collections endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-
-    Returns:
-        list[VirtualCollectionSchema]: List of virtual collections
-    """
+    """List the virtual collections of one kind that hold roms the caller can see."""
 
     virtual_collections = db_collection_handler.get_virtual_collections(
         type=type, limit=limit, visibility=get_rom_visibility_filter(request)
@@ -342,14 +406,7 @@ def get_virtual_collections(
 def get_virtual_collection_identifiers(
     request: Request,
 ) -> list[str]:
-    """Get virtual collections identifiers endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-
-    Returns:
-        list[str]: List of generated virtual collection IDs
-    """
+    """List the IDs of the virtual collections that hold roms the caller can see."""
 
     virtual_collections = db_collection_handler.get_virtual_collections(
         type="all",
@@ -370,15 +427,7 @@ def get_smart_collections(
         ),
     ] = None,
 ) -> list[SmartCollectionSchema]:
-    """Get smart collections endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-        updated_after: Filter smart collections updated after this datetime
-
-    Returns:
-        list[SmartCollectionSchema]: List of smart collections
-    """
+    """List the caller's smart collections and other users' public smart collections."""
 
     smart_collections = db_collection_handler.get_smart_collections(
         request.user.id, updated_after=updated_after
@@ -393,53 +442,43 @@ def get_smart_collections(
 def get_smart_collection_identifiers(
     request: Request,
 ) -> list[int]:
-    """Get smart collections identifiers endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-
-    Returns:
-        list[int]: List of smart collection IDs
-    """
+    """List the IDs of the caller's smart collections and of other users' public smart collections."""
 
     return db_collection_handler.get_smart_collection_ids(request.user.id)
 
 
-@protected_route(router.get, "/{id}", [Scope.COLLECTIONS_READ])
-def get_collection(request: Request, id: int) -> CollectionSchema:
-    """Get collections endpoint
+@protected_route(
+    router.get,
+    "/{id}",
+    [Scope.COLLECTIONS_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: COLLECTION_404,
+    },
+)
+def get_collection(request: Request, id: CollectionIdPath) -> CollectionSchema:
+    """Get one of the caller's collections, or another user's public collection."""
 
-    Args:
-        request (Request): Fastapi Request object
-        id (int, optional): Collection id. Defaults to None.
-
-    Returns:
-        CollectionSchema: Collection
-    """
-
-    collection = db_collection_handler.get_collection(id)
-    if not collection:
-        raise CollectionNotFoundInDatabaseException(id)
-
-    if collection.user_id != request.user.id and not collection.is_public:
-        raise CollectionPermissionError(id)
+    collection = _visible_or_404(request, db_collection_handler.get_collection(id), id)
 
     return _hide_single_collection_roms(
         CollectionSchema.model_validate(collection), request
     )
 
 
-@protected_route(router.get, "/virtual/{id}", [Scope.COLLECTIONS_READ])
-def get_virtual_collection(request: Request, id: str) -> VirtualCollectionSchema:
-    """Get virtual collections endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-        id (str): Virtual collection id
-
-    Returns:
-        VirtualCollectionSchema: Virtual collection
-    """
+@protected_route(
+    router.get,
+    "/virtual/{id}",
+    [Scope.COLLECTIONS_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No virtual collection with roms the caller can see has this ID."
+        }
+    },
+)
+def get_virtual_collection(
+    request: Request, id: VirtualCollectionIdPath
+) -> VirtualCollectionSchema:
+    """Get a virtual collection, leaving out the roms hidden from the caller."""
 
     virtual_collection = db_collection_handler.get_virtual_collection(
         id, visibility=get_rom_visibility_filter(request)
@@ -450,59 +489,65 @@ def get_virtual_collection(request: Request, id: str) -> VirtualCollectionSchema
     return VirtualCollectionSchema.model_validate(virtual_collection)
 
 
-@protected_route(router.get, "/smart/{id}", [Scope.COLLECTIONS_READ])
-def get_smart_collection(request: Request, id: int) -> SmartCollectionSchema:
-    """Get smart collection endpoint
+@protected_route(
+    router.get,
+    "/smart/{id}",
+    [Scope.COLLECTIONS_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: SMART_COLLECTION_404,
+    },
+)
+def get_smart_collection(
+    request: Request, id: SmartCollectionIdPath
+) -> SmartCollectionSchema:
+    """Get one of the caller's smart collections, or another user's public smart collection."""
 
-    Args:
-        request (Request): Fastapi Request object
-        id (int): Smart collection id
-
-    Returns:
-        SmartCollectionSchema: Smart collection
-    """
-
-    smart_collection = db_collection_handler.get_smart_collection(id)
-    if not smart_collection:
-        raise CollectionNotFoundInDatabaseException(id)
-
-    if smart_collection.user_id != request.user.id and not smart_collection.is_public:
-        raise CollectionPermissionError(id)
+    smart_collection = _visible_or_404(
+        request, db_collection_handler.get_smart_collection(id), id
+    )
 
     return _hide_single_collection_roms(
         SmartCollectionSchema.model_validate(smart_collection), request
     )
 
 
-@protected_route(router.put, "/{id}", [Scope.COLLECTIONS_WRITE])
+@protected_route(
+    router.put,
+    "/{id}",
+    [Scope.COLLECTIONS_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"description": ARTWORK_400},
+        status.HTTP_403_FORBIDDEN: NOT_OWNER_403,
+        status.HTTP_404_NOT_FOUND: COLLECTION_404,
+        status.HTTP_409_CONFLICT: NAME_TAKEN_409,
+    },
+)
 async def update_collection(
     request: Request,
-    id: int,
-    remove_cover: bool = False,
-    is_public: bool | None = None,
+    id: CollectionIdPath,
+    remove_cover: Annotated[
+        bool,
+        Query(description="Whether to delete the cover and its URL."),
+    ] = False,
+    is_public: IsPublicUpdateQuery = None,
     artwork: UploadFile | None = COLLECTION_ARTWORK_FILE,
     rom_ids: str = Form(
         ...,
         description="Collection ROM IDs as a JSON array string (e.g. [1,2,3]).",
     ),
-    name: str | None = Form(default=None, max_length=COLLECTION_NAME_MAX_LENGTH),
-    description: str | None = Form(default=None),
+    name: str | None = Form(
+        default=None,
+        max_length=COLLECTION_NAME_MAX_LENGTH,
+        description="The new name. Leave it out to keep the current name.",
+    ),
+    description: str | None = Form(
+        default=None,
+        description="The new description. Leave it out to keep the current description.",
+    ),
     url_cover: str | None = Form(default=None, description="Updated remote cover URL."),
 ) -> CollectionSchema:
-    """Update collection endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-
-    Returns:
-        CollectionSchema: Updated collection
-    """
-    collection = db_collection_handler.get_collection(id)
-    if not collection:
-        raise CollectionNotFoundInDatabaseException(id)
-
-    if collection.user_id != request.user.id:
-        raise CollectionPermissionError(id)
+    """Update one of the caller's collections and replace its roms with `rom_ids`, leaving the roms the caller cannot see as they are."""
+    collection = _owned_or_error(request, db_collection_handler.get_collection(id), id)
     reject_local_file_url("url_cover", url_cover, collection.url_cover)
 
     if name is not None:
@@ -621,20 +666,21 @@ async def update_collection(
     router.put,
     "/{id}/visibility",
     [Scope.COLLECTIONS_WRITE],
-    responses={status.HTTP_403_FORBIDDEN: {}, status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_403_FORBIDDEN: NOT_OWNER_403,
+        status.HTTP_404_NOT_FOUND: COLLECTION_404,
+    },
 )
 def update_collection_visibility(
     request: Request,
-    id: int,
-    is_public: Annotated[bool, Body(embed=True)],
+    id: CollectionIdPath,
+    is_public: Annotated[
+        bool,
+        Body(embed=True),
+    ],
 ) -> CollectionSchema:
     """Share or unshare a collection (owner only), leaving its games and cover."""
-    collection = db_collection_handler.get_collection(id)
-    if not collection:
-        raise CollectionNotFoundInDatabaseException(id)
-
-    if collection.user_id != request.user.id:
-        raise CollectionPermissionError(id)
+    collection = _owned_or_error(request, db_collection_handler.get_collection(id), id)
 
     updated_collection = db_collection_handler.update_collection(
         id, {"is_public": is_public}
@@ -647,32 +693,26 @@ def update_collection_visibility(
     )
 
 
-class CollectionRomsPayload(PydanticBaseModel):
+class CollectionRomsPayload(BaseModel):
     rom_ids: list[int]
 
 
-@protected_route(router.post, "/{id}/roms", [Scope.COLLECTIONS_WRITE])
+@protected_route(
+    router.post,
+    "/{id}/roms",
+    [Scope.COLLECTIONS_WRITE],
+    responses={
+        status.HTTP_403_FORBIDDEN: NOT_OWNER_403,
+        status.HTTP_404_NOT_FOUND: COLLECTION_404,
+    },
+)
 async def add_roms_to_collection(
     request: Request,
-    id: int,
+    id: CollectionIdPath,
     payload: CollectionRomsPayload,
 ) -> CollectionSchema:
-    """Atomically add ROMs to a collection without replacing the full list.
-
-    Args:
-        request (Request): Fastapi Request object
-        id (int): Collection id
-        payload (CollectionRomsPayload): ROM IDs to add
-
-    Returns:
-        CollectionSchema: Updated collection
-    """
-    collection = db_collection_handler.get_collection(id)
-    if not collection:
-        raise CollectionNotFoundInDatabaseException(id)
-
-    if collection.user_id != request.user.id:
-        raise CollectionPermissionError(id)
+    """Add roms to one of the caller's collections in one step, keeping the roms it already holds."""
+    collection = _owned_or_error(request, db_collection_handler.get_collection(id), id)
 
     hidden = _hidden_rom_ids(request, payload.rom_ids)
     rom_ids = [rid for rid in payload.rom_ids if rid not in hidden]
@@ -691,28 +731,22 @@ async def add_roms_to_collection(
     )
 
 
-@protected_route(router.delete, "/{id}/roms", [Scope.COLLECTIONS_WRITE])
+@protected_route(
+    router.delete,
+    "/{id}/roms",
+    [Scope.COLLECTIONS_WRITE],
+    responses={
+        status.HTTP_403_FORBIDDEN: NOT_OWNER_403,
+        status.HTTP_404_NOT_FOUND: COLLECTION_404,
+    },
+)
 async def remove_roms_from_collection(
     request: Request,
-    id: int,
+    id: CollectionIdPath,
     payload: CollectionRomsPayload,
 ) -> CollectionSchema:
-    """Atomically remove ROMs from a collection without replacing the full list.
-
-    Args:
-        request (Request): Fastapi Request object
-        id (int): Collection id
-        payload (CollectionRomsPayload): ROM IDs to remove
-
-    Returns:
-        CollectionSchema: Updated collection
-    """
-    collection = db_collection_handler.get_collection(id)
-    if not collection:
-        raise CollectionNotFoundInDatabaseException(id)
-
-    if collection.user_id != request.user.id:
-        raise CollectionPermissionError(id)
+    """Remove roms from one of the caller's collections in one step, keeping the other roms it holds."""
+    collection = _owned_or_error(request, db_collection_handler.get_collection(id), id)
 
     # Members hidden from the caller stay, as in update_collection.
     hidden = _hidden_rom_ids(request, payload.rom_ids)
@@ -732,33 +766,41 @@ async def remove_roms_from_collection(
     )
 
 
-@protected_route(router.put, "/smart/{id}", [Scope.COLLECTIONS_WRITE])
+@protected_route(
+    router.put,
+    "/smart/{id}",
+    [Scope.COLLECTIONS_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"description": FILTER_CRITERIA_400},
+        status.HTTP_403_FORBIDDEN: NOT_OWNER_403,
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No smart collection the caller can see has this ID, or the filter criteria name a collection the caller cannot see."
+        },
+        status.HTTP_409_CONFLICT: SMART_NAME_TAKEN_409,
+    },
+)
 async def update_smart_collection(
     request: Request,
-    id: int,
-    is_public: bool | None = None,
-    name: str | None = Form(default=None, max_length=COLLECTION_NAME_MAX_LENGTH),
-    description: str | None = Form(default=None),
+    id: SmartCollectionIdPath,
+    is_public: IsPublicUpdateQuery = None,
+    name: str | None = Form(
+        default=None,
+        max_length=COLLECTION_NAME_MAX_LENGTH,
+        description="The new name. Leave it out to keep the current name.",
+    ),
+    description: str | None = Form(
+        default=None,
+        description="The new description. Leave it out to keep the current description.",
+    ),
     filter_criteria: str | None = Form(
         default=None,
         description="Updated smart collection filters as a JSON string.",
     ),
 ) -> SmartCollectionSchema:
-    """Update smart collection endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-        id (int): Smart collection id
-
-    Returns:
-        SmartCollectionSchema: Updated smart collection
-    """
-    smart_collection = db_collection_handler.get_smart_collection(id)
-    if not smart_collection:
-        raise CollectionNotFoundInDatabaseException(id)
-
-    if smart_collection.user_id != request.user.id:
-        raise CollectionPermissionError(id)
+    """Update one of the caller's smart collections. Fields left out of the request keep their current values."""
+    smart_collection = _owned_or_error(
+        request, db_collection_handler.get_smart_collection(id), id
+    )
 
     if name is not None:
         namesake = db_collection_handler.get_smart_collection_by_name(
@@ -807,20 +849,21 @@ async def update_smart_collection(
     router.put,
     "/smart/{id}/visibility",
     [Scope.COLLECTIONS_WRITE],
-    responses={status.HTTP_403_FORBIDDEN: {}, status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_403_FORBIDDEN: NOT_OWNER_403,
+        status.HTTP_404_NOT_FOUND: SMART_COLLECTION_404,
+    },
 )
 def update_smart_collection_visibility(
     request: Request,
-    id: int,
-    is_public: Annotated[bool, Body(embed=True)],
+    id: SmartCollectionIdPath,
+    is_public: Annotated[
+        bool,
+        Body(embed=True),
+    ],
 ) -> SmartCollectionSchema:
     """Share or unshare a smart collection (owner only), leaving its filters."""
-    smart_collection = db_collection_handler.get_smart_collection(id)
-    if not smart_collection:
-        raise CollectionNotFoundInDatabaseException(id)
-
-    if smart_collection.user_id != request.user.id:
-        raise CollectionPermissionError(id)
+    _owned_or_error(request, db_collection_handler.get_smart_collection(id), id)
 
     return _hide_single_collection_roms(
         SmartCollectionSchema.model_validate(
@@ -834,19 +877,17 @@ def update_smart_collection_visibility(
     router.delete,
     "/{id}",
     [Scope.COLLECTIONS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_403_FORBIDDEN: NOT_OWNER_403,
+        status.HTTP_404_NOT_FOUND: COLLECTION_404,
+    },
 )
 async def delete_collection(
     request: Request,
-    id: Annotated[int, PathVar(description="Collection internal id.", ge=1)],
+    id: Annotated[int, PathVar(description="The ID of the collection.", ge=1)],
 ) -> None:
     """Delete a collection by ID."""
-    collection = db_collection_handler.get_collection(id)
-    if not collection:
-        raise CollectionNotFoundInDatabaseException(id)
-
-    if collection.user_id != request.user.id:
-        raise CollectionPermissionError(id)
+    collection = _owned_or_error(request, db_collection_handler.get_collection(id), id)
 
     log.info(f"Deleting {hl(collection.name, color=BLUE)} from database")
     db_collection_handler.delete_collection(id)
@@ -865,19 +906,19 @@ async def delete_collection(
     router.delete,
     "/smart/{id}",
     [Scope.COLLECTIONS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_403_FORBIDDEN: NOT_OWNER_403,
+        status.HTTP_404_NOT_FOUND: SMART_COLLECTION_404,
+    },
 )
 async def delete_smart_collection(
     request: Request,
-    id: Annotated[int, PathVar(description="Smart collection internal id.", ge=1)],
+    id: Annotated[int, PathVar(description="The ID of the smart collection.", ge=1)],
 ) -> None:
     """Delete a smart collection by ID."""
-    smart_collection = db_collection_handler.get_smart_collection(id)
-    if not smart_collection:
-        raise CollectionNotFoundInDatabaseException(id)
-
-    if smart_collection.user_id != request.user.id:
-        raise CollectionPermissionError(id)
+    smart_collection = _owned_or_error(
+        request, db_collection_handler.get_smart_collection(id), id
+    )
 
     log.info(f"Deleting {hl(smart_collection.name, color=BLUE)} from database")
     db_collection_handler.delete_smart_collection(id)

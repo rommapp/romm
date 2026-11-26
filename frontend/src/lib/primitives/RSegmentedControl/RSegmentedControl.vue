@@ -8,12 +8,12 @@
 //   * "tab"       - text-padded tabs (used by AppNav).
 //
 // Items with `to` render as <router-link> (navigation); items without render
-// as <RBtn> and emit update:modelValue on click. Active id is always driven
+// as <RButton> and emit update:modelValue on click. Active id is always driven
 // externally: the consumer decides it from route, prop, or store.
 import { useResizeObserver } from "@vueuse/core";
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import RTooltip from "@/lib/structural/RTooltip/RTooltip.vue";
-import RBtn from "../RBtn/RBtn.vue";
+import RButton from "../RButton/RButton.vue";
 import RIcon from "../RIcon/RIcon.vue";
 import type { SegmentedControlItem } from "./types";
 
@@ -234,7 +234,7 @@ function showBadge(badge: SegmentedControlItem<T>["badge"]): boolean {
           </span>
         </slot>
       </router-link>
-      <RBtn
+      <RButton
         v-else
         :ref="(el) => setBtnEl(item.id, el)"
         variant="plain"
@@ -263,7 +263,7 @@ function showBadge(badge: SegmentedControlItem<T>["badge"]): boolean {
             {{ item.badge }}
           </span>
         </slot>
-      </RBtn>
+      </RButton>
     </template>
   </div>
 </template>
@@ -289,7 +289,7 @@ function showBadge(badge: SegmentedControlItem<T>["badge"]): boolean {
 
 /* Segmented: thin icon cluster (toolbar-style). 3px padding around the
    28×28 inner buttons + 1px border puts the outer pill at 36px, which
-   matches an `RBtn size="default"` sitting next to it (e.g., the disc
+   matches an `RButton size="default"` sitting next to it (e.g., the disc
    filter / kebab buttons in `GalleryToolbar`). */
 .r-segmented-control--segmented {
   padding: 3px;
@@ -376,7 +376,7 @@ function showBadge(badge: SegmentedControlItem<T>["badge"]): boolean {
 
 /* Button: common. Indicator owns the active background; buttons stay
    transparent so the slide reads cleanly behind them. `transform` + extra
-   transitions give the hover/press animation parity with RBtn's
+   transitions give the hover/press animation parity with RButton's
    currentColor overlay + scale press cue. */
 .r-segmented-control__btn {
   position: relative;
@@ -394,7 +394,7 @@ function showBadge(badge: SegmentedControlItem<T>["badge"]): boolean {
   transform: scale(0.94);
 }
 
-/* Segmented sizing + colors. RBtn renders with `variant="plain"`, so these
+/* Segmented sizing + colors. RButton renders with `variant="plain"`, so these
    rules are its only source of colour. */
 .r-segmented-control--segmented .r-segmented-control__btn {
   min-width: 28px;
@@ -409,7 +409,7 @@ function showBadge(badge: SegmentedControlItem<T>["badge"]): boolean {
 }
 .r-segmented-control--segmented
   .r-segmented-control__btn
-  :deep(.r-btn__content) {
+  :deep(.r-button__content) {
   min-width: 0;
 }
 .r-segmented-control--segmented
@@ -423,7 +423,7 @@ function showBadge(badge: SegmentedControlItem<T>["badge"]): boolean {
   color: var(--r-color-overlay-emphasis-fg);
 }
 
-/* x-small segmented: 22×22 button cluster, matches RBtn's x-small
+/* x-small segmented: 22×22 button cluster, matches RButton's x-small
    token so the segmented control reads as a peer to a 20px RSwitch
    when sitting inline inside a SettingsToggleRow. Default `small`
    (28×28) keeps every existing call site identical. */
@@ -435,7 +435,7 @@ function showBadge(badge: SegmentedControlItem<T>["badge"]): boolean {
   height: 22px;
 }
 
-/* Tab sizing + colors. Min-height is explicit so RBtn items (no `to`)
+/* Tab sizing + colors. Min-height is explicit so RButton items (no `to`)
    match the height of router-link items. */
 .r-segmented-control--tab .r-segmented-control__btn {
   padding: 7px 22px;

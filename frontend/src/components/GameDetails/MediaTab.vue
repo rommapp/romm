@@ -24,7 +24,7 @@ import { useRomSoundtrack } from "@/composables/useRomSoundtrack";
 import { useRomSync } from "@/composables/useRomSync";
 import { useSoundtrackActions } from "@/composables/useSoundtrackActions";
 import { useSubtabQuery } from "@/composables/useSubtabQuery";
-import { RBtn, RDropzone, REmptyState } from "@/lib";
+import { RButton, RDropzone, REmptyState } from "@/lib";
 import type { DetailedRom } from "@/stores/roms";
 import { SOUNDTRACK_ACCEPT } from "@/utils/soundtrackTracks";
 import { tabId, tabPanelId } from "@/utils/tabIds";
@@ -191,7 +191,7 @@ async function deleteSoundtrack(fileId: number) {
       variant="menu"
     >
       <template #actions>
-        <RBtn
+        <RButton
           v-if="pickerRowUpload"
           variant="outlined"
           size="small"
@@ -200,7 +200,7 @@ async function deleteSoundtrack(fileId: number) {
           @click="pickerRowUpload()"
         >
           {{ t("common.upload") }}
-        </RBtn>
+        </RButton>
       </template>
     </SubtabNav>
     <aside v-else class="r-media__sidebar">
@@ -279,14 +279,14 @@ async function deleteSoundtrack(fileId: number) {
           class="r-media__section-head"
         >
           <div class="r-media__section-actions">
-            <RBtn
+            <RButton
               variant="outlined"
               size="small"
               prepend-icon="mdi-cloud-upload-outline"
               @click="soundtrackDz?.open()"
             >
               {{ t("common.upload") }}
-            </RBtn>
+            </RButton>
           </div>
         </header>
 

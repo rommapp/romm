@@ -17,7 +17,6 @@ import pytest
 
 from logger.logger import log
 from utils import archives
-from utils.zip_cache import ensure_zipfile_writable
 
 
 def _fake_7z_listing(names: list[str]) -> str:
@@ -712,9 +711,6 @@ def _tar_bytes(members: dict[str, bytes]) -> bytes:
 def _zip_bytes(
     members: dict[str, bytes], compression: int = zipfile.ZIP_DEFLATED
 ) -> bytes:
-    # Importing `archives` patches zipfile for Enhanced Deflate, which
-    # leaves the writer unusable until this is called.
-    ensure_zipfile_writable()
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", compression) as z:
         for name, data in members.items():
@@ -1049,3 +1045,23 @@ def test_real_ppmd_zip_hashes_through_7zz(tmp_path):
         ("Game (USA) (Track 01).bin", len(track), hashlib.sha1(track).hexdigest()),
         ("Game (USA).cue", len(cue), hashlib.sha1(cue).hexdigest()),
     ]
+
+
+@pytest.mark.parametrize(
+    "compression",
+    [zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED, zipfile.ZIP_ZSTANDARD],
+)
+def test_zip_writes_after_inflate64_patch(compression: int, tmp_path: Path) -> None:
+    src = tmp_path / "src.bin"
+    src.write_bytes(b"from disk")
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", compression, compresslevel=1) as z:
+        z.writestr("a.txt", b"hello")
+        z.write(src, arcname="b.bin")
+        with z.open("c.txt", "w") as member:
+            member.write(b"streamed")
+
+    with zipfile.ZipFile(buf) as z:
+        assert z.read("a.txt") == b"hello"
+        assert z.read("b.bin") == b"from disk"
+        assert z.read("c.txt") == b"streamed"

@@ -61,7 +61,7 @@ const RSelect = {
   emits: ["update:modelValue"],
   template: `<select class="sel" :value="modelValue" @change="$emit('update:modelValue', $event.target.value)"><option v-for="i in items" :key="i.value" :value="i.value">{{ i.title }}</option></select>`,
 };
-const RBtn = {
+const RButton = {
   props: ["disabled"],
   emits: ["click"],
   template: `<button class="btn" :disabled="disabled" @click="$emit('click')"><slot /></button>`,
@@ -84,7 +84,7 @@ async function openDialog() {
       stubs: {
         RDialog,
         RSelect,
-        RBtn,
+        RButton,
         RAvatar: true,
         RAlert: true,
         RIcon: true,

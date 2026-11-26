@@ -23,7 +23,7 @@ import { useIsAlive } from "@/composables/useIsAlive";
 import { useLoadingPhase } from "@/composables/useLoadingPhase";
 import { useSnackbar } from "@/composables/useSnackbar";
 import {
-  RBtn,
+  RButton,
   RDateField,
   REmptyState,
   RSelect,
@@ -514,14 +514,14 @@ useEventListener(document.fonts, "loadingdone", (event) => {
         </h3>
         <div v-else-if="(item as Item).kind === 'more'" class="r-audit__more">
           <RSpinner v-if="!moreFailed" :size="22" />
-          <RBtn
+          <RButton
             v-else
             variant="text"
             prepend-icon="mdi-refresh"
             @click="showMore"
           >
             {{ t("audit.load-error") }}
-          </RBtn>
+          </RButton>
         </div>
         <EventLogRow
           v-else-if="(item as Item).kind === 'event'"

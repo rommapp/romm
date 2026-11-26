@@ -6,7 +6,7 @@ from typing import Annotated, NotRequired, TypedDict, cast
 import pydash
 from anyio import Path as AnyioPath
 from fastapi import HTTPException
-from pydantic import Field
+from pydantic import Field, with_config
 
 from adapters.services.provider_http import unavailable
 from adapters.services.retroachievements import (
@@ -20,10 +20,11 @@ from config import (
     REFRESH_RETROACHIEVEMENTS_CACHE_DAYS,
     RETROACHIEVEMENTS_API_KEY,
 )
+from endpoints.responses.base import API_SCHEMA_CONFIG
 from handler.filesystem import fs_resource_handler
 from logger.logger import log
 from models.rom import Rom
-from utils.arcade_platforms import ARCADE_SET_PLATFORMS, arcade_fallbacks
+from utils.arcade_platforms import RA_ARCADE_PLATFORMS, arcade_fallbacks
 from utils.datetime import parse_utc_timestamp
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.platform_slugs import fill_duplicate_slugs
@@ -77,14 +78,10 @@ class RAGameRom(BaseRom):
     ra_metadata: NotRequired[RAMetadata]
 
 
+@with_config(API_SCHEMA_CONFIG)
 class EarnedAchievement(TypedDict):
-    id: Annotated[
-        str,
-        Field(
-            description="The badge name, which several achievements can share. Use `ra_id`.",
-            deprecated=True,
-        ),
-    ]
+    id: Annotated[str, Field(deprecated=True)]
+    """The badge name. Several achievements can share one, so use `ra_id` to identify an achievement."""
     ra_id: NotRequired[int]
     date: str
     date_hardcore: NotRequired[str]
@@ -570,7 +567,7 @@ RA_PLATFORM_LIST: dict[UPS, SlugToRAId] = {
     UPS.WONDERSWAN: {"id": 53, "name": "WonderSwan"},
     UPS.WONDERSWAN_COLOR: {"id": 53, "name": "WonderSwan Color"},
 }
-# RetroAchievements hashes only MAME and FinalBurn sets, by filename.
-RA_PLATFORM_LIST |= arcade_fallbacks(RA_PLATFORM_LIST, ARCADE_SET_PLATFORMS)
+# RetroAchievements has one Arcade console and hashes its games by set name.
+RA_PLATFORM_LIST |= arcade_fallbacks(RA_PLATFORM_LIST, RA_ARCADE_PLATFORMS)
 
 fill_duplicate_slugs(RA_PLATFORM_LIST)

@@ -156,7 +156,7 @@ function onClose(evt: MouseEvent) {
   line-height: 1;
   border: 1px solid transparent;
   user-select: none;
-  /* Subtle rest-state mute that brightens on hover: same idiom RBtn
+  /* Subtle rest-state mute that brightens on hover: same idiom RButton
      uses so chips and buttons share the rest-→-hover feel. Applied to
      every variant so non-interactive tag chips also feel "alive" when
      the cursor crosses them. */

@@ -389,7 +389,7 @@ const hasLabel = computed(
 
 /* Hover: border darkens, faint fill, soft currentColor halo around
    the box so the user feels the affordance at a glance (same idiom
-   RBtn / RSwitch use). */
+   RButton / RSwitch use). */
 .r-checkbox:hover:not(.r-checkbox--disabled) .r-checkbox__box {
   border-color: var(--r-color-fg-secondary);
   background: var(--r-color-surface-hover);

@@ -29,7 +29,7 @@ export type Events = {
   /** Opens ManageCollectionsDialog with the given selection. */
   showManageCollectionsDialog: SimpleRom[];
   /** v2: fired by ManageCollectionsDialog when it closes, so the
-   *  GameActionBtn that opened it can drop its pinned-hover state. */
+   *  GameActionButton that opened it can drop its pinned-hover state. */
   closeManageCollectionsDialog: null;
   showRemoveFromCollectionDialog: SimpleRom[];
   showDeleteCollectionDialog: Collection;

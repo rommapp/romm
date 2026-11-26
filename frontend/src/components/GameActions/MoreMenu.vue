@@ -7,7 +7,7 @@
 // Usage:
 //   <MoreMenu :rom="rom">
 //     <template #activator="{ props }">
-//       <RBtn icon="mdi-dots-horizontal" v-bind="props" />
+//       <RButton icon="mdi-dots-horizontal" v-bind="props" />
 //     </template>
 //   </MoreMenu>
 import { ref } from "vue";

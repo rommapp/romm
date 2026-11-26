@@ -715,6 +715,7 @@ async def test_oidc_skips_userinfo_endpoint_when_id_token_has_the_claims(
     mocker, mock_oidc_enabled, mock_token, mock_openid_configuration
 ):
     mock_token["access_token"] = "access-token"
+    mock_token["userinfo"]["picture"] = "https://idp.example/me.png"
     mocker.patch("handler.auth.base_handler.OIDC_CLAIM_ROLES", "")
     mocker.patch.object(
         StarletteOAuth2App,
@@ -807,6 +808,32 @@ async def test_oidc_userinfo_verification_does_not_vouch_for_another_email(
 
     assert claims["email"] == mock_token["userinfo"]["email"]
     assert "email_verified" not in claims
+
+
+async def test_oidc_userinfo_endpoint_supplies_a_missing_picture(
+    mocker, mock_oidc_enabled, mock_token, mock_openid_configuration
+):
+    mock_token["access_token"] = "access-token"
+    mock_token["userinfo"].pop("picture", None)
+    mocker.patch.object(
+        StarletteOAuth2App,
+        "load_server_metadata",
+        return_value=mock_openid_configuration,
+    )
+    mocker.patch.object(
+        StarletteOAuth2App,
+        "userinfo",
+        return_value={
+            "sub": mock_token["userinfo"]["sub"],
+            "picture": "https://idp.example/me.png",
+        },
+    )
+
+    claims = await OpenIDHandler()._with_userinfo_endpoint_claims(
+        mock_token, mock_token["userinfo"]
+    )
+
+    assert claims["picture"] == "https://idp.example/me.png"
 
 
 async def test_oidc_discovery_failure_falls_back_to_id_token(

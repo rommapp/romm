@@ -57,6 +57,7 @@ vi.mock("@/composables/useGameActions", () => ({
             };
           }
           if (prop === "isFavorited") return { value: false };
+          if (prop === "downloadFormats") return { value: [] };
           if (prop === "joinActionLabel") return { value: joinActionLabel };
           if (prop === "streamActionLabel") return { value: streamActionLabel };
           return vi.fn();
@@ -144,6 +145,18 @@ describe("GameActionsList: permission gating", () => {
     });
     expect(labels(wrapper)).toContain("common.edit");
     expect(wrapper.findAll(".divider")).toHaveLength(2);
+  });
+
+  it("starts with no divider when there are no primary actions", () => {
+    const wrapper = mountList({
+      canPlayLocally: false,
+      canDownload: false,
+      canEdit: true,
+      canDelete: false,
+    });
+    expect(wrapper.find(".item, .divider").classes()).toContain("item");
+    expect(wrapper.findAll(".divider")).toHaveLength(1);
+    mountList({ canPlayLocally: true, canDownload: true });
   });
 });
 

@@ -5,7 +5,10 @@ import pytest
 from sqlalchemy import update
 from tests.handler.snapshots.pushes import (
     SRAM,
+    STATE_A,
+    STATE_B,
     first_push,
+    md5,
     part,
     push,
     push_save,
@@ -17,11 +20,17 @@ from handler.database import db_rom_handler, db_snapshot_handler
 from handler.database.base_handler import sync_session
 from handler.snapshots import retention
 from handler.snapshots.manifest import Manifest
-from handler.snapshots.write import SAVE_PART, WriteResult, write_snapshot
+from handler.snapshots.write import (
+    SAVE_PART,
+    WriteResult,
+    state_part,
+    write_snapshot,
+)
 from models.assets import Save, State
 from models.rom import Rom, RomFile
 from models.snapshot import Snapshot, SnapshotKind
 from models.user import User
+from utils.datetime import to_utc
 
 KEEP = 2
 
@@ -149,6 +158,39 @@ async def test_a_row_a_private_channel_still_holds_turns_private_once_pruned(
     assert alive(shared) == [False]
     with sync_session() as session:
         assert session.get_one(Save, shared.snapshot.save_id).is_public is False
+
+
+async def test_pruning_keeps_the_dates_of_rows_a_kept_snapshot_holds(
+    admin_user: User, rom: Rom, hashed_file: RomFile
+):
+    first = await first_push(admin_user, rom, hashed_file)
+    held = await write_snapshot(
+        push(
+            admin_user,
+            rom,
+            hashed_file,
+            Manifest(states={"snes9x": {"auto": md5(STATE_A), "1": md5(STATE_B)}}),
+            expected=first.snapshot.id,
+            channel_id=first.snapshot.channel_id,
+            parts={state_part("snes9x", "1"): part(STATE_B, "game.state1")},
+        )
+    )
+    save_id = first.snapshot.save_id
+    state_id = first.snapshot.states[0].state_id
+    stamp = datetime(2020, 1, 1, tzinfo=timezone.utc)
+    with sync_session.begin() as session:
+        session.execute(update(Save).where(Save.id == save_id).values(updated_at=stamp))
+        session.execute(
+            update(State).where(State.id == state_id).values(updated_at=stamp)
+        )
+
+    later = await push_save(admin_user, rom, hashed_file, held, b"later")
+
+    assert alive(first, held, later) == [False, True, True]
+    assert held.snapshot.save_id == save_id
+    with sync_session() as session:
+        assert to_utc(session.get_one(Save, save_id).updated_at) == stamp
+        assert to_utc(session.get_one(State, state_id).updated_at) == stamp
 
 
 async def test_a_legacy_save_in_the_channel_survives_pruning(

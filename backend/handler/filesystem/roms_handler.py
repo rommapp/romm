@@ -19,6 +19,7 @@ from adapters.services.rom_converto import (
 from adapters.services.sigil import (
     SIGIL_EXTRACT_PLATFORM_SLUGS,
     SWITCH_PLATFORM_SLUGS,
+    UNREADABLE_ARCHIVE_SUFFIXES,
     SigilExtractionResult,
     SigilService,
 )
@@ -361,6 +362,23 @@ def _top_level_changed(
     return any(key[0] == rel_rom_dir and key not in seen for key in existing_by_key)
 
 
+def _arcade_set_archive(
+    entries: Sequence[DirEntry], rom_dir: Path, set_name: str
+) -> Path | None:
+    """Return the top-level archive named after the set, or the largest archive if no name matches.
+
+    The name comes first because a BIOS or parent set kept beside it can be larger.
+    """
+    archives = [
+        (st.st_size, Path(f_path, file_name))
+        for f_path, file_name, st in entries
+        if f_path == rom_dir and file_name.lower().endswith(COMPRESSED_FILE_SUFFIXES)
+    ]
+    named = [a for a in archives if a[1].stem.lower() == set_name.lower()]
+    picked = max(named or archives, key=lambda a: a[0], default=None)
+    return picked[1] if picked else None
+
+
 # File categories that never hold a ROM binary, so sigil has nothing to read.
 NON_BINARY_FILE_CATEGORIES: Final = DOCUMENT_CATEGORIES | {
     RomFileCategory.SOUNDTRACK,
@@ -389,7 +407,7 @@ def _may_hold_title_id(path: Path, category: RomFileCategory | None) -> bool:
     """Whether sigil can read a title id from this file."""
     name = path.name.lower()
     return (
-        not name.endswith(COMPRESSED_FILE_SUFFIXES)
+        not name.endswith(UNREADABLE_ARCHIVE_SUFFIXES)
         and not name.endswith(SIDECAR_FILE_SUFFIXES)
         and category not in NON_BINARY_FILE_CATEGORIES
     )
@@ -796,6 +814,7 @@ class FSRomsHandler(FSHandler):
         *,
         existing_files: Sequence[RomFile] | None = None,
         reuse_title_ids: bool = False,
+        rom_hashes: bool = True,
         cnfg: Config | None = None,
     ) -> ParsedRomFiles:
         """Build the ROM's file rows from disk.
@@ -807,9 +826,11 @@ class FSRomsHandler(FSHandler):
                 are only recomputed when a top-level file changed.
             reuse_title_ids: Keep the stored identity, without a parse, when no
                 file changed and sigil already read the ROM.
+            rom_hashes: False keeps a folder ROM's stored ROM-level hashes even
+                when its top level changed, so unchanged files are not reread.
             cnfg: The config to read, so a scan can load it once.
         """
-        from adapters.services.rahasher import RAHasherService
+        from adapters.services.rahasher import ARCADE_RA_ID, RAHasherService
         from handler.metadata import meta_ra_handler
 
         # The rom's stored directory is the source of truth for its location, so
@@ -916,25 +937,36 @@ class FSRomsHandler(FSHandler):
                 top_level_changed = _top_level_changed(
                     entries, rom_dir, rel_rom_dir, existing_by_key, hashable_platform
                 )
+            if not rom_hashes:
+                top_level_changed = False
+                rom_md5_h = rom_sha1_h = None
 
             # Calculate the RA hash if the platform has a slug that matches a known RA slug
             if calculate_hashes and top_level_changed:
                 ra_platform = meta_ra_handler.get_platform(rom.platform_slug)
                 if ra_platform and ra_platform["ra_id"]:
+                    # Arcade is hashed by the set's name, which its archive carries. The
+                    # CHD beside it is named after the disc.
+                    set_archive = (
+                        _arcade_set_archive(entries, rom_dir, rom.fs_name)
+                        if ra_platform["ra_id"] == ARCADE_RA_ID
+                        else None
+                    )
                     # RAHasher can't process CHD files via the /* wildcard and instead expects
-                    # track files (bin/cue/etc.). For CHD-only folders, find the largest
-                    # CHD and pass it directly, matching single-file CHD behaviour.
+                    # track files (bin/cue/etc.). For a folder holding a CHD, pass the largest
+                    # one directly, matching single-file CHD behaviour.
                     top_level_chds = [
                         (st.st_size, Path(f_path, file_name))
                         for f_path, file_name, st in entries
                         if f_path == rom_dir and is_chd_file(Path(f_path, file_name))
                     ]
                     largest_chd = max(top_level_chds, key=lambda c: c[0], default=None)
-                    ra_path = (
-                        str(largest_chd[1])
-                        if largest_chd
-                        else f"{abs_fs_path}/{rom.fs_name}/*"
-                    )
+                    if set_archive is not None:
+                        ra_path = str(set_archive)
+                    elif largest_chd:
+                        ra_path = str(largest_chd[1])
+                    else:
+                        ra_path = f"{abs_fs_path}/{rom.fs_name}/*"
                     rom_ra_h = await RAHasherService().calculate_hash(
                         ra_platform,
                         ra_path,
@@ -1093,14 +1125,12 @@ class FSRomsHandler(FSHandler):
 
             if members:
                 rom_md5_h, rom_sha1_h = archive_md5_h, archive_sha1_h
-                rom_files.append(
-                    self._build_rom_file(
-                        rom=rom,
-                        rom_path=Path(rel_roms_path),
-                        file_name=rom.fs_name,
-                        file_hash=_make_file_hash(rom_crc_c, rom_md5_h, rom_sha1_h),
-                        archive_members=members,
-                    )
+                rom_file = self._build_rom_file(
+                    rom=rom,
+                    rom_path=Path(rel_roms_path),
+                    file_name=rom.fs_name,
+                    file_hash=_make_file_hash(rom_crc_c, rom_md5_h, rom_sha1_h),
+                    archive_members=members,
                 )
             else:
                 # Empty, malformed, unreadable, or all-excluded archive: hash the archive
@@ -1118,14 +1148,14 @@ class FSRomsHandler(FSHandler):
                     return crc
 
                 rom_crc_c = await asyncio.to_thread(_hash_raw_archive, rom_crc_c)
-                rom_files.append(
-                    self._build_rom_file(
-                        rom=rom,
-                        rom_path=Path(rel_roms_path),
-                        file_name=rom.fs_name,
-                        file_hash=_make_file_hash(rom_crc_c, rom_md5_h, rom_sha1_h),
-                    )
+                rom_file = self._build_rom_file(
+                    rom=rom,
+                    rom_path=Path(rel_roms_path),
+                    file_name=rom.fs_name,
+                    file_hash=_make_file_hash(rom_crc_c, rom_md5_h, rom_sha1_h),
                 )
+            rom_files.append(rom_file)
+            _record_title_id_source(rom_dir, rom_file)
         else:
             if hashable_platform:
                 crc_c, _, md5_h, _, sha1_h, _, chd_sha1_hash = await asyncio.to_thread(

@@ -30,7 +30,7 @@ defineOptions({ inheritAttrs: false });
 interface Props {
   modelValue: Id;
   items: RTabNavItem<Id>[];
-  /** Size ladder shared with RBtn / RChip / RTag. */
+  /** Size ladder shared with RButton / RChip / RTag. */
   size?: "x-small" | "small" | "default" | "large" | "x-large";
   variant?: "underlined" | "pill";
   orientation?: "horizontal" | "vertical";

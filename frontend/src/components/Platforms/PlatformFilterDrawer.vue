@@ -3,7 +3,7 @@
 // gallery's FilterDrawer. The view owns the URL-backed selection and counts.
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { RBtn, RDrawer, RIcon, RSelect, RTag } from "@/lib";
+import { RButton, RDrawer, RIcon, RSelect, RTag } from "@/lib";
 import type { FacetOption, PlatformFacetKey } from "@/utils/platformFacets";
 
 defineOptions({ inheritAttrs: false });
@@ -89,22 +89,22 @@ const optionTitle = (o: FacetOption) => `${o.label} (${o.count})`;
     </div>
 
     <template #footer>
-      <RBtn
+      <RButton
         variant="outlined"
         prepend-icon="mdi-restore"
         :disabled="activeCount === 0"
         @click="emit('clear')"
       >
         {{ t("platform.reset-filters") }}
-      </RBtn>
+      </RButton>
       <div class="r-pfd__spacer" />
-      <RBtn
+      <RButton
         variant="flat"
         color="primary"
         @click="emit('update:modelValue', false)"
       >
         {{ t("common.close") }}
-      </RBtn>
+      </RButton>
     </template>
   </RDrawer>
 </template>

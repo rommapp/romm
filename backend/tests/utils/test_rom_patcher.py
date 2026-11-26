@@ -24,7 +24,6 @@ from utils.rom_patcher.patcher import (
     MIN_PATCH_OUTPUT_GROWTH_BYTES,
     max_patch_output_size,
 )
-from utils.zip_cache import ensure_zipfile_writable
 
 
 def _write_zip(
@@ -33,7 +32,6 @@ def _write_zip(
     *,
     comment: bytes = b"",
 ) -> None:
-    ensure_zipfile_writable()
     with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         archive.comment = comment
         for name, content in members.items():

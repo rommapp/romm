@@ -7,6 +7,7 @@ import ChannelLabelDialog from "@/components/GameDetails/SaveChannels/ChannelLab
 import ChannelTile from "@/components/GameDetails/SaveChannels/ChannelTile.vue";
 import SnapshotViewer from "@/components/GameDetails/SaveChannels/SnapshotViewer.vue";
 import snapshotApi from "@/services/api/snapshot";
+import { createTestRouter } from "@/test-utils/router";
 import { saveFixture } from "@/utils/assets.fixtures";
 import { detailedRomFixture } from "@/utils/rom.fixtures";
 import { channelFixture, snapshotFixture } from "@/utils/snapshots.fixtures";
@@ -66,6 +67,7 @@ function mountPanel(
       saves,
       own: true,
     },
+    global: { plugins: [createTestRouter()] },
   });
 }
 
@@ -178,7 +180,7 @@ describe("ChannelsPanel", () => {
 
     await wrapper
       .find(".r-channels__tools")
-      .findComponent({ name: "RBtn" })
+      .findComponent({ name: "RButton" })
       .trigger("click");
     await flushPromises();
 
@@ -203,7 +205,7 @@ describe("ChannelsPanel", () => {
 
     await wrapper
       .find(".r-channels__tools")
-      .findComponent({ name: "RBtn" })
+      .findComponent({ name: "RButton" })
       .trigger("click");
     wrapper
       .findComponent(ChannelLabelDialog)
@@ -232,7 +234,7 @@ describe("ChannelsPanel", () => {
 
     await wrapper
       .find(".r-channels__tools")
-      .findComponent({ name: "RBtn" })
+      .findComponent({ name: "RButton" })
       .trigger("click");
     wrapper
       .findComponent(ChannelLabelDialog)
@@ -358,6 +360,7 @@ describe("ChannelsPanel", () => {
         channels: [shared],
         saves: [],
       },
+      global: { plugins: [createTestRouter()] },
     });
 
     await openCurrent(wrapper, shared);
@@ -403,7 +406,7 @@ describe("ChannelsPanel", () => {
     expect(wrapper.find(".r-channels__detached").text()).toContain("Old run");
     await wrapper
       .find(".r-channels__detached")
-      .findComponent({ name: "RBtn" })
+      .findComponent({ name: "RButton" })
       .trigger("click");
     await flushPromises();
 

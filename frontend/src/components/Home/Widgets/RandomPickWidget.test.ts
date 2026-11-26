@@ -26,7 +26,7 @@ vi.mock("@/composables/useSnackbar", () => ({
 }));
 
 vi.mock("@/lib", () => ({
-  RBtn: defineComponent({
+  RButton: defineComponent({
     props: { disabled: { type: Boolean, default: false } },
     emits: ["click"],
     template:

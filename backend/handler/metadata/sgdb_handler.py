@@ -61,7 +61,10 @@ class SGDBBaseHandler(MetadataHandler):
             log.warning(f"Failed to fetch ROM by SteamGridDB ID {sgdb_id}: {e}")
             raise
 
-    async def get_details(self, search_term: str) -> list[CoverResult]:
+    async def get_details(
+        self, search_term: str, *, sfw_only: bool = False
+    ) -> list[CoverResult]:
+        """Search covers, leaving out NSFW grids when `sfw_only` is set."""
         if not self.is_enabled():
             return []
 
@@ -75,7 +78,7 @@ class SGDBBaseHandler(MetadataHandler):
             self._get_game_covers(
                 game_id=game["id"],
                 game_name=game["name"],
-                is_nsfw="any",
+                is_nsfw=False if sfw_only else "any",
                 is_humor="any",
                 is_epilepsy="any",
             )

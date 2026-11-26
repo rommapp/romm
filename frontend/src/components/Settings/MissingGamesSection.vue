@@ -42,7 +42,7 @@ import { useSnackbar } from "@/composables/useSnackbar";
 import { useTaskCompletion } from "@/composables/useTaskCompletion";
 import { useWebpSupport } from "@/composables/useWebpSupport";
 import {
-  RBtn,
+  RButton,
   REmptyState,
   RIcon,
   RMenu,
@@ -385,7 +385,7 @@ onBeforeUnmount(() => {
         />
         <RMenu location="bottom end" :offset="6" width="220px">
           <template #activator="{ props: activatorProps }">
-            <RBtn
+            <RButton
               v-bind="activatorProps"
               variant="outlined"
               surface

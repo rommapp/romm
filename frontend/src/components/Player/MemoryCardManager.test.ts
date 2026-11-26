@@ -27,7 +27,7 @@ const card = {
   updated_at: "2026-09-24T10:00:00Z",
 } as MemoryCardSchema;
 
-const RBtn = {
+const RButton = {
   props: { ariaLabel: { type: String, default: "" } },
   emits: ["click"],
   template: `<button :aria-label="ariaLabel" @click="$emit('click')"><slot /></button>`,
@@ -43,7 +43,7 @@ async function openEdit() {
   const wrapper = mount(MemoryCardManager, {
     props: { emulator: "pcsx2" },
     global: {
-      stubs: { RBtn, MemoryCardDialog, PublicBadge: true, RIcon: true },
+      stubs: { RButton, MemoryCardDialog, PublicBadge: true, RIcon: true },
     },
   });
   await flushPromises();

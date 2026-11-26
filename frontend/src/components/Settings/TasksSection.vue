@@ -16,7 +16,7 @@ import SettingsSection from "@/components/Settings/SettingsSection.vue";
 import { useConfirm } from "@/composables/useConfirm";
 import { useSnackbar } from "@/composables/useSnackbar";
 import { useVisiblePoll } from "@/composables/useVisiblePoll";
-import { RBtn, RIcon, RSpinner } from "@/lib";
+import { RButton, RIcon, RSpinner } from "@/lib";
 import taskApi from "@/services/api/task";
 import storeTasks from "@/stores/tasks";
 import { convertCronExperssion, formatTimestamp } from "@/utils";
@@ -256,7 +256,7 @@ function statusInfo(task: TaskStatusResponse) {
       </div>
     </div>
 
-    <RBtn
+    <RButton
       v-if="taskStatuses.length === 0 && !manualTasksUI.length"
       variant="text"
       class="r-tasks__loading"
@@ -264,7 +264,7 @@ function statusInfo(task: TaskStatusResponse) {
     >
       <RSpinner :size="14" />
       {{ t("common.loading-ellipsis") }}
-    </RBtn>
+    </RButton>
   </SettingsSection>
 </template>
 

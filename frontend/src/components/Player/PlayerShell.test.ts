@@ -43,8 +43,8 @@ function mountShell(
     slots: { stage: "<div class='stage' />" },
     global: {
       stubs: {
-        RBtn: {
-          name: "RBtn",
+        RButton: {
+          name: "RButton",
           props: ["disabled", "to"],
           emits: ["click"],
           template:
@@ -62,7 +62,7 @@ beforeEach(() => {
 });
 
 function backLinks(wrapper: VueWrapper) {
-  const [, toRom, toPlatform] = wrapper.findAllComponents({ name: "RBtn" });
+  const [, toRom, toPlatform] = wrapper.findAllComponents({ name: "RButton" });
   return { toRom: toRom!, toPlatform: toPlatform! };
 }
 

@@ -68,6 +68,8 @@ from models.firmware import Firmware
 from models.notification import NotificationKind, NotificationLevel
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory, RomIdentity
+from utils.gamelist_exporter import GamelistExporter
+from utils.pegasus_exporter import PegasusExporter
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 # A platform IGDB and MobyGames both cover, so rescans can consult either.
@@ -447,6 +449,61 @@ class TestScanTotals:
         # Only the selected folder is scanned, not every filesystem platform.
         assert result.total_platforms == 1
         assert result.total_roms == 100
+
+
+class TestScanAutoExport:
+    """Auto-export after a scan only rewrites the platforms the scan covered."""
+
+    @pytest.fixture(
+        params=[
+            ("GAMELIST_AUTO_EXPORT_ON_SCAN", GamelistExporter),
+            ("PEGASUS_AUTO_EXPORT_ON_SCAN", PegasusExporter),
+        ],
+        ids=["gamelist", "pegasus"],
+    )
+    def exported_ids(self, request, patched, mocker):
+        flag, exporter = request.param
+        config = MagicMock()
+        config.GAMELIST_AUTO_EXPORT_ON_SCAN = False
+        config.PEGASUS_AUTO_EXPORT_ON_SCAN = False
+        setattr(config, flag, True)
+        mocker.patch.object(config_manager, "get_config", return_value=config)
+        existing = MagicMock(id=1, fs_slug="existing")
+        # Read once before the scan and again after it has added the new folders.
+        mocker.patch.object(
+            db_platform_handler,
+            "get_platforms",
+            side_effect=[
+                [existing],
+                [
+                    existing,
+                    MagicMock(id=2, fs_slug="new1"),
+                    MagicMock(id=3, fs_slug="new2"),
+                ],
+            ],
+        )
+        export = mocker.patch.object(
+            exporter,
+            "export_platform_to_file",
+            AsyncMock(return_value=True),
+        )
+        return export
+
+    async def test_new_platforms_scan_skips_existing_platforms(self, exported_ids):
+        await scan_platforms(
+            platform_ids=[],
+            metadata_sources=[],
+            scan_type=ScanType.NEW_PLATFORMS,
+        )
+
+        assert sorted(c.args[0] for c in exported_ids.await_args_list) == [2, 3]
+
+    async def test_quick_scan_exports_every_scanned_platform(self, exported_ids):
+        await scan_platforms(
+            platform_ids=[], metadata_sources=[], scan_type=ScanType.QUICK
+        )
+
+        assert sorted(c.args[0] for c in exported_ids.await_args_list) == [1, 2, 3]
 
 
 class TestScreenScraperScanReporting:
@@ -3277,6 +3334,51 @@ class TestIdentifyRomEmitsNewFlag:
         assert [payload["is_new"] for payload in payloads] == [is_new, is_new]
 
 
+class TestScanningRomFileFlags:
+    """Every scan emit of a rom precedes the write of its file rows, so the file
+    flags in its payload come from the files the scan read."""
+
+    async def test_rebuilt_files_reach_every_emit(self, mocker, identify_harness):
+        scanned = [
+            RomFile(
+                file_name="game.jsdos", file_path="test/roms/Game", file_size_bytes=1
+            )
+        ]
+        identify_harness.get_rom_files.return_value = ParsedRomFiles(
+            rom_files=scanned, crc_hash="", md5_hash="", sha1_hash="", ra_hash=""
+        )
+        identify_harness.db.add_rom.return_value.is_identified = True
+        emit = mocker.patch.object(scan_module, "emit_scanning_rom", AsyncMock())
+
+        await identify_harness.run(None, ScanType.COMPLETE, [])
+
+        assert identify_harness.scan_rom.await_args.kwargs["scanned_files"] is scanned
+        assert [call.kwargs["files"] for call in emit.await_args_list] == [
+            scanned,
+            scanned,
+        ]
+
+    async def test_payload_flags_follow_the_scanned_files(self, rom: Rom):
+        loaded = db_rom_handler.get_rom(rom.id)
+        assert loaded is not None
+        files = [
+            RomFile(
+                file_name="game.jsdos",
+                file_path=loaded.full_path,
+                category=RomFileCategory.GAME,
+            )
+        ]
+        socket_manager = AsyncMock()
+
+        await scan_handler_module.emit_scanning_rom(
+            socket_manager, loaded, is_new=True, files=files
+        )
+
+        payload = socket_manager.emit.await_args.args[1]
+        assert payload["has_jsdos_bundle"] is True
+        assert payload["has_nested_single_file"] is True
+
+
 class TestIdentifyRomIncrementalHashing:
     """Selected-rom metadata scans hand the stored rows to the file rebuild so
     unchanged files keep their hashes; full rescans read every file."""
@@ -3298,79 +3400,3 @@ class TestIdentifyRomIncrementalHashing:
 
         kwargs = identify_harness.get_rom_files.await_args.kwargs
         assert kwargs["existing_files"] is None
-
-
-class TestIdentifyPlatformLoadsFilesForQuickScan:
-    """A quick scan reconciles every existing rom's files, so their rows are
-    loaded with the batch lookup instead of one query per rom."""
-
-    @pytest.fixture
-    def patched(self, mocker):
-        mocker.patch.object(
-            scan_module, "redis_client", Mock(get=Mock(return_value=None))
-        )
-
-        platform = Platform(name="Test", slug="test", fs_slug="test")
-        platform.id = 1
-        platform.missing_from_fs = False
-        db_platform = mocker.patch.object(scan_module, "db_platform_handler")
-        db_platform.get_platform_by_fs_slug.return_value = platform
-        db_platform.add_platform.return_value = platform
-
-        mocker.patch.object(
-            scan_module, "scan_platform", AsyncMock(return_value=platform)
-        )
-        mocker.patch.object(
-            PlatformSchema,
-            "model_validate",
-            return_value=Mock(model_dump=Mock(return_value={})),
-        )
-        mocker.patch.object(
-            fs_firmware_handler,
-            "get_firmware",
-            AsyncMock(return_value=[]),
-        )
-        fs_rom: FSRom = {
-            "fs_name": "Game",
-            "fs_path": "test/roms",
-            "flat": False,
-            "files": [],
-            "crc_hash": "",
-            "md5_hash": "",
-            "sha1_hash": "",
-            "ra_hash": "",
-        }
-        mocker.patch.object(
-            fs_rom_handler, "get_roms", AsyncMock(return_value=[fs_rom])
-        )
-        mocker.patch.object(scan_module, "_identify_rom", AsyncMock())
-
-        rom = Rom(fs_name="Game", platform_id=platform.id)
-        rom.id = 42
-        db_rom = mocker.patch.object(scan_module, "db_rom_handler")
-        db_rom.get_roms_by_fs_name.return_value = {"test/roms/Game": rom}
-        db_rom.get_missing_rom_ids.return_value = set()
-        db_rom.mark_missing_roms.return_value = []
-        db_firmware = mocker.patch.object(scan_module, "db_firmware_handler")
-        db_firmware.mark_missing_firmware.return_value = []
-        return db_rom
-
-    @pytest.mark.parametrize(
-        "scan_type,with_files", [(ScanType.QUICK, True), (ScanType.COMPLETE, False)]
-    )
-    async def test_rows_are_loaded_only_for_quick_scans(
-        self, patched, scan_type, with_files
-    ):
-        await scan_module._identify_platform(
-            platform_slug="test",
-            scan_type=scan_type,
-            fs_platforms=["test"],
-            roms_ids=[],
-            metadata_sources=[],
-            launchbox_remote_enabled=False,
-            socket_manager=AsyncMock(),
-            scan_stats=AsyncMock(),
-            scanned_rom_ids=set(),
-        )
-
-        assert patched.get_roms_by_fs_name.call_args.kwargs["with_files"] is with_files

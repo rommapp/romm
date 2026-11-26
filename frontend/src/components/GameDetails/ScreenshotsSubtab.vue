@@ -28,7 +28,7 @@ import {
 } from "@/composables/useRomFileUpload";
 import { useRomSync } from "@/composables/useRomSync";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { RBtn, RDropzone } from "@/lib";
+import { RButton, RDropzone } from "@/lib";
 import romApi from "@/services/api/rom";
 import screenshotApi from "@/services/api/screenshot";
 import storeAuth from "@/stores/auth";
@@ -258,7 +258,7 @@ async function submitEdit(isPublic: boolean) {
             {{ t("rom.screenshots-section-rom-desc") }}
           </p>
         </div>
-        <RBtn
+        <RButton
           v-if="romScreenshots.length > 0 && canEditRom"
           variant="outlined"
           size="small"
@@ -266,7 +266,7 @@ async function submitEdit(isPublic: boolean) {
           @click="romDz?.open()"
         >
           {{ t("common.upload") }}
-        </RBtn>
+        </RButton>
       </header>
 
       <RDropzone
@@ -308,7 +308,7 @@ async function submitEdit(isPublic: boolean) {
             {{ t("rom.screenshots-section-mine") }}
           </h3>
         </div>
-        <RBtn
+        <RButton
           v-if="myScreenshots.length > 0"
           variant="outlined"
           size="small"
@@ -316,7 +316,7 @@ async function submitEdit(isPublic: boolean) {
           @click="myDz?.open()"
         >
           {{ t("common.upload") }}
-        </RBtn>
+        </RButton>
       </header>
 
       <RDropzone

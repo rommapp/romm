@@ -20,7 +20,7 @@ vi.mock("@/composables/useSocketTransportHealth", () => ({
 }));
 
 vi.mock("@/lib", () => ({
-  RBtn: { name: "RBtn", template: "<button><slot /></button>" },
+  RButton: { name: "RButton", template: "<button><slot /></button>" },
   RIcon: { name: "RIcon", template: "<i />" },
   RTooltip: {
     name: "RTooltip",

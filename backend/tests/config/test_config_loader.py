@@ -76,6 +76,7 @@ def test_config_loader():
     assert loader.config.PLATFORMS_VERSIONS == {"naomi": "arcade"}
     assert loader.config.SKIP_HASH_CALCULATION
     assert loader.config.EJS_DEBUG
+    assert not loader.config.EJS_CACHE_ENABLED
     assert loader.config.EJS_DISABLE_AUTO_UNLOAD
     assert loader.config.EJS_DISABLE_BATCH_BOOTUP
     assert not loader.config.EJS_ENABLE_AUTO_SAVE_SYNC
@@ -757,6 +758,63 @@ def _write_emulatorjs_config(tmp_path: Path, emulatorjs_block: str) -> ConfigMan
     config_file = tmp_path / "config.yml"
     config_file.write_text(f"emulatorjs:\n{emulatorjs_block}")
     return ConfigManager(str(config_file))
+
+
+def test_emulatorjs_cache_defaults_to_enabled(tmp_path):
+    loader = _write_emulatorjs_config(tmp_path, "  debug: false\n")
+    assert loader.config.EJS_CACHE_ENABLED
+
+
+@pytest.mark.parametrize("value", ['"false"', "null"])
+def test_emulatorjs_cache_rejects_non_boolean(tmp_path, value):
+    with pytest.raises(SystemExit) as excinfo:
+        _write_emulatorjs_config(tmp_path, f"  cache:\n    enabled: {value}\n")
+    assert excinfo.value.code == 3
+
+
+def test_emulatorjs_legacy_cache_limit_is_read_with_a_warning(caplog, tmp_path):
+    with capture_romm_logs(caplog):
+        loader = _write_emulatorjs_config(tmp_path, "  cache_limit: 2048\n")
+
+    assert loader.config.EJS_CACHE_LIMIT == 2048
+    assert "emulatorjs.cache_limit is deprecated" in caplog.text
+
+
+def test_emulatorjs_cache_limit_wins_over_legacy_key(caplog, tmp_path):
+    with capture_romm_logs(caplog):
+        loader = _write_emulatorjs_config(
+            tmp_path, "  cache_limit: 2048\n  cache:\n    limit: 4096\n"
+        )
+
+    assert loader.config.EJS_CACHE_LIMIT == 4096
+
+
+@pytest.mark.parametrize(
+    "contents",
+    [
+        "emulatorjs:\n  cache: false\n",
+        "emulatorjs:\n  netplay: true\n",
+        "emulatorjs: []\n",
+        "scan:\n  priority: igdb\n",
+        "just a string\n",
+    ],
+)
+def test_non_mapping_parent_block_exits(tmp_path, contents):
+    config_file = tmp_path / "config.yml"
+    config_file.write_text(contents)
+
+    with pytest.raises(SystemExit) as excinfo:
+        ConfigManager(str(config_file))
+
+    assert excinfo.value.code == 3
+
+
+def test_empty_parent_block_uses_defaults(tmp_path):
+    loader = _write_emulatorjs_config(tmp_path, "  cache:\n  netplay:\n")
+
+    assert loader.config.EJS_CACHE_ENABLED
+    assert loader.config.EJS_CACHE_LIMIT is None
+    assert not loader.config.EJS_NETPLAY_ENABLED
 
 
 def test_null_default_cores_block_means_empty(tmp_path):

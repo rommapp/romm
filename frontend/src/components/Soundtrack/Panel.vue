@@ -13,7 +13,7 @@ import { useCan } from "@/composables/useCan";
 import { useLoadingPhase } from "@/composables/useLoadingPhase";
 import { useSnackbar } from "@/composables/useSnackbar";
 import {
-  RBtn,
+  RButton,
   REmptyState,
   RIcon,
   RSkeletonBlock,
@@ -389,7 +389,7 @@ function downloadTrack(track: PanelTrack) {
           :aria-label="t('rom.soundtrack-player')"
         >
           <div class="r-stp__transport">
-            <RBtn
+            <RButton
               icon="mdi-shuffle"
               variant="text"
               size="small"
@@ -399,7 +399,7 @@ function downloadTrack(track: PanelTrack) {
               :aria-label="t('common.shuffle')"
               @click="player.toggleShuffle()"
             />
-            <RBtn
+            <RButton
               icon="mdi-skip-previous"
               variant="text"
               size="small"
@@ -408,7 +408,7 @@ function downloadTrack(track: PanelTrack) {
               :aria-label="t('rom.soundtrack-previous')"
               @click="player.previous()"
             />
-            <RBtn
+            <RButton
               :icon="headerPlaying ? 'mdi-pause' : 'mdi-play'"
               variant="flat"
               color="primary"
@@ -425,7 +425,7 @@ function downloadTrack(track: PanelTrack) {
               "
               @click="headerTrack && selectTrack(headerTrack.id)"
             />
-            <RBtn
+            <RButton
               icon="mdi-skip-next"
               variant="text"
               size="small"

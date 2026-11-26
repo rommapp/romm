@@ -29,7 +29,7 @@ import { useConfirm } from "@/composables/useConfirm";
 import { useEmitterEvent } from "@/composables/useEmitterEvent";
 import { useRomSync } from "@/composables/useRomSync";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { RBtn, RDialog, RIcon, RTabNav, RTextField } from "@/lib";
+import { RButton, RDialog, RIcon, RTabNav, RTextField } from "@/lib";
 import type { RTabNavItem } from "@/lib/primitives/RTabNav/types";
 import romApi, { type UpdateRom } from "@/services/api/rom";
 import storeHeartbeat from "@/stores/heartbeat";
@@ -329,7 +329,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
             no-hover
           />
           <div class="r-edit__cover-actions">
-            <RBtn
+            <RButton
               icon="mdi-image-search-outline"
               variant="outlined"
               density="compact"
@@ -346,7 +346,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
                 })
               "
             />
-            <RBtn
+            <RButton
               icon="mdi-pencil"
               variant="outlined"
               density="compact"
@@ -361,7 +361,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
               class="r-edit__file"
               @change="previewImage"
             />
-            <RBtn
+            <RButton
               icon="mdi-delete"
               variant="outlined"
               density="compact"
@@ -469,7 +469,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
         :title="t('rom.unmatch')"
         :hint="t('rom.unmatch-hint')"
       >
-        <RBtn
+        <RButton
           variant="outlined"
           color="danger"
           prepend-icon="mdi-link-variant-off"
@@ -478,12 +478,12 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
           @click="unmatchRom"
         >
           {{ t("rom.unmatch") }}
-        </RBtn>
+        </RButton>
       </DangerZone>
     </template>
 
     <template #footer>
-      <RBtn
+      <RButton
         variant="translucent"
         color="primary"
         prepend-icon="mdi-check"
@@ -492,7 +492,7 @@ function handleRomUpdateFromMetadata(updatedRom: UpdateRom) {
         @click="updateRom"
       >
         {{ t("common.apply") }}
-      </RBtn>
+      </RButton>
     </template>
   </RDialog>
 </template>

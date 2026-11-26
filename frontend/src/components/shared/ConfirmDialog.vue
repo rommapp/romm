@@ -15,7 +15,7 @@ import type { Emitter } from "mitt";
 import { computed, inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useEmitterEvent } from "@/composables/useEmitterEvent";
-import { RBtn, RDialog, RTextField } from "@/lib";
+import { RButton, RDialog, RTextField } from "@/lib";
 import type { Events } from "@/types/emitter";
 
 defineOptions({ inheritAttrs: false });
@@ -112,19 +112,19 @@ useEmitterEvent("showConfirm", onShow);
     </template>
     <template v-if="payload" #footer-start>
       <!-- eslint-disable vuejs-accessibility/no-autofocus -- RDialog reads [autofocus] to place initial focus, and Cancel is the safe default -->
-      <RBtn autofocus variant="outlined" @click="onCancel">
+      <RButton autofocus variant="outlined" @click="onCancel">
         {{ payload.cancelText ?? t("common.cancel") }}
-      </RBtn>
+      </RButton>
       <!-- eslint-enable vuejs-accessibility/no-autofocus -->
     </template>
     <template v-if="payload" #footer>
-      <RBtn
+      <RButton
         :color="confirmColor"
         :disabled="confirmDisabled"
         @click="onConfirm"
       >
         {{ payload.confirmText ?? t("common.confirm") }}
-      </RBtn>
+      </RButton>
     </template>
   </RDialog>
 </template>

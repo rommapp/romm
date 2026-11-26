@@ -7,7 +7,7 @@ import { useI18n } from "vue-i18n";
 import NowPlayingCard from "@/components/Soundtrack/NowPlayingCard.vue";
 import { useMiniPlayerVisible } from "@/composables/useMiniPlayerVisible";
 import { usePlaybackTime } from "@/composables/usePlaybackTime";
-import { RBtn, RMenu, RProgressCircular } from "@/lib";
+import { RButton, RMenu, RProgressCircular } from "@/lib";
 import useSoundtrackPlayer from "@/stores/soundtrackPlayer";
 import { playerCoverUrl } from "@/utils/soundtrackTracks";
 
@@ -34,7 +34,7 @@ const progress = computed(() =>
       sheet-on-mobile
     >
       <template #activator="{ props: menuProps }">
-        <RBtn
+        <RButton
           v-bind="menuProps"
           :icon="true"
           variant="text"
@@ -55,12 +55,12 @@ const progress = computed(() =>
               alt=""
             />
           </RProgressCircular>
-        </RBtn>
+        </RButton>
       </template>
       <NowPlayingCard />
     </RMenu>
 
-    <RBtn
+    <RButton
       icon="mdi-skip-previous"
       variant="text"
       size="small"
@@ -69,7 +69,7 @@ const progress = computed(() =>
       :aria-label="t('rom.soundtrack-previous')"
       @click="store.previous()"
     />
-    <RBtn
+    <RButton
       :icon="isPlaying ? 'mdi-pause' : 'mdi-play'"
       variant="text"
       size="small"
@@ -81,7 +81,7 @@ const progress = computed(() =>
       "
       @click="store.togglePlayPause()"
     />
-    <RBtn
+    <RButton
       icon="mdi-skip-next"
       variant="text"
       size="small"

@@ -23,7 +23,7 @@ function mountRow(props: Record<string, unknown> = {}) {
     props: { rom: rom(), ...props },
     global: {
       stubs: {
-        GameActionBtn: true,
+        GameActionButton: true,
         GameCard: true,
         RCheckbox: true,
         RChip: true,

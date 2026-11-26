@@ -1,4 +1,4 @@
-import { mount } from "@vue/test-utils";
+import { mount, RouterLinkStub } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import { stubResizeObserver } from "@/test-utils/resizeObserver";
@@ -32,7 +32,7 @@ describe("RSegmentedControl resize", () => {
           { id: "b", label: "B" },
         ],
       },
-      global: { stubs: { RTooltip: true } },
+      global: { stubs: { RTooltip: true, "router-link": RouterLinkStub } },
     });
     await nextTick();
     await nextTick();

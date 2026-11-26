@@ -14,6 +14,12 @@ function bridge(): RommNativeBridge | undefined {
   return window.rommNative;
 }
 
+/** Electron's IPC cannot clone a Vue Proxy, so requests built from reactive
+ *  state are copied to plain JSON first. */
+function plain<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
 function hasMethod(name: keyof RommNativeBridge): boolean {
   return typeof bridge()?.[name] === "function";
 }
@@ -66,6 +72,7 @@ export async function fetchPlatformSupport(
   if (!native || queries.length === 0) return {};
 
   try {
+    queries = plain(queries);
     if (typeof native.getPlatformSupportAll === "function") {
       const bulk = native.getPlatformSupportAll.bind(native);
       const answers: Record<string, PlatformSupport> = {};
@@ -115,7 +122,7 @@ export function launchNative(request: LaunchRequest): Promise<LaunchResult> {
   if (typeof native?.launch !== "function") {
     return Promise.reject(new Error("The desktop shell cannot launch games."));
   }
-  return native.launch(request);
+  return native.launch(plain(request));
 }
 
 /** Abort a still-downloading launch. Answers whether the request reached the

@@ -3,9 +3,11 @@ import zipfile
 from pathlib import Path
 
 import pytest
+from tests._embedded_archives import EMBEDDINGS, embedded_archive
 from tests._zipfile_shim import reload_zipfile
 from tests.handler.snapshots.pushes import md5
 
+from handler.filesystem import assets_handler
 from handler.filesystem.assets_handler import is_clock_member
 from handler.snapshots import hashing
 
@@ -77,6 +79,22 @@ async def test_an_unreadable_archive_hashes_as_one_file():
     broken = content[:10] + b"\x00" * 40 + content[50:]
 
     assert await hashing.identity_hash(broken) == md5(broken)
+
+
+@pytest.mark.parametrize("embedding", EMBEDDINGS)
+async def test_bytes_that_only_end_like_a_zip_hash_as_one_file(embedding: str):
+    content = embedded_archive(embedding)
+
+    assert await hashing.identity_hash(content) == md5(content)
+
+
+async def test_an_archive_past_the_limits_hashes_as_one_file(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    content = _zip(UNITS["chips"])
+    monkeypatch.setattr(assets_handler, "MAX_DECOMPRESSED_ARCHIVE_BYTES", 1)
+
+    assert await hashing.identity_hash(content) == md5(content)
 
 
 async def test_a_file_on_disk_hashes_like_its_bytes(tmp_path):

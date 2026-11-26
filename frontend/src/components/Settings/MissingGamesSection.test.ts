@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 import storeGalleryRoms from "@/stores/galleryRoms";
 import storeGallerySelection from "@/stores/gallerySelection";
+import { createTestRouter } from "@/test-utils/router";
 import { serverError } from "@/test-utils/serverError";
 import { romFixture } from "@/utils/rom.fixtures";
 import MissingGamesSection from "./MissingGamesSection.vue";
@@ -44,12 +45,13 @@ vi.mock("@/composables/useWebpSupport", () => ({
 function mountSection() {
   return mount(MissingGamesSection, {
     global: {
+      plugins: [createTestRouter()],
       stubs: {
         CachedPlatformIcon: true,
         GameListHeader: true,
         GameListRow: true,
         GameListSkeletonRow: true,
-        RBtn: true,
+        RButton: true,
         RIcon: true,
         RMenu: RMenuStub,
         RMenuItem: true,

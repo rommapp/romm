@@ -59,6 +59,7 @@ function manualFile(): NonNullable<DetailedRom["files"]>[number] {
     file_size_bytes: 1024,
     full_path: "switch/roms/Game/manual/guide.pdf",
     is_top_level: false,
+    missing_from_fs: false,
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-01T00:00:00Z",
     last_modified: "2026-01-01T00:00:00Z",
@@ -82,7 +83,7 @@ function mountDialog(emitter: Emitter<Events>): VueWrapper {
           template:
             "<div v-if='modelValue' data-test-dialog><slot name='content' /></div>",
         },
-        RBtn: true,
+        RButton: true,
         RIcon: true,
       },
     },

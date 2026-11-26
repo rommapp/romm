@@ -34,7 +34,7 @@ from utils.media_types import (
     is_html_document_file,
 )
 from utils.nginx import FileRedirectResponse
-from utils.router import APIRouter
+from utils.router import APIRouter, RomIdPath
 
 router = APIRouter()
 
@@ -46,7 +46,11 @@ MAX_LAST_PAGE = 2**31 - 1
     router.get,
     "/{file_id}/files",
     [Scope.ROMS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom file the caller can see has this ID."
+        },
+    },
 )
 async def get_romfile(
     request: Request,
@@ -79,7 +83,11 @@ def _rom_target(rom_id: int) -> AuditTarget | None:
     router.get,
     "/{file_id}/files/content/{file_name}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom file the caller can see has this ID."
+        },
+    },
 )
 async def get_romfile_content(
     request: Request,
@@ -182,11 +190,21 @@ async def get_romfile_content(
     router.delete,
     "/{rom_id}/files/{file_id}",
     [Scope.ROMS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_403_FORBIDDEN: {
+            "description": "The caller is not allowed to delete roms."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID, or the rom has no file with this file ID."
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "The file could not be removed from disk."
+        },
+    },
 )
 async def delete_rom_file(
     request: Request,
-    rom_id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    rom_id: RomIdPath,
     file_id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
 ) -> Response:
     """Delete a single file from a ROM."""
@@ -263,11 +281,15 @@ def _assert_document_file(
     router.get,
     "/{rom_id}/files/{file_id}/progress",
     [Scope.ROMS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID, or the rom has no manual or walkthrough with this file ID."
+        },
+    },
 )
 async def get_rom_file_progress(
     request: Request,
-    rom_id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    rom_id: RomIdPath,
     file_id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
 ) -> RomFileUserSchema:
     """Get the current user's reading progress for a document file."""
@@ -295,11 +317,18 @@ async def get_rom_file_progress(
     router.put,
     "/{rom_id}/files/{file_id}/progress",
     [Scope.ROMS_USER_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The `progress` value is not a number, or the `last_page` value is not an integer between 0 and 2147483647."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has this ID, or the rom has no manual or walkthrough with this file ID."
+        },
+    },
 )
 async def update_rom_file_progress(
     request: Request,
-    rom_id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    rom_id: RomIdPath,
     file_id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
     body: Annotated[dict[str, Any], Body()],
 ) -> RomFileUserSchema:

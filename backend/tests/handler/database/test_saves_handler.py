@@ -73,7 +73,7 @@ class TestDBSavesHandlerPlatformFiltering:
     def test_get_saves_with_nonexistent_platform(self, admin_user: User, save: Save):
         """Test that get_saves returns empty list for nonexistent platform."""
         saves = db_save_handler.get_saves(
-            user_id=admin_user.id, platform_id=999, visibility=UNRESTRICTED
+            user_id=admin_user.id, platform_id=-1, visibility=UNRESTRICTED
         )
 
         assert len(saves) == 0

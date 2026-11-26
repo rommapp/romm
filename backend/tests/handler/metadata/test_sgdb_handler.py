@@ -339,6 +339,28 @@ class TestGetDetails:
 
         assert await handler.get_details("nothing") == []
 
+    async def test_asks_for_every_content_variant(
+        self, sgdb: tuple[SGDBBaseHandler, FakeSGDB]
+    ):
+        handler, fake = sgdb
+        fake.searches["half"] = [_game(1, "Half-Life")]
+
+        await handler.get_details("half")
+
+        [query] = fake.grid_queries
+        assert query["is_nsfw"] == "any"
+
+    async def test_sfw_only_leaves_out_nsfw_grids(
+        self, sgdb: tuple[SGDBBaseHandler, FakeSGDB]
+    ):
+        handler, fake = sgdb
+        fake.searches["half"] = [_game(1, "Half-Life")]
+
+        await handler.get_details("half", sfw_only=True)
+
+        [query] = fake.grid_queries
+        assert query["is_nsfw"] is False
+
 
 class TestGetDetailsByNames:
     async def test_matches_the_first_name_found(

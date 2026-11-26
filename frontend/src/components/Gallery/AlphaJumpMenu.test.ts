@@ -29,7 +29,7 @@ const RMenuStub = defineComponent({
   },
 });
 
-const RBtnStub = defineComponent({
+const RButtonStub = defineComponent({
   setup(_, { slots }) {
     return () => h("button", { class: "jump-btn" }, slots.default?.());
   },
@@ -43,7 +43,7 @@ function mountMenu() {
       current: "M",
       direction: "asc",
     },
-    global: { stubs: { RMenu: RMenuStub, RBtn: RBtnStub } },
+    global: { stubs: { RMenu: RMenuStub, RButton: RButtonStub } },
   });
 }
 

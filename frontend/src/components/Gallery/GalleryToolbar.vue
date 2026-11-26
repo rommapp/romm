@@ -20,7 +20,7 @@ import type {
 import { useInputModality } from "@/composables/useInputModality";
 import {
   RBadge,
-  RBtn,
+  RButton,
   RDivider,
   RIcon,
   RMenu,
@@ -305,7 +305,7 @@ const { smAndUp } = useBreakpoint();
     <!-- eslint-enable vuejs-accessibility/no-autofocus -->
 
     <!-- Filter button: sits flush against the search field. Same disc
-         shape as the kebab (outlined icon-only RBtn); the active-count
+         shape as the kebab (outlined icon-only RButton); the active-count
          chip is `RBadge` anchored top-end, slightly overlapping the disc. -->
     <RBadge
       v-if="showFilter"
@@ -314,7 +314,7 @@ const { smAndUp } = useBreakpoint();
       color="primary"
       :inset="3"
     >
-      <RBtn
+      <RButton
         variant="outlined"
         surface
         icon="mdi-filter-variant"
@@ -361,7 +361,7 @@ const { smAndUp } = useBreakpoint();
           width="220px"
         >
           <template #activator="{ props: activatorProps }">
-            <RBtn
+            <RButton
               v-bind="activatorProps"
               variant="outlined"
               surface
@@ -388,7 +388,7 @@ const { smAndUp } = useBreakpoint();
           width="220px"
         >
           <template #activator="{ props: activatorProps }">
-            <RBtn
+            <RButton
               v-bind="activatorProps"
               variant="outlined"
               surface
@@ -441,7 +441,7 @@ const { smAndUp } = useBreakpoint();
         sheet-on-mobile
       >
         <template #activator="{ props: activatorProps }">
-          <RBtn
+          <RButton
             v-bind="activatorProps"
             variant="outlined"
             surface
