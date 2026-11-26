@@ -3,6 +3,7 @@
 import io
 import struct
 import zipfile
+from dataclasses import replace
 from pathlib import Path
 from types import ModuleType
 
@@ -17,7 +18,7 @@ from tests.sigil_cards import (
     saturn_volume,
 )
 
-from adapters.services.sigil import SigilGame
+from adapters.services.sigil import SigilGame, SigilService
 from adapters.services.sigil_restore import (
     ContainerMismatch,
     RefusalCode,
@@ -29,6 +30,9 @@ from adapters.services.sigil_restore import (
     restore_layouts,
     restore_per_game,
 )
+from models.platform import Platform
+from models.rom import Rom
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 SEGACD_BLOCK = 64
 SEGACD_VOLUME = 0x2000
@@ -210,6 +214,25 @@ def target(core: str, content_path: str, **options: str) -> RestoreTarget:
     return RestoreTarget(
         core=core, options=options, profile=None, content_path=content_path
     )
+
+
+def rom_game(
+    binding: ModuleType, slug: str, title_id: str = "", save_id: str = ""
+) -> SigilGame:
+    """A ROM on RomM's `slug` read back through its platform map, so a slug sigil
+    doesn't take for that platform fails the test restoring it."""
+    rom = Rom(
+        id=1,
+        fs_name="Game",
+        fs_path=f"{slug}/roms",
+        title_id=title_id or None,
+        save_target=save_id or None,
+        platform=Platform(name=slug, slug=slug, fs_slug=slug),
+    )
+    game = SigilService.stored_game(rom, [])
+    assert game is not None
+    assert isinstance(game.result, binding.SigilResult)
+    return game
 
 
 @pytest.mark.asyncio
@@ -443,6 +466,49 @@ async def test_a_wii_unit_is_restored_under_its_title_category(
     restored = await restore_per_game(buffer.getvalue(), game, target(core, "Game.rvz"))
 
     assert restored == {written: b"wii save"}
+
+
+def xbox_360_header(title_id: int, name: str, file: str) -> bytes:
+    """A save's header as Xenia Edge writes it: XCONTENT_AGGREGATE_DATA, big-endian
+    (Edge's content_manager.h at 4ad875a)."""
+    header = bytearray(0x148)
+    struct.pack_into(">II", header, 0, 1, 1)
+    display = name.encode("utf-16-be")
+    header[0x008 : 0x008 + len(display)] = display
+    header[0x108 : 0x108 + len(file)] = file.encode("ascii")
+    struct.pack_into(">I", header, 0x140, title_id)
+    return bytes(header)
+
+
+@pytest.mark.asyncio
+async def test_an_xbox_360_save_restores_under_the_profile_asked(binding):
+    """A unit names no XUID, so its saves go under the profile the request picks."""
+    game = rom_game(binding, UPS.XBOX360, "4D530AA4", "4D530AA4")
+    header = xbox_360_header(0x4D530AA4, "Forza Profile", "ForzaProfile")
+    data = bytes(range(256)) * 4
+    reload_zipfile()
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_STORED) as archive:
+        archive.writestr("4D530AA4/00000001/ForzaProfile/profile.dat", data)
+        archive.writestr("4D530AA4/Headers/00000001/ForzaProfile.header", header)
+    unit = out.getvalue()
+    edge = RestoreTarget(
+        core="xenia_edge",
+        options={},
+        profile="E030000043414231",
+        content_path="Forza Horizon 2.iso",
+    )
+
+    restored = await restore_per_game(unit, game, edge)
+
+    saves = "content/E030000043414231/4D530AA4"
+    assert restored == {
+        f"{saves}/00000001/ForzaProfile/profile.dat": data,
+        f"{saves}/Headers/00000001/ForzaProfile.header": header,
+    }
+    with pytest.raises(SigilRefusal) as excinfo:
+        await restore_per_game(unit, game, replace(edge, profile=None))
+    assert excinfo.value.code is RefusalCode.NO_TARGET
 
 
 def test_layouts_name_the_region_option(binding):
