@@ -1,6 +1,6 @@
 // romStatus: shared vocabulary for the ROM play-status picker (icons,
 // enum/flag groupings). Consumed by the per-ROM status menu
-// (`GameActionBtn`) and the bulk status menu (`SelectionBar`) so both
+// (`GameActionButton`) and the bulk status menu (`SelectionBar`) so both
 // surfaces present the same options, in the same order, with the same
 // icons. v2-only: v1 still reads `romStatusMap`'s emoji from
 // `@/utils`, so that map stays untouched.

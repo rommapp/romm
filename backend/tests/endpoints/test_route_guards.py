@@ -37,6 +37,7 @@ PUBLIC_API_HANDLERS: frozenset[str] = frozenset(
         "endpoints.heartbeat.metadata_heartbeat",
         "endpoints.user.create_user_from_invite",
         # RetroArch's WebDAV verbs authenticate through _authorize in their module.
+        "endpoints.sync.retroarch.retroarch_sync_copy",
         "endpoints.sync.retroarch.retroarch_sync_delete",
         "endpoints.sync.retroarch.retroarch_sync_get",
         "endpoints.sync.retroarch.retroarch_sync_lock",

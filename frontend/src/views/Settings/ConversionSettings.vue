@@ -14,7 +14,7 @@ import { useConfirm } from "@/composables/useConfirm";
 import { useFetchState } from "@/composables/useFetchState";
 import { useSnackbar } from "@/composables/useSnackbar";
 import { useUnloadGuard } from "@/composables/useUnloadGuard";
-import { RAlert, RIcon, RSelect, RTextField, RBtn, RSpinner } from "@/lib";
+import { RAlert, RIcon, RSelect, RTextField, RButton, RSpinner } from "@/lib";
 import configApi from "@/services/api/config";
 import taskApi from "@/services/api/task";
 import storeAuth from "@/stores/auth";
@@ -212,9 +212,9 @@ useUnloadGuard(hasPendingEdits);
       </template>
       {{ t("settings.conversion-settings-load-error-desc") }}
       <template #actions>
-        <RBtn variant="text" :loading="loading" @click="loadConfig">
+        <RButton variant="text" :loading="loading" @click="loadConfig">
           {{ t("common.try-again") }}
-        </RBtn>
+        </RButton>
       </template>
     </RAlert>
   </div>
@@ -288,7 +288,7 @@ useUnloadGuard(hasPendingEdits);
       </div>
       <div v-if="canRunTasks" class="r-conversion-settings__field">
         <div>
-          <RBtn
+          <RButton
             variant="outlined"
             color="danger"
             prepend-icon="mdi-swap-horizontal-bold"
@@ -297,7 +297,7 @@ useUnloadGuard(hasPendingEdits);
             @click="onConvertLibrary"
           >
             {{ t("settings.conversion-convert-library") }}
-          </RBtn>
+          </RButton>
         </div>
         <p class="r-conversion-settings__note">
           <RIcon icon="mdi-information-outline" size="13" />

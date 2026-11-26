@@ -2,7 +2,7 @@
 // GameCard: portrait game cover with hover overlay.
 //
 // Feature composite (not a lib primitive): depends on SimpleRom,
-// useGameActions (via GameActionBtn), useBackgroundArt, and the store
+// useGameActions (via GameActionButton), useBackgroundArt, and the store
 // layer. Lives under `components/` instead of `lib/` for
 // that reason: the library is reserved for truly generic primitives
 // that a Storybook reader can drop into a page without wiring stores or
@@ -14,7 +14,7 @@
 //   * Platform icon (TR, always visible): semi-transparent circle with the
 //     platform's icon: toggle via `showPlatformIcon`.
 //   * Hover overlay: play (center) · action row (BL: download, collection,
-//     favorite, more): action buttons are the shared GameActionBtn atom
+//     favorite, more): action buttons are the shared GameActionButton atom
 //     so the card and the GameDetails header stay visually + behaviourally
 //     in sync.
 //   * Label below the card, 11.5px, truncated
@@ -41,7 +41,7 @@
 import { computed, provide, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
-import GameActionBtn from "@/components/GameActions/GameActionBtn.vue";
+import GameActionButton from "@/components/GameActions/GameActionButton.vue";
 import CardFlags from "@/components/GameCard/CardFlags.vue";
 import SiblingBadge from "@/components/GameCard/SiblingBadge.vue";
 import CoverArtPip from "@/components/shared/CoverArtPip.vue";
@@ -53,7 +53,7 @@ import { useGallerySelectionInput } from "@/composables/useGallerySelectionInput
 import { GAME_ACTIONS_KEY, useGameActions } from "@/composables/useGameActions";
 import { useViewTransition } from "@/composables/useViewTransition";
 import RCheckbox from "@/lib/forms/RCheckbox/RCheckbox.vue";
-import RBtn from "@/lib/primitives/RBtn/RBtn.vue";
+import RButton from "@/lib/primitives/RButton/RButton.vue";
 import RTooltip from "@/lib/structural/RTooltip/RTooltip.vue";
 import storeGallerySelection from "@/stores/gallerySelection";
 import type { SimpleRom } from "@/stores/roms";
@@ -236,7 +236,7 @@ const { morphTransition } = useViewTransition();
 // Only interactive cards need actions: static / decorative cards (list-row
 // thumbnails, dialog tiles) render no overlay, so creating the composable for
 // them is pure waste. When present, share this single instance with every
-// GameActionBtn in the overlay (play / download / collection / favorite /
+// GameActionButton in the overlay (play / download / collection / favorite /
 // status / more) instead of each button spinning up its own: the difference
 // between ~1 and ~7 live `useGameActions` per card, which dominates a
 // virtualised grid's cost. Safe to call conditionally (no lifecycle hooks).
@@ -441,7 +441,7 @@ function onCardKeydown(e: KeyboardEvent) {
       <template v-if="!static && !decorative">
         <div v-if="ratingLabel" class="r-gc__rating">★ {{ ratingLabel }}</div>
 
-        <RBtn
+        <RButton
           v-if="showPlatformIcon"
           icon
           size="x-small"
@@ -458,9 +458,9 @@ function onCardKeydown(e: KeyboardEvent) {
             :alt="platformShort"
             :size="22"
           />
-        </RBtn>
+        </RButton>
 
-        <GameActionBtn
+        <GameActionButton
           :rom="rom"
           action="status"
           size="small"
@@ -473,16 +473,16 @@ function onCardKeydown(e: KeyboardEvent) {
              showRegions / showLanguages UI settings. -->
         <CardFlags :rom="rom" />
 
-        <!-- Hover overlay: action buttons are the shared GameActionBtn. -->
+        <!-- Hover overlay: action buttons are the shared GameActionButton. -->
         <div class="r-gc__overlay">
           <div class="r-gc__overlay-center">
-            <GameActionBtn
+            <GameActionButton
               v-if="actions?.canPlayLocally.value"
               :rom="rom"
               action="play"
               variant="emphasized"
             />
-            <GameActionBtn
+            <GameActionButton
               v-if="actions?.canPlayStream.value"
               :rom="rom"
               action="stream"
@@ -491,15 +491,15 @@ function onCardKeydown(e: KeyboardEvent) {
           </div>
 
           <div class="r-gc__overlay-bottom">
-            <GameActionBtn
+            <GameActionButton
               v-if="actions?.canDownload.value"
               :rom="rom"
               action="download"
               size="small"
             />
-            <GameActionBtn :rom="rom" action="collection" size="small" />
-            <GameActionBtn :rom="rom" action="favorite" size="small" />
-            <GameActionBtn :rom="rom" action="more" size="small" />
+            <GameActionButton :rom="rom" action="collection" size="small" />
+            <GameActionButton :rom="rom" action="favorite" size="small" />
+            <GameActionButton :rom="rom" action="more" size="small" />
           </div>
         </div>
       </template>
@@ -642,8 +642,8 @@ function onCardKeydown(e: KeyboardEvent) {
   top: 7px;
   right: 7px;
   z-index: 2;
-  /* Shrink-wrap around the platform icon. RBtn's size classes try to
-     impose a fixed `height` / `width: var(--r-btn-rest-h)`, we have
+  /* Shrink-wrap around the platform icon. RButton's size classes try to
+     impose a fixed `height` / `width: var(--r-button-rest-h)`, we have
      to defeat those so the badge always fits whatever `:size` the
      PlatformIcon was given (icon + 3px padding all around). */
   width: auto !important;
@@ -655,7 +655,7 @@ function onCardKeydown(e: KeyboardEvent) {
   background: var(--r-color-overlay-scrim-strong) !important;
   border: 1px solid var(--r-color-overlay-border) !important;
   color: var(--r-color-overlay-fg) !important;
-  /* Override RBtn's at-rest opacity (0.7) so the 78% scrim reads at
+  /* Override RButton's at-rest opacity (0.7) so the 78% scrim reads at
      full strength: without this the bg modulates down to ~55% and
      reads faint over busy cover art. */
   opacity: 1 !important;
@@ -665,11 +665,11 @@ function onCardKeydown(e: KeyboardEvent) {
     transform 0.12s ease;
 }
 /* The inner button content must also shrink-wrap so the padded area
-   centres the icon symmetrically instead of letting `.r-btn__content`
+   centres the icon symmetrically instead of letting `.r-button__content`
    inherit any stretched cross-axis sizing. `line-height: 0` kills the
    stray baseline gap an inline-block image would otherwise add at the
    bottom (cause of the "not centred" feel even at small sizes). */
-.r-gc__platform-icon :deep(.r-btn__content) {
+.r-gc__platform-icon :deep(.r-button__content) {
   line-height: 0;
 }
 .r-gc__platform-icon:hover {
@@ -791,7 +791,7 @@ html:not([data-input="pad"]) .r-gc:hover .r-gc__rating,
 }
 
 /* Status badge: corner of the cover that mirrors the platform
-   icon. The actual <button> lives inside GameActionBtn's RMenu
+   icon. The actual <button> lives inside GameActionButton's RMenu
    activator slot, so we reach it via `:deep` matching the action
    class. Default position (no platform icon shown): top-left.
    When the platform icon IS shown (the normal gallery layout) the

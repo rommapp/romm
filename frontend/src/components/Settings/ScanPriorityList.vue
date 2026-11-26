@@ -13,7 +13,7 @@
 // on Home/Widgets/WidgetReorderList but adds enable/disable.
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { RBtn, RIcon, RTextField } from "@/lib";
+import { RButton, RIcon, RTextField } from "@/lib";
 
 defineOptions({ inheritAttrs: false });
 
@@ -168,7 +168,7 @@ function onDragEnd() {
         <span class="r-spl__pos">{{ i + 1 }}</span>
         <span class="r-spl__label">{{ labelFor(value) }}</span>
         <div class="r-spl__actions">
-          <RBtn
+          <RButton
             variant="text"
             size="x-small"
             icon="mdi-chevron-up"
@@ -178,7 +178,7 @@ function onDragEnd() {
             "
             @click="move(i, -1)"
           />
-          <RBtn
+          <RButton
             variant="text"
             size="x-small"
             icon="mdi-chevron-down"
@@ -188,7 +188,7 @@ function onDragEnd() {
             "
             @click="move(i, 1)"
           />
-          <RBtn
+          <RButton
             variant="text"
             size="x-small"
             icon="mdi-close"
@@ -221,7 +221,7 @@ function onDragEnd() {
         hide-details
         @keydown.enter.prevent="commitDraft"
       />
-      <RBtn
+      <RButton
         variant="outlined"
         size="small"
         prepend-icon="mdi-plus"
@@ -229,7 +229,7 @@ function onDragEnd() {
         @click="commitDraft"
       >
         {{ t("common.add") }}
-      </RBtn>
+      </RButton>
     </div>
 
     <div v-if="available.length" class="r-spl__tray">

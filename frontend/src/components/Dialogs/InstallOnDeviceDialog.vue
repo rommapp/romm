@@ -11,7 +11,14 @@ import { useEmitterEvent } from "@/composables/useEmitterEvent";
 import { useIsAlive } from "@/composables/useIsAlive";
 import { useSnackbar } from "@/composables/useSnackbar";
 import { useSocketEvent } from "@/composables/useSocketEvent";
-import { RBtn, RCheckbox, RDialog, REmptyState, RIcon, RSpinner } from "@/lib";
+import {
+  RButton,
+  RCheckbox,
+  RDialog,
+  REmptyState,
+  RIcon,
+  RSpinner,
+} from "@/lib";
 import deviceApi from "@/services/api/device";
 import deviceInstallApi from "@/services/api/device-install";
 import type { SimpleRom } from "@/stores/roms";
@@ -292,9 +299,9 @@ function closeDialog() {
         :hint="loadError"
       >
         <template #actions>
-          <RBtn variant="flat" prepend-icon="mdi-refresh" @click="retry">
+          <RButton variant="flat" prepend-icon="mdi-refresh" @click="retry">
             {{ t("common.try-again") }}
-          </RBtn>
+          </RButton>
         </template>
       </REmptyState>
       <REmptyState

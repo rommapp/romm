@@ -19,7 +19,7 @@ ROM_CONTENT_PATH_RE: Final = re.compile(r"/api/roms/(\d+)/content/[^/]*$")
 
 def is_shareable_host(host: str) -> bool:
     """Whether a host resolves to something other than the instance itself."""
-    if host.lower() == "localhost":
+    if host.lower().rstrip(".") == "localhost":
         return False
     try:
         address = ipaddress.ip_address(host)
@@ -30,7 +30,10 @@ def is_shareable_host(host: str) -> bool:
 
 def get_public_base_url() -> str | None:
     """Return ROMM_BASE_URL when it points somewhere shareable, else None."""
-    url = yarl.URL(config.ROMM_BASE_URL)
+    try:
+        url = yarl.URL(config.ROMM_BASE_URL)
+    except ValueError:
+        return None
     if url.scheme not in ("http", "https") or not url.host:
         return None
     if not is_shareable_host(url.host):

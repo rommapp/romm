@@ -25,7 +25,7 @@ import { useFetchState } from "@/composables/useFetchState";
 import { useIsAlive } from "@/composables/useIsAlive";
 import { useRomSync } from "@/composables/useRomSync";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { RBtn, RSegmentedControl } from "@/lib";
+import { RButton, RSegmentedControl } from "@/lib";
 import type { SegmentedControlItem } from "@/lib";
 import snapshotApi, { type SnapshotManifest } from "@/services/api/snapshot";
 import storeConfig from "@/stores/config";
@@ -523,7 +523,7 @@ async function deleteChannel(channel: ChannelSchema) {
           :items="viewItems"
           :aria-label="t('channels.view-label')"
         />
-        <RBtn
+        <RButton
           v-if="own"
           variant="outlined"
           size="small"
@@ -532,7 +532,7 @@ async function deleteChannel(channel: ChannelSchema) {
           @click="labelMode = { kind: 'new' }"
         >
           {{ t("channels.new") }}
-        </RBtn>
+        </RButton>
       </div>
     </header>
 
@@ -588,7 +588,7 @@ async function deleteChannel(channel: ChannelSchema) {
             named: { n: channel.snapshot_count },
           })
         }}</span>
-        <RBtn
+        <RButton
           variant="outlined"
           size="small"
           prepend-icon="mdi-link-variant"
@@ -597,7 +597,7 @@ async function deleteChannel(channel: ChannelSchema) {
           @click="attach(channel)"
         >
           {{ t("channels.attach") }}
-        </RBtn>
+        </RButton>
       </div>
     </section>
 

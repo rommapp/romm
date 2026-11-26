@@ -254,6 +254,7 @@ export type { RomPouetMetadata } from './models/RomPouetMetadata';
 export type { RomRAMetadata } from './models/RomRAMetadata';
 export type { RomSSMetadata } from './models/RomSSMetadata';
 export type { RomSteamMetadata } from './models/RomSteamMetadata';
+export type { RomUpdateForm } from './models/RomUpdateForm';
 export type { RomUserData } from './models/RomUserData';
 export type { RomUserSchema } from './models/RomUserSchema';
 export type { RomUserStatus } from './models/RomUserStatus';

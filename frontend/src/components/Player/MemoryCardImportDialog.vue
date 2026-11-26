@@ -11,7 +11,7 @@
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useConfirm } from "@/composables/useConfirm";
-import { RAlert, RBtn, RDialog } from "@/lib";
+import { RAlert, RButton, RDialog } from "@/lib";
 import type { MemoryCardImportDetail } from "@/services/api/streaming";
 import { formatBytes } from "@/utils";
 
@@ -129,14 +129,14 @@ async function onDiscard(): Promise<void> {
     </template>
 
     <template #footer>
-      <RBtn variant="text" color="danger" @click="onDiscard">
+      <RButton variant="text" color="danger" @click="onDiscard">
         {{
           unreadable
             ? t("play.memory-card-unreadable-override")
             : t("play.memory-card-import-discard")
         }}
-      </RBtn>
-      <RBtn
+      </RButton>
+      <RButton
         v-if="!unreadable"
         variant="flat"
         color="primary"
@@ -144,7 +144,7 @@ async function onDiscard(): Promise<void> {
         @click="onAdopt"
       >
         {{ t("play.memory-card-import-adopt") }}
-      </RBtn>
+      </RButton>
     </template>
   </RDialog>
 </template>

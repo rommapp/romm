@@ -89,7 +89,7 @@ const tooltipText = computed(() => props.title || props.alt);
 /* The `size` prop sets the wrapper dimensions directly via inline
    `width` / `height` (not a CSS var) so they survive contexts where
    the parent collapses cross-axis (e.g. `line-height: 0` flex parents
-   inside RBtn). */
+   inside RButton). */
 .r-platform-icon {
   display: inline-flex;
   align-items: center;

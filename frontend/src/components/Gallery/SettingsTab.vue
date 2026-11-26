@@ -17,7 +17,7 @@ import { useI18n } from "vue-i18n";
 import DangerZone from "@/components/shared/DangerZone.vue";
 import { useCan } from "@/composables/useCan";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { RBtn, RForm, RIcon, RTextField } from "@/lib";
+import { RButton, RForm, RIcon, RTextField } from "@/lib";
 import platformApi from "@/services/api/platform";
 import storeGalleryRoms from "@/stores/galleryRoms";
 import storePlatforms, { type Platform } from "@/stores/platforms";
@@ -183,10 +183,10 @@ const details = computed<DetailRow[]>(() => {
           </template>
         </RTextField>
         <div v-if="dirty" class="r-plat-settings__form-actions">
-          <RBtn variant="text" :disabled="saving" @click="discard">
+          <RButton variant="text" :disabled="saving" @click="discard">
             {{ t("common.discard", "Discard") }}
-          </RBtn>
-          <RBtn
+          </RButton>
+          <RButton
             variant="flat"
             color="primary"
             prepend-icon="mdi-check"
@@ -195,7 +195,7 @@ const details = computed<DetailRow[]>(() => {
             @click="save"
           >
             {{ t("common.apply", "Apply") }}
-          </RBtn>
+          </RButton>
         </div>
       </RForm>
 
@@ -223,7 +223,7 @@ const details = computed<DetailRow[]>(() => {
         )
       "
     >
-      <RBtn
+      <RButton
         variant="outlined"
         color="danger"
         prepend-icon="mdi-delete-outline"
@@ -232,7 +232,7 @@ const details = computed<DetailRow[]>(() => {
         @click="emit('delete')"
       >
         {{ t("common.delete", "Delete") }}
-      </RBtn>
+      </RButton>
     </DangerZone>
   </div>
 </template>

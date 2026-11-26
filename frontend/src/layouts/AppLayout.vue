@@ -242,11 +242,9 @@ onBeforeUnmount(() => {
    active scrollbar of the app. AppNav is `position: fixed` (defined
    in its own SFC) and main reserves the navbar's height with a top
    padding so content starts right under it.
-     · Views that fit within `100vh - --r-nav-h` (Gallery, its own
-       shell already uses that calc and `overflow: hidden`; GameDetails
-       uses the same calc with an internal panel scroll) generate no
-       document overflow → no document scrollbar on those routes.
-     · Views with natural flow (Home, Settings, Patcher, Scan, etc.)
+     · Views that fit within `100vh - --r-nav-h` (GameDetails, with an
+       internal panel scroll) generate no document overflow.
+     · Views with natural flow (Home, the galleries, Settings, Scan, etc.)
        grow with content and the document scrolls. */
 .r-app-shell {
   color: var(--r-color-fg);
@@ -280,10 +278,8 @@ onBeforeUnmount(() => {
 
 /* On sm-and-down the fixed bottom tab bar (BottomNav) overlays the
    bottom edge: reserve its height (+ safe-area inset) so natural-flow
-   views (Home, Settings, Library Tools, …) can scroll their last content
-   clear of the bar. Fixed-height views with their own internal scroll
-   (galleries) subtract the same amount from their height calc so the
-   totals still sum to one viewport with no document overflow. */
+   views (Home, galleries, Settings, …) can scroll their last content
+   clear of the bar. */
 html[data-bp~="sm-and-down"] .r-app-shell__main {
   padding-bottom: calc(var(--r-bottom-nav-h) + var(--r-safe-b));
 }

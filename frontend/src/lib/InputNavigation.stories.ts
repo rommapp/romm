@@ -3,7 +3,7 @@ import { expect, userEvent, within } from "storybook/test";
 import { ref } from "vue";
 import { useGridNav } from "@/composables/useGridNav";
 import { useSpatialNav } from "@/composables/useSpatialNav";
-import RBtn from "@/lib/primitives/RBtn/RBtn.vue";
+import RButton from "@/lib/primitives/RButton/RButton.vue";
 
 // Pick an input in the toolbar: "Keyboard" / "Gamepad" show the focus rings;
 // "Gamepad" and "Live" drive the grid from a connected controller (D-pad moves, A clicks).
@@ -25,7 +25,7 @@ const meta: Meta = {
   title: "Input Navigation",
   parameters: { layout: "padded" },
   render: () => ({
-    components: { RBtn },
+    components: { RButton },
     setup() {
       const gridRoot = ref<HTMLElement | null>(null);
       const lastPicked = ref<string | null>(null);
@@ -36,14 +36,14 @@ const meta: Meta = {
     template: `
       <div style="display: grid; gap: 16px; max-width: 560px">
         <div style="display: flex; gap: 8px">
-          <RBtn variant="text" @click="lastPicked = 'Home'">Home</RBtn>
-          <RBtn variant="text" @click="lastPicked = 'Search'">Search</RBtn>
+          <RButton variant="text" @click="lastPicked = 'Home'">Home</RButton>
+          <RButton variant="text" @click="lastPicked = 'Search'">Search</RButton>
         </div>
         <div
           ref="gridRoot"
           style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px"
         >
-          <RBtn
+          <RButton
             v-for="title in TITLES"
             :key="title"
             class="input-nav-cell"
@@ -51,7 +51,7 @@ const meta: Meta = {
             @click="lastPicked = title"
           >
             {{ title }}
-          </RBtn>
+          </RButton>
         </div>
         <p data-testid="last-picked" style="margin: 0; color: var(--r-color-fg-muted)">
           Picked: {{ lastPicked ?? "nothing yet" }}

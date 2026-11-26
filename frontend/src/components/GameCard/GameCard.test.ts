@@ -122,11 +122,15 @@ describe("GameCard selection", () => {
 
 describe("GameCard static", () => {
   it("is a plain button unless the consumer passes selected", () => {
-    const plain = mount(GameCard, { props: { rom: rom(1), static: true } });
+    const plain = mount(GameCard, {
+      props: { rom: rom(1), static: true },
+      global: { plugins: [makeRouter()] },
+    });
     expect(plain.find(".r-gc").attributes("aria-pressed")).toBeUndefined();
 
     const toggle = mount(GameCard, {
       props: { rom: rom(1), static: true, selected: false },
+      global: { plugins: [makeRouter()] },
     });
     expect(toggle.find(".r-gc").attributes("aria-pressed")).toBe("false");
   });

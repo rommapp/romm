@@ -6,7 +6,7 @@ import AssetActions from "./AssetActions.vue";
 
 vi.mock("vue-i18n");
 
-const RBtn = {
+const RButton = {
   props: { ariaLabel: { type: String, default: "" } },
   emits: ["click"],
   template: `<button class="btn" :aria-label="ariaLabel" @click="$emit('click')" />`,
@@ -17,7 +17,7 @@ const save = saveFixture({ file_name: "a.srm", is_public: false });
 function actions(props: Record<string, unknown> = {}) {
   return mount(AssetActions, {
     props: { asset: save, type: "save", ...props },
-    global: { stubs: { RBtn } },
+    global: { stubs: { RButton } },
   });
 }
 

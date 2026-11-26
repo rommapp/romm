@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { computed, effectScope, ref, watch } from "vue";
+import { runInScope } from "@/test-utils/effectScope";
 import { useAnimatedNumber } from "./index";
 
 // Reduced motion lands on the value in one step, which is what makes the
@@ -13,14 +14,14 @@ describe("useAnimatedNumber", () => {
   it("shows the value it is given", () => {
     const source = ref<number | null>(42);
 
-    const display = useAnimatedNumber(() => source.value);
+    const display = runInScope(() => useAnimatedNumber(() => source.value));
 
     expect(display.value).toBe(42);
   });
 
   it("lands exactly on each new value", async () => {
     const source = ref<number | null>(3);
-    const display = useAnimatedNumber(() => source.value);
+    const display = runInScope(() => useAnimatedNumber(() => source.value));
 
     source.value = 88;
     await Promise.resolve();
@@ -30,7 +31,7 @@ describe("useAnimatedNumber", () => {
 
   it("paints a missing value as nothing to roll to", async () => {
     const source = ref<number | null>(7);
-    const display = useAnimatedNumber(() => source.value);
+    const display = runInScope(() => useAnimatedNumber(() => source.value));
 
     source.value = null;
     await Promise.resolve();

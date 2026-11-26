@@ -23,7 +23,7 @@ defineOptions({ inheritAttrs: false });
 const props = withDefaults(
   defineProps<{
     rom: SimpleRom;
-    /** Layout direction. Mirrors GameActionBtn's `orientation` prop:
+    /** Layout direction. Mirrors GameActionButton's `orientation` prop:
      *  `vertical` stacks icon over count (the GameCard cover-overlay
      *  default: fits the right-side column of badges), `horizontal`
      *  places them side-by-side (used inline in list rows where the
@@ -39,7 +39,7 @@ const { groupRoms } = useUISettings();
 // Menu-open state: exposed to the parent surface via the
 // `.sibling-badge--pinned` class on the chip, so the GameCard can keep
 // its hover chrome painted while the version list is open (same
-// "pinned" pattern GameActionBtn uses for `more` / `status` menus).
+// "pinned" pattern GameActionButton uses for `more` / `status` menus).
 const menuOpen = ref(false);
 
 // The scan socket (`scan:scanning_rom`) emits roms with `sibling_roms`
@@ -138,7 +138,7 @@ function stopCard(e: Event) {
 </template>
 
 <style scoped>
-/* Vertical pill: same visual idiom as `GameActionBtn` with
+/* Vertical pill: same visual idiom as `GameActionButton` with
    `orientation="vertical"` (icon stacked over the count) so the
    sibling badge reads as a sibling of the status badge in the
    right-side column. Positioning lives on the consuming surface

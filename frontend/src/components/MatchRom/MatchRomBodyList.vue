@@ -15,7 +15,7 @@ import {
   matchKey,
   type MatchedSource,
 } from "@/components/MatchRom/types";
-import { RBtn, REmptyState, RIcon, RProgressCircular } from "@/lib";
+import { RButton, REmptyState, RIcon, RProgressCircular } from "@/lib";
 import type { SearchRom, SimpleRom } from "@/stores/roms";
 
 defineOptions({ inheritAttrs: false });
@@ -223,7 +223,7 @@ watch(
           />
 
           <div class="match-list__cta">
-            <RBtn
+            <RButton
               variant="flat"
               color="primary"
               prepend-icon="mdi-check"
@@ -231,7 +231,7 @@ watch(
               @click="confirm"
             >
               {{ t("rom.match-this-game") }}
-            </RBtn>
+            </RButton>
           </div>
         </div>
       </section>

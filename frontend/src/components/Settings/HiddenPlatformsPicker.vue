@@ -9,7 +9,7 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import PlatformIcon from "@/components/shared/PlatformIcon.vue";
 import PlatformSelect from "@/components/shared/PlatformSelect.vue";
-import { RBtn } from "@/lib";
+import { RButton } from "@/lib";
 import type { Platform } from "@/stores/platforms";
 
 defineOptions({ inheritAttrs: false });
@@ -93,7 +93,7 @@ function remove(id: number) {
           :show-tooltip="false"
         />
         <span class="r-hidplat__name">{{ p.display_name }}</span>
-        <RBtn
+        <RButton
           variant="text"
           icon="mdi-close"
           size="small"

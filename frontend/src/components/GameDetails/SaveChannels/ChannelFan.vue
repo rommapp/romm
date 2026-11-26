@@ -8,7 +8,7 @@ import type {
 } from "@/__generated__";
 import SnapshotCard from "@/components/GameDetails/SaveChannels/SnapshotCard.vue";
 import { useDeviceLabel } from "@/composables/useDeviceLabel";
-import { RBtn, RMenu, RMenuItem, RSkeletonBlock } from "@/lib";
+import { RButton, RMenu, RMenuItem, RSkeletonBlock } from "@/lib";
 import { formatRelativeDate } from "@/utils";
 import { snapshotBadges } from "@/utils/snapshots";
 
@@ -58,7 +58,7 @@ const cardCount = computed(
       <div class="r-channel-fan__actions">
         <RMenu v-if="channel.is_own" location="bottom end" :offset="6">
           <template #activator="{ props: activatorProps }">
-            <RBtn
+            <RButton
               v-bind="activatorProps"
               icon="mdi-dots-vertical"
               variant="text"
@@ -88,7 +88,7 @@ const cardCount = computed(
             @click="emit('delete')"
           />
         </RMenu>
-        <RBtn
+        <RButton
           icon="mdi-chevron-up"
           variant="text"
           size="small"
@@ -146,7 +146,7 @@ const cardCount = computed(
         muted
         @open="emit('openSave', save)"
       />
-      <RBtn
+      <RButton
         v-if="hasMore"
         class="r-channel-fan__more"
         variant="outlined"
@@ -155,7 +155,7 @@ const cardCount = computed(
         @click="emit('loadMore')"
       >
         {{ t("channels.load-more") }}
-      </RBtn>
+      </RButton>
     </div>
   </section>
 </template>

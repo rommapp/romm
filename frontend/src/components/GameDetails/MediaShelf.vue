@@ -3,7 +3,7 @@
 // shared baseline, each asset keeping its own proportions.
 import { computed, reactive, ref, type VNode } from "vue";
 import { useI18n } from "vue-i18n";
-import MediaPinBtn from "@/components/GameDetails/MediaPinBtn.vue";
+import MediaPinButton from "@/components/GameDetails/MediaPinButton.vue";
 import { RCarousel, RIcon } from "@/lib";
 import { claimMedia, releaseMedia } from "@/utils/releaseMedia";
 
@@ -110,7 +110,7 @@ function onClipPlay(event: Event, key: string) {
               loading="lazy"
             />
           </button>
-          <MediaPinBtn
+          <MediaPinButton
             v-if="isPinned"
             class="r-media-shelf__pin"
             :pinned="isPinned(item.key)"

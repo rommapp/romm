@@ -5,7 +5,7 @@ import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { SaveSchema } from "@/__generated__";
 import PendingFilesDropzone from "@/components/shared/PendingFilesDropzone.vue";
-import { RBtn, RDialog, RForm, RIcon, RSelect, RTextField } from "@/lib";
+import { RButton, RDialog, RForm, RIcon, RSelect, RTextField } from "@/lib";
 import { AUTOSAVE_SLOT, SAVE_SLOT_MAX_LENGTH } from "@/services/api/save";
 import { useStreamingStore } from "@/stores/streaming";
 import type { AssetType } from "@/utils/assets";
@@ -177,7 +177,7 @@ async function submit() {
       </RForm>
     </template>
     <template #footer>
-      <RBtn
+      <RButton
         variant="translucent"
         color="primary"
         prepend-icon="mdi-cloud-upload-outline"
@@ -185,7 +185,7 @@ async function submit() {
         @click="submit"
       >
         {{ t("common.upload") }}
-      </RBtn>
+      </RButton>
     </template>
   </RDialog>
 </template>

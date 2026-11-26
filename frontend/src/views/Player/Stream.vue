@@ -58,7 +58,7 @@ import { useUnloadGuard } from "@/composables/useUnloadGuard";
 import { useUserLocalStorage } from "@/composables/useUserLocalStorage";
 import {
   RAlert,
-  RBtn,
+  RButton,
   RCard,
   RDialog,
   RIcon,
@@ -84,6 +84,7 @@ import streamingApi, {
 } from "@/services/api/streaming";
 import storeAuth from "@/stores/auth";
 import storeGalleryRoms from "@/stores/galleryRoms";
+import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
 import {
   type SessionStatus,
@@ -93,11 +94,12 @@ import {
 import { emulatorKey } from "@/utils/assets";
 import {
   ALL_DISCS,
-  bootableFiles,
   bootDiscId,
   type DiscSelection,
+  streamDiscFiles,
+  streamHasPlaylist,
+  streamSwapDiscFiles,
 } from "@/utils/playerDisc";
-import { fileExtension } from "@/utils/romFiles";
 
 type PlayerState = "idle" | "loading" | "playing" | "error" | "exited";
 type ErrorType =
@@ -107,6 +109,7 @@ const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const auth = storeAuth();
+const heartbeatStore = storeHeartbeat();
 const streamingStore = useStreamingStore();
 const alive = useIsAlive();
 const snackbar = useSnackbar();
@@ -270,25 +273,35 @@ const supportsStates = computed(
   () => capabilities.value.maxSlots > 0 || capabilities.value.hasAutosave,
 );
 
-// Mirrors the backend's Rom.has_m3u_file(): the emulator's disc-swap menu
-// only exists for multi-disc sets that ship a playlist.
-const hasM3uFile = computed(() =>
-  (rom.value?.files ?? []).some((f) => fileExtension(f.file_name) === "m3u"),
+const patchExtensions = computed(
+  () => heartbeatStore.value.ROM_PATCHER.SUPPORTED_EXTENSIONS,
 );
 
-const bootableRomFiles = computed(() => bootableFiles(rom.value?.files ?? []));
+// Patches are told apart by the heartbeat's extensions, so until one arrives
+// no file is offered as a disc and the stream boots the whole set.
+const romDiscFiles = computed(() =>
+  heartbeatStore.loaded ? (rom.value?.files ?? []) : [],
+);
 
-// Mirrors the download endpoint's playlist filtering: when .cue files are
-// present only those are valid swap targets (raw .bin tracks are not), and
-// the .m3u itself is never something to swap to.
-const discOptions = computed(() => {
-  const files = bootableRomFiles.value.filter(
-    (f) => fileExtension(f.file_name) !== "m3u",
-  );
-  const cueFiles = files.filter((f) => fileExtension(f.file_name) === "cue");
-  const listed = cueFiles.length > 0 ? cueFiles : files;
-  return listed.map((f) => ({ title: f.file_name, value: f.id }));
-});
+// The emulator's disc-swap menu only exists for multi-disc sets that ship a
+// playlist.
+const hasPlaylist = computed(() =>
+  streamHasPlaylist(romDiscFiles.value, patchExtensions.value),
+);
+
+function toDiscOption(file: { id: number; file_name: string }) {
+  return { title: file.file_name, value: file.id };
+}
+
+const discOptions = computed(() =>
+  streamDiscFiles(romDiscFiles.value, patchExtensions.value).map(toDiscOption),
+);
+
+const swapDiscOptions = computed(() =>
+  streamSwapDiscFiles(romDiscFiles.value, patchExtensions.value).map(
+    toDiscOption,
+  ),
+);
 
 const startDiscItems = computed<{ title: string; value: DiscSelection }[]>(
   () => [
@@ -297,13 +310,16 @@ const startDiscItems = computed<{ title: string; value: DiscSelection }[]>(
   ],
 );
 
-// A rom with a single swappable disc has nothing to swap to, whatever the
-// platform can do.
+// The disc sent with the claim, since the picker stays live while the game loads.
+const claimedStartDisc = ref<DiscSelection>(ALL_DISCS);
+// A start disc outside the playlist boots on its own, with no playlist loaded.
 const canSwapDisc = computed(
   () =>
     capabilities.value.supportsDiscSwap &&
-    discOptions.value.length > 1 &&
-    hasM3uFile.value &&
+    swapDiscOptions.value.length > 1 &&
+    hasPlaylist.value &&
+    (claimedStartDisc.value === ALL_DISCS ||
+      swapDiscOptions.value.some((o) => o.value === claimedStartDisc.value)) &&
     !isJoining,
 );
 
@@ -312,7 +328,7 @@ const canSwapDisc = computed(
 const showManualDiscHint = computed(
   () =>
     capabilities.value.hasManualDiscSwap &&
-    bootableRomFiles.value.length > 1 &&
+    discOptions.value.length > 1 &&
     !isJoining,
 );
 
@@ -983,6 +999,7 @@ async function onPlay(cardImport?: MemoryCardImport): Promise<void> {
       // The backend derives the ROM's filesystem path and platform from the id.
       // It answers as soon as the container is reserved; the room URL follows
       // on the socket, so the state stays "loading" until launch-ready lands.
+      claimedStartDisc.value = startDisc.value;
       const launching = await streamingStore.claimSession(
         rom.value.id,
         selectedState.value?.id,
@@ -1480,7 +1497,7 @@ onBeforeUnmount(() => {
             {{ platformLabel }} · {{ t("play.stream-subtitle") }}
           </p>
         </div>
-        <RBtn
+        <RButton
           size="x-large"
           variant="flat"
           color="primary"
@@ -1499,17 +1516,17 @@ onBeforeUnmount(() => {
                 ? t("play.stream-try-again")
                 : t("play.play-on", { label: emulatorLabel })
           }}
-        </RBtn>
+        </RButton>
         <div class="r-stream__hero-links">
-          <RBtn
+          <RButton
             variant="text"
             size="small"
             prepend-icon="mdi-arrow-left"
             :to="romRoute"
           >
             {{ t("play.back-to-game-details") }}
-          </RBtn>
-          <RBtn
+          </RButton>
+          <RButton
             variant="text"
             size="small"
             prepend-icon="mdi-view-grid-outline"
@@ -1517,7 +1534,7 @@ onBeforeUnmount(() => {
             :disabled="!platformRoute"
           >
             {{ t("play.back-to-gallery") }}
-          </RBtn>
+          </RButton>
         </div>
       </RCard>
 
@@ -1570,7 +1587,7 @@ onBeforeUnmount(() => {
                 role="group"
                 :aria-label="t('play.states-view')"
               >
-                <RBtn
+                <RButton
                   v-for="view in STATE_LAYOUTS"
                   :key="view.value"
                   variant="text"
@@ -1742,7 +1759,7 @@ onBeforeUnmount(() => {
 
         <span class="r-stream__bar-spacer" />
 
-        <RBtn
+        <RButton
           :icon="isMuted ? 'mdi-volume-off' : 'mdi-volume-high'"
           variant="text"
           density="compact"
@@ -1762,7 +1779,7 @@ onBeforeUnmount(() => {
         <!-- States and the save-and-exit belong to the claim holder. An
              exit-state emulator has an autosave slot but refuses both. -->
         <template v-if="container?.supports_live_states && !isJoining">
-          <RBtn
+          <RButton
             icon="mdi-content-save-outline"
             variant="text"
             density="compact"
@@ -1771,7 +1788,7 @@ onBeforeUnmount(() => {
             :disabled="stateActionBusy"
             @click="handleSaveState"
           />
-          <RBtn
+          <RButton
             icon="mdi-restore"
             variant="text"
             density="compact"
@@ -1782,7 +1799,7 @@ onBeforeUnmount(() => {
           />
         </template>
 
-        <RBtn
+        <RButton
           v-if="canSwapDisc"
           icon="mdi-disc"
           variant="text"
@@ -1805,7 +1822,7 @@ onBeforeUnmount(() => {
           />
         </span>
 
-        <RBtn
+        <RButton
           :icon="isFullscreen ? 'mdi-fullscreen-exit' : 'mdi-fullscreen'"
           variant="text"
           density="compact"
@@ -1816,7 +1833,7 @@ onBeforeUnmount(() => {
           "
           @click="toggleFullscreen"
         />
-        <RBtn
+        <RButton
           v-if="!isJoining"
           icon="mdi-content-save-move-outline"
           variant="text"
@@ -1826,7 +1843,7 @@ onBeforeUnmount(() => {
           :disabled="isSavingAndExiting"
           @click="handleSaveAndExit"
         />
-        <RBtn
+        <RButton
           :icon="isJoining ? 'mdi-exit-to-app' : 'mdi-stop'"
           variant="text"
           density="compact"
@@ -1872,14 +1889,14 @@ onBeforeUnmount(() => {
       </template>
       <template #footer>
         <!-- eslint-disable vuejs-accessibility/no-autofocus -- RDialog reads [autofocus] to place initial focus, and focusing the dialog's action on open is intentional modal UX -->
-        <RBtn
+        <RButton
           autofocus
           color="primary"
           variant="flat"
           @click="dismissEndedDialog"
         >
           {{ t("play.back-to-game-details") }}
-        </RBtn>
+        </RButton>
         <!-- eslint-enable vuejs-accessibility/no-autofocus -->
       </template>
     </RDialog>
@@ -1905,16 +1922,16 @@ onBeforeUnmount(() => {
         <!-- eslint-disable-next-line vuejs-accessibility/no-static-element-interactions -- arrow keys rove focus between this container's real buttons, which stay the interactive elements; the listener sits here to catch keydowns bubbling from either of them -->
         <div class="r-stream__exit-actions">
           <!-- eslint-disable vuejs-accessibility/no-autofocus -- RDialog reads [autofocus] to place initial focus, and the least destructive action is the intended target -->
-          <RBtn
+          <RButton
             autofocus
             variant="text"
             :disabled="isSavingAndExiting || isStopping"
             @click="exitKeepPlaying"
           >
             {{ t("play.keep-playing") }}
-          </RBtn>
+          </RButton>
           <!-- eslint-enable vuejs-accessibility/no-autofocus -->
-          <RBtn
+          <RButton
             v-if="isJoining"
             color="error"
             variant="text"
@@ -1922,8 +1939,8 @@ onBeforeUnmount(() => {
             @click="exitWithoutSaving"
           >
             {{ t("play.leave-session") }}
-          </RBtn>
-          <RBtn
+          </RButton>
+          <RButton
             v-else-if="playerState === 'loading'"
             color="error"
             variant="text"
@@ -1931,9 +1948,9 @@ onBeforeUnmount(() => {
             @click="exitWithoutSaving"
           >
             {{ t("play.cancel-launch") }}
-          </RBtn>
+          </RButton>
           <template v-else>
-            <RBtn
+            <RButton
               color="error"
               variant="text"
               :loading="isStopping"
@@ -1941,8 +1958,8 @@ onBeforeUnmount(() => {
               @click="exitWithoutSaving"
             >
               {{ t("play.exit-without-saving") }}
-            </RBtn>
-            <RBtn
+            </RButton>
+            <RButton
               color="primary"
               variant="flat"
               :loading="isSavingAndExiting"
@@ -1950,7 +1967,7 @@ onBeforeUnmount(() => {
               @click="exitSaveAndQuit"
             >
               {{ t("play.stream-save-and-exit") }}
-            </RBtn>
+            </RButton>
           </template>
         </div>
       </template>
@@ -1974,11 +1991,11 @@ onBeforeUnmount(() => {
           prepend-inner-icon="mdi-disc"
           hide-details
           :label="t('rom.file')"
-          :items="discOptions"
+          :items="swapDiscOptions"
         />
       </template>
       <template #footer>
-        <RBtn
+        <RButton
           color="primary"
           variant="flat"
           :loading="isSwappingDisc"
@@ -1986,7 +2003,7 @@ onBeforeUnmount(() => {
           @click="handleSwapDisc"
         >
           {{ t("play.swap-disc-confirm") }}
-        </RBtn>
+        </RButton>
       </template>
     </RDialog>
   </section>

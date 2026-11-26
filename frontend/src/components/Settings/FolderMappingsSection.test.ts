@@ -74,7 +74,7 @@ async function mountWith(
     global: {
       stubs: {
         RTable: RTableStub,
-        RBtn: true,
+        RButton: true,
         RDialog: true,
         RIcon: true,
         RTextField: true,

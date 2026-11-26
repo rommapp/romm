@@ -47,7 +47,7 @@ vi.mock("@/components/shared/AssetTimestamp.vue", () => ({
 
 vi.mock("@/lib", () => ({
   RAvatar: defineComponent({ template: "<span />" }),
-  RBtn: defineComponent({
+  RButton: defineComponent({
     emits: ["click"],
     template: "<button @click=\"$emit('click')\"><slot /></button>",
   }),

@@ -28,7 +28,7 @@ function mountNav(withSlot: boolean) {
   return mount(PrevNextNav, {
     props: { romId: 2 },
     slots: withSlot ? { default: '<div class="cover" />' } : {},
-    global: { stubs: { RBtn: { template: "<button />" } } },
+    global: { stubs: { RButton: { template: "<button />" } } },
   });
 }
 

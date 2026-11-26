@@ -7,7 +7,7 @@ import RenameDeviceDialog from "@/components/Settings/RenameDeviceDialog.vue";
 import { useConfirm } from "@/composables/useConfirm";
 import { useFetchState } from "@/composables/useFetchState";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { RBtn, RChip, RSwitch, RTable, type RTableColumn } from "@/lib";
+import { RButton, RChip, RSwitch, RTable, type RTableColumn } from "@/lib";
 import deviceApi from "@/services/api/device";
 import storeAuth from "@/stores/auth";
 import { formatRelativeDate } from "@/utils";
@@ -196,7 +196,7 @@ async function remove(device: DeviceSchema) {
       </template>
       <template #cell.actions="{ row }">
         <div v-if="canWrite" class="r-devices__actions">
-          <RBtn
+          <RButton
             variant="text"
             size="small"
             icon="mdi-pencil-outline"
@@ -204,7 +204,7 @@ async function remove(device: DeviceSchema) {
             :title="t('settings.device-rename')"
             @click="openRename(row as DeviceSchema)"
           />
-          <RBtn
+          <RButton
             variant="text"
             size="small"
             icon="mdi-trash-can-outline"
@@ -270,9 +270,9 @@ async function remove(device: DeviceSchema) {
 }
 
 .r-devices__delete {
-  --r-btn-color: color-mix(in srgb, var(--r-color-danger) 70%, transparent);
+  --r-button-color: color-mix(in srgb, var(--r-color-danger) 70%, transparent);
 }
 .r-devices__delete:hover {
-  --r-btn-color: var(--r-color-danger);
+  --r-button-color: var(--r-color-danger);
 }
 </style>

@@ -80,7 +80,7 @@ const stubs = {
     template:
       "<button class=\"dropzone\" @click=\"$emit('files', [{ name: 'game.rom', size: 3 }])\" />",
   },
-  RBtn: {
+  RButton: {
     props: ["disabled"],
     emits: ["click"],
     template:

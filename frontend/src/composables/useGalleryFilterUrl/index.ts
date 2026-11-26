@@ -21,7 +21,7 @@
 //   ?filterSaves=true|false
 //   ?filterStates=true|false
 //   ?filterSoundtrack=true|false
-//   ?platforms=1,2,3                  (selectedPlatforms IDs)
+//   ?platforms=1,2,3&platformsLogic=any|none  (selectedPlatforms IDs)
 //   ?genres=a,b&genresLogic=any|all|none
 //   ?franchises=…&franchisesLogic=…
 //   ?collections=…&collectionsLogic=…
@@ -52,6 +52,7 @@ import { onMounted, onScopeDispose, watch } from "vue";
 import { type LocationQueryValue, useRoute, useRouter } from "vue-router";
 import storeGalleryFilter, {
   type FilterLogicOperator,
+  type PlatformFilterLogic,
 } from "@/stores/galleryFilter";
 import storePlatforms from "@/stores/platforms";
 import { syncQueryParam } from "@/utils/routeQuery";
@@ -83,6 +84,12 @@ function qList(v: QueryValue): string[] {
 function qLogic(v: QueryValue): FilterLogicOperator | null {
   const s = qStr(v);
   if (s === "any" || s === "all" || s === "none") return s;
+  return null;
+}
+
+function qPlatformLogic(v: QueryValue): PlatformFilterLogic | null {
+  const s = qStr(v);
+  if (s === "any" || s === "none") return s;
   return null;
 }
 
@@ -119,6 +126,7 @@ export function useGalleryFilterUrl() {
     filterStates,
     filterSoundtrack,
     selectedPlatforms,
+    platformsLogic,
     selectedGenres,
     selectedFranchises,
     selectedCollections,
@@ -172,6 +180,7 @@ export function useGalleryFilterUrl() {
       platformIds: qList(q.platforms)
         .map((s) => Number(s))
         .filter((n) => !Number.isNaN(n)),
+      platformsLogic: qPlatformLogic(q.platformsLogic),
       genres: qList(q.genres),
       genresLogic: qLogic(q.genresLogic),
       franchises: qList(q.franchises),
@@ -242,6 +251,12 @@ export function useGalleryFilterUrl() {
     } else if (selectedPlatforms.value.length > 0) {
       filter.setSelectedFilterPlatforms([]);
     }
+    // A link with platforms and no logic includes them. Without platforms the
+    // logic is never written, so a toggle picked ahead of a platform survives.
+    const nextPlatformsLogic =
+      url.platformsLogic ?? (url.platformIds.length > 0 ? "any" : null);
+    if (nextPlatformsLogic && nextPlatformsLogic !== platformsLogic.value)
+      filter.setPlatformsLogic(nextPlatformsLogic);
 
     // Multi-select string arrays.
     if (!eqStrArr(url.genres, selectedGenres.value))
@@ -377,6 +392,10 @@ export function useGalleryFilterUrl() {
       "platforms",
       selectedPlatforms.value.map((p) => String(p.id)),
     );
+    setOrDelete(
+      "platformsLogic",
+      selectedPlatforms.value.length > 0 ? platformsLogic.value : null,
+    );
 
     setList("genres", selectedGenres.value);
     setOrDelete(
@@ -487,6 +506,7 @@ export function useGalleryFilterUrl() {
       filterStates,
       filterSoundtrack,
       selectedPlatforms,
+      platformsLogic,
       selectedGenres,
       genresLogic,
       selectedFranchises,

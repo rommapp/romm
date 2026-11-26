@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
-import RBtn from "../RBtn/RBtn.vue";
+import RButton from "../RButton/RButton.vue";
 import REmptyState from "./REmptyState.vue";
 
 const meta: Meta<typeof REmptyState> = {
@@ -57,13 +57,13 @@ export const WithActions: Story = {
     hint: "Upload a PDF or re-download from the metadata source.",
   },
   render: (args) => ({
-    components: { REmptyState, RBtn },
+    components: { REmptyState, RButton },
     setup: () => ({ args }),
     template: `
       <REmptyState v-bind="args">
         <template #actions>
-          <RBtn prepend-icon="mdi-cloud-upload-outline">Upload</RBtn>
-          <RBtn variant="outlined" prepend-icon="mdi-cloud-download-outline">Re-download</RBtn>
+          <RButton prepend-icon="mdi-cloud-upload-outline">Upload</RButton>
+          <RButton variant="outlined" prepend-icon="mdi-cloud-download-outline">Re-download</RButton>
         </template>
       </REmptyState>
     `,

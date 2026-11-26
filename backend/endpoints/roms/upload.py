@@ -7,8 +7,10 @@ from uuid import UUID, uuid4
 
 from anyio import Path as AsyncPath
 from anyio import open_file
-from fastapi import Header, HTTPException, Request, status
-from pydantic import BaseModel, Field
+from fastapi import Header, HTTPException
+from fastapi import Path as PathVar
+from fastapi import Request, status
+from pydantic import Field
 from starlette.requests import ClientDisconnect
 from starlette.responses import Response
 from streaming_form_data import StreamingFormDataParser
@@ -16,6 +18,7 @@ from streaming_form_data.targets import FileTarget, NullTarget
 
 from config import ROM_UPLOAD_TMP_BASE, ROM_UPLOAD_TTL
 from decorators.auth import protected_route
+from endpoints.responses.base import BaseModel
 from exceptions.fs_exceptions import (
     RomAlreadyExistsException,
     RomListedByPlaylistException,
@@ -55,6 +58,17 @@ router = APIRouter(
 
 ROM_ASSEMBLY_CHUNK_SIZE = 8192  # 8KB read buffer during assembly
 ROM_UPLOAD_MAX_CHUNK_SIZE = 64 * 1024 * 1024  # 64MB hard cap per chunk
+
+
+UploadIdPath = Annotated[
+    str,
+    PathVar(
+        description=(
+            "The ID of the upload session, from `POST /roms/upload/start`. Only"
+            " the user who started it can use it, and it expires after 24 hours."
+        )
+    ),
+]
 
 
 def _session_key(upload_id: str) -> str:
@@ -202,6 +216,31 @@ def _record_upload(request: Request, rom: Rom | None, session: dict[str, Any]) -
     )
 
 
+# The statuses `receive_rom_file` raises, for the routes that call it.
+ROM_FILE_UPLOAD_RESPONSES: dict[int | str, dict[str, Any]] = {
+    status.HTTP_400_BAD_REQUEST: {
+        "description": (
+            "The file name is not a plain file name, the folder does not accept"
+            " this file type, the rom's single file cannot move into a folder"
+            " because a playlist lists it, or the"
+            " request body has no file part with this name."
+        )
+    },
+    status.HTTP_409_CONFLICT: {
+        "description": (
+            "A folder in the rom's folder has this file name, or the rom's single"
+            " file cannot move into a folder of its own because one with that"
+            " name exists."
+        )
+    },
+    status.HTTP_500_INTERNAL_SERVER_ERROR: {
+        "description": (
+            "The upload failed, or the file was saved but not yet added to the rom."
+        )
+    },
+}
+
+
 async def receive_rom_file(
     request: Request, rom: Rom, folder: str, filename: str
 ) -> RomFile | None:
@@ -276,23 +315,14 @@ class UploadTargetPayload(BaseModel):
     """Optional body of `/start`: upload into a ROM's folder instead of the
     platform folder, and name the file where the header cannot."""
 
-    rom_id: int | None = Field(
-        default=None,
-        ge=1,
-        description="Upload into this ROM's folder instead of the platform folder.",
-    )
-    folder: str = Field(
-        default="",
-        description="Subfolder inside the ROM's folder, relative and forward-slashed. Empty for the root.",
-    )
-    filename: str | None = Field(
-        default=None,
-        description="The file name. Takes precedence over the header, which cannot carry characters outside Latin-1.",
-    )
-    overwrite: bool = Field(
-        default=False,
-        description="Replace a file of the same name in the ROM's folder instead of refusing the upload.",
-    )
+    rom_id: int | None = Field(default=None, ge=1)
+    """Upload into this ROM's folder instead of the platform folder."""
+    folder: str = ""
+    """A subfolder of the ROM's folder, as a relative path with forward slashes. Empty for the ROM's folder itself."""
+    filename: str | None = None
+    """The file name. Overrides the `x-upload-filename` header, which can only hold Latin-1 characters."""
+    overwrite: bool = False
+    """Replace a file of the same name in the ROM's folder instead of refusing the upload."""
 
 
 @protected_route(
@@ -300,24 +330,60 @@ class UploadTargetPayload(BaseModel):
     "/start",
     [Scope.ROMS_WRITE],
     status_code=status.HTTP_201_CREATED,
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The chunk count does not match the file size, no platform the caller can see has the ID in `x-upload-platform`, the file name or folder is not allowed, the rom is on another platform, or the platform folder already has a file with this name."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom the caller can see has the given `rom_id`."
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "The rom's folder already has a file with this name, and `overwrite` is not set."
+        },
+    },
 )
 async def start_chunked_upload(
     request: Request,
     platform_id: Annotated[
         int,
-        Header(alias="x-upload-platform", ge=1),
+        Header(
+            alias="x-upload-platform",
+            ge=1,
+            description=(
+                "The ID of the platform to upload to. The caller must be able to"
+                " see it."
+            ),
+        ),
     ],
     filename: Annotated[
         str,
-        Header(alias="x-upload-filename"),
+        Header(
+            alias="x-upload-filename",
+            description="The name to store the file under. The server sanitizes it.",
+        ),
     ],
     total_size: Annotated[
         int,
-        Header(alias="x-upload-total-size", ge=0),
+        Header(
+            alias="x-upload-total-size",
+            ge=0,
+            description=(
+                "The size of the whole file, in bytes. Every chunk except the"
+                " last is `ceil(total_size / total_chunks)` bytes."
+            ),
+        ),
     ],
     total_chunks: Annotated[
         int,
-        Header(alias="x-upload-total-chunks", ge=0),
+        Header(
+            alias="x-upload-total-chunks",
+            ge=0,
+            description=(
+                "The number of chunks the file is sent in. A 10 MB file sent in"
+                " 2 MB chunks has 5. Zero only for an empty file, which skips the"
+                " chunk uploads and goes straight to `/complete`."
+            ),
+        ),
     ],
     target: UploadTargetPayload | None = None,
 ) -> dict[str, Any]:
@@ -397,13 +463,37 @@ async def start_chunked_upload(
     router.put,
     "/{upload_id}",
     [Scope.ROMS_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The upload ID is not a UUID, the chunk index is out of range, or the `Content-Length` header is not a number."
+        },
+        status.HTTP_403_FORBIDDEN: {
+            "description": "Another user started this upload session."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No upload session has this ID, or the session has expired."
+        },
+        status.HTTP_413_CONTENT_TOO_LARGE: {
+            "description": "The chunk is larger than the 64 MB limit."
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "The chunk could not be written to disk."
+        },
+    },
 )
 async def upload_chunk(
     request: Request,
-    upload_id: str,
+    upload_id: UploadIdPath,
     chunk_index: Annotated[
         int,
-        Header(alias="x-chunk-index", ge=0),
+        Header(
+            alias="x-chunk-index",
+            ge=0,
+            description=(
+                "The zero-based position of this chunk. The request body must be"
+                " exactly the size expected at that position."
+            ),
+        ),
     ],
 ) -> dict[str, Any]:
     """Upload a single chunk of a ROM file."""
@@ -525,10 +615,27 @@ async def _assemble_chunks(
     "/{upload_id}/complete",
     [Scope.ROMS_WRITE],
     status_code=status.HTTP_201_CREATED,
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The upload ID is not a UUID, chunks are missing, the assembled file has the wrong size, or the destination is no longer valid."
+        },
+        status.HTTP_403_FORBIDDEN: {
+            "description": "Another user started this upload session."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No upload session has this ID, the session has expired, or no rom the caller can see has the session's `rom_id`."
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "The upload is already being assembled or has completed, or a file with this name appeared in the destination."
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "The chunks could not be assembled, or the file was saved but not yet added to the rom."
+        },
+    },
 )
 async def complete_chunked_upload(
     request: Request,
-    upload_id: str,
+    upload_id: UploadIdPath,
 ) -> Response:
     """Assemble all chunks into the final ROM file."""
 
@@ -575,10 +682,16 @@ async def complete_chunked_upload(
     "/{upload_id}/cancel",
     [Scope.ROMS_WRITE],
     status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"description": "The upload ID is not a UUID."},
+        status.HTTP_403_FORBIDDEN: {
+            "description": "Another user started this upload session."
+        },
+    },
 )
 async def cancel_chunked_upload(
     request: Request,
-    upload_id: str,
+    upload_id: UploadIdPath,
 ) -> Response:
     """Cancel a chunked upload session and clean up temp files."""
 

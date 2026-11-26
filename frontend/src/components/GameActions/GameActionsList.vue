@@ -21,6 +21,18 @@ const favLabel = computed(() =>
     : t("rom.add-to-favorites"),
 );
 
+const hasPrimaryActions = computed(
+  () =>
+    actions.canPlayLocally.value ||
+    actions.canPlayStream.value ||
+    actions.canJoinStream.value ||
+    actions.canDownload.value ||
+    actions.downloadFormats.value.length > 0 ||
+    actions.canInstallOnDevice.value ||
+    actions.canShareQR.value ||
+    actions.canOpenInFlashpoint.value,
+);
+
 const hasMetadataActions = computed(
   () =>
     actions.canMatch.value || actions.canRefresh.value || actions.canEdit.value,
@@ -90,7 +102,7 @@ function run(fn: () => void | Promise<void>) {
     @click="run(actions.openInFlashpoint)"
   />
 
-  <RDivider />
+  <RDivider v-if="hasPrimaryActions" />
 
   <!-- User actions -->
   <RMenuItem

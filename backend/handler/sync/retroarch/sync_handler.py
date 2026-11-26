@@ -19,6 +19,7 @@ from collections.abc import (
 from dataclasses import dataclass
 from datetime import datetime
 from functools import partial
+from pathlib import Path
 from typing import Literal, NamedTuple
 
 from fastapi import UploadFile
@@ -58,7 +59,7 @@ from models.assets import (
 from models.rom import Rom
 from models.user import User
 from utils.filesystem import check_filename_length
-from utils.uploads import strip_datetime_tag
+from utils.uploads import apply_datetime_tag, strip_datetime_tag
 
 AssetKind = Literal["saves", "states"]
 
@@ -126,6 +127,32 @@ def parse_retroarch_sync_path(path: str) -> RetroArchSyncPath | None:
             return None
 
     return RetroArchSyncPath(kind=kind, emulator=emulator, file_name=segments[-1])
+
+
+# RetroArch stamps a backup with the client's local `%y%m%d-%H%M%S`.
+_BACKUP_PATH = re.compile(r"deleted/(.+)-([0-9]{6}-[0-9]{6})")
+
+
+@dataclass(frozen=True)
+class RetroArchBackupPath:
+    """A timestamped client backup, e.g. ``deleted/config/retroarch.cfg-261118-120000``."""
+
+    source: str
+    stamp: str
+
+
+def parse_backup_path(path: str) -> RetroArchBackupPath | None:
+    """A backup of a save, state or blob path, or None if it isn't one."""
+    match = _BACKUP_PATH.fullmatch(path)
+    if not match or "\\" in path:
+        return None
+    source = match[1]
+    segments = split_segments(source)
+    if not segments or source != "/".join(segments):
+        return None
+    if parse_retroarch_sync_path(source) or parse_retroarch_sync_blob_path(source):
+        return RetroArchBackupPath(source, match[2])
+    return None
 
 
 def is_state_screenshot_path(file_name: str) -> bool:
@@ -289,6 +316,41 @@ def slot_states(
         max(in_slot, key=on_disk_recency_key, default=None),
         [s for s in in_slot if not s.is_stream_capture],
     )
+
+
+class StateUploadTarget(NamedTuple):
+    """Where a state upload is written, and the row it rewrites."""
+
+    slot: SlotStates
+    existing: State | None
+    file_path: str
+    file_name: str
+    emulator: str | None
+
+
+def state_upload_target(
+    user: User, rom: Rom, parsed: RetroArchSyncPath
+) -> StateUploadTarget:
+    """Writes over the slot's own newest state under its name and emulator, which
+    keeps its row pointing at the fresh bytes, unless a sync channel holds it."""
+    slot = slot_states(user, rom, parsed.emulator, parsed.file_name)
+    matched = slot.own_head
+    held = matched is not None and db_snapshot_handler.is_asset_frozen(matched)
+    existing = None if held else matched
+    file_name = existing.file_name if existing else parsed.file_name
+    emulator = existing.emulator if existing else parsed.emulator
+    file_path = build_asset_file_path(user, rom, parsed.kind, emulator)
+    if (
+        held
+        and matched
+        and (matched.file_path, matched.file_name)
+        == (
+            file_path,
+            file_name,
+        )
+    ):
+        file_name = apply_datetime_tag(parsed.file_name)
+    return StateUploadTarget(slot, existing, file_path, file_name, emulator)
 
 
 def resolve_state_by_slot(
@@ -514,6 +576,28 @@ async def store_save(
     return "created"
 
 
+class SaveUploadTarget(NamedTuple):
+    """Where an unslotted save upload is written, and the row it rewrites."""
+
+    existing: Save | None
+    file_path: str
+    file_name: str
+    emulator: str | None
+
+
+def unslotted_upload_target(
+    user: User, rom: Rom, emulator: str | None, file_name: str
+) -> SaveUploadTarget:
+    existing = _unslotted_save_at(user, rom, emulator, file_name)
+    # Written where the existing row points, so it keeps tracking the bytes even
+    # when the lookup matched it under a different case.
+    if existing:
+        emulator = existing.emulator
+        file_name = existing.file_name
+    file_path = build_asset_file_path(user, rom, "saves", emulator)
+    return SaveUploadTarget(existing, file_path, file_name, emulator)
+
+
 async def _store_unslotted_save(
     user: User,
     rom: Rom,
@@ -521,19 +605,14 @@ async def _store_unslotted_save(
     file_name: str,
     body: UploadFile,
 ) -> SaveUpload:
-    existing = await asyncio.to_thread(
-        _unslotted_save_at, user, rom, emulator, file_name
+    existing, asset_path, file_name, emulator = await asyncio.to_thread(
+        unslotted_upload_target, user, rom, emulator, file_name
     )
     replaced_hash = None
-    # Written where the existing row points, so it keeps tracking the bytes even
-    # when the lookup matched it under a different case.
     if existing:
         if await asyncio.to_thread(db_snapshot_handler.is_asset_frozen, existing):
             raise SaveHeld(existing.file_name)
-        emulator = existing.emulator
-        file_name = existing.file_name
         replaced_hash = await fs_asset_handler.unrecorded_hash(existing)
-    asset_path = build_asset_file_path(user, rom, "saves", emulator)
     await fs_asset_handler.write_file(file=body, path=asset_path, filename=file_name)
     scanned = await scan_save(
         file_name=file_name,
@@ -718,6 +797,54 @@ def parse_retroarch_sync_blob_path(path: str) -> str | None:
 def user_blob_path(user: User, blob_path: str) -> str:
     """Where a parsed blob path lives under the assets root, namespaced by user."""
     return f"{fs_asset_handler.user_folder_path(user)}/retroarch/{blob_path}"
+
+
+def user_backup_path(user: User, rom: Rom | None, backup: RetroArchBackupPath) -> str:
+    """Where `user`'s backup is stored, namespaced by the ROM its source belongs to."""
+    namespace = f"roms/{rom.id}" if rom else "blobs"
+    return user_blob_path(user, f"backups/{namespace}/{backup.source}/{backup.stamp}")
+
+
+async def publish_backup(
+    user: User,
+    rom: Rom | None,
+    backup: RetroArchBackupPath,
+    source: Path,
+    *,
+    overwrite: bool,
+) -> bool | None:
+    """Store `source` as `backup`, keeping `MAX_SAVES_PER_SLOT` per source.
+
+    Returns:
+        Whether an existing backup was replaced, or None if `source` is gone.
+
+    Raises:
+        FileExistsError: The backup exists and `overwrite` is false.
+    """
+    return await fs_retroarch_sync_handler.publish_backup(
+        source,
+        user_backup_path(user, rom, backup),
+        overwrite=overwrite,
+        keep=MAX_SAVES_PER_SLOT,
+    )
+
+
+def upload_target_path(user: User, rom: Rom, parsed: RetroArchSyncPath) -> str | None:
+    """The stored file an upload to `parsed` writes over, or None if it adds a version."""
+    if parsed.is_state_screenshot:
+        screenshot = screenshot_upload_target(
+            user, rom, parsed.emulator, parsed.file_name
+        )
+        return os.path.join(
+            state_screenshot_dir(user, rom, screenshot.emulator), screenshot.file_name
+        )
+    if parsed.kind == "states":
+        state = state_upload_target(user, rom, parsed)
+        return os.path.join(state.file_path, state.file_name)
+    if save_lineage(rom, parsed.emulator, parsed.file_name):
+        return None
+    save = unslotted_upload_target(user, rom, parsed.emulator, parsed.file_name)
+    return os.path.join(save.file_path, save.file_name)
 
 
 def _decoded(value: str | bytes | None) -> str | None:

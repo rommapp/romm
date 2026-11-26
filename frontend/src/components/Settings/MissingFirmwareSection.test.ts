@@ -65,7 +65,7 @@ function mountSection() {
     global: {
       stubs: {
         CachedPlatformIcon: true,
-        RBtn: true,
+        RButton: true,
         RIcon: true,
         RMenu: RMenuStub,
         RMenuItem: true,

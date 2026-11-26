@@ -221,6 +221,50 @@ export function assignFlatRowLetters(
   return out;
 }
 
+/** Every letter the items in `[first, last]` cover, in screen order. */
+export function lettersInRange(
+  items: readonly GalleryItem[],
+  first: number,
+  last: number,
+): Set<string> {
+  const set = new Set<string>();
+  for (let i = first; i <= last; i++) {
+    const it = items[i];
+    if (!it) continue;
+    if (it.kind === "letter-header") set.add(it.letter);
+    else if (it.kind === "row") for (const l of it.letters) set.add(l);
+    else if (it.kind === "list-row") set.add(it.letter);
+  }
+  return set;
+}
+
+/** A letter picked in the jump menu, and whether it has reached the screen. */
+export interface LetterPick {
+  letter: string;
+  shown: boolean;
+}
+
+/** Drops a pick once its letter has been on screen and scrolled away. */
+export function settleLetterPick(
+  pick: LetterPick | null,
+  visible: ReadonlySet<string>,
+): LetterPick | null {
+  if (!pick) return null;
+  if (visible.has(pick.letter))
+    return pick.shown ? pick : { ...pick, shown: true };
+  return pick.shown ? null : pick;
+}
+
+/** The picked letter while it is on screen, because a jump often lands on a
+ *  row that starts with the letter before it. */
+export function currentLetterIn(
+  visible: ReadonlySet<string>,
+  pick: LetterPick | null,
+): string {
+  if (pick && visible.has(pick.letter)) return pick.letter;
+  return visible.values().next().value ?? "";
+}
+
 export function useGalleryVirtualItems(opts: Options) {
   const skeletonRows = opts.skeletonRowCount ?? 4;
 

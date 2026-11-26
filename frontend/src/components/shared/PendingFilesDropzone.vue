@@ -3,7 +3,7 @@
 // "Add" button and per-row removal. Files dedupe by name.
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { RBtn, RChip, RDropzone, RIcon } from "@/lib";
+import { RButton, RChip, RDropzone, RIcon } from "@/lib";
 import { formatBytes } from "@/utils";
 
 defineOptions({ inheritAttrs: false });
@@ -70,14 +70,14 @@ defineExpose({ open: () => filledDz.value?.open() });
         <span>
           {{ t("common.upload-files-selected", { count: modelValue.length }) }}
         </span>
-        <RBtn
+        <RButton
           variant="flat"
           color="primary"
           prepend-icon="mdi-plus"
           @click="filledDz?.open()"
         >
           {{ t("common.add") }}
-        </RBtn>
+        </RButton>
       </header>
       <ul class="r-pending-files__list">
         <li v-for="f in modelValue" :key="f.name" class="r-pending-files__row">
@@ -86,7 +86,7 @@ defineExpose({ open: () => filledDz.value?.open() });
           <RChip size="x-small" variant="translucent">
             {{ formatBytes(f.size) }}
           </RChip>
-          <RBtn
+          <RButton
             variant="text"
             size="x-small"
             icon="mdi-close"

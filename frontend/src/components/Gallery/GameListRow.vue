@@ -16,7 +16,7 @@ import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import ProviderBadges from "@/components/Gallery/ProviderBadges.vue";
-import GameActionBtn from "@/components/GameActions/GameActionBtn.vue";
+import GameActionButton from "@/components/GameActions/GameActionButton.vue";
 import GameCard from "@/components/GameCard/GameCard.vue";
 import SiblingBadge from "@/components/GameCard/SiblingBadge.vue";
 import PlatformIcon from "@/components/shared/PlatformIcon.vue";
@@ -231,7 +231,7 @@ const providers = computed(() => {
 });
 
 // Status badge surfaces only when the rom actually has a play status
-// set: otherwise GameActionBtn would render the dashed-circle
+// set: otherwise GameActionButton would render the dashed-circle
 // "no status set" placeholder on every row, which reads as visual
 // noise across a tall list. Mirrors the flags `useGameActions`
 // inspects in `currentStatusKey`.
@@ -436,7 +436,7 @@ function onRowPointerDown(e: PointerEvent) {
               </template>
             </div>
             <div class="game-list-row__badges" @click.stop>
-              <GameActionBtn
+              <GameActionButton
                 v-if="hasStatus"
                 :rom="rom"
                 action="status"
@@ -449,7 +449,7 @@ function onRowPointerDown(e: PointerEvent) {
           </div>
 
           <div class="game-list-row__actions" @click.stop>
-            <GameActionBtn
+            <GameActionButton
               :rom="rom"
               action="more"
               size="small"
@@ -555,7 +555,7 @@ function onRowPointerDown(e: PointerEvent) {
                 {{ romName }}
               </a>
               <div class="game-list-row__badges" @click.stop>
-                <GameActionBtn
+                <GameActionButton
                   v-if="hasStatus"
                   :rom="rom"
                   action="status"
@@ -689,13 +689,13 @@ function onRowPointerDown(e: PointerEvent) {
           :class="cellModifiers('actions')"
         >
           <div class="game-list-row__actions" @click.stop>
-            <GameActionBtn
+            <GameActionButton
               :rom="rom"
               action="favorite"
               size="small"
               variant="bare"
             />
-            <GameActionBtn
+            <GameActionButton
               :rom="rom"
               action="more"
               size="small"

@@ -9,7 +9,7 @@
 //   1. Slot (most flexible):
 //      <RTooltip text="Save">
 //        <template #activator="{ props }">
-//          <RBtn v-bind="props" icon="mdi-content-save" />
+//          <RButton v-bind="props" icon="mdi-content-save" />
 //        </template>
 //      </RTooltip>
 //

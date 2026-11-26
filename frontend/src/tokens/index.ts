@@ -219,7 +219,7 @@ export const colorLight = {
 
 // Cover-overlay surfaces: fixed dark glass values that never theme-flip.
 // These are used by surfaces sitting on top of cover artwork
-// (GameCard chrome, GameActionBtn) where contrast against cover art matters
+// (GameCard chrome, GameActionButton) where contrast against cover art matters
 // more than page theme. Inverting them in light mode would lose contrast
 // against bright covers.
 export const colorOverlay = {

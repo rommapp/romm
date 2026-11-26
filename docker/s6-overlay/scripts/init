@@ -1,0 +1,43 @@
+#!/command/with-contenv bash
+# Prepare the environment every other service inherits.
+
+set -o errexit
+set -o nounset
+set -o pipefail
+shopt -s inherit_errexit
+
+ROMM_LOG_TAG="init"
+# shellcheck source=SCRIPTDIR/lib.sh
+source /etc/s6-overlay/scripts/lib.sh
+
+print_banner
+
+# Values written here are picked up by every later `with-contenv` service.
+S6_ENV="/run/s6/container_environment"
+
+if ! printenv | grep -q '^OTEL_'; then
+	info_log "No OpenTelemetry environment variables found, disabling OpenTelemetry SDK"
+	printf 'true' >"${S6_ENV}/OTEL_SDK_DISABLED"
+fi
+
+if [[ -z ${ROMM_AUTH_SECRET_KEY-} ]]; then
+	warn_log "ROMM_AUTH_SECRET_KEY not set, generating a random secret key!"
+	python3 -c "import secrets; print(secrets.token_hex(32), end='')" >"${S6_ENV}/ROMM_AUTH_SECRET_KEY"
+fi
+
+sync_base_path="${ROMM_BASE_PATH:-/romm}/sync"
+
+# The image's /romm is only writable by UID 1000, so the sync folder needs its own mount.
+if is_truthy "${ENABLE_SYNC_FOLDER_WATCHER:-false}"; then
+	if ! mkdir -p "${sync_base_path}" 2>/dev/null || [[ ! -w ${sync_base_path} ]]; then
+		warn_log "${sync_base_path} is not writable, so the sync folder watcher and sync folder scan are disabled. Mount a host folder there to use them."
+		printf 'false' >"${S6_ENV}/ENABLE_SYNC_FOLDER_WATCHER"
+	fi
+fi
+
+# Push-pull only reads its SSH keys, so a read-only mount is enough.
+sync_ssh_keys_path="${SYNC_SSH_KEYS_PATH:-${sync_base_path}/keys}"
+if is_truthy "${ENABLE_SYNC_PUSH_PULL:-false}" && ! mkdir -p "${sync_ssh_keys_path}" 2>/dev/null; then
+	warn_log "${sync_ssh_keys_path} doesn't exist and can't be created, so push-pull sync is disabled. Mount your SSH keys there, or set SYNC_SSH_KEYS_PATH."
+	printf 'false' >"${S6_ENV}/ENABLE_SYNC_PUSH_PULL"
+fi

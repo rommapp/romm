@@ -21,7 +21,7 @@ import { backendStatusBannerStoryKey } from "@/components/AppShell/backendStatus
 import { useDelayedFlag } from "@/composables/useDelayedFlag";
 import { useServerConnection } from "@/composables/useServerConnection";
 import { useSocketTransportHealth } from "@/composables/useSocketTransportHealth";
-import { RBtn, RIcon, RTooltip } from "@/lib";
+import { RButton, RIcon, RTooltip } from "@/lib";
 import storePlaying from "@/stores/playing";
 
 defineOptions({ inheritAttrs: false });
@@ -102,7 +102,7 @@ function onRetry() {
           <span class="r-backend-banner__msg">
             {{ t(messageKey) }}
           </span>
-          <RBtn
+          <RButton
             v-if="!playing"
             size="small"
             variant="text"
@@ -111,7 +111,7 @@ function onRetry() {
             @click="onRetry"
           >
             {{ t("common.try-again") }}
-          </RBtn>
+          </RButton>
         </div>
       </Transition>
     </div>

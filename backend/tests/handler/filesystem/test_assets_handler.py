@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
+from tests._embedded_archives import EMBEDDINGS, embedded_archive, game_archive
 from tests._zipfile_shim import reload_zipfile
 
 from config import ASSETS_BASE_PATH
@@ -17,6 +18,7 @@ from handler.filesystem.assets_handler import (
     hash_save_content,
     hash_save_file,
 )
+from models.assets import SaveShape
 from models.user import User
 
 
@@ -569,6 +571,45 @@ class TestHashSaveFile:
         )
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("embedding", EMBEDDINGS)
+    async def test_bytes_that_only_end_like_a_zip_hash_as_one_file(
+        self, temp_base: Path, embedding: str
+    ):
+        """An emulator state can carry the game's own archive, or only its tail."""
+        from utils.memory_cards import content_hash_of_bytes
+
+        path = temp_base / "game.state"
+        path.write_bytes(embedded_archive(embedding))
+        assert zipfile.is_zipfile(path)
+        handler = FSAssetsHandler()
+        handler.base_path = temp_base
+        raw = _md5(path.read_bytes())
+
+        assert await handler.compute_content_hash("game.state") == raw
+        assert hash_save_file(path) == raw
+        assert content_hash_of_bytes(path.read_bytes()) == raw
+
+    @pytest.mark.asyncio
+    async def test_an_archive_with_a_corrupt_entry_is_unknown(self, temp_base: Path):
+        from utils.memory_cards import content_hash_of_bytes
+
+        reload_zipfile()
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_STORED) as zf:
+            zf.writestr("save.bin", b"A" * 100)
+        corrupt = bytearray(buffer.getvalue())
+        # A byte of the entry's data, past its 30-byte local header and name.
+        corrupt[30 + len("save.bin") + 10] ^= 0xFF
+        path = temp_base / "save.zip"
+        path.write_bytes(bytes(corrupt))
+        handler = FSAssetsHandler()
+        handler.base_path = temp_base
+
+        assert await handler.compute_content_hash("save.zip") is None
+        assert hash_save_file(path) is None
+        assert content_hash_of_bytes(bytes(corrupt)) is None
+
+    @pytest.mark.asyncio
     async def test_an_unreadable_zip_is_unknown_like_compute_content_hash(
         self, temp_base: Path, monkeypatch: pytest.MonkeyPatch
     ):
@@ -679,12 +720,41 @@ class TestCheckZip:
 
         assert assets_handler.check_zip(archive) == ["SAVE01/data.bin", "icon.png"]
 
+    @pytest.mark.parametrize("embedding", EMBEDDINGS)
+    def test_bytes_that_only_end_like_a_zip_upload_raw(self, embedding: str):
+        assert (
+            assets_handler.check_upload(io.BytesIO(embedded_archive(embedding))) is None
+        )
+
     def test_a_raw_upload_is_no_archive_and_keeps_its_position(self):
         stream = io.BytesIO(b"raw sram")
         stream.seek(3)
 
         assert assets_handler.check_upload(stream) is None
         assert stream.tell() == 3
+
+
+class TestSaveUnitArchive:
+    @pytest.mark.parametrize("embedding", EMBEDDINGS)
+    def test_bytes_that_only_end_like_a_zip_are_a_single_raw_unit(
+        self, tmp_path: Path, embedding: str
+    ):
+        unit = embedded_archive(embedding)
+        path = tmp_path / "game.srm"
+        path.write_bytes(unit)
+
+        assert assets_handler.save_shape_of(path) == SaveShape.SINGLE
+        unpacked = assets_handler.unpack_save_unit(unit, tmp_path)
+        assert unpacked == assets_handler.UnpackedUnit(
+            [assets_handler.RAW_UNIT_NAME], archived=False
+        )
+        assert (tmp_path / assets_handler.RAW_UNIT_NAME).read_bytes() == unit
+
+    def test_an_archive_is_a_multi_unit(self, tmp_path: Path):
+        path = tmp_path / "game.zip"
+        path.write_bytes(game_archive())
+
+        assert assets_handler.save_shape_of(path) == SaveShape.MULTI
 
 
 class TestZipIdentityHash:

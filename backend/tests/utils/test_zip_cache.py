@@ -428,25 +428,6 @@ class TestZipFileEntryFromRomFile:
         )
 
 
-class TestEnsureZipfileWritable:
-    def test_writestr_works_after_inflate64_patch(self, library, mocker):
-        # Simulates the zipfile_inflate64 patch: a wrapper that drops the
-        # compresslevel argument, which breaks ZipFile.write() on CPython 3.13.
-        import zipfile
-
-        original = zipfile._get_compressor  # type: ignore[attr-defined]
-
-        def one_arg_wrapper(compress_type):
-            return original(compress_type)
-
-        mocker.patch.object(zipfile, "_get_compressor", one_arg_wrapper)
-
-        result = build_library_zip(m3u_content=b"a.bin", m3u_filename="game.m3u")
-        with ZipFile(result) as zf:
-            assert zf.read("a.bin") == b"data"
-            assert zf.read("game.m3u") == b"a.bin"
-
-
 class TestCachedZipReadability:
     def test_build_leaves_archive_nginx_readable(self, library):
         result = build_library_zip()

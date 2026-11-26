@@ -146,9 +146,9 @@ function mountView(): VueWrapper {
   return mount(EasyRpg, {
     global: {
       stubs: {
-        RBtn: {
-          name: "RBtn",
-          props: { to: { type: String, default: undefined } },
+        RButton: {
+          name: "RButton",
+          props: { to: { type: [String, Object], default: undefined } },
           emits: ["click"],
           template: "<button @click=\"$emit('click')\"><slot /></button>",
         },

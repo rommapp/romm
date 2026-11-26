@@ -57,7 +57,7 @@ class TestDBStatesHandlerPlatformFiltering:
     def test_get_states_with_nonexistent_platform(self, admin_user: User, state: State):
         """Test that get_states returns empty list for nonexistent platform."""
         states = db_state_handler.get_states(
-            user_id=admin_user.id, platform_id=999, visibility=UNRESTRICTED
+            user_id=admin_user.id, platform_id=-1, visibility=UNRESTRICTED
         )
 
         assert len(states) == 0

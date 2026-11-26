@@ -771,6 +771,9 @@ async def _identify_rom(
         if rom.fs_name != fs_rom["fs_name"]:
             rom.fs_name = fs_rom["fs_name"]
 
+    # The stored file rows only catch up after `sync_rom_files` below.
+    scanned_files = fs_rom["files"] if should_update_files else None
+
     log.debug(f"Scanning {rom.fs_name}...")
     scanned_rom = await scan_rom(
         scan_type=scan_type,
@@ -781,6 +784,7 @@ async def _identify_rom(
         newly_added=newly_added,
         launchbox_remote_enabled=launchbox_remote_enabled,
         socket_manager=socket_manager,
+        scanned_files=scanned_files,
     )
 
     await scan_stats.increment(
@@ -794,7 +798,9 @@ async def _identify_rom(
     scanned_rom_ids.add(_added_rom.id)
 
     if _added_rom.is_identified:
-        await emit_scanning_rom(socket_manager, _added_rom, is_new=newly_added)
+        await emit_scanning_rom(
+            socket_manager, _added_rom, is_new=newly_added, files=scanned_files
+        )
 
     if should_update_files:
         # Reconcile against the existing rows instead of replacing them, so file
@@ -823,7 +829,9 @@ async def _identify_rom(
         },
     )
 
-    await emit_scanning_rom(socket_manager, _added_rom, is_new=newly_added)
+    await emit_scanning_rom(
+        socket_manager, _added_rom, is_new=newly_added, files=scanned_files
+    )
 
 
 async def _scan_selected_roms(
@@ -1066,13 +1074,11 @@ async def _identify_platform(
             )
 
     for fs_roms_batch in batched(fs_roms, 200, strict=False):
-        # Key matches on the rom's full path (fs_path/fs_name), not just the
-        # file name, so identically-named files in different folders don't
-        # collide under a custom library structure.
+        # Keyed by full path so same-named files in different folders don't collide.
+        # File rows load per rom under the semaphore, so at most SCAN_WORKERS roms' rows are held.
         roms_by_full_path = db_rom_handler.get_roms_by_fs_name(
             platform_id=platform.id,
             fs_names={fs_rom["fs_name"] for fs_rom in fs_roms_batch},
-            with_files=scan_type == ScanType.QUICK,
         )
 
         # Separate skipped ROMs from those that need scanning
@@ -1314,6 +1320,7 @@ async def scan_platforms(
             db_platforms_by_id[platform_id].fs_slug
             for platform_id in scoped_roms_by_platform
         )
+        platforms_to_scan = platform_list
         total_platforms = len(scoped_roms_by_platform)
         total_roms = sum(len(roms) for roms in scoped_roms_by_platform.values())
     else:
@@ -1449,10 +1456,12 @@ async def scan_platforms(
         db_platforms = db_platform_handler.get_platforms()
         db_platforms_by_slug = {p.fs_slug: p for p in db_platforms}
 
+        # Export only what this scan touched: a new-platforms scan skips every
+        # platform already in the database, so rewriting those is wasted work.
         if config.GAMELIST_AUTO_EXPORT_ON_SCAN:
-            log.info("Auto-exporting gamelist.xml for all platforms...")
+            log.info("Auto-exporting gamelist.xml for the scanned platforms...")
             gamelist_exporter = GamelistExporter(local_export=True)
-            for platform_slug in platform_list:
+            for platform_slug in platforms_to_scan:
                 platform = db_platforms_by_slug.get(platform_slug)
                 if platform:
                     export_success = await gamelist_exporter.export_platform_to_file(
@@ -1470,9 +1479,9 @@ async def scan_platforms(
             log.info("Gamelist.xml auto-export completed.")
 
         if config.PEGASUS_AUTO_EXPORT_ON_SCAN:
-            log.info("Auto-exporting metadata.pegasus.txt for all platforms...")
+            log.info("Auto-exporting metadata.pegasus.txt for the scanned platforms...")
             pegasus_exporter = PegasusExporter(local_export=True)
-            for platform_slug in platform_list:
+            for platform_slug in platforms_to_scan:
                 platform = db_platforms_by_slug.get(platform_slug)
                 if platform:
                     export_success = await pegasus_exporter.export_platform_to_file(

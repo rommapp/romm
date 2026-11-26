@@ -914,18 +914,7 @@ class TestScanFileLoaders:
     """The scan loop reads rows off detached roms, so every relationship it
     touches has to be eager-loaded by the lookup."""
 
-    def test_get_roms_by_fs_name_with_files_loads_rows_and_backref(
-        self, multi_file_rom: Rom, platform: Platform
-    ):
-        rom = db_rom_handler.get_roms_by_fs_name(
-            platform_id=platform.id, fs_names={multi_file_rom.fs_name}, with_files=True
-        )[multi_file_rom.full_path]
-
-        assert {f.file_name for f in rom.files} == {"disc1.bin", "disc2.bin"}
-        assert all(f.track_meta is None for f in rom.files)
-        assert all(f.rom.fs_name == rom.fs_name for f in rom.files)
-
-    def test_get_roms_by_fs_name_leaves_files_unloaded_by_default(
+    def test_get_roms_by_fs_name_leaves_files_unloaded(
         self, multi_file_rom: Rom, platform: Platform
     ):
         rom = db_rom_handler.get_roms_by_fs_name(

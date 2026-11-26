@@ -13,7 +13,7 @@ import {
 import { useEmitterEvent } from "@/composables/useEmitterEvent";
 import { useFetchState } from "@/composables/useFetchState";
 import { useThemeMode } from "@/composables/useThemeMode";
-import { RBtn, RDialog, REmptyState, RIcon, RSpinner } from "@/lib";
+import { RButton, RDialog, REmptyState, RIcon, RSpinner } from "@/lib";
 import { shortenGithubLinks } from "@/utils/githubLinks";
 
 defineOptions({ inheritAttrs: false });
@@ -133,9 +133,9 @@ function closeDialog() {
           :hint="t('common.changelog-error-hint')"
         >
           <template #actions>
-            <RBtn variant="flat" color="primary" @click="fetchReleases">
+            <RButton variant="flat" color="primary" @click="fetchReleases">
               {{ t("common.try-again") }}
-            </RBtn>
+            </RButton>
           </template>
         </REmptyState>
 

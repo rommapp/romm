@@ -120,6 +120,8 @@ vi.mock("@/composables/useCanPlay", () => ({
     canPlayRuffle,
     canPlayNative,
     canReachStream: {
+      // `watch` only accepts a ref, so the mock says it is one.
+      __v_isRef: true,
       get value() {
         return (
           Boolean(getRom()?.has_file_on_disk) && streamContainer.value !== null

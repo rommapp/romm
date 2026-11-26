@@ -1,0 +1,17 @@
+#!/command/with-contenv bash
+# ./finish for every longrun. Children of a hard-killed service keep its process
+# group and its listening sockets, so the replacement could never bind.
+
+set -o nounset
+
+pgid_file="/run/romm/$(basename "${PWD}").pgid"
+[[ -f ${pgid_file} ]] || exit 0
+
+pgid=$(cat "${pgid_file}")
+rm -f "${pgid_file}"
+
+# Never widen this to 0 or 1: those signal every process we are allowed to signal.
+[[ ${pgid} =~ ^[0-9]+$ ]] && ((pgid > 1)) || exit 0
+
+kill -9 -- "-${pgid}" 2>/dev/null || true
+exit 0

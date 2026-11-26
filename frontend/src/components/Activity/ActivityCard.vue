@@ -12,7 +12,7 @@ import { useI18n } from "vue-i18n";
 import type { RouteLocationRaw } from "vue-router";
 import CoverArtPip from "@/components/shared/CoverArtPip.vue";
 import GameCover from "@/components/shared/GameCover.vue";
-import { RAvatar, RBtn, RIcon } from "@/lib";
+import { RAvatar, RButton, RIcon } from "@/lib";
 
 interface Props {
   to: RouteLocationRaw;
@@ -89,7 +89,7 @@ const { t } = useI18n();
         </div>
       </div>
 
-      <RBtn
+      <RButton
         v-if="canRelease"
         class="activity-card__release"
         variant="outlined"
@@ -99,7 +99,7 @@ const { t } = useI18n();
         @click.stop.prevent="emit('release')"
       >
         {{ t("activity.release-session") }}
-      </RBtn>
+      </RButton>
     </div>
   </router-link>
 </template>

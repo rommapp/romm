@@ -24,7 +24,7 @@ import { useCan } from "@/composables/useCan";
 import { useIdSelection } from "@/composables/useIdSelection";
 import { useSnackbar } from "@/composables/useSnackbar";
 import {
-  RBtn,
+  RButton,
   RChip,
   RCheckbox,
   RDropzone,
@@ -226,14 +226,14 @@ async function performDelete(
           <span>{{
             t("common.upload-files-selected", { count: pendingFiles.length })
           }}</span>
-          <RBtn
+          <RButton
             variant="flat"
             color="primary"
             prepend-icon="mdi-plus"
             @click="openUpload"
           >
             {{ t("common.add", "Add") }}
-          </RBtn>
+          </RButton>
         </header>
         <ul class="r-fw__pending-list">
           <li v-for="f in pendingFiles" :key="f.name" class="r-fw__pending-row">
@@ -242,7 +242,7 @@ async function performDelete(
             <RChip size="x-small" variant="translucent">
               {{ formatBytes(f.size) }}
             </RChip>
-            <RBtn
+            <RButton
               variant="text"
               size="x-small"
               icon="mdi-close"
@@ -253,10 +253,10 @@ async function performDelete(
           </li>
         </ul>
         <div class="r-fw__pending-actions">
-          <RBtn variant="text" :disabled="uploading" @click="clearPending">
+          <RButton variant="text" :disabled="uploading" @click="clearPending">
             {{ t("common.clear") }}
-          </RBtn>
-          <RBtn
+          </RButton>
+          <RButton
             variant="flat"
             color="primary"
             prepend-icon="mdi-cloud-upload-outline"
@@ -265,7 +265,7 @@ async function performDelete(
             @click="uploadFirmware"
           >
             {{ t("common.upload") }}
-          </RBtn>
+          </RButton>
         </div>
       </section>
 
@@ -290,7 +290,7 @@ async function performDelete(
           @update:model-value="toggleAll"
         />
         <div class="r-fw__toolbar-actions">
-          <RBtn
+          <RButton
             v-if="canWrite"
             variant="text"
             size="small"
@@ -298,8 +298,8 @@ async function performDelete(
             @click="openUpload"
           >
             {{ t("common.upload") }}
-          </RBtn>
-          <RBtn
+          </RButton>
+          <RButton
             variant="text"
             size="small"
             prepend-icon="mdi-download"
@@ -307,8 +307,8 @@ async function performDelete(
             @click="downloadSelected"
           >
             {{ t("common.download") }}
-          </RBtn>
-          <RBtn
+          </RButton>
+          <RButton
             v-if="canWrite"
             variant="text"
             size="small"
@@ -318,7 +318,7 @@ async function performDelete(
             @click="openDelete(selectedFirmware)"
           >
             {{ t("common.delete") }}
-          </RBtn>
+          </RButton>
         </div>
       </header>
 
@@ -409,7 +409,7 @@ async function performDelete(
             </div>
           </div>
           <div class="r-fw__row-actions">
-            <RBtn
+            <RButton
               variant="text"
               size="small"
               icon="mdi-download"
@@ -417,7 +417,7 @@ async function performDelete(
               :title="t('common.download')"
               @click="downloadOne(f)"
             />
-            <RBtn
+            <RButton
               v-if="canWrite"
               variant="text"
               size="small"
@@ -443,14 +443,14 @@ async function performDelete(
         "
       >
         <template v-if="canWrite" #actions>
-          <RBtn
+          <RButton
             variant="flat"
             color="primary"
             prepend-icon="mdi-cloud-upload-outline"
             @click="openUpload"
           >
             {{ t("platform.upload-firmware", "Upload firmware") }}
-          </RBtn>
+          </RButton>
         </template>
       </REmptyState>
     </div>
