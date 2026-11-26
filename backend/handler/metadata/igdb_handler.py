@@ -436,7 +436,7 @@ def get_igdb_preferred_locale(rom: Rom | None = None) -> str | None:
     if rom is not None and isinstance(rom.regions, list):
         for region_name in rom.regions:
             code = region_name_to_provider_shortcode(region_name)
-            if code and code in REGION_TO_IGDB_LOCALE:
+            if code:
                 rom_codes.append(code)
         rom_codes.sort(
             key=lambda code: priority.index(code) if code in priority else len(priority)
