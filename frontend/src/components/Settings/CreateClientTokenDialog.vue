@@ -394,7 +394,7 @@ watch(show, (val) => {
                   :key="scope"
                   :model-value="isScopeSelected(scope)"
                   :label="scope"
-                  density="compact"
+                  size="sm"
                   hide-details
                   @update:model-value="(v) => toggleScope(scope, v)"
                 />
@@ -413,7 +413,7 @@ watch(show, (val) => {
                   :key="scope"
                   :model-value="isScopeSelected(scope)"
                   :label="scope"
-                  density="compact"
+                  size="sm"
                   hide-details
                   @update:model-value="(v) => toggleScope(scope, v)"
                 />

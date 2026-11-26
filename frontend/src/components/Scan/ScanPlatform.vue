@@ -82,7 +82,7 @@ function getItemKey(item: unknown) {
         v-if="platform.new_firmware_count > 0"
         tone="warning"
         size="x-small"
-        icon="mdi-memory"
+        prepend-icon="mdi-memory"
         :text="String(platform.new_firmware_count)"
         :title="t('scan.firmware-found', platform.new_firmware_count)"
       />
@@ -90,7 +90,7 @@ function getItemKey(item: unknown) {
         v-if="!platform.is_identified"
         tone="danger"
         size="small"
-        icon="mdi-close"
+        prepend-icon="mdi-close"
         :text="t('scan.not-identified').toUpperCase()"
       />
     </template>

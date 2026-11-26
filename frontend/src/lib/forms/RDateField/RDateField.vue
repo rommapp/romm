@@ -60,6 +60,13 @@ interface Props {
    *  Mirrors RTextField's clearable affordance so the two primitives
    *  read as siblings on dialogs that mix text + date fields. */
   clearable?: boolean;
+  /** The remaining props are forwarded to the underlying RTextField. */
+  label?: string | undefined;
+  placeholder?: string | undefined;
+  variant?: "outlined" | "filled" | "underlined" | "plain" | undefined;
+  density?: "default" | "comfortable" | "compact" | undefined;
+  prefixLabel?: "stacked" | "inline" | undefined;
+  hideDetails?: boolean | "auto" | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -73,6 +80,12 @@ const props = withDefaults(defineProps<Props>(), {
   todayLabel: undefined,
   clearLabel: undefined,
   clearable: false,
+  label: undefined,
+  placeholder: undefined,
+  variant: undefined,
+  density: undefined,
+  prefixLabel: undefined,
+  hideDetails: undefined,
 });
 
 const labels = useChromeLabels();
@@ -456,6 +469,12 @@ usePopoverDismiss(isOpen, close, {
          that would fire alongside the bubbled click and toggle twice. -->
     <RTextField
       v-bind="$attrs"
+      :label="label"
+      :placeholder="placeholder"
+      :variant="variant"
+      :density="density"
+      :prefix-label="prefixLabel"
+      :hide-details="hideDetails"
       :model-value="displayValue"
       :disabled="disabled"
       :focused="isOpen"

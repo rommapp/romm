@@ -105,6 +105,38 @@ describe("RTextField autofocus", () => {
   });
 });
 
+describe("RTextField native input attributes", () => {
+  it("puts inputmode, min and step on the input, not the wrapper", () => {
+    const wrapper = mount(RTextField, {
+      props: {
+        modelValue: "",
+        type: "number",
+        inputmode: "numeric",
+        min: 0,
+        step: 1,
+      },
+    });
+    const input = wrapper.get("input");
+    expect(input.attributes("inputmode")).toBe("numeric");
+    expect(input.attributes("min")).toBe("0");
+    expect(input.attributes("step")).toBe("1");
+    const outer = wrapper.get(".r-text-field");
+    expect(outer.attributes("inputmode")).toBeUndefined();
+    expect(outer.attributes("min")).toBeUndefined();
+    expect(outer.attributes("step")).toBeUndefined();
+    wrapper.unmount();
+  });
+
+  it("leaves them off unless asked", () => {
+    const wrapper = mount(RTextField, { props: { modelValue: "" } });
+    const input = wrapper.get("input");
+    expect(input.attributes("inputmode")).toBeUndefined();
+    expect(input.attributes("min")).toBeUndefined();
+    expect(input.attributes("step")).toBeUndefined();
+    wrapper.unmount();
+  });
+});
+
 describe("RTextField rules", () => {
   const required = (v: string) => !!v || "Required";
 

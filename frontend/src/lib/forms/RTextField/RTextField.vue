@@ -19,6 +19,7 @@
 // Loading replaces the trailing append-inner content with a spinner;
 // clearable shows an × that wipes the value (focus is preserved).
 import {
+  type HTMLAttributes,
   computed,
   getCurrentInstance,
   nextTick,
@@ -52,8 +53,8 @@ interface Props {
   type?: string;
   /** Native input length cap. */
   maxlength?: number | undefined;
-  variant?: "outlined" | "filled" | "underlined" | "plain";
-  density?: "default" | "comfortable" | "compact";
+  variant?: "outlined" | "filled" | "underlined" | "plain" | undefined;
+  density?: "default" | "comfortable" | "compact" | undefined;
   prependInnerIcon?: string | undefined;
   appendInnerIcon?: string | undefined;
   /** Tooltip text shown on hover/focus over the prepend-inner
@@ -73,7 +74,7 @@ interface Props {
   name?: string | undefined;
   rules?: Rule[] | undefined;
   hint?: string | undefined;
-  hideDetails?: boolean | "auto";
+  hideDetails?: boolean | "auto" | undefined;
   required?: boolean;
   disabled?: boolean;
   readonly?: boolean;
@@ -112,6 +113,10 @@ interface Props {
   /** Muted text after the value, before any append adornment (a unit, a
    *  result count). Single-line only. */
   suffix?: string | undefined;
+  /** Native `inputmode`, `min` and `step` on the `<input>`. */
+  inputmode?: HTMLAttributes["inputmode"] | undefined;
+  min?: number | string | undefined;
+  step?: number | string | undefined;
   /** Wires the native input as a combobox owning a popup, putting the role
    *  on the input rather than the outer element (a `<label>` when this field
    *  owns its visible label). Single-line only: `role="combobox"` is not
@@ -164,6 +169,9 @@ const props = withDefaults(defineProps<Props>(), {
   mono: false,
   subtitle: undefined,
   suffix: undefined,
+  inputmode: undefined,
+  min: undefined,
+  step: undefined,
   popup: undefined,
 });
 
@@ -504,6 +512,9 @@ function onAppendInnerClick(evt: MouseEvent) {
         class="r-text-field__input"
         :value="modelValue ?? ''"
         :type="type"
+        :inputmode="inputmode"
+        :min="min"
+        :step="step"
         :placeholder="effectivePlaceholder"
         :maxlength="maxlength"
         :name="name"

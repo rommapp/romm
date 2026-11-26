@@ -205,7 +205,7 @@ onMounted(reset);
             </span>
             <RTag
               v-if="user?.role"
-              :icon="getRoleIcon(user.role)"
+              :prepend-icon="getRoleIcon(user.role)"
               :tone="roleToneFor(user.role)"
               size="small"
               class="r-profile__role-tag"
@@ -353,7 +353,7 @@ onMounted(reset);
     <template v-else>
       <div class="r-profile__identity-row">
         <RSkeletonBlock
-          shape="circle"
+          circle
           width="96px"
           height="96px"
           class="r-profile__avatar-skeleton"
