@@ -188,9 +188,8 @@ def parse_videourl(url: str | None) -> str:
     host = (parsed.hostname or "").removeprefix("www.")
     if host == "youtu.be":
         return parsed.path.lstrip("/").split("/")[0]
-    if (host == "youtube.com" or host.endswith(".youtube.com")) and (
-        parsed.path == "/watch"
-    ):
-        return next(iter(parse_qs(parsed.query).get("v", [])), "")
+    is_youtube = host == "youtube.com" or host.endswith(".youtube.com")
+    if is_youtube and parsed.path == "/watch":
+        return parse_qs(parsed.query).get("v", [""])[0]
 
     return ""
