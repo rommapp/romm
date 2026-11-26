@@ -12,6 +12,9 @@ import pytest
 
 from adapters.services import rom_converto
 from adapters.services.rom_converto import (
+    CONVERTO_PLATFORM_SLUGS,
+    KEYED_LIBRARY_TARGETS,
+    KEYED_PLATFORM_SLUGS,
     LIBRARY_TARGETS_BY_PLATFORM,
     OPERATIONS,
     Operation,
@@ -187,14 +190,12 @@ class TestReadInfos:
     ):
         records = [
             {
-                "path": "/roms/game.nsp",
+                "path": "/roms/game.cia",
                 "ok": True,
                 "info": {
-                    "kind": "nx",
-                    "full": {
-                        "application_title_id_hex": "0100ABCD12345000",
-                        "title_version": 65536,
-                    },
+                    "kind": "ctr",
+                    "title_id": "0004000000123456",
+                    "title_version": 1024,
                 },
             },
             {"path": "/roms/junk.bin", "ok": False, "error": "could not detect"},
@@ -214,14 +215,14 @@ class TestReadInfos:
             patch("asyncio.create_subprocess_exec", spawn),
         ):
             infos = await service.read_infos(
-                [Path("/roms/game.nsp"), Path("/roms/junk.bin")]
+                [Path("/roms/game.cia"), Path("/roms/junk.bin")]
             )
 
         assert len(calls) == 1
-        assert listed == ["/roms/game.nsp", "/roms/junk.bin"]
+        assert listed == ["/roms/game.cia", "/roms/junk.bin"]
         assert infos == {
-            Path("/roms/game.nsp"): RomConvertoInfo(
-                title_id="0100ABCD12345000", title_version=65536
+            Path("/roms/game.cia"): RomConvertoInfo(
+                title_id="0004000000123456", title_version=1024
             ),
             Path("/roms/junk.bin"): None,
         }
@@ -444,7 +445,7 @@ class TestCanInspect:
         self, service: RomConvertoService
     ):
         proc = FakeProc(
-            stdout=b'{"version": "0.21.0", "info_extensions": ["ISO", "nsp"]}'
+            stdout=b'{"version": "0.21.0", "info_extensions": ["ISO", "cia"]}'
         )
         with (
             patch.object(rom_converto, "ROM_CONVERTO_ENABLED", True),
@@ -454,7 +455,7 @@ class TestCanInspect:
             assert await service.is_enabled() is True
 
         assert service.can_inspect(Path("/roms/Game.iso")) is True
-        assert service.can_inspect(Path("/roms/game.NSP")) is True
+        assert service.can_inspect(Path("/roms/game.CIA")) is True
         assert service.can_inspect(Path("/roms/readme.nfo")) is False
 
     def test_unknown_manifest_inspects_everything(self, service: RomConvertoService):
@@ -466,46 +467,6 @@ class TestParseInfo:
     @pytest.mark.parametrize(
         ("payload", "expected"),
         [
-            pytest.param(
-                {
-                    "kind": "nx",
-                    "container_kind": "nsz",
-                    "is_compressed": True,
-                    "full": {
-                        "title_kind": "application",
-                        "required_system_version": 1073741824,
-                        "title_version": 65536,
-                        "application_title_id_hex": "0100000000010000",
-                        "control": {
-                            "icon": {"png_bytes": list(_FAKE_PNG)},
-                            "display_version": "1.0.0",
-                            "supported_languages": [
-                                "AmericanEnglish",
-                                "CanadianFrench",
-                            ],
-                            "titles": [
-                                {
-                                    "language": "Japanese",
-                                    "name": "ゼルダの伝説",
-                                    "publisher": "任天堂",
-                                },
-                                {
-                                    "language": "AmericanEnglish",
-                                    "name": "The Legend of Zelda",
-                                    "publisher": "Nintendo",
-                                },
-                            ],
-                        },
-                    },
-                },
-                RomConvertoInfo(title_id="0100000000010000", title_version=65536),
-                id="nx-reads-the-application-id",
-            ),
-            pytest.param(
-                {"kind": "nx", "container_kind": "nsp"},
-                RomConvertoInfo(),
-                id="nx-without-prod-keys-has-no-title-id",
-            ),
             pytest.param(
                 {
                     "kind": "ctr",
@@ -818,12 +779,8 @@ class TestParseInfo:
             ),
             pytest.param(
                 {
-                    "kind": "nx",
-                    "is_compressed": "yes",
-                    "full": {
-                        "title_kind": ["patch"],
-                        "control": {"titles": {"language": "English"}},
-                    },
+                    "kind": "xbox",
+                    "xbe": {"title_id_code": ["patch"], "title_version": "1"},
                 },
                 RomConvertoInfo(),
                 id="malformed-shapes-yield-nothing",
@@ -1015,7 +972,14 @@ class TestResolveOperation:
             ("ngc", "rvz", "Game.iso", ("dol", "compress"), ".iso", "Game.rvz"),
             ("wii", "wbfs", "Game.rvz", ("rvl", "decompress"), ".rvz", "Game.wbfs"),
             ("3ds", "z3ds", "Game.3ds", ("ctr", "compress"), ".3ds", "Game.zcci"),
-            ("3ds", "cci", "My Game.CIA", ("ctr", "convert"), ".cia", "My Game.cci"),
+            (
+                "3ds",
+                "cci",
+                "My Game.ZCCI",
+                ("ctr", "decompress"),
+                ".zcci",
+                "My Game.cci",
+            ),
             ("psp", "chd", "Game.ISO", ("chd", "compress"), ".iso", "Game.chd"),
         ],
     )
@@ -1039,6 +1003,8 @@ class TestResolveOperation:
         ("platform", "target", "file_name"),
         [
             pytest.param("psp", "iso", "Game.iso", id="already-in-target-format"),
+            pytest.param("wii", "rvz", "Game.iso", id="wii-rvz-needs-keys"),
+            pytest.param("3ds", "cci", "Game.cia", id="3ds-convert-needs-keys"),
             pytest.param("psx", "iso", "Game.chd", id="cd-chd-has-no-extract"),
             pytest.param("psx", "iso", "Game.cue", id="psx-cue-can-have-audio"),
             pytest.param("saturn", "iso", "Game.cue", id="saturn-cue-can-have-audio"),
@@ -1109,3 +1075,52 @@ class TestDownloadTargets:
             for target in download_targets(slug, f"game{ext}")
         }
         assert not targets & {"decrypted", "encrypted"}
+
+
+class TestNoConsoleKeys:
+    def test_no_operation_needs_console_keys(self):
+        assert not [
+            op.argv
+            for op in OPERATIONS
+            if op.argv[0] == "nx" or op.platforms & KEYED_PLATFORM_SLUGS
+        ]
+
+    def test_no_operation_writes_a_keyed_target(self):
+        assert not [
+            op.argv
+            for op in OPERATIONS
+            for slug in op.platforms
+            if op.target in KEYED_LIBRARY_TARGETS.get(slug, frozenset())
+        ]
+        assert not [
+            op.argv
+            for op in OPERATIONS
+            if op.argv[1] == "convert" and op.argv[0] == "ctr"
+        ]
+
+    def test_keyed_platforms_are_never_inspected(self):
+        assert not CONVERTO_PLATFORM_SLUGS & KEYED_PLATFORM_SLUGS
+        assert not LIBRARY_TARGETS_BY_PLATFORM.keys() & KEYED_PLATFORM_SLUGS
+
+    async def test_runs_with_home_in_its_sandbox_and_a_minimal_env(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ):
+        monkeypatch.setenv("HOME", str(tmp_path))
+        monkeypatch.setenv("USERPROFILE", str(tmp_path))
+        monkeypatch.setenv("ROMM_AUTH_SECRET_KEY", "secret")
+        seen: list[tuple[Path, dict[str, str]]] = []
+
+        async def spawn(*args, cwd, env, **kwargs):
+            seen.append((Path(cwd), env))
+            return FakeProc()
+
+        with (
+            patch("shutil.which", return_value="/usr/bin/rom-converto"),
+            patch("asyncio.create_subprocess_exec", spawn),
+        ):
+            await rom_converto._run(["capabilities"], timeout_seconds=1)
+
+        [(cwd, env)] = seen
+        assert env["HOME"] == str(cwd)
+        assert env.keys() <= {"HOME", "PATH", "TMPDIR"}
+        assert env["PATH"] == os.environ["PATH"]

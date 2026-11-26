@@ -88,12 +88,14 @@ RUN cmake -B ./build-python -S . -DSIGIL_BUILD_CLI=OFF -DSIGIL_BUILD_TESTS=OFF &
 
 
 # Keep the version and both sums in sync with docker/Dockerfile.
+# The -nokeys assets are built without the `embedded-keys` feature, so the
+# image carries no console keys.
 FROM alpine:${ALPINE_VERSION}@${ALPINE_DIGEST} AS rom-converto-fetch
 ARG TARGETARCH
-ARG ROM_CONVERTO_VERSION=v0.24.0
+ARG ROM_CONVERTO_VERSION=v0.25.0
 RUN case "${TARGETARCH}" in \
-        amd64) rc="linux-x64-musl"; sum="67964054931f7e74848bfe7b54ff1f0cacdc25596c29e3a79876f76e0f2407a8" ;; \
-        arm64) rc="linux-arm64-musl"; sum="60f9dc0fe7c3e3355c840c5e21c2b65b770b74ba78567aec7a2e5f846b8087ce" ;; \
+        amd64) rc="linux-x64-musl-nokeys"; sum="TODO_SHA256_V0_25_0_X64_MUSL_NOKEYS" ;; \
+        arm64) rc="linux-arm64-musl-nokeys"; sum="TODO_SHA256_V0_25_0_ARM64_MUSL_NOKEYS" ;; \
         *) echo "unsupported TARGETARCH: ${TARGETARCH}" && exit 1 ;; \
     esac && \
     wget -qO /rom-converto \

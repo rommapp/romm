@@ -18,8 +18,16 @@ from models.rom import TITLE_ID_MAX_LENGTH
 from utils.filesystem import SERVED_FILE_MODE
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
+# Platforms whose content the CLI only reads with console keys, which RomM never uses.
+KEYED_PLATFORM_SLUGS: Final[frozenset[str]] = frozenset({UPS.SWITCH, UPS.SWITCH_2})
+
+# Library targets the CLI can only write by decrypting with console keys.
+KEYED_LIBRARY_TARGETS: Final[dict[str, frozenset[str]]] = {
+    UPS.WII: frozenset({"rvz"}),
+}
+
 # Wider than the conversion targets: `info` only reads headers, so every
-# platform it can pull a title id or serial from counts.
+# platform it can pull a title id or serial from without keys counts.
 CONVERTO_PLATFORM_SLUGS: Final[frozenset[str]] = frozenset(
     {
         UPS.N3DS,
@@ -32,8 +40,6 @@ CONVERTO_PLATFORM_SLUGS: Final[frozenset[str]] = frozenset(
         UPS.NGC,
         UPS.WII,
         UPS.WIIU,
-        UPS.SWITCH,
-        UPS.SWITCH_2,
         UPS.XBOX,
         UPS.XBOX360,
     }
@@ -122,17 +128,17 @@ def _op(
 _DVD_PLATFORMS = {UPS.PSP, UPS.PS2}
 _CD_PLATFORMS = {UPS.PSX, UPS.SATURN, UPS.SEGACD, UPS.DC}
 
-# The CLI's single-file format conversions. Decrypt/encrypt and directory-shaped
-# operations (Wii U packs, Switch merge/split, `extract`, Xbox 360 GoD) are left out.
+# The CLI's single-file format conversions. The image ships a CLI built without
+# embedded console keys, so anything that decrypts (Switch `nx`, 3DS CIA/CCI
+# convert, Wii RVZ compress/migrate) is left out, as are directory-shaped
+# operations (Wii U packs, `extract`, Xbox 360 GoD).
 OPERATIONS: Final[tuple[Operation, ...]] = (
     # 3DS
     _op("z3ds", {UPS.N3DS}, "ctr compress", ".cia", ".zcia"),
     _op("z3ds", {UPS.N3DS}, "ctr compress", ".cci .3ds", ".zcci"),
     _op("z3ds", {UPS.N3DS}, "ctr compress", ".cxi", ".zcxi"),
     _op("cia", {UPS.N3DS}, "ctr decompress", ".zcia", ".cia"),
-    _op("cia", {UPS.N3DS}, "ctr convert", ".3ds .cci", ".cia"),
     _op("cci", {UPS.N3DS}, "ctr decompress", ".zcci", ".cci"),
-    _op("cci", {UPS.N3DS}, "ctr convert", ".cia", ".cci"),
     # Sony discs
     _op("iso", _DVD_PLATFORMS, "cso decompress", ".cso .zso .dax", ".iso"),
     # CD-mode CHDs extract to .bin/.cue, so only DVD platforms get this.
@@ -149,15 +155,8 @@ OPERATIONS: Final[tuple[Operation, ...]] = (
     _op("rvz", {UPS.NGC}, "dol compress", ".iso .gcm", ".rvz"),
     _op("rvz", {UPS.NGC}, "dol migrate", ".gcz .nkit.iso .nkit.gcz", ".rvz"),
     _op("iso", {UPS.NGC}, "dol decompress", ".rvz", ".iso"),
-    _op("rvz", {UPS.WII}, "rvl compress", ".iso .wbfs", ".rvz"),
-    _op("rvz", {UPS.WII}, "rvl migrate", ".wia .gcz .nkit.iso .nkit.gcz", ".rvz"),
     _op("iso", {UPS.WII}, "rvl decompress", ".rvz", ".iso"),
     _op("wbfs", {UPS.WII}, "rvl decompress", ".rvz", ".wbfs"),
-    # Switch (prod.keys resolved by the CLI itself)
-    _op("nsz", {UPS.SWITCH, UPS.SWITCH_2}, "nx compress", ".nsp", ".nsz"),
-    _op("xcz", {UPS.SWITCH, UPS.SWITCH_2}, "nx compress", ".xci", ".xcz"),
-    _op("nsp", {UPS.SWITCH, UPS.SWITCH_2}, "nx decompress", ".nsz", ".nsp"),
-    _op("xci", {UPS.SWITCH, UPS.SWITCH_2}, "nx decompress", ".xcz", ".xci"),
     # Xbox
     _op("xiso", {UPS.XBOX}, "xbox convert", ".iso", ".xiso"),
     _op("zar", {UPS.XBOX360}, "xenon compress", ".iso", ".zar"),
@@ -165,7 +164,7 @@ OPERATIONS: Final[tuple[Operation, ...]] = (
 
 # Targets that store the image as-is, so converting to one can grow the file.
 UNCOMPRESSED_TARGETS: Final[frozenset[str]] = frozenset(
-    {"cci", "cia", "iso", "nsp", "wbfs", "xci", "xiso"}
+    {"cci", "cia", "iso", "wbfs", "xiso"}
 )
 
 
@@ -328,6 +327,15 @@ def _make_sandbox() -> tuple[Path, Path]:
     return sandbox, config
 
 
+def _child_env(sandbox: Path) -> dict[str, str]:
+    """The CLI's whole environment, homed in `sandbox` so it never finds `~/.switch/prod.keys`."""
+    env = {"HOME": str(sandbox)}
+    for name in ("PATH", "TMPDIR"):
+        if value := os.environ.get(name):
+            env[name] = value
+    return env
+
+
 def _discard_sandbox(creating: "asyncio.Future[tuple[Path, Path]]") -> None:
     if not creating.cancelled() and creating.exception() is None:
         shutil.rmtree(creating.result()[0], ignore_errors=True)
@@ -342,8 +350,8 @@ async def _run(argv: list[str], timeout_seconds: float) -> tuple[int, str, str]:
     binary = await asyncio.to_thread(shutil.which, _BINARY)
     if binary is None:
         raise RomConvertoBinaryNotFoundError(f"{_BINARY} binary not found on PATH")
-    # The CLI reads `.env`, `rom-converto.toml` and its hash cache from the cwd and
-    # home, so it runs from an empty dir with an empty config and no cache.
+    # The CLI reads `.env`, `rom-converto.toml`, its hash cache and console keys
+    # from the cwd and home, so both are an empty dir, with an empty config and no cache.
     creating = asyncio.ensure_future(asyncio.to_thread(_make_sandbox))
     try:
         sandbox, config = await asyncio.shield(creating)
@@ -361,6 +369,7 @@ async def _run(argv: list[str], timeout_seconds: float) -> tuple[int, str, str]:
             str(config),
             *argv,
             cwd=sandbox,
+            env=_child_env(sandbox),
             stdin=asyncio.subprocess.DEVNULL,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
@@ -448,7 +457,7 @@ def _title_id(kind: str, flat: dict[str, Any]) -> str | None:
         return _first_id(flat, "title_id_code", "title_id_hex")
     if kind == "xenon":
         return _first_id(flat, "title_id_hex")
-    title_id = _first_id(flat, "application_title_id_hex", "title_id", "game_code")
+    title_id = _first_id(flat, "title_id", "game_code")
     if kind in ("psp", "pbp"):
         title_id = title_id or _first_id(flat, "disc_id")
         if title_id and _PSP_TITLE_ID_PATTERN.fullmatch(title_id):
@@ -464,10 +473,10 @@ def _parse_info(payload: dict[str, Any]) -> RomConvertoInfo:
         if isinstance(content, dict) and content.get("kind") not in ("chd", "cso"):
             return _parse_info(content)
         return RomConvertoInfo()
-    # Consoles nest their header (Xbox `xbe`, 360 `xex`, Switch `full`, the Wii
-    # `tmd` holding its title version); top-level keys win on conflict.
+    # Consoles nest their header (Xbox `xbe`, 360 `xex`, the Wii `tmd` holding
+    # its title version); top-level keys win on conflict.
     flat = dict(payload)
-    for key in ("xbe", "xex", "full", "tmd"):
+    for key in ("xbe", "xex", "tmd"):
         nested = payload.get(key)
         if isinstance(nested, dict):
             flat = {**nested, **flat}
