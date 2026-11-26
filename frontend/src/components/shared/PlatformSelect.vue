@@ -132,6 +132,8 @@ interface Props {
   unscannedLabel?: string | undefined;
   /** Icon size inside list rows. Defaults to 28 (Scan uses 32, dialogs 22-24). */
   iconSize?: number;
+  hint?: string | undefined;
+  showAllOption?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -157,6 +159,8 @@ const props = withDefaults(defineProps<Props>(), {
   unscannedLabel: undefined,
   iconSize: 28,
   promoteFilled: false,
+  hint: undefined,
+  showAllOption: false,
 });
 
 const emit = defineEmits<{
@@ -256,6 +260,8 @@ function showPromoteRomBadge(platform: Platform): boolean {
     :hide-details="hideDetails"
     :prefix-label="prefixLabel"
     :prepend-inner-icon="prependInnerIcon"
+    :hint="hint"
+    :show-all-option="showAllOption"
     :divider-after="dividerAfter"
     @update:model-value="onUpdate"
     @update:search="onPanelSearch"
@@ -387,7 +393,7 @@ function showPromoteRomBadge(platform: Platform): boolean {
               v-else
               size="x-small"
               tone="danger"
-              icon="mdi-close"
+              prepend-icon="mdi-close"
               class="r-platsel__not-identified"
               :text="t('scan.not-identified').toUpperCase()"
             />

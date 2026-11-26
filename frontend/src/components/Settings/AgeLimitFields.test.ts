@@ -24,11 +24,11 @@ const RSwitch = defineComponent({
   template: `<input type="checkbox" :checked="modelValue" @change="$emit('update:modelValue', $event.target.checked)" />`,
 });
 
-interface FieldProps {
+type FieldProps = {
   ageLimit: number | null;
   hideUnrated: boolean | null;
   inherited?: { ageLimit: number | null; hideUnrated: boolean };
-}
+};
 
 function mountFields(props: FieldProps) {
   return mount(AgeLimitFields, {

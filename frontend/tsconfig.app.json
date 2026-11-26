@@ -24,9 +24,8 @@
     "types": ["vite/client"]
   },
   "vueCompilerOptions": {
-    "checkUnknownComponents": true,
-    "checkUnknownDirectives": true,
-    "checkUnknownEvents": true,
-    "strictVModel": true
+    "strictTemplates": true,
+    "strictVModel": true,
+    "dataAttributes": ["data-*"]
   }
 }

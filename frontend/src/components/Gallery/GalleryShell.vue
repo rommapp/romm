@@ -1156,7 +1156,7 @@ defineExpose({
                 :style="{ '--card-fade-i': slotIdx }"
                 :rom="getRomAt(p)!"
                 :webp="supportsWebp"
-                :show-platform-badge="showPlatformBadge"
+                :show-platform-icon="showPlatformBadge"
                 selectable
                 :position="p"
                 @ratio="onCardRatio"
