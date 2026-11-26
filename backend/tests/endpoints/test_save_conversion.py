@@ -38,7 +38,6 @@ from models.device import Device
 from models.permission import HiddenEntity, PermEntity
 from models.rom import Rom, RomFile
 from models.user import User
-from utils.zip_cache import ensure_zipfile_writable
 
 UNIT = b"stored unit"
 GAME = SigilGame(result=SimpleNamespace(platform="psx"), game_ids=("SLUS-01041",))
@@ -57,7 +56,6 @@ def _stored(save: Save, data: bytes = UNIT) -> Save:
 
 
 def _neutral_gba_unit() -> bytes:
-    ensure_zipfile_writable()
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as zf:
         zf.writestr("save.sram", b"battery")

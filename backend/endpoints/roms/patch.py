@@ -40,9 +40,15 @@ _UPLOAD_CHUNK_SIZE = 1024 * 1024
     "/{file_id}/patch",
     [Scope.ROMS_READ],
     responses={
-        status.HTTP_400_BAD_REQUEST: {},
-        status.HTTP_404_NOT_FOUND: {},
-        status.HTTP_500_INTERNAL_SERVER_ERROR: {},
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The request does not give exactly one patch source, the patch format is not supported, the patch is empty, the rom file or the patch is too large, or the patch does not apply."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No rom file or patch file the caller can see has this ID, or either file is missing from disk."
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "The patcher failed on the server."
+        },
     },
 )
 async def patch_rom(
@@ -73,10 +79,9 @@ async def patch_rom(
 ) -> FileResponse:
     """Apply a patch to a ROM file server-side and return the patched file.
 
-    The base ROM file must exist in the library. The patch is supplied either
-    as ``patch_file_id`` (a patch already in the library) or as an uploaded
-    ``patch_file`` (never stored in the library). Exactly one must be provided.
-    The patched ROM is streamed back as a download.
+    Pass the patch as `patch_file_id`, a patch already in the library, or as an
+    uploaded `patch_file`, which is not stored. The patched ROM is streamed back
+    as a download.
     """
 
     current_username = (

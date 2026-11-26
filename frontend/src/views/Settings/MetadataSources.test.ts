@@ -20,7 +20,7 @@ vi.mock("@/lib", () => ({
     template:
       '<div class="alert"><slot name="title" /><slot /><slot name="append" /></div>',
   }),
-  RBtn: defineComponent({ template: "<button><slot /></button>" }),
+  RButton: defineComponent({ template: "<button><slot /></button>" }),
   RIcon: defineComponent({ template: "<i />" }),
   RImage: defineComponent({
     props: { src: { type: String, default: "" } },

@@ -7,7 +7,15 @@ import type {
   SnapshotSchema,
 } from "@/__generated__";
 import { useDeviceLabel } from "@/composables/useDeviceLabel";
-import { RBtn, RChip, RDrawer, RIcon, RImage, RMenu, RMenuItem } from "@/lib";
+import {
+  RButton,
+  RChip,
+  RDrawer,
+  RIcon,
+  RImage,
+  RMenu,
+  RMenuItem,
+} from "@/lib";
 import { formatRelativeDate } from "@/utils";
 import { emulatorKey } from "@/utils/assets";
 import {
@@ -307,7 +315,7 @@ const overflow = computed(() => actions.value.slice(1));
                   state.content_hash?.slice(0, 8)
                 }}</span>
               </figcaption>
-              <RBtn
+              <RButton
                 v-if="isPlayableCore(core)"
                 class="r-snapshot-viewer__slot-play"
                 icon="mdi-play"
@@ -322,7 +330,7 @@ const overflow = computed(() => actions.value.slice(1));
                 "
                 @click="emit('play', state.id)"
               />
-              <RBtn
+              <RButton
                 v-if="canWrite"
                 class="r-snapshot-viewer__slot-remove"
                 icon="mdi-close"
@@ -350,7 +358,7 @@ const overflow = computed(() => actions.value.slice(1));
 
     <template #footer>
       <div v-if="target" class="r-snapshot-viewer__actions">
-        <RBtn
+        <RButton
           v-if="primary"
           class="r-snapshot-viewer__primary"
           :variant="primary.writes ? 'flat' : 'outlined'"
@@ -361,9 +369,9 @@ const overflow = computed(() => actions.value.slice(1));
           @click="primary.run"
         >
           {{ primary.label }}
-        </RBtn>
+        </RButton>
         <div class="r-snapshot-viewer__tools">
-          <RBtn
+          <RButton
             v-if="snapshot && canWrite"
             :icon="
               snapshot.is_pinned ? 'mdi-pin-off-outline' : 'mdi-pin-outline'
@@ -381,7 +389,7 @@ const overflow = computed(() => actions.value.slice(1));
           />
           <RMenu v-if="overflow.length > 0" location="top end" :offset="6">
             <template #activator="{ props: activatorProps }">
-              <RBtn
+              <RButton
                 v-bind="activatorProps"
                 icon="mdi-dots-vertical"
                 variant="text"

@@ -32,7 +32,7 @@ function mountToolbar(
     global: {
       stubs: {
         RBadge: true,
-        RBtn: true,
+        RButton: true,
         RIcon: true,
         RMenu: menuStub,
         RSegmentedControl: true,

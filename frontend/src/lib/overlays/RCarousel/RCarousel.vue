@@ -25,7 +25,7 @@
 import { useEventListener } from "@vueuse/core";
 import { computed, nextTick, ref, watch } from "vue";
 import { useChromeLabels } from "@/lib/a11y/chromeLabels";
-import RBtn from "@/lib/primitives/RBtn/RBtn.vue";
+import RButton from "@/lib/primitives/RButton/RButton.vue";
 import RIcon from "@/lib/primitives/RIcon/RIcon.vue";
 import { isEditable } from "@/utils/editable";
 import type { RCarouselProps } from "./types";
@@ -324,7 +324,7 @@ function onBackdropClick(event: MouseEvent) {
         </div>
       </Transition>
 
-      <RBtn
+      <RButton
         v-if="showArrowsResolved"
         icon="mdi-chevron-left"
         variant="translucent"
@@ -334,7 +334,7 @@ function onBackdropClick(event: MouseEvent) {
         :disabled="!loop && safeIndex === 0"
         @click.stop="go(-1)"
       />
-      <RBtn
+      <RButton
         v-if="showArrowsResolved"
         icon="mdi-chevron-right"
         variant="translucent"
@@ -528,7 +528,7 @@ function onBackdropClick(event: MouseEvent) {
   transform: translateY(-50%);
 }
 
-/* Inline arrows live above the stage: RBtn handles theming, we only
+/* Inline arrows live above the stage: RButton handles theming, we only
    need to position them. */
 .r-carousel--inline .r-carousel__nav {
   position: absolute;

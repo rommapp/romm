@@ -11,7 +11,7 @@ import type { ComponentPublicInstance, Ref } from "vue";
 import { useI18n } from "vue-i18n";
 import CachedPlatformIcon from "@/components/shared/CachedPlatformIcon.vue";
 import GameCover from "@/components/shared/GameCover.vue";
-import { RBtn } from "@/lib";
+import { RButton } from "@/lib";
 import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
 import { NO_SIDECARS } from "@/stores/galleryRoms";
@@ -198,7 +198,7 @@ useIntervalFn(() => {
   >
     <template #action>
       <div class="r-widget-anniv__nav">
-        <RBtn
+        <RButton
           ref="prevBtn"
           variant="text"
           size="x-small"
@@ -208,7 +208,7 @@ useIntervalFn(() => {
           :aria-label="t('home.widget-anniversaries-prev')"
           @click="step(-1)"
         />
-        <RBtn
+        <RButton
           ref="nextBtn"
           variant="text"
           size="x-small"

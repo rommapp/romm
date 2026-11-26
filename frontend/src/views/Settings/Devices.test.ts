@@ -79,7 +79,7 @@ const RSwitch = {
   template: `<button type="button" class="switch" :data-on="modelValue" :disabled="disabled" @click="$emit('update:modelValue', !modelValue)" />`,
 };
 
-const RBtn = {
+const RButton = {
   props: { icon: { type: String, default: "" } },
   emits: ["click"],
   template: `<button type="button" :data-icon="icon" @click="$emit('click')"><slot /></button>`,
@@ -105,7 +105,7 @@ function mountDevices() {
       stubs: {
         RTable,
         RSwitch,
-        RBtn,
+        RButton,
         RChip: { template: "<span class='chip'><slot /></span>" },
         RenameDeviceDialog,
       },

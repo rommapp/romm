@@ -18,7 +18,7 @@ import { useConfirm } from "@/composables/useConfirm";
 import { useFetchState } from "@/composables/useFetchState";
 import { useSnackbar } from "@/composables/useSnackbar";
 import {
-  RBtn,
+  RButton,
   RIcon,
   RSwitch,
   RTable,
@@ -343,7 +343,7 @@ const { isLoading: loading } = useFetchState(
         <div class="r-users__actions">
           <RTooltip>
             <template #activator="{ props: tipProps }">
-              <RBtn
+              <RButton
                 v-bind="tipProps"
                 variant="text"
                 size="small"
@@ -356,7 +356,7 @@ const { isLoading: loading } = useFetchState(
           </RTooltip>
           <RTooltip>
             <template #activator="{ props: tipProps }">
-              <RBtn
+              <RButton
                 v-bind="tipProps"
                 variant="text"
                 size="small"
@@ -374,21 +374,21 @@ const { isLoading: loading } = useFetchState(
     </RTable>
 
     <div class="r-users__footer">
-      <RBtn
+      <RButton
         variant="flat"
         color="primary"
         prepend-icon="mdi-plus"
         @click="emitter?.emit('showCreateUserDialog', null)"
       >
         {{ t("common.add") }}
-      </RBtn>
-      <RBtn
+      </RButton>
+      <RButton
         variant="text"
         prepend-icon="mdi-share-variant"
         @click="emitter?.emit('showCreateInviteLinkDialog')"
       >
         {{ t("settings.invite-link") }}
-      </RBtn>
+      </RButton>
     </div>
   </div>
 </template>

@@ -1,0 +1,2 @@
+#!/command/with-contenv bash
+exec /etc/s6-overlay/scripts/sweep-process-group

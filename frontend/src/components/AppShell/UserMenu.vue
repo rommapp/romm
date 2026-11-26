@@ -24,7 +24,7 @@ import { useSnackbar } from "@/composables/useSnackbar";
 import {
   RAvatar,
   RBadge,
-  RBtn,
+  RButton,
   RChip,
   RDivider,
   RIcon,
@@ -135,7 +135,7 @@ async function onLogout() {
     sheet-full-height
   >
     <template #activator="{ props: menuProps }">
-      <RBtn
+      <RButton
         v-bind="menuProps"
         variant="text"
         class="r-user"
@@ -158,7 +158,7 @@ async function onLogout() {
           size="16"
           class="r-user__chevron r-chevron-toggle"
         />
-      </RBtn>
+      </RButton>
     </template>
 
     <!-- User header, inlined. The layout is feature-specific so it

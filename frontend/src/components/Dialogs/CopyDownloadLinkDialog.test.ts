@@ -26,7 +26,7 @@ async function open(): Promise<VueWrapper> {
             <slot name="content" /><slot name="footer" />
           </div>`,
         },
-        RBtn: { template: `<button data-test-retry><slot /></button>` },
+        RButton: { template: `<button data-test-retry><slot /></button>` },
       },
     },
   });

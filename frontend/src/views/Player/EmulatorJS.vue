@@ -57,7 +57,7 @@ import {
 } from "@/composables/useUserLocalStorage";
 import {
   RAlert,
-  RBtn,
+  RButton,
   RCard,
   RIcon,
   RSelect,
@@ -921,7 +921,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
         <!-- Someone who has an emulator installed on this machine came to the
              page for it, so it leads and keeps the play glyph; the in-browser
              route follows, marked for the browser. -->
-        <RBtn
+        <RButton
           v-if="canPlayNative"
           size="x-large"
           variant="flat"
@@ -934,10 +934,10 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
           @click="onPlayNative"
         >
           {{ nativeLabel }}
-        </RBtn>
+        </RButton>
         <!-- Its own control rather than a second press on the button above, so
              neither changes meaning under the pointer. -->
-        <RBtn
+        <RButton
           v-if="nativeLaunching"
           variant="text"
           size="small"
@@ -949,8 +949,8 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
           @click="onCancelNative"
         >
           {{ t("play.native-cancel") }}
-        </RBtn>
-        <RBtn
+        </RButton>
+        <RButton
           v-if="!nativeOnly"
           size="x-large"
           :variant="canPlayNative ? 'outlined' : 'flat'"
@@ -964,17 +964,17 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
           @click="onPlay"
         >
           {{ canPlayNative ? t("play.play-in-browser") : t("play.play") }}
-        </RBtn>
+        </RButton>
         <div class="r-ejs__hero-links">
-          <RBtn
+          <RButton
             variant="text"
             size="small"
             prepend-icon="mdi-arrow-left"
             :to="romRoute"
           >
             {{ t("play.back-to-game-details") }}
-          </RBtn>
-          <RBtn
+          </RButton>
+          <RButton
             variant="text"
             size="small"
             prepend-icon="mdi-view-grid-outline"
@@ -982,7 +982,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
             :disabled="!platformRoute"
           >
             {{ t("play.back-to-gallery") }}
-          </RBtn>
+          </RButton>
         </div>
       </RCard>
 
@@ -1039,13 +1039,17 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
                 "
               >
                 <template #actions>
-                  <RBtn variant="outlined" size="small" @click="bootFromNewer">
+                  <RButton
+                    variant="outlined"
+                    size="small"
+                    @click="bootFromNewer"
+                  >
                     {{
                       newerAsset.kind === "save"
                         ? t("play.boot-from-save")
                         : t("play.boot-from-state")
                     }}
-                  </RBtn>
+                  </RButton>
                 </template>
               </RAlert>
 
@@ -1189,7 +1193,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
           </p>
         </div>
         <div class="r-ejs__setup-foot">
-          <RBtn
+          <RButton
             variant="text"
             size="small"
             color="error"
@@ -1197,7 +1201,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
             @click="openCacheDialog"
           >
             {{ t("play.clear-cache") }}
-          </RBtn>
+          </RButton>
         </div>
       </RCard>
 
@@ -1384,7 +1388,7 @@ const saveSlot = computed(() => chosenSlot(slotChoice.value, customSlot.value));
 }
 /* A user-configured emulator can be named anything, so the label is clipped
    rather than allowed to run out of the button. */
-.r-ejs__play :deep(.r-btn__label) {
+.r-ejs__play :deep(.r-button__label) {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;

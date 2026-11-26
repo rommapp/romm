@@ -2,6 +2,7 @@
 
 import dataclasses
 import functools
+import posixpath
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Final
@@ -50,6 +51,7 @@ from handler.metadata.sgdb_handler import SGDBRom
 from handler.metadata.ss_handler import (
     ScreenScraperExhaustedError,
     SSRom,
+    note_exhausted_rom,
     note_rate_limited_rom,
 )
 from handler.metadata.steam_handler import SteamRom
@@ -490,6 +492,9 @@ class RomLookups:
                     ),
                 )
             except ScreenScraperExhaustedError as exc:
+                note_exhausted_rom(
+                    posixpath.join(self.rom_attrs["fs_path"], self.rom_attrs["fs_name"])
+                )
                 short_circuited = True
                 return exc.fallback
             except ScreenScraperRateLimitError:

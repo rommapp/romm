@@ -4,7 +4,7 @@ import enum
 import uuid
 from functools import cached_property
 from typing import TYPE_CHECKING, NamedTuple
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 from sqlalchemy import BigInteger, Enum, ForeignKey, Index, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -86,10 +86,10 @@ class BaseAsset(FileNamePartsMixin, BaseModel):
     def download_path(self) -> str:
         # Served by the per-type `/{id}/content` route. A rename keeps
         # `updated_at`, so the name joins the cache key.
-        return (
-            f"/api/{self.__tablename__}/{self.id}/content"
-            f"?timestamp={self.updated_at}&name={quote(self.file_name)}"
+        query = urlencode(
+            {"timestamp": self.updated_at, "name": self.file_name}, quote_via=quote
         )
+        return f"/api/{self.__tablename__}/{self.id}/content?{query}"
 
 
 class RomAsset(BaseAsset):
@@ -381,6 +381,5 @@ class MemoryCardVersion(BaseAsset):
     def download_path(self) -> str:
         # Served under the memory-cards router rather than the default
         # `/api/{tablename}/...`, keeping every card route in one namespace.
-        return (
-            f"/api/memory-cards/versions/{self.id}/content?timestamp={self.updated_at}"
-        )
+        query = urlencode({"timestamp": self.updated_at}, quote_via=quote)
+        return f"/api/memory-cards/versions/{self.id}/content?{query}"

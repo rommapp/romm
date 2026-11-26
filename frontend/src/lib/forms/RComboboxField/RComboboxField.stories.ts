@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 import { ref } from "vue";
-import { RBtn, RForm } from "@/lib";
+import { RButton, RForm } from "@/lib";
 import { CONTRAST_TODO_PARAMETERS } from "@/utils/storyA11y";
 import RComboboxField from "./RComboboxField.vue";
 
@@ -153,7 +153,7 @@ export const WithError: Story = {
 export const Required: Story = {
   name: "Required (rules in a form)",
   render: () => ({
-    components: { RComboboxField, RForm, RBtn },
+    components: { RComboboxField, RForm, RButton },
     setup() {
       const value = ref<string[]>([]);
       const formRef = ref<{ validate: () => Promise<unknown> } | null>(null);
@@ -171,7 +171,7 @@ export const Required: Story = {
           :rules="rules"
           no-suggestions
         />
-        <RBtn @click="formRef?.validate()">Validate</RBtn>
+        <RButton @click="formRef?.validate()">Validate</RButton>
       </RForm>
     `,
   }),

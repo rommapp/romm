@@ -13,7 +13,7 @@ const RCheckbox = {
   emits: ["update:modelValue"],
   template: `<label class="all" :data-indeterminate="indeterminate"><input type="checkbox" :checked="modelValue" @change="$emit('update:modelValue', !modelValue)" />{{ label }}</label>`,
 };
-const RBtn = {
+const RButton = {
   props: { ariaLabel: { type: String, default: "" } },
   emits: ["click"],
   template: `<button class="btn" :aria-label="ariaLabel" @click="$emit('click')" />`,
@@ -31,7 +31,7 @@ function toolbar(
       allFavorite: false,
       ...props,
     },
-    global: { stubs: { RCheckbox, RBtn } },
+    global: { stubs: { RCheckbox, RButton } },
   });
 }
 

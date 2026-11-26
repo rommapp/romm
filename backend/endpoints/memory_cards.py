@@ -5,10 +5,10 @@ from typing import Annotated, Any
 
 from fastapi import Body, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
-from pydantic import BaseModel as PydanticBaseModel
 from pydantic import Field
 
 from decorators.auth import protected_route
+from endpoints.responses.base import BaseModel
 from endpoints.responses.memory_cards import (
     MemoryCardSchema,
     MemoryCardVersionSchema,
@@ -48,7 +48,7 @@ MEMORY_CARD_FILE_UPLOAD = File(..., description="Memory card archive to upload."
 EMULATOR_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._-]*$")
 
 
-class MemoryCardCreatePayload(PydanticBaseModel):
+class MemoryCardCreatePayload(BaseModel):
     name: str = Field(max_length=MEMORY_CARD_NAME_MAX_LENGTH)
     emulator: str = Field(max_length=EMULATOR_MAX_LENGTH)
     # Loose display hint only; never scopes lookup (see MemoryCard model).
@@ -97,7 +97,19 @@ def _apply_card_update(card_id: int, data: dict[str, Any]) -> MemoryCard:
     return updated
 
 
-@protected_route(router.post, "", [Scope.ASSETS_WRITE])
+@protected_route(
+    router.post,
+    "",
+    [Scope.ASSETS_WRITE],
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The name or the emulator is blank, or the emulator is not a valid folder name."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No platform the caller can see has the given `platform_id`."
+        },
+    },
+)
 def add_memory_card(
     request: Request,
     payload: MemoryCardCreatePayload,
@@ -145,7 +157,8 @@ def add_memory_card(
 
 @protected_route(router.get, "", [Scope.ASSETS_READ])
 def get_memory_cards(
-    request: Request, emulator: str | None = None
+    request: Request,
+    emulator: str | None = None,
 ) -> list[MemoryCardSchema]:
     """The caller's own cards, newest-synced first, optionally one emulator."""
     cards = db_memory_card_handler.get_cards(
@@ -156,7 +169,8 @@ def get_memory_cards(
 
 @protected_route(router.get, "/shared", [Scope.ASSETS_READ])
 def get_shared_memory_cards(
-    request: Request, emulator: str
+    request: Request,
+    emulator: str,
 ) -> list[UserMemoryCardSchema]:
     """Cards for an emulator visible to the caller: their own plus other users'
     public ones. Browsing and download only: mounting a card at claim is
@@ -220,7 +234,11 @@ def _version_file_or_404(version: MemoryCardVersion) -> Path:
     router.get,
     "/versions/{id}/content",
     [Scope.ASSETS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No memory card version the caller can see has this ID, or its file is missing from disk."
+        }
+    },
 )
 def download_memory_card_version(request: Request, id: int) -> FileResponse:
     """Download a version's card archive. Readable if the caller owns the parent
@@ -243,7 +261,11 @@ def download_memory_card_version(request: Request, id: int) -> FileResponse:
     router.get,
     "/{id}/content",
     [Scope.ASSETS_READ],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No memory card the caller can see has this ID, the card has no stored data yet, or its file is missing from disk."
+        }
+    },
 )
 def download_memory_card(request: Request, id: int) -> FileResponse:
     """Download the card as it stands now, without going through its history.
@@ -270,9 +292,18 @@ def download_memory_card(request: Request, id: int) -> FileResponse:
     "/{id}/versions",
     [Scope.ASSETS_WRITE],
     responses={
-        status.HTTP_400_BAD_REQUEST: {},
-        status.HTTP_404_NOT_FOUND: {},
-        status.HTTP_413_CONTENT_TOO_LARGE: {},
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The file is not a zip in the layout the broker exchanges, such as a bare `.ps2` or `.raw` image."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no memory card with this ID."
+        },
+        status.HTTP_413_CONTENT_TOO_LARGE: {
+            "description": "The file is larger than the memory card size limit."
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "The version could not be stored."
+        },
     },
 )
 async def upload_memory_card_version(
@@ -280,12 +311,8 @@ async def upload_memory_card_version(
     id: int,
     cardFile: UploadFile = MEMORY_CARD_FILE_UPLOAD,
 ) -> MemoryCardVersionSchema:
-    """Store a card image the user supplied as the card's newest version, which
-    is what the next claim hydrates onto the container (owner only).
-
-    Only the zip layout the broker exchanges is accepted. A bare card image
-    (`.ps2`, `.raw`) is refused rather than stored, because nothing downstream
-    would notice until hydrate pushed it and the emulator rejected the card.
+    """Store a card image the owner supplied as the card's newest version, which
+    the next claim hydrates onto the container.
     """
     check_asset_upload_size(cardFile, "Memory card file")
     card = _owned_card_or_404(request, id)
@@ -317,7 +344,16 @@ async def upload_memory_card_version(
     return MemoryCardVersionSchema.model_validate(version)
 
 
-@protected_route(router.get, "/{id}", [Scope.ASSETS_READ])
+@protected_route(
+    router.get,
+    "/{id}",
+    [Scope.ASSETS_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No memory card the caller can see has this ID."
+        }
+    },
+)
 def get_memory_card(request: Request, id: int) -> MemoryCardSchema:
     """A single card: the caller's own or another user's public one."""
     card = _card_or_404(request, id)
@@ -342,7 +378,16 @@ def _reconcile_missing(version: MemoryCardVersion) -> bool:
     return missing
 
 
-@protected_route(router.get, "/{id}/versions", [Scope.ASSETS_READ])
+@protected_route(
+    router.get,
+    "/{id}/versions",
+    [Scope.ASSETS_READ],
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "No memory card the caller can see has this ID."
+        }
+    },
+)
 def get_memory_card_versions(
     request: Request, id: int
 ) -> list[MemoryCardVersionSchema]:
@@ -361,12 +406,25 @@ def get_memory_card_versions(
     router.put,
     "/{id}",
     [Scope.ASSETS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The new name is empty or only whitespace."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no memory card with this ID."
+        },
+    },
 )
 def rename_memory_card(
     request: Request,
     id: int,
-    name: Annotated[str, Body(embed=True, max_length=MEMORY_CARD_NAME_MAX_LENGTH)],
+    name: Annotated[
+        str,
+        Body(
+            embed=True,
+            max_length=MEMORY_CARD_NAME_MAX_LENGTH,
+        ),
+    ],
 ) -> MemoryCardSchema:
     """Rename a card (owner only)."""
     _owned_card_or_404(request, id)
@@ -383,12 +441,19 @@ def rename_memory_card(
     router.put,
     "/{id}/visibility",
     [Scope.ASSETS_WRITE],
-    responses={status.HTTP_404_NOT_FOUND: {}},
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "The caller has no memory card with this ID."
+        }
+    },
 )
 def update_memory_card_visibility(
     request: Request,
     id: int,
-    is_public: Annotated[bool, Body(embed=True)],
+    is_public: Annotated[
+        bool,
+        Body(embed=True),
+    ],
 ) -> MemoryCardSchema:
     """Toggle a card's public/private visibility (owner only). Sharing is
     one-way: a recipient's writes go to their own card, never back to this one."""
@@ -403,8 +468,12 @@ def update_memory_card_visibility(
     "/delete",
     [Scope.ASSETS_WRITE],
     responses={
-        status.HTTP_400_BAD_REQUEST: {},
-        status.HTTP_404_NOT_FOUND: {},
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "The request lists no memory cards."
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "description": "One of the IDs is not a memory card the caller owns, and no card is deleted."
+        },
     },
 )
 async def delete_memory_cards(

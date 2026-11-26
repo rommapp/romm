@@ -115,11 +115,97 @@ export function selectableDiscFiles<T extends DiscFile>(
 // boots alone (issue #4209). Kept in step with backend/utils/m3u.py.
 const DESCRIPTOR_EXTENSIONS: readonly string[] = ["cue", "gdi", "ccd", "mds"];
 
+// The raw tracks those sheets point at. Kept in step with backend/utils/m3u.py.
+const COMPANION_EXTENSIONS: readonly string[] = [
+  "bin",
+  "raw",
+  "img",
+  "sub",
+  "mdf",
+  "wav",
+  "ogg",
+  "flac",
+  "mp3",
+];
+
 function isDescriptorFile(file: DiscFile): boolean {
   return (
     isM3uFile(file) ||
     DESCRIPTOR_EXTENSIONS.includes(fileExtension(file.file_name))
   );
+}
+
+// "(Disc 2)", "(CD 2)", "(Disk 1 of 2)", "(Disc 2A)" and "(Disc B)". A letter
+// needs a space, so "(CDi)" isn't disc 9. Kept in step with backend/utils/m3u.py.
+const DISC_TAG_REGEX =
+  /\((?:disc|disk|cd|disque)(?:\s*([0-9]+)[a-z]?|\s+([a-z]))(?:\s+of\s+[0-9]+)?\)/i;
+
+/** The disc number a file's name claims (A counts as 1), or null. */
+export function discNumber(fileName: string): number | null {
+  const match = DISC_TAG_REGEX.exec(fileName);
+  if (!match) return null;
+  const [, number, letter] = match;
+  if (number) return parseInt(number);
+  return letter!.toLowerCase().charCodeAt(0) - "a".charCodeAt(0) + 1;
+}
+
+// Numbered discs first and in order, then the rest by name, as the backend sorts.
+function compareDiscs(a: DiscFile, b: DiscFile): number {
+  const na = discNumber(a.file_name);
+  const nb = discNumber(b.file_name);
+  if ((na === null) !== (nb === null)) return na === null ? 1 : -1;
+  if (na !== nb) return na! - nb!;
+  if (a.file_name === b.file_name) return 0;
+  return a.file_name < b.file_name ? -1 : 1;
+}
+
+/** The discs a stream can start on, picked and ordered like the backend's
+ *  `disc_files`: media and patches are left out, and a sheet replaces its tracks. */
+export function streamDiscFiles<T extends DiscFile>(
+  files: readonly T[],
+  patchExtensions: readonly string[],
+): readonly T[] {
+  let discs = files.filter(
+    (f) =>
+      isBootableFile(f) &&
+      !isM3uFile(f) &&
+      !patchExtensions.includes(`.${fileExtension(f.file_name)}`),
+  );
+  if (discs.some(isDescriptorFile)) {
+    discs = discs.filter(
+      (f) => !COMPANION_EXTENSIONS.includes(fileExtension(f.file_name)),
+    );
+  }
+  return discs.sort(compareDiscs);
+}
+
+// The backend's `playlist_set`: the base game's files, or every file when the
+// base has no disc.
+function streamPlaylistSet<T extends DiscFile>(
+  files: readonly T[],
+  patchExtensions: readonly string[],
+): readonly T[] {
+  const base = files.filter(isBaseGameFile);
+  return streamDiscFiles(base, patchExtensions).length > 0 ? base : files;
+}
+
+/** The discs a running stream can swap to, as the backend's `playlist_files` picks them. */
+export function streamSwapDiscFiles<T extends DiscFile>(
+  files: readonly T[],
+  patchExtensions: readonly string[],
+): readonly T[] {
+  return streamDiscFiles(
+    streamPlaylistSet(files, patchExtensions),
+    patchExtensions,
+  );
+}
+
+/** Whether the stream's playlist set ships its own .m3u, as `Rom.has_m3u_file` checks. */
+export function streamHasPlaylist(
+  files: readonly DiscFile[],
+  patchExtensions: readonly string[],
+): boolean {
+  return streamPlaylistSet(files, patchExtensions).some(isM3uFile);
 }
 
 // A set carrying a playlist or disc sheet only boots whole; anything else boots

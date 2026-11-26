@@ -18,7 +18,7 @@ import { useIsAlive } from "@/composables/useIsAlive";
 import { useRomSync } from "@/composables/useRomSync";
 import { useSnackbar } from "@/composables/useSnackbar";
 import {
-  RBtn,
+  RButton,
   RDialog,
   RIcon,
   RSelect,
@@ -374,7 +374,7 @@ function closeDialog() {
             ]"
             class="r-match__by"
           />
-          <RBtn
+          <RButton
             variant="flat"
             color="primary"
             prepend-icon="mdi-search-web"
@@ -384,7 +384,7 @@ function closeDialog() {
             @click="searchRom"
           >
             {{ t("common.search") }}
-          </RBtn>
+          </RButton>
         </div>
       </div>
     </template>

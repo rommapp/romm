@@ -70,7 +70,7 @@ async function openDialog(toEdit: PermissionGroupSchema | null) {
       provide: { emitter },
       stubs: {
         RDialog,
-        RBtn: {
+        RButton: {
           emits: ["click"],
           template: `<button @click="$emit('click')"><slot /></button>`,
         },

@@ -53,7 +53,7 @@ async function mountSection() {
     global: {
       stubs: {
         SettingsSection: { template: "<div><slot /></div>" },
-        RBtn: true,
+        RButton: true,
         RIcon: true,
         RSpinner: true,
       },

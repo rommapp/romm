@@ -23,7 +23,7 @@ jobs:
     timeout-minutes: 15
     services:
       postgres:
-        image: postgres:18
+        image: postgres:19
         env:
           POSTGRES_USER: user
           POSTGRES_PASSWORD: password

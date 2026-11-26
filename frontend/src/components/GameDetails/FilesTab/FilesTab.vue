@@ -59,7 +59,7 @@ import { useRomFileUpload } from "@/composables/useRomFileUpload";
 import { useRomSync } from "@/composables/useRomSync";
 import { useSnackbar } from "@/composables/useSnackbar";
 import { useSubtabQuery } from "@/composables/useSubtabQuery";
-import { RBtn, RCheckbox, REmptyState } from "@/lib";
+import { RButton, RCheckbox, REmptyState } from "@/lib";
 import romApi from "@/services/api/rom";
 import type { Events } from "@/types/emitter";
 import { getDownloadLink } from "@/utils";
@@ -553,7 +553,7 @@ function refreshRom() {
           class="r-files__subtab-menu"
         />
         <div v-if="showUpload" class="r-files__section-actions">
-          <RBtn
+          <RButton
             v-if="activeUploadFolder === null"
             variant="outlined"
             size="small"
@@ -564,8 +564,8 @@ function refreshRom() {
             @click="uploadDialogOpen = true"
           >
             {{ t("rom.upload-to-folder") }}
-          </RBtn>
-          <RBtn
+          </RButton>
+          <RButton
             v-else
             variant="outlined"
             size="small"
@@ -576,7 +576,7 @@ function refreshRom() {
             @click="triggerUpload"
           >
             {{ t("common.upload") }}
-          </RBtn>
+          </RButton>
         </div>
       </header>
 
@@ -615,7 +615,7 @@ function refreshRom() {
         </div>
 
         <div v-if="selectedCount > 0" class="r-files__toolbar-actions">
-          <RBtn
+          <RButton
             icon="mdi-cloud-download-outline"
             variant="text"
             size="small"
@@ -624,7 +624,7 @@ function refreshRom() {
             :aria-label="t('rom.download-selected')"
             @click="downloadSelected"
           />
-          <RBtn
+          <RButton
             icon="mdi-link-variant"
             variant="text"
             size="small"
@@ -633,7 +633,7 @@ function refreshRom() {
             :aria-label="t('rom.copy-link-action')"
             @click="copySelectedLink"
           />
-          <RBtn
+          <RButton
             v-if="canDelete"
             icon="mdi-delete-outline"
             variant="text"
@@ -643,7 +643,7 @@ function refreshRom() {
             :aria-label="t('common.delete')"
             @click="deleteSelectedFiles"
           />
-          <RBtn
+          <RButton
             icon="mdi-close"
             variant="text"
             size="small"
@@ -766,7 +766,7 @@ function refreshRom() {
   gap: 12px;
   padding: 6px 4px;
   flex-shrink: 0;
-  /* Reserve the height of the action cluster (small RBtn = 32px +
+  /* Reserve the height of the action cluster (small RButton = 32px +
      6px×2 vertical padding) so toggling the selection state doesn't
      cause the toolbar to jump in height when the action buttons
      fade in. */

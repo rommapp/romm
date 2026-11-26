@@ -26,7 +26,7 @@ import { AUTOSAVE_SLOT } from "@/services/api/save";
 import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
 import type { JsDosProps } from "@/types/js-dos";
-import { getDownloadPath } from "@/utils";
+import { getDownloadPath, jsDosBundleFileIds } from "@/utils";
 import type { PlayerSaveFile } from "@/utils/saveSync";
 import { loadJsDosRuntime } from "./jsDosRuntime";
 
@@ -159,7 +159,11 @@ async function onPlay() {
   // DOSBox-X provides Windows support.
   runtimeBound = true;
   dos = dosFactory(stage.value, {
-    url: getDownloadPath({ rom: currentRom, purpose: "play" }),
+    url: getDownloadPath({
+      rom: currentRom,
+      fileIDs: jsDosBundleFileIds(currentRom),
+      purpose: "play",
+    }),
     backend: "dosboxX",
     backendLocked: true,
     pathPrefix: `${assetBase}/emulators/`,

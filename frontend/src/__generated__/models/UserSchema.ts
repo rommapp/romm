@@ -8,6 +8,9 @@ export type UserSchema = {
     id: number;
     username: string;
     email: (string | null);
+    /**
+     * Whether the user can sign in.
+     */
     enabled: boolean;
     role: Role;
     permission_group_id?: (number | null);
@@ -20,6 +23,9 @@ export type UserSchema = {
     ra_username?: (string | null);
     ra_progression?: (RAProgression | null);
     ui_settings?: (Record<string, any> | null);
+    /**
+     * The ID of the device making the request, when there is one.
+     */
     current_device_id?: (string | null);
     created_at: string;
     updated_at: string;

@@ -1,8 +1,11 @@
 import base64
+import io
 from datetime import timedelta
+from pathlib import Path
 
 import pytest
 from fastapi import status
+from PIL import Image
 from tests.auth_helpers import bearer
 
 from endpoints import user as user_endpoints
@@ -10,6 +13,7 @@ from exceptions.database_exceptions import LastAdminError
 from handler.auth.base_handler import auth_handler, oauth_handler
 from handler.auth.middleware.redis_session_middleware import RedisSessionMiddleware
 from handler.database import db_permission_handler, db_user_handler
+from handler.filesystem import fs_asset_handler
 from handler.metadata import meta_ra_handler
 from models.permission import PermAction, PermEntity
 from models.user import Role, User
@@ -744,3 +748,33 @@ async def test_a_password_less_account_sets_a_first_password_from_its_session(
     assert response.json()["has_password"] is True
     assert _password_matches(viewer_user.id, "a_first_password")
     await RedisSessionMiddleware.clear_user_sessions(viewer_user.username)
+
+
+def test_uploading_an_avatar_removes_the_synced_oidc_one(
+    client,
+    viewer_access_token: str,
+    viewer_user: User,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(fs_asset_handler, "base_path", tmp_path.resolve())
+    avatar_dir = fs_asset_handler.build_avatar_path(user=viewer_user)
+    synced = tmp_path / avatar_dir / "oidc-avatar.png"
+    synced.parent.mkdir(parents=True)
+    synced.write_bytes(b"synced")
+    db_user_handler.update_user(
+        viewer_user.id, {"avatar_path": f"{avatar_dir}/oidc-avatar.png"}
+    )
+    png = io.BytesIO()
+    Image.new("RGB", (4, 4)).save(png, format="PNG")
+
+    response = client.put(
+        f"/api/users/{viewer_user.id}",
+        files={"avatar": ("me.png", png.getvalue(), "image/png")},
+        headers=bearer(viewer_access_token),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["avatar_path"] == f"{avatar_dir}/avatar.png"
+    assert not synced.exists()
+    assert (tmp_path / avatar_dir / "avatar.png").exists()

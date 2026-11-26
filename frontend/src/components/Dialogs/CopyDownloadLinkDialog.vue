@@ -9,7 +9,7 @@ import { ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useClipboard } from "@/composables/useClipboard";
 import { useEmitterEvent } from "@/composables/useEmitterEvent";
-import { RBtn, RDialog } from "@/lib";
+import { RButton, RDialog } from "@/lib";
 
 defineOptions({ inheritAttrs: false });
 
@@ -62,14 +62,14 @@ async function retryCopy() {
       </div>
     </template>
     <template #footer>
-      <RBtn
+      <RButton
         variant="flat"
         color="primary"
         prepend-icon="mdi-content-copy"
         @click="retryCopy"
       >
         {{ t("common.try-again") }}
-      </RBtn>
+      </RButton>
     </template>
   </RDialog>
 </template>

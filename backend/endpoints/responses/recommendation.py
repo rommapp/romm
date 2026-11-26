@@ -1,20 +1,21 @@
 from __future__ import annotations
 
-from pydantic import BaseModel
-
+from endpoints.responses.base import BaseModel
 from endpoints.responses.rom import SimpleRomSchema
 from handler.recommendation.scoring import Facet
 
 
 class SimilarityReasonSchema(BaseModel):
-    """Why two games were linked, e.g. {"facet": "franchise", "value": "Metroid"}.
+    """Why two games were linked, e.g. {"facet": "franchise", "value": "Example Series"}.
 
     `value` is empty for facets with no value of their own, which the frontend
     renders as a translated phrase instead.
     """
 
     facet: Facet
+    """The kind of thing the two games share, such as `franchise`."""
     value: str
+    """The shared value, such as the franchise name. Empty for facets that have no value."""
 
 
 class SimilarRomSchema(BaseModel):

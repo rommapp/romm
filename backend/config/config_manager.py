@@ -31,7 +31,6 @@ from exceptions.config_exceptions import ConfigNotWritableException
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from utils.database import get_nested
 
 # Macros of a library structure template. `{platform}` is the platform folder and
 # `{game}` is the terminal, marking where the game itself begins.
@@ -533,6 +532,7 @@ class Config:
     SKIP_TITLE_ID_EXTRACTION: bool
     EMBED_SWITCH_TITLE_IDS: bool
     EJS_DEBUG: bool
+    EJS_CACHE_ENABLED: bool
     EJS_CACHE_LIMIT: int | None
     EJS_DISABLE_AUTO_UNLOAD: bool
     EJS_DISABLE_BATCH_BOOTUP: bool
@@ -730,9 +730,36 @@ class ConfigManager:
             query=query,
         )
 
+    def _raw_value(self, path: str, default: Any = None) -> Any:
+        """Read a dot-separated config.yml key, or `default` when it is missing, exiting when a parent block is not a dictionary."""
+        keys = path.split(".")
+        node: Any = self._raw_config
+        for depth, key in enumerate(keys):
+            if node is None:
+                return default
+            if not isinstance(node, dict):
+                block = ".".join(keys[:depth]) or "the top level"
+                log.critical(f"Invalid config.yml: {block} must be a dictionary")
+                sys.exit(3)
+            if key not in node:
+                return default
+            node = node[key]
+        return node
+
+    def _ejs_cache_limit(self) -> Any:
+        """Read emulatorjs.cache.limit, falling back to the deprecated emulatorjs.cache_limit."""
+        legacy = self._raw_value("emulatorjs.cache_limit")
+        if legacy is None:
+            return self._raw_value("emulatorjs.cache.limit")
+        log.warning(
+            "config.yml: emulatorjs.cache_limit is deprecated, "
+            "move it to emulatorjs.cache.limit"
+        )
+        return self._raw_value("emulatorjs.cache.limit", legacy)
+
     def _raw_exclude_list(self, path: str) -> list[str]:
         """Read a user exclude list, exiting on anything but a list of strings."""
-        value = get_nested(self._raw_config, path)
+        value = self._raw_value(path)
         if value is None:
             return []
         if not isinstance(value, list):
@@ -801,46 +828,37 @@ class ConfigManager:
                     *self._raw_exclude_list("exclude.roms.multi_file.parts.names"),
                 }
             ),
-            PLATFORMS_BINDING=get_nested(self._raw_config, "system.platforms", {})
-            or {},
-            PLATFORMS_VERSIONS=get_nested(self._raw_config, "system.versions", {})
-            or {},
-            SKIP_HASH_CALCULATION=get_nested(
-                self._raw_config, "filesystem.skip_hash_calculation", False
+            PLATFORMS_BINDING=self._raw_value("system.platforms", {}) or {},
+            PLATFORMS_VERSIONS=self._raw_value("system.versions", {}) or {},
+            SKIP_HASH_CALCULATION=self._raw_value(
+                "filesystem.skip_hash_calculation", False
             ),
-            SKIP_TITLE_ID_EXTRACTION=get_nested(
-                self._raw_config, "filesystem.skip_title_id_extraction", False
+            SKIP_TITLE_ID_EXTRACTION=self._raw_value(
+                "filesystem.skip_title_id_extraction", False
             ),
-            EMBED_SWITCH_TITLE_IDS=get_nested(
-                self._raw_config, "filesystem.embed_switch_title_ids", False
+            EMBED_SWITCH_TITLE_IDS=self._raw_value(
+                "filesystem.embed_switch_title_ids", False
             ),
-            EJS_DEBUG=get_nested(self._raw_config, "emulatorjs.debug", False),
-            EJS_CACHE_LIMIT=get_nested(
-                self._raw_config, "emulatorjs.cache_limit", None
+            EJS_DEBUG=self._raw_value("emulatorjs.debug", False),
+            EJS_CACHE_ENABLED=self._raw_value("emulatorjs.cache.enabled", True),
+            EJS_CACHE_LIMIT=self._ejs_cache_limit(),
+            EJS_DISABLE_AUTO_UNLOAD=self._raw_value(
+                "emulatorjs.disable_auto_unload", False
             ),
-            EJS_DISABLE_AUTO_UNLOAD=get_nested(
-                self._raw_config, "emulatorjs.disable_auto_unload", False
+            EJS_DISABLE_BATCH_BOOTUP=self._raw_value(
+                "emulatorjs.disable_batch_bootup", False
             ),
-            EJS_DISABLE_BATCH_BOOTUP=get_nested(
-                self._raw_config, "emulatorjs.disable_batch_bootup", False
+            EJS_ENABLE_AUTO_SAVE_SYNC=self._raw_value(
+                "emulatorjs.auto_save_sync", True
             ),
-            EJS_ENABLE_AUTO_SAVE_SYNC=get_nested(
-                self._raw_config, "emulatorjs.auto_save_sync", True
+            EJS_NETPLAY_ENABLED=self._raw_value("emulatorjs.netplay.enabled", False),
+            EJS_NETPLAY_ICE_SERVERS=self._raw_value(
+                "emulatorjs.netplay.ice_servers", []
             ),
-            EJS_NETPLAY_ENABLED=get_nested(
-                self._raw_config, "emulatorjs.netplay.enabled", False
-            ),
-            EJS_NETPLAY_ICE_SERVERS=get_nested(
-                self._raw_config, "emulatorjs.netplay.ice_servers", []
-            ),
-            EJS_DEFAULT_CORES=get_nested(
-                self._raw_config, "emulatorjs.default_cores", {}
-            )
-            or {},
-            EJS_SETTINGS=get_nested(self._raw_config, "emulatorjs.settings", {}),
+            EJS_DEFAULT_CORES=self._raw_value("emulatorjs.default_cores", {}) or {},
+            EJS_SETTINGS=self._raw_value("emulatorjs.settings", {}),
             EJS_CONTROLS=self._get_ejs_controls(),
-            SCAN_METADATA_PRIORITY=get_nested(
-                self._raw_config,
+            SCAN_METADATA_PRIORITY=self._raw_value(
                 "scan.priority.metadata",
                 [
                     "igdb",
@@ -859,8 +877,7 @@ class ConfigManager:
                     "csdb",
                 ],
             ),
-            SCAN_ARTWORK_PRIORITY=get_nested(
-                self._raw_config,
+            SCAN_ARTWORK_PRIORITY=self._raw_value(
                 "scan.priority.artwork",
                 [
                     "sgdb",
@@ -884,29 +901,22 @@ class ConfigManager:
             SCAN_ARTWORK_PRIORITY_OVERRIDES={
                 field: override
                 for key, field in ARTWORK_PRIORITY_KEYS.items()
-                if (override := get_nested(self._raw_config, f"scan.priority.{key}"))
-                is not None
+                if (override := self._raw_value(f"scan.priority.{key}")) is not None
             },
-            SCAN_REGION_PRIORITY=get_nested(
-                self._raw_config,
+            SCAN_REGION_PRIORITY=self._raw_value(
                 "scan.priority.region",
                 ["us", "wor", "ss", "eu", "jp"],
             ),
-            SCAN_REGION_MODE=get_nested(
-                self._raw_config,
+            SCAN_REGION_MODE=self._raw_value(
                 "scan.priority.region_mode",
                 "prefer_rom_tags",
             ),
-            SCAN_LANGUAGE_PRIORITY=get_nested(
-                self._raw_config,
+            SCAN_LANGUAGE_PRIORITY=self._raw_value(
                 "scan.priority.language",
                 ["en"],
             ),
-            SORT_ARTICLES=get_nested(
-                self._raw_config, "sorting.articles", DEFAULT_SORT_ARTICLES
-            ),
-            SCAN_MEDIA=get_nested(
-                self._raw_config,
+            SORT_ARTICLES=self._raw_value("sorting.articles", DEFAULT_SORT_ARTICLES),
+            SCAN_MEDIA=self._raw_value(
                 "scan.media",
                 [
                     "box2d",
@@ -914,40 +924,30 @@ class ConfigManager:
                     "manual",
                 ],
             ),
-            GAMELIST_AUTO_EXPORT_ON_SCAN=get_nested(
-                self._raw_config, "scan.gamelist.export", False
-            ),
-            GAMELIST_MEDIA_THUMBNAIL=get_nested(
-                self._raw_config,
+            GAMELIST_AUTO_EXPORT_ON_SCAN=self._raw_value("scan.gamelist.export", False),
+            GAMELIST_MEDIA_THUMBNAIL=self._raw_value(
                 "scan.gamelist.media.thumbnail",
                 MetadataMediaType.BOX2D,
             ),
-            GAMELIST_MEDIA_IMAGE=get_nested(
-                self._raw_config,
+            GAMELIST_MEDIA_IMAGE=self._raw_value(
                 "scan.gamelist.media.image",
                 MetadataMediaType.SCREENSHOT,
             ),
-            PEGASUS_AUTO_EXPORT_ON_SCAN=get_nested(
-                self._raw_config, "scan.pegasus.export", False
-            ),
-            STREAMING_ENABLED=get_nested(self._raw_config, "streaming.enabled", False),
-            STREAMING_CONTAINERS=get_nested(
-                self._raw_config, "streaming.containers", []
-            ),
+            PEGASUS_AUTO_EXPORT_ON_SCAN=self._raw_value("scan.pegasus.export", False),
+            STREAMING_ENABLED=self._raw_value("streaming.enabled", False),
+            STREAMING_CONTAINERS=self._raw_value("streaming.containers", []),
             CONVERTO=ConvertoConfig(
                 **{
-                    key: get_nested(self._raw_config, f"converto.{key}", default)
+                    key: self._raw_value(f"converto.{key}", default)
                     for key, default in dataclasses.asdict(ConvertoConfig()).items()
                 }
             ),
-            STRUCTURE_TEMPLATES=get_nested(
-                self._raw_config, "filesystem.structure", {}
-            ),
+            STRUCTURE_TEMPLATES=self._raw_value("filesystem.structure", {}),
         )
 
     def _get_ejs_controls(self) -> dict[str, EjsControls]:
         """Get EJS controls with default player entries for each core"""
-        raw_controls = get_nested(self._raw_config, "emulatorjs.controls", {})
+        raw_controls = self._raw_value("emulatorjs.controls", {})
         controls = {}
 
         for core, core_controls in raw_controls.items():
@@ -1024,7 +1024,7 @@ class ConfigManager:
             ``None`` when there was nothing to translate, otherwise whether the
             library showed which layout it uses.
         """
-        filesystem = get_nested(self._raw_config, "filesystem")
+        filesystem = self._raw_value("filesystem")
         if not isinstance(filesystem, dict) or not (
             RETIRED_FOLDER_KEYS & filesystem.keys()
         ):
@@ -1170,6 +1170,12 @@ class ConfigManager:
             log.critical("Invalid config.yml: emulatorjs.debug must be a boolean")
             sys.exit(3)
 
+        if not isinstance(self.config.EJS_CACHE_ENABLED, bool):
+            log.critical(
+                "Invalid config.yml: emulatorjs.cache.enabled must be a boolean"
+            )
+            sys.exit(3)
+
         if not isinstance(self.config.EJS_NETPLAY_ENABLED, bool):
             log.critical(
                 "Invalid config.yml: emulatorjs.netplay.enabled must be a boolean"
@@ -1180,7 +1186,7 @@ class ConfigManager:
             self.config.EJS_CACHE_LIMIT, int
         ):
             log.critical(
-                "Invalid config.yml: emulatorjs.cache_limit must be an integer"
+                "Invalid config.yml: emulatorjs.cache.limit must be an integer"
             )
             sys.exit(3)
 
@@ -1504,7 +1510,10 @@ class ConfigManager:
             },
             "emulatorjs": {
                 "debug": self.config.EJS_DEBUG,
-                "cache_limit": self.config.EJS_CACHE_LIMIT,
+                "cache": {
+                    "enabled": self.config.EJS_CACHE_ENABLED,
+                    "limit": self.config.EJS_CACHE_LIMIT,
+                },
                 "disable_auto_unload": self.config.EJS_DISABLE_AUTO_UNLOAD,
                 "disable_batch_bootup": self.config.EJS_DISABLE_BATCH_BOOTUP,
                 "auto_save_sync": self.config.EJS_ENABLE_AUTO_SAVE_SYNC,

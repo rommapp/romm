@@ -9,7 +9,7 @@ import { useConfirm } from "@/composables/useConfirm";
 import { useFetchState } from "@/composables/useFetchState";
 import { useSnackbar } from "@/composables/useSnackbar";
 import {
-  RBtn,
+  RButton,
   RChip,
   RIcon,
   RTable,
@@ -238,7 +238,7 @@ async function deleteToken(token: ClientTokenSchema) {
       </template>
       <template #cell.actions="{ row }">
         <div class="r-tok__actions">
-          <RBtn
+          <RButton
             variant="text"
             size="small"
             icon="mdi-refresh"
@@ -246,7 +246,7 @@ async function deleteToken(token: ClientTokenSchema) {
             :title="t('settings.regenerate-token-tooltip')"
             @click="openRegenerate(row as ClientTokenSchema)"
           />
-          <RBtn
+          <RButton
             variant="text"
             size="small"
             icon="mdi-trash-can-outline"
@@ -260,14 +260,14 @@ async function deleteToken(token: ClientTokenSchema) {
       </template>
     </RTable>
     <div>
-      <RBtn
+      <RButton
         variant="flat"
         color="primary"
         prepend-icon="mdi-plus"
         @click="openCreate"
       >
         {{ t("common.create") }}
-      </RBtn>
+      </RButton>
     </div>
 
     <CreateClientTokenDialog @created="fetchTokens" />
@@ -302,13 +302,13 @@ async function deleteToken(token: ClientTokenSchema) {
   gap: 4px;
 }
 
-/* Dimmed at rest, full red on hover. RBtn's text variant uses
-   `var(--r-btn-color)` for the icon colour; setting that token directly
+/* Dimmed at rest, full red on hover. RButton's text variant uses
+   `var(--r-button-color)` for the icon colour; setting that token directly
    on the button root drives both states without a :deep selector. */
 .r-tok__delete {
-  --r-btn-color: color-mix(in srgb, var(--r-color-danger) 70%, transparent);
+  --r-button-color: color-mix(in srgb, var(--r-color-danger) 70%, transparent);
 }
 .r-tok__delete:hover {
-  --r-btn-color: var(--r-color-danger);
+  --r-button-color: var(--r-color-danger);
 }
 </style>

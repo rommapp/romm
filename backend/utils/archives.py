@@ -29,6 +29,17 @@ from utils.filesystem import (
     ArchiveFormat,
 )
 
+_inflate64_get_compressor = zipfile._get_compressor  # type: ignore[attr-defined]
+
+
+def _get_compressor(compress_type: int, compresslevel: int | None = None) -> object:
+    # zipfile_inflate64's patch takes only compress_type, but CPython passes
+    # compresslevel too, so every zip write would raise TypeError without this.
+    return _inflate64_get_compressor(compress_type)
+
+
+zipfile._get_compressor = _get_compressor  # type: ignore[attr-defined]
+
 # 7zip archives are read through 7zz.
 SEVEN_ZIP_PATH = "/usr/bin/7zz"
 # RAR archives are read through bsdtar.

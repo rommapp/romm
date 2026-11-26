@@ -3,7 +3,7 @@ import { expect, userEvent, waitFor, within } from "storybook/test";
 import { ref } from "vue";
 import RMenu from "@/lib/menus/RMenu/RMenu.vue";
 import RMenuItem from "@/lib/menus/RMenuItem/RMenuItem.vue";
-import RBtn from "@/lib/primitives/RBtn/RBtn.vue";
+import RButton from "@/lib/primitives/RButton/RButton.vue";
 import RIcon from "@/lib/primitives/RIcon/RIcon.vue";
 import { padActivationTarget } from "@/utils/gamepad";
 import { CONTRAST_TODO_PARAMETERS } from "@/utils/storyA11y";
@@ -527,7 +527,7 @@ export const FormRow: Story = {
 export const NestedMenu: Story = {
   name: "Menu inside the panel",
   render: () => ({
-    components: { RSelect, RMenu, RMenuItem, RBtn },
+    components: { RSelect, RMenu, RMenuItem, RButton },
     setup: () => {
       const value = ref<string | null>(null);
       const items = ref<{ title: string; value: string }[]>([]);
@@ -542,9 +542,9 @@ export const NestedMenu: Story = {
           <template #no-data>
             <RMenu>
               <template #activator="{ props }">
-                <RBtn v-bind="props" size="small" variant="translucent" append-icon="mdi-chevron-down">
+                <RButton v-bind="props" size="small" variant="translucent" append-icon="mdi-chevron-down">
                   Add a collection
-                </RBtn>
+                </RButton>
               </template>
               <RMenuItem label="Favourites" @click="add('Favourites')" />
               <RMenuItem label="Backlog" @click="add('Backlog')" />

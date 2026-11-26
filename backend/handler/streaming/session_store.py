@@ -102,6 +102,12 @@ class StreamingSession(TypedDict, total=False):
     core_tier: str | None
     disc_file_id: int | None
     disc_swaps: list[StoredDiscSwap]
+    # The save archive the launch restored, which the exit's delta is merged over.
+    restored_save_id: int | None
+    # Its content hash at launch, so an archive replaced mid-session is not merged over.
+    restored_save_hash: str | None
+    # The launch left the archive's states off the container, so the merge does too.
+    restored_without_state: bool
     draining: bool
     drain_token: str
 
@@ -462,6 +468,9 @@ async def stamp_launched(
     host: str | None,
     core: str | None = None,
     core_tier: str | None = None,
+    restored_save_id: int | None = None,
+    restored_save_hash: str | None = None,
+    restored_without_state: bool = False,
 ) -> None:
     """Record that the activate returned, so the status poll stops asking the
     broker for an extraction phase.
@@ -471,14 +480,18 @@ async def stamp_launched(
     write would stamp a stranger's session or bring a short drain marker back
     with a six-hour TTL that no release path owns.
 
-    Best-effort: a stamp that never lands only costs a few redundant broker
-    round trips, and failing a session that is already up would be worse.
+    Best-effort: a stamp that never lands costs a few redundant broker round
+    trips and files the exit delta without the restored archive under it, and
+    failing a session that is already up would be worse.
 
     Args:
         host: a game's room URL, for the status poll to hand a tab that missed
             the push; None for a desktop, whose POST is the only reader.
         core, core_tier: the configured core and its tier, so that tab still
             hears the warning launch-ready carried.
+        restored_save_id: the save archive the activate restored.
+        restored_save_hash: that archive's content hash when it was restored.
+        restored_without_state: the activate restored the archive without its states.
     """
     try:
         await mutate_session(
@@ -487,6 +500,15 @@ async def stamp_launched(
                 "launched_at": datetime.now(timezone.utc).isoformat(),
                 **({"host": host} if host else {}),
                 **({"core": core, "core_tier": core_tier} if core_tier else {}),
+                **(
+                    {
+                        "restored_save_id": restored_save_id,
+                        "restored_save_hash": restored_save_hash,
+                        "restored_without_state": restored_without_state,
+                    }
+                    if restored_save_id is not None
+                    else {}
+                ),
             },
             require=lambda current: same_claim(current, claim),
         )

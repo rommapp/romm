@@ -18,7 +18,7 @@ import { useClipboard } from "@/composables/useClipboard";
 import { useEmitterEvent } from "@/composables/useEmitterEvent";
 import { useSnackbar } from "@/composables/useSnackbar";
 import {
-  RBtn,
+  RButton,
   RCheckbox,
   RIcon,
   RProgressCircular,
@@ -439,22 +439,22 @@ watch(show, (val) => {
           {{ t("settings.client-token-delivery-hint") }}
         </p>
         <div class="r-tok-dialog__delivery-row">
-          <RBtn
+          <RButton
             variant="flat"
             size="large"
             prepend-icon="mdi-content-copy"
             @click="step = 'copy'"
           >
             {{ t("settings.copy-token") }}
-          </RBtn>
-          <RBtn
+          </RButton>
+          <RButton
             variant="flat"
             size="large"
             prepend-icon="mdi-qrcode"
             @click="startPairing"
           >
             {{ t("settings.pair-device") }}
-          </RBtn>
+          </RButton>
         </div>
       </div>
 
@@ -529,28 +529,28 @@ watch(show, (val) => {
           <p class="r-tok-dialog__pair-result">
             {{ t("settings.client-token-pair-expired") }}
           </p>
-          <RBtn
+          <RButton
             variant="flat"
             prepend-icon="mdi-refresh"
             @click="regeneratePairCode"
           >
             {{ t("settings.regenerate-code") }}
-          </RBtn>
+          </RButton>
         </template>
       </div>
     </template>
 
     <template #footer-start>
-      <RBtn
+      <RButton
         v-if="step !== 'config' && step !== 'delivery'"
         variant="text"
         @click="step = 'delivery'"
       >
         {{ t("common.back") }}
-      </RBtn>
+      </RButton>
     </template>
     <template #footer>
-      <RBtn
+      <RButton
         v-if="step === 'config'"
         variant="flat"
         color="primary"
@@ -559,15 +559,15 @@ watch(show, (val) => {
         @click="createToken"
       >
         {{ t("common.create") }}
-      </RBtn>
-      <RBtn
+      </RButton>
+      <RButton
         v-else-if="step !== 'delivery'"
         variant="flat"
         color="primary"
         @click="closeDialog"
       >
         {{ t("common.close") }}
-      </RBtn>
+      </RButton>
     </template>
   </RDialog>
 </template>

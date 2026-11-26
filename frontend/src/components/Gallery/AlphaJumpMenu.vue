@@ -6,7 +6,7 @@ import { ref } from "vue";
 import { useI18n } from "vue-i18n";
 import AlphaStrip from "@/components/Gallery/AlphaStrip.vue";
 import { useGridNav } from "@/composables/useGridNav";
-import { RBtn, RMenu } from "@/lib";
+import { RButton, RMenu } from "@/lib";
 
 interface Props {
   available: Set<string>;
@@ -43,7 +43,7 @@ useGridNav(gridEl, { cellSelector: LETTER_SELECTOR });
     :initial-focus="INITIAL_FOCUS"
   >
     <template #activator="{ props: activatorProps }">
-      <RBtn
+      <RButton
         v-bind="activatorProps"
         variant="outlined"
         surface
@@ -53,7 +53,7 @@ useGridNav(gridEl, { cellSelector: LETTER_SELECTOR });
         :aria-label="t('gallery.jump-to-letter')"
       >
         A–Z
-      </RBtn>
+      </RButton>
     </template>
     <div ref="gridEl">
       <AlphaStrip

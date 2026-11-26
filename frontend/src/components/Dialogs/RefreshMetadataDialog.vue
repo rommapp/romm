@@ -14,7 +14,7 @@ import { useEmitterEvent } from "@/composables/useEmitterEvent";
 import { useScanProviders } from "@/composables/useScanProviders";
 import { useScanTrigger } from "@/composables/useScanTrigger";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { RAlert, RBtn, RDialog, RIcon } from "@/lib";
+import { RAlert, RButton, RDialog, RIcon } from "@/lib";
 import { type SimpleRom } from "@/stores/roms";
 import {
   scanNeedsMetadataSource,
@@ -278,7 +278,7 @@ function closeDialog() {
       </div>
     </template>
     <template #footer>
-      <RBtn
+      <RButton
         variant="translucent"
         color="primary"
         prepend-icon="mdi-magnify-scan"
@@ -289,7 +289,7 @@ function closeDialog() {
         @click="onScan"
       >
         {{ t("rom.refresh-metadata") }}
-      </RBtn>
+      </RButton>
     </template>
   </RDialog>
 </template>

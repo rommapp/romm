@@ -6,7 +6,7 @@ import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useEmitterEvent } from "@/composables/useEmitterEvent";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { RBtn, RIcon, RSelect, RSwitch, RTextField } from "@/lib";
+import { RButton, RIcon, RSelect, RSwitch, RTextField } from "@/lib";
 import RDialog from "@/lib/overlays/RDialog/RDialog.vue";
 import permissionsApi from "@/services/api/permissions";
 import userApi from "@/services/api/user";
@@ -217,7 +217,7 @@ function close() {
       </div>
     </template>
     <template #footer>
-      <RBtn
+      <RButton
         variant="flat"
         color="primary"
         :loading="submitting"
@@ -225,7 +225,7 @@ function close() {
         @click="createUser"
       >
         {{ t("common.create") }}
-      </RBtn>
+      </RButton>
     </template>
   </RDialog>
 </template>

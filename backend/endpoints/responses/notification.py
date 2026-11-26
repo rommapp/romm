@@ -50,29 +50,23 @@ class NotificationCreatePayload(BaseModel):
     title: str = Field(min_length=1, max_length=NOTIFICATION_TITLE_MAX_LENGTH)
     body: str | None = Field(default=None, max_length=NOTIFICATION_BODY_MAX_LENGTH)
     level: NotificationLevel = NotificationLevel.INFO
-    # Lets a client tell its own notifications apart, e.g. `argosy.sync_done`.
     kind: str = Field(
         default=NotificationKind.CUSTOM,
         max_length=NOTIFICATION_KIND_MAX_LENGTH,
         pattern=r"^[a-z0-9][a-z0-9_.:-]*$",
     )
-    link: str | None = Field(
-        default=None,
-        max_length=NOTIFICATION_LINK_MAX_LENGTH,
-        description="A path inside RomM, such as `/rom/12`.",
-    )
+    """A label a client uses to tell its own notifications apart, such as `my_app.sync_done`."""
+    link: str | None = Field(default=None, max_length=NOTIFICATION_LINK_MAX_LENGTH)
+    """A path inside RomM, such as `/rom/12`."""
     icon: str | None = Field(
         default=None,
         max_length=NOTIFICATION_ICON_MAX_LENGTH,
         pattern=r"^mdi-[a-z0-9-]+$",
-        description="A Material Design Icons name, such as `mdi-sync`.",
     )
+    """A Material Design Icons name, such as `mdi-sync`."""
     data: dict[str, Any] = Field(default_factory=dict)
-    recipients: list[int] | Literal["admins", "all"] | None = Field(
-        default=None,
-        description="User ids, `admins` or `all`; only an admin may notify "
-        "anyone but themselves. Null notifies the caller.",
-    )
+    recipients: list[int] | Literal["admins", "all"] | None = None
+    """Who to notify: a list of user IDs, `admins` or `all`. Null notifies only the caller. Only an admin can notify other users."""
 
     @field_validator("kind")
     @classmethod
