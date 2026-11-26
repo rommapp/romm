@@ -40,7 +40,6 @@ _SIGIL_SINGLE = re.compile(r"[^/]+\.srm")
 
 _BATTERY = _Form(_names("save.sram"))
 _SEGA_CART = _Form(_names("save.sram"), single=_SIGIL_SINGLE)
-_CLOCKED = _Form(_names("save.sram", "clock.rtc"), _names("save.sram"))
 _GAME_BOY = _Form(
     _names("save.sram", "clock.rtc"), _names("save.sram"), single=_SIGIL_SINGLE
 )
@@ -59,7 +58,7 @@ NEUTRAL_FORMS: Final[dict[str, _Form]] = {
     UPS.SEGA32: _SEGA_CART,
     UPS.GB: _GAME_BOY,
     UPS.GBC: _GAME_BOY,
-    UPS.GBA: _CLOCKED,
+    UPS.GBA: _GAME_BOY,
     UPS.N64: _Form(_names("eeprom", "pak1", "pak2", "pak3", "pak4", "sram", "flash")),
     UPS.NDS: _DS,
     UPS.JAGUAR: _RAW,

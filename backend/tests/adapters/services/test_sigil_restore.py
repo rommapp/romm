@@ -295,6 +295,23 @@ async def test_a_shared_card_target_names_the_container(binding, tmp_path: Path)
 
 
 @pytest.mark.asyncio
+async def test_a_gba_save_restores_at_each_cores_size(binding):
+    """gpSP keeps 128 KiB and VBA Next 136 KiB for every chip; mGBA keeps the chip."""
+    game = rom_game(binding, UPS.GBA)
+    sram = bytes(range(256)) * 128
+
+    gpsp = await restore_per_game(sram, game, target("gpsp", "Game.gba"))
+    vba_next = await restore_per_game(sram, game, target("vba_next", "Game.gba"))
+    mgba = await restore_per_game(sram, game, target("mgba", "Game.gba"))
+
+    assert gpsp == {"Game.srm": sram + b"\xff" * (128 * 1024 - len(sram))}
+    assert list(vba_next) == ["Game.srm"]
+    assert len(vba_next["Game.srm"]) == 136 * 1024
+    assert vba_next["Game.srm"][: len(sram)] == sram
+    assert mgba == {"Game.srm": sram}
+
+
+@pytest.mark.asyncio
 async def test_a_ps1_shared_card_merge_keeps_another_games_save(
     binding, tmp_path: Path
 ):
