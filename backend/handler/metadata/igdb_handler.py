@@ -418,7 +418,23 @@ REGION_TO_IGDB_LOCALE: dict[str, str | None] = {
     "ss": None,  # ScreenScraper's world region - use default
     "eu": "EU",  # Europe region
     # European countries, which IGDB only localizes as a continent
-    **dict.fromkeys("bg cz de dk fi fr gr hu it nl no pl pt se sk sp uk".split(), "EU"),
+    "bg": "EU",
+    "cz": "EU",
+    "de": "EU",
+    "dk": "EU",
+    "fi": "EU",
+    "fr": "EU",
+    "gr": "EU",
+    "hu": "EU",
+    "it": "EU",
+    "nl": "EU",
+    "no": "EU",
+    "pl": "EU",
+    "pt": "EU",
+    "se": "EU",
+    "sk": "EU",
+    "sp": "EU",
+    "uk": "EU",
     "jp": "ja-JP",  # Japan
     "kr": "ko-KR",  # Korea
     "cn": "zh-CN",  # China (Simplified Chinese)

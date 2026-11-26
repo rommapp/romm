@@ -430,27 +430,6 @@ VALID_SCAN_PRIORITY_SOURCES = frozenset(
 VALID_SCAN_REGION_MODES = frozenset({"prefer_rom_tags", "prefer_config"})
 
 
-def _string_codes(key: str, values: list[Any]) -> list[str]:
-    """Keep the string entries of a code list, restoring a bare `no` that YAML read as False.
-
-    Args:
-        key: The config key, for the warning.
-        values: The list as loaded.
-    """
-    codes: list[str] = []
-    for value in values:
-        if isinstance(value, str):
-            codes.append(value)
-        elif value is False:
-            log.warning(
-                f"Reading false in {key} as 'no'. Quote it in config.yml so YAML keeps it a string."
-            )
-            codes.append("no")
-        else:
-            log.warning(f"Ignoring non-string value in {key}: {value!r}")
-    return codes
-
-
 @dataclasses.dataclass
 class ConvertoConfig:
     download_conversion_enabled: bool = False
@@ -1303,9 +1282,6 @@ class ConfigManager:
         if not isinstance(self.config.SCAN_REGION_PRIORITY, list):
             log.critical("Invalid config.yml: scan.priority.region must be a list")
             sys.exit(3)
-        self.config.SCAN_REGION_PRIORITY = _string_codes(
-            "scan.priority.region", self.config.SCAN_REGION_PRIORITY
-        )
 
         if (
             not isinstance(self.config.SCAN_REGION_MODE, str)
@@ -1321,9 +1297,6 @@ class ConfigManager:
         if not isinstance(self.config.SCAN_LANGUAGE_PRIORITY, list):
             log.critical("Invalid config.yml: scan.priority.language must be a list")
             sys.exit(3)
-        self.config.SCAN_LANGUAGE_PRIORITY = _string_codes(
-            "scan.priority.language", self.config.SCAN_LANGUAGE_PRIORITY
-        )
 
         if not isinstance(self.config.SCAN_MEDIA, list):
             log.critical("Invalid config.yml: scan.media must be a list")
