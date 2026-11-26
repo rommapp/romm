@@ -356,6 +356,32 @@ async def test_a_segacd_volume_merge_replaces_only_the_games_save(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("slug", "core"),
+    [
+        (UPS.GENESIS, "genesis_plus_gx"),
+        (UPS.SEGA32, "genesis_plus_gx"),
+        (UPS.SMS, "picodrive"),
+        (UPS.GAMEGEAR, "picodrive"),
+    ],
+)
+async def test_a_sega_cart_save_restores_in_the_cores_form(
+    binding, slug: str, core: str
+):
+    """genesis_plus_gx saves up to the last byte that isn't 0xFF; picodrive keeps a
+    Master System or Game Gear cart's 32 KiB, padded here with 0xFF."""
+    game = rom_game(binding, slug)
+    ram = bytes(i % 255 for i in range(8 * 1024))
+
+    restored = await restore_per_game(
+        ram + b"\xff" * (8 * 1024), game, target(core, "Game.bin")
+    )
+
+    padding = b"\xff" * (32 * 1024 - len(ram)) if core == "picodrive" else b""
+    assert restored == {"Game.srm": ram + padding}
+
+
+@pytest.mark.asyncio
 async def test_a_segacd_volume_of_another_region_is_refused(binding, tmp_path: Path):
     game = lunar(binding)
     unit = collected(
