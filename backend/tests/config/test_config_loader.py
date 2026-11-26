@@ -349,6 +349,18 @@ def test_forward_compat_unknown_values_are_tolerated():
     assert loader.config.SCAN_REGION_MODE == "prefer_rom_tags"
 
 
+def test_unquoted_no_in_code_lists_stays_a_code(tmp_path):
+    """YAML reads a bare `no` (Norway, Norwegian) as false."""
+    config_file = tmp_path / "config.yml"
+    config_file.write_text(
+        "scan:\n  priority:\n    region: [us, no, 3]\n    language: [en, no]\n"
+    )
+    loader = ConfigManager(str(config_file))
+
+    assert loader.config.SCAN_REGION_PRIORITY == ["us", "no"]
+    assert loader.config.SCAN_LANGUAGE_PRIORITY == ["en", "no"]
+
+
 def test_non_string_region_mode_falls_back_to_default(tmp_path):
     """A list/mapping region_mode is unhashable and must not crash the
     membership check against the valid-modes set."""

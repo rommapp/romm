@@ -16,13 +16,13 @@ from adapters.services.igdb import (
 )
 from adapters.services.igdb_types import (
     Game,
+    GameLocalization,
     GameType,
     mark_expanded,
     mark_list_expanded,
 )
 from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET, IS_PYTEST_RUN
-from config.config_manager import config_manager as cm
-from handler.filesystem.base_handler import region_name_to_provider_shortcode
+from handler.filesystem.base_handler import preferred_region_codes
 from handler.redis_handler import async_cache
 from logger.logger import log
 from models.rom import Rom
@@ -415,7 +415,10 @@ def derive_player_count(
 REGION_TO_IGDB_LOCALE: dict[str, str | None] = {
     "us": None,  # United States - use default (no localization needed)
     "wor": None,  # World - use default
+    "ss": None,  # ScreenScraper's world region - use default
     "eu": "EU",  # Europe region
+    # European countries, which IGDB only localizes as a continent
+    **dict.fromkeys("bg cz de dk fi fr gr hu it nl no pl pt se sk sp uk".split(), "EU"),
     "jp": "ja-JP",  # Japan
     "kr": "ko-KR",  # Korea
     "cn": "zh-CN",  # China (Simplified Chinese)
@@ -423,46 +426,40 @@ REGION_TO_IGDB_LOCALE: dict[str, str | None] = {
 }
 
 
-def get_igdb_preferred_locale(rom: Rom | None = None) -> str | None:
-    """Get the IGDB locale, preferring ROM tags unless region_mode is "prefer_config".
+def get_igdb_preferred_locales(rom: Rom | None = None) -> list[str]:
+    """Get IGDB locales in preference order, up to the first region using the default.
 
     Returns:
-        IGDB region identifier (e.g., "ja-JP", "EU"), or None for the default title
+        IGDB region identifiers (e.g., "ja-JP", "EU"); empty means the default title
     """
-    config = cm.get_config()
-    priority = [region.lower() for region in config.SCAN_REGION_PRIORITY]
+    rom_regions = (
+        rom.regions if rom is not None and isinstance(rom.regions, list) else []
+    )
 
-    rom_codes: list[str] = []
-    if rom is not None and isinstance(rom.regions, list):
-        for region_name in rom.regions:
-            code = region_name_to_provider_shortcode(region_name)
-            if code:
-                rom_codes.append(code)
-        rom_codes.sort(
-            key=lambda code: priority.index(code) if code in priority else len(priority)
-        )
+    locales: list[str] = []
+    for code in preferred_region_codes(rom_regions):
+        if code not in REGION_TO_IGDB_LOCALE:
+            continue
+        locale = REGION_TO_IGDB_LOCALE[code]
+        if locale is None:
+            break
+        if locale not in locales:
+            locales.append(locale)
 
-    if config.SCAN_REGION_MODE == "prefer_config":
-        ordered = priority + rom_codes
-    else:
-        ordered = rom_codes + priority
-
-    for code in ordered:
-        if code in REGION_TO_IGDB_LOCALE:
-            return REGION_TO_IGDB_LOCALE[code]
-
-    return None
+    return locales
 
 
-def extract_localized_data(rom: Game, preferred_locale: str | None) -> tuple[str, str]:
-    """Extract localized name and cover URL based on preferred locale.
+def extract_localized_data(
+    rom: Game, preferred_locales: Sequence[str]
+) -> tuple[str, str]:
+    """Extract the name and cover URL of the first preferred locale the game has.
 
-    Returns (name, cover_url) - falls back to default if locale not found.
+    Returns (name, cover_url) - falls back to default if no locale is found.
     """
     default_name = rom.get("name", "")
     default_cover = pydash.get(rom, "cover.url", "")
 
-    if not preferred_locale:
+    if not preferred_locales:
         return default_name, default_cover
 
     game_localizations = rom.get("game_localizations", [])
@@ -471,29 +468,36 @@ def extract_localized_data(rom: Game, preferred_locale: str | None) -> tuple[str
 
     assert mark_list_expanded(game_localizations)
 
+    # Keyed by region identifier, e.g. "ja-JP", "ko-KR", "EU"
+    by_locale: dict[str, GameLocalization] = {}
     for loc in game_localizations:
         region = loc.get("region")
         if not region:
             continue
 
         assert mark_expanded(region)
+        identifier = region.get("identifier")
+        if identifier:
+            by_locale.setdefault(identifier, loc)
 
-        # Match locale by region identifier (e.g., "ja-JP", "ko-KR", "EU")
-        if region.get("identifier") == preferred_locale:
-            localized_name = loc.get("name") or default_name
-            localized_cover = loc.get("cover")
+    for locale in preferred_locales:
+        localization = by_locale.get(locale)
+        if localization is None:
+            continue
 
-            if localized_cover:
-                assert mark_expanded(localized_cover)
-                cover_url = localized_cover.get("url", "") or default_cover
-            else:
-                cover_url = default_cover
+        localized_name = localization.get("name") or default_name
+        localized_cover = localization.get("cover")
 
-            return localized_name, cover_url
+        if localized_cover:
+            assert mark_expanded(localized_cover)
+            cover_url = localized_cover.get("url", "") or default_cover
+        else:
+            cover_url = default_cover
 
-    # Locale not found, fall back to default
+        return localized_name, cover_url
+
     log.debug(
-        f"IGDB locale '{preferred_locale}' not found for '{default_name}', using default"
+        f"IGDB locales {list(preferred_locales)} not found for '{default_name}', using default"
     )
     return default_name, default_cover
 
@@ -501,7 +505,7 @@ def extract_localized_data(rom: Game, preferred_locale: str | None) -> tuple[str
 def build_igdb_rom(
     handler: "IGDBHandler",
     rom: Game,
-    preferred_locale: str | None,
+    preferred_locales: Sequence[str],
     platform_igdb_id: int | None,
 ) -> "IGDBRom":
     """Build an IGDBRom from IGDB game data with localization support.
@@ -509,7 +513,7 @@ def build_igdb_rom(
     Args:
         handler: IGDBHandler instance for URL normalization
         rom: Game data from IGDB API
-        preferred_locale: Locale code (e.g., "ja-JP") or None
+        preferred_locales: Locale codes (e.g., "ja-JP") in preference order
         platform_igdb_id: IGDB platform identifier
 
     Returns:
@@ -518,7 +522,7 @@ def build_igdb_rom(
     rom_screenshots = rom.get("screenshots", [])
     assert mark_list_expanded(rom_screenshots)
 
-    localized_name, localized_cover = extract_localized_data(rom, preferred_locale)
+    localized_name, localized_cover = extract_localized_data(rom, preferred_locales)
 
     return IGDBRom(
         igdb_id=rom["id"],
@@ -921,7 +925,7 @@ class IGDBHandler(MetadataHandler):
             return fallback_rom
 
         return build_igdb_rom(
-            self, res, get_igdb_preferred_locale(rom=rom), platform_igdb_id
+            self, res, get_igdb_preferred_locales(rom=rom), platform_igdb_id
         )
 
     async def get_rom_by_id(self, rom: Rom, igdb_id: int) -> IGDBRom:
@@ -936,7 +940,7 @@ class IGDBHandler(MetadataHandler):
         if not roms:
             return IGDBRom(igdb_id=None)
 
-        return build_igdb_rom(self, roms[0], get_igdb_preferred_locale(rom=rom), None)
+        return build_igdb_rom(self, roms[0], get_igdb_preferred_locales(rom=rom), None)
 
     async def get_matched_rom_by_id(self, rom: Rom, igdb_id: int) -> IGDBRom | None:
         if not self.is_enabled():
@@ -997,9 +1001,9 @@ class IGDBHandler(MetadataHandler):
             if rom["id"] not in unique_ids
         ]
 
-        preferred_locale = get_igdb_preferred_locale(rom=rom)
+        preferred_locales = get_igdb_preferred_locales(rom=rom)
         return [
-            build_igdb_rom(self, rom, preferred_locale, platform_igdb_id)
+            build_igdb_rom(self, rom, preferred_locales, platform_igdb_id)
             for rom in matched_roms
         ]
 

@@ -5,7 +5,10 @@ from typing import TYPE_CHECKING, Any, Literal
 from config.config_manager import MetadataMediaType
 from config.config_manager import config_manager as cm
 from handler.filesystem import fs_resource_handler, fs_rom_handler
-from handler.filesystem.base_handler import region_name_to_provider_shortcode
+from handler.filesystem.base_handler import (
+    preferred_region_codes,
+    region_name_to_provider_shortcode,
+)
 from handler.metadata.ss_handler import get_preferred_media_types
 from utils.database import safe_str_to_bool
 from utils.html_text import html_to_text
@@ -88,28 +91,16 @@ BOX_ART: tuple[BoxArt, ...] = (
 def rom_region_shortcodes(fs_name: str) -> tuple[str, ...]:
     """Provider region shortcodes to prefer for a ROM, most-preferred first.
 
-    Combines the regions tagged in the filename (reordered by the user's
-    SCAN_REGION_PRIORITY) with the configured priority list, so a ROM tagged
-    "(USA)" prefers its US cover even when another region sorts first.
+    Under "prefer_rom_tags" a ROM with no known region tag gets none, so the
+    listing order picks its artwork.
     """
-    if not fs_name:
+    region_names = fs_rom_handler.parse_tags(fs_name).regions if fs_name else []
+    if cm.get_config().SCAN_REGION_MODE != "prefer_config" and not any(
+        region_name_to_provider_shortcode(name) for name in region_names
+    ):
         return ()
 
-    priority = cm.get_config().SCAN_REGION_PRIORITY
-
-    rom_codes: list[str] = []
-    for region_name in fs_rom_handler.parse_tags(fs_name).regions:
-        code = region_name_to_provider_shortcode(region_name)
-        if code and code not in rom_codes:
-            rom_codes.append(code)
-    rom_codes.sort(
-        key=lambda code: priority.index(code) if code in priority else len(priority)
-    )
-
-    if not rom_codes:
-        return ()
-
-    return tuple(dict.fromkeys(rom_codes + priority))
+    return tuple(preferred_region_codes(region_names))
 
 
 # Video container extensions recognized when probing for local LaunchBox media

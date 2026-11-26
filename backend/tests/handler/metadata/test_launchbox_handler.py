@@ -1517,6 +1517,27 @@ class TestRegionAwareCover:
         codes = rom_region_shortcodes("007 - Nightfire (USA).chd")
         assert codes[0] == "us"
 
+    def test_rom_region_shortcodes_follow_prefer_config(self):
+        config = MagicMock(
+            SCAN_REGION_PRIORITY=["eu", "us"], SCAN_REGION_MODE="prefer_config"
+        )
+        with patch(
+            "handler.metadata.launchbox_handler.media.cm.get_config",
+            return_value=config,
+        ):
+            assert rom_region_shortcodes("007 - Nightfire (USA).chd") == ("eu", "us")
+            assert rom_region_shortcodes("007 - Nightfire.chd") == ("eu", "us")
+
+    def test_untagged_rom_has_no_region_shortcodes_under_prefer_rom_tags(self):
+        config = MagicMock(
+            SCAN_REGION_PRIORITY=["eu", "us"], SCAN_REGION_MODE="prefer_rom_tags"
+        )
+        with patch(
+            "handler.metadata.launchbox_handler.media.cm.get_config",
+            return_value=config,
+        ):
+            assert rom_region_shortcodes("007 - Nightfire.chd") == ()
+
 
 class TestRemoteMatchLocalImages:
     """Regression test for bug where remote-matched roms skipped local image lookup.
