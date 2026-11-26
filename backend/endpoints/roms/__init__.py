@@ -1363,10 +1363,7 @@ def get_gallery_filter_values(
     request: Request,
     filters: Annotated[RomFilterParams, Depends(ROM_FILTER_QUERY)],
 ) -> RomFiltersDict:
-    """The options for the filter dropdowns, as lists of the distinct genres, franchises, collections, companies, publishers, developers, game modes, age ratings, player counts, regions, languages, tags and platforms.
-
-    The values come from all roms in the current platform, collection or search, ignoring the other filters, so selecting a value never removes the other options from the same dropdown.
-    """
+    """Get the options for the filter dropdowns from the roms in the current platform, collection or search, ignoring the other filters."""
     perms = get_permissions(request)
     unfiltered_query, _ = db_rom_handler.get_roms_query(
         user_id=request.user.id,
