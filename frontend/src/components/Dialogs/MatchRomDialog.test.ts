@@ -125,4 +125,41 @@ describe("MatchRomDialog", () => {
       "Doom",
     ]);
   });
+
+  it("blurs the search input when a search starts", async () => {
+    searchRom.mockResolvedValue({ data: [] });
+    const emitter: Emitter<Events> = mitt<Events>();
+    const wrapper = mount(MatchRomDialog, {
+      attachTo: document.body,
+      global: {
+        provide: { emitter },
+        stubs: {
+          RDialog,
+          RButton,
+          MatchRomBodyGrid,
+          RTextField: { template: "<input />" },
+          RSelect: true,
+          RSegmentedControl: true,
+          RIcon: true,
+          RSpinner: true,
+          RTooltip: true,
+        },
+      },
+    });
+
+    emitter.emit("showMatchRomDialog", rom());
+    await flushPromises();
+    const input = wrapper.get(".r-match__search-row input")
+      .element as HTMLInputElement;
+    input.focus();
+    expect(document.activeElement).toBe(input);
+
+    await wrapper
+      .findAll("button")
+      .find((b) => b.text() === "common.search")
+      ?.trigger("click");
+
+    expect(document.activeElement).not.toBe(input);
+    wrapper.unmount();
+  });
 });
