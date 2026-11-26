@@ -250,7 +250,7 @@ class TestGetIGDBPreferredLocale:
         assert locale == "ja-JP"
 
     def test_prefer_config_outranks_the_rom_s_region(self):
-        """A Japan-tagged rom keeps the default title when the config puts us first."""
+        """A Japan-tagged rom keeps the default title when the config lists USA first."""
         rom = MagicMock()
         rom.regions = ["Japan"]
         config = MagicMock(
@@ -263,7 +263,7 @@ class TestGetIGDBPreferredLocale:
         assert locale is None
 
     def test_prefer_config_falls_back_to_the_rom_s_region(self):
-        """Config regions IGDB has no locale for leave the choice to the rom's tags."""
+        """When IGDB has no locale for any config region, the rom's tags decide."""
         rom = MagicMock()
         rom.regions = ["Japan"]
         config = MagicMock(

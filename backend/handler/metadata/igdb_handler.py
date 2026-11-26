@@ -427,7 +427,7 @@ def get_igdb_preferred_locale(rom: Rom | None = None) -> str | None:
     """Get the IGDB locale, preferring ROM tags unless region_mode is "prefer_config".
 
     Returns:
-        IGDB region identifier (e.g., "ja-JP", "EU") or None for default
+        IGDB region identifier (e.g., "ja-JP", "EU"), or None for the default title
     """
     config = cm.get_config()
     priority = [region.lower() for region in config.SCAN_REGION_PRIORITY]
