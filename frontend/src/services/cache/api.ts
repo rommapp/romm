@@ -14,7 +14,6 @@ const RECENT_ROMS_PARAMS = {
   order_dir: "desc",
   limit: 15,
   with_char_index: false,
-  with_filter_values: false,
   with_rom_id_index: false,
   with_total: false,
 } as const;
@@ -24,7 +23,6 @@ const RECENT_PLAYED_ROMS_PARAMS = {
   order_dir: "desc",
   limit: 15,
   with_char_index: false,
-  with_filter_values: false,
   with_rom_id_index: false,
   with_total: false,
   last_played: true,

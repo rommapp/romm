@@ -232,7 +232,6 @@ export interface GetRomsParams {
   /** Exclusive upper bound on the years `releasedDays` matches. */
   releasedBeforeYear?: number | null;
   withCharIndex?: boolean;
-  withFilterValues?: boolean;
   withRomIdIndex?: boolean;
   withTotal?: boolean;
   /** Load exactly these roms, in this order; the backend skips the filtered
@@ -298,7 +297,6 @@ export function buildGetRomsQuery({
   releasedDays = null,
   releasedBeforeYear = null,
   withCharIndex = undefined,
-  withFilterValues = undefined,
   withRomIdIndex = undefined,
   withTotal = undefined,
   romIds = null,
@@ -440,9 +438,6 @@ export function buildGetRomsQuery({
     released_before_year:
       releasedDays && releasedDays.length > 0 ? releasedBeforeYear : undefined,
     ...(withCharIndex !== undefined ? { with_char_index: withCharIndex } : {}),
-    ...(withFilterValues !== undefined
-      ? { with_filter_values: withFilterValues }
-      : {}),
     ...(withRomIdIndex !== undefined
       ? { with_rom_id_index: withRomIdIndex }
       : {}),
@@ -468,7 +463,6 @@ async function getRecentRoms() {
       order_dir: "desc",
       limit: RECENT_ROMS_LIMIT,
       with_char_index: false,
-      with_filter_values: false,
       with_rom_id_index: false,
       with_total: false,
     },
@@ -482,7 +476,6 @@ async function getRecentPlayedRoms() {
       order_dir: "desc",
       limit: RECENT_PLAYED_ROMS_LIMIT,
       with_char_index: false,
-      with_filter_values: false,
       with_rom_id_index: false,
       with_total: false,
       last_played: true,
@@ -1100,6 +1093,35 @@ async function getRomFilters() {
   return api.get<RomFiltersDict>("/roms/filters");
 }
 
+/** The scope a gallery's filter dropdowns draw their options from. */
+export type FilterValuesParams = Pick<
+  GetRomsParams,
+  | "searchTerm"
+  | "platformIds"
+  | "platformsLogic"
+  | "collectionId"
+  | "virtualCollectionId"
+  | "smartCollectionId"
+>;
+
+async function getFilterValues({
+  signal,
+  ...params
+}: FilterValuesParams & { signal?: AbortSignal }) {
+  const query = buildGetRomsQuery(params);
+  return api.get<RomFiltersDict>("/roms/filter-values", {
+    params: {
+      search_term: query.search_term,
+      platform_ids: query.platform_ids,
+      platforms_logic: query.platforms_logic,
+      collection_id: query.collection_id,
+      virtual_collection_id: query.virtual_collection_id,
+      smart_collection_id: query.smart_collection_id,
+    },
+    ...(signal ? { signal } : {}),
+  });
+}
+
 export default {
   uploadRoms,
   getRoms,
@@ -1138,4 +1160,5 @@ export default {
   deleteRomNote,
   getRomNotes,
   getRomFilters,
+  getFilterValues,
 };

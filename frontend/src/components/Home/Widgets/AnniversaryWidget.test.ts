@@ -119,7 +119,6 @@ describe("AnniversaryWidget", () => {
         withTotal: true,
         // Each sidecar is its own scan, and the card renders none of them.
         withCharIndex: false,
-        withFilterValues: false,
         withRomIdIndex: false,
       }),
     );

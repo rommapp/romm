@@ -215,6 +215,19 @@ const {
 // Drawer open state, bound to FilterDrawer via v-model.
 const filterDrawerOpen = ref(false);
 
+// The drawer's lists are fetched when it opens, and again when the result it
+// lists changes while it stays open.
+watch(
+  [
+    filterDrawerOpen,
+    () => galleryRoms.metadataLoaded,
+    () => galleryRoms.resultEpoch,
+  ],
+  ([open]) => {
+    if (open) void galleryRoms.fetchFilterValues();
+  },
+);
+
 // Active filter count: drives the toolbar badge. Counts each
 // boolean/tri-state filter that's set, plus each multi-select group
 // with at least one selection. Mirrors `FilterDrawer`'s own count so

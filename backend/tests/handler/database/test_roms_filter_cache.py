@@ -1,6 +1,6 @@
 """Unit tests for the Redis-backed, versioned filter/char-index cache.
 
-`with_filter_values` and `with_char_index` memoise their (expensive) results
+`with_char_index` and the id index memoise their (expensive) results
 in Redis under a key that embeds a global version number. Bumping that version
 (via `invalidate_filter_values_cache`) is what makes every previously-cached
 entry stale at once, and the per-version "keys set" is what lets the bump
@@ -27,7 +27,6 @@ from handler.database.roms_handler import (
     _char_index_redis_key,
     _filter_values_cache_keys_key,
     _filter_values_cache_version,
-    _filter_values_redis_key,
     _rom_id_index_redis_key,
     _store_versioned_cache,
     _store_versioned_id_list,
@@ -119,36 +118,21 @@ class TestStoreVersionedCache:
 
 
 class TestCacheHitMatchesMiss:
-    def test_with_filter_values_hit_matches_miss(self, rom_with_metadata: Rom):
-        query = select(Rom)
-        cache_key = "all:test-filters"
-
-        miss = db_rom_handler.with_filter_values(query=query, cache_key=cache_key)
-
-        # The miss must have populated the cache under the current version.
-        version = _filter_values_cache_version()
-        redis_key = _filter_values_redis_key(cache_key, version)
-        assert sync_cache.get(redis_key) is not None
-        assert miss["genres"] == ["RPG"]
-
-        # Mutating the DB after the miss must NOT change a subsequent hit:
-        # proves the second call is served from cache, byte-for-byte identical.
-        _set_rom_genres(rom_with_metadata.id, ["RPG", "Action"])
-
-        hit = db_rom_handler.with_filter_values(query=query, cache_key=cache_key)
-
-        assert hit == miss
-        assert hit.keys() == miss.keys()
-
-    def test_with_filter_values_without_cache_key_does_not_cache(
+    def test_with_filter_values_reads_the_database_every_time(
         self, rom_with_metadata: Rom
     ):
         query = select(Rom)
-        result = db_rom_handler.with_filter_values(query=query)
 
-        # Nothing written, and a sane shape is still returned.
+        first = db_rom_handler.with_filter_values(query=query)
+        assert first["genres"] == ["RPG"]
+
+        _set_rom_genres(rom_with_metadata.id, ["RPG", "Action"])
+
+        assert db_rom_handler.with_filter_values(query=query)["genres"] == [
+            "Action",
+            "RPG",
+        ]
         assert sync_cache.keys("filter_values:*") == []
-        assert result["genres"] == ["RPG"]
 
     def test_with_char_index_hit_matches_miss(self, rom: Rom):
         query = select(Rom)
@@ -250,34 +234,6 @@ class TestCacheHitMatchesMiss:
             db_platform_handler.delete_platform(rom.platform_id)
 
         assert int(_filter_values_cache_version()) == int(old_version) + 1
-
-
-class TestFilterValuesSchemaDrift:
-    """Entries written under an older filter schema must be ignored after upgrade.
-
-    Regression: adding a filter field (e.g. `tags`) left pre-upgrade cache
-    entries lacking that key. The data-version key in Redis survives an upgrade,
-    so the endpoint read those partial dicts back and failed response validation
-    with a missing-field error. The schema version baked into the cache key makes
-    stale-shaped entries miss and recompute instead.
-    """
-
-    def test_legacy_unnamespaced_entry_is_not_read(self, rom_with_metadata: Rom):
-        query = select(Rom)
-        cache_key = "all:schema-drift"
-        version = _filter_values_cache_version()
-
-        # Pre-fix entries used a key without the schema segment and could lack
-        # fields added later; seed one to mimic a just-upgraded instance.
-        legacy_key = f"filter_values:{cache_key}:v{version}"
-        _store_versioned_cache(legacy_key, version, {"genres": ["Stale"]})
-
-        result = db_rom_handler.with_filter_values(query=query, cache_key=cache_key)
-
-        # The legacy entry is bypassed: filters are recomputed from the DB...
-        assert result["genres"] == ["RPG"]
-        # ...and the fresh entry lands under the schema-namespaced key.
-        assert sync_cache.get(_filter_values_redis_key(cache_key, version)) is not None
 
 
 # The rom fixtures call add_rom_user, which itself bumps, so every
@@ -397,8 +353,7 @@ class TestInvalidateFilterValuesCache:
     def test_deletes_prior_version_keys_and_set(self, rom_with_metadata: Rom):
         query = select(Rom)
 
-        # Populate both caches under the current version.
-        db_rom_handler.with_filter_values(query=query, cache_key="all:filters")
+        # Populate the cache under the current version.
         db_rom_handler.with_char_index(
             query=query, order_by_attr=Rom.name, cache_key="all:charindex"
         )
@@ -419,25 +374,3 @@ class TestInvalidateFilterValuesCache:
         assert all(sync_cache.get(key) is None for key in old_keys)
         # ...and so is the bookkeeping set itself.
         assert sync_cache.smembers(old_keys_set) == set()
-
-    def test_recomputes_under_new_version_after_invalidation(
-        self, rom_with_metadata: Rom
-    ):
-        query = select(Rom)
-        cache_key = "all:filters"
-
-        db_rom_handler.with_filter_values(query=query, cache_key=cache_key)
-
-        # Change the data, then invalidate: the next call must reflect the change
-        # because the old cached entry no longer resolves under the new version.
-        _set_rom_genres(rom_with_metadata.id, ["RPG", "Action"])
-
-        db_rom_handler.invalidate_filter_values_cache()
-
-        fresh = db_rom_handler.with_filter_values(query=query, cache_key=cache_key)
-        assert fresh["genres"] == ["Action", "RPG"]
-
-        new_version = _filter_values_cache_version()
-        assert (
-            sync_cache.get(_filter_values_redis_key(cache_key, new_version)) is not None
-        )
