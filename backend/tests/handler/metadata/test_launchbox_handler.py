@@ -318,6 +318,14 @@ class TestParseVideourl:
         assert parse_videourl("https://www.youtube.com/watch?v=abc123#t=30") == "abc123"
         assert parse_videourl("https://youtu.be/abc123#t=30") == "abc123"
 
+    def test_url_without_scheme(self):
+        assert parse_videourl("www.youtube.com/watch?v=abc123") == "abc123"
+        assert parse_videourl("youtube.com/watch?v=abc123") == "abc123"
+        assert parse_videourl("youtu.be/abc123") == "abc123"
+
+    def test_youtu_be_with_www(self):
+        assert parse_videourl("https://www.youtu.be/abc123") == "abc123"
+
     def test_malformed_url_has_no_id(self):
         assert parse_videourl("https://[youtube.com/watch?v=abc123") == ""
 

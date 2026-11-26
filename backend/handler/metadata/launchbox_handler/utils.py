@@ -180,9 +180,12 @@ def parse_videourl(url: str | None) -> str:
 
     try:
         parsed = urlparse(url)
+        # LaunchBox video URLs are typed by hand and can omit the scheme.
+        if not parsed.netloc:
+            parsed = urlparse(f"//{url}")
     except ValueError:
         return ""
-    host = (parsed.hostname or "").lower()
+    host = (parsed.hostname or "").removeprefix("www.")
     if host == "youtu.be":
         return parsed.path.lstrip("/").split("/")[0]
     if (host == "youtube.com" or host.endswith(".youtube.com")) and (
