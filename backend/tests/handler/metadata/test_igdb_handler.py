@@ -228,7 +228,9 @@ class TestGetIGDBPreferredLocale:
         """The configured priority wins over filename tag order."""
         rom = MagicMock()
         rom.regions = ["Japan", "USA"]
-        config = MagicMock(SCAN_REGION_PRIORITY=["JP", "us"])
+        config = MagicMock(
+            SCAN_REGION_PRIORITY=["JP", "us"], SCAN_REGION_MODE="prefer_rom_tags"
+        )
 
         with patch("handler.metadata.igdb_handler.cm.get_config", return_value=config):
             locale = get_igdb_preferred_locale(rom)

@@ -492,7 +492,7 @@ def extract_localized_data(rom: Game, preferred_locale: str | None) -> tuple[str
             return localized_name, cover_url
 
     # Locale not found, fall back to default
-    log.warning(
+    log.debug(
         f"IGDB locale '{preferred_locale}' not found for '{default_name}', using default"
     )
     return default_name, default_cover
