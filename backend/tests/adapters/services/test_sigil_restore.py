@@ -490,9 +490,7 @@ async def test_a_gb_clock_is_written_in_the_cores_format(
 
 
 @pytest.mark.asyncio
-async def test_companions_on_a_cartridge_are_refused_naming_both_cases(
-    binding, tmp_path: Path
-):
+async def test_companions_on_a_cartridge_are_refused(binding, tmp_path: Path):
     game = gb_clock_game(binding)
     unit = collected(
         binding,
@@ -512,8 +510,7 @@ async def test_companions_on_a_cartridge_are_refused_naming_both_cases(
         )
 
     assert excinfo.value.code is RefusalCode.INVALID_ARG
-    assert "profiles" in str(excinfo.value)
-    assert "cartridges" in str(excinfo.value)
+    assert "memory cards and volumes" in str(excinfo.value)
 
 
 def test_a_zip_unit_lists_each_volume(binding, tmp_path: Path):
