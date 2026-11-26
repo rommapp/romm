@@ -17,7 +17,7 @@ from tests.sigil_cards import (
     saturn_volume,
 )
 
-from adapters.services.sigil import SigilGame
+from adapters.services.sigil import SigilGame, SigilService
 from adapters.services.sigil_restore import (
     ContainerMismatch,
     RefusalCode,
@@ -29,6 +29,9 @@ from adapters.services.sigil_restore import (
     restore_layouts,
     restore_per_game,
 )
+from models.platform import Platform
+from models.rom import Rom
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 SEGACD_BLOCK = 64
 SEGACD_VOLUME = 0x2000
@@ -212,6 +215,25 @@ def target(core: str, content_path: str, **options: str) -> RestoreTarget:
     )
 
 
+def rom_game(
+    binding: ModuleType, slug: str, title_id: str = "", save_id: str = ""
+) -> SigilGame:
+    """A ROM on RomM's `slug` read back through its platform map, so a slug sigil
+    doesn't take for that platform fails the test restoring it."""
+    rom = Rom(
+        id=1,
+        fs_name="Game",
+        fs_path=f"{slug}/roms",
+        title_id=title_id or None,
+        save_target=save_id or None,
+        platform=Platform(name=slug, slug=slug, fs_slug=slug),
+    )
+    game = SigilService.stored_game(rom, [])
+    assert game is not None
+    assert isinstance(game.result, binding.SigilResult)
+    return game
+
+
 @pytest.mark.asyncio
 async def test_a_per_game_ps1_card_is_built_from_nothing(binding, tmp_path: Path):
     game = cross(binding)
@@ -232,6 +254,22 @@ async def test_a_per_game_ps1_card_is_built_from_nothing(binding, tmp_path: Path
     assert list(restored) == ["memcards/SLUS-01041_1.mcd"]
     saves = card_saves(binding, restored["memcards/SLUS-01041_1.mcd"], tmp_path)
     assert saves == {"BASLUSP01041CROSS": bytes([0x11]) * PS1_BLOCK}
+
+
+@pytest.mark.asyncio
+async def test_a_ds_save_restores_in_each_cores_form(binding):
+    """DeSmuME keeps the save then a 122-byte footer, melonDS the save alone."""
+    game = rom_game(binding, UPS.NDS)
+    save = bytes(range(256)) * 32
+
+    desmume = await restore_per_game(save, game, target("desmume", "Game.nds"))
+    melonds = await restore_per_game(save, game, target("melonds", "Game.nds"))
+
+    assert list(desmume) == ["Game.dsv"]
+    assert len(desmume["Game.dsv"]) == len(save) + 122
+    assert desmume["Game.dsv"][: len(save)] == save
+    assert desmume["Game.dsv"][-16:] == b"|-DESMUME SAVE-|"
+    assert melonds == {"Game.sav": save}
 
 
 @pytest.mark.asyncio
