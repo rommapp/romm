@@ -1,6 +1,4 @@
-// The package's own types import from `@/types`, which this project's
-// `@/*` path mapping resolves into `src/`, so every prop it declares
-// collapses to `never`. Declared here with the surface both viewers use.
+// Replaces the package's types, which import `@/types` and so resolve into `src/`.
 declare module "vue3-pdf-app" {
   import type { DefineComponent } from "vue";
 

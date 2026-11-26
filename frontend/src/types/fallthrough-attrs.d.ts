@@ -1,14 +1,5 @@
-// `strictTemplates` drops the `Record<string, unknown>` that lets a component
-// swallow any prop, so an undeclared prop is an error. Native attributes a
-// component forwards to a DOM root are not, and the type system cannot say
-// which components forward them.
-//
-// Deliberately narrower than `HTMLAttributes`: `placeholder`, `color` and
-// friends are plausible design-system props, so a typo should stay an error.
-// `id` is left out because components declare it with a numeric type, and
-// most native handlers are too: intersecting them with a component's own
-// emits makes a same-named custom event (`toggle`, `submit`) uncallable. The
-// three below are safe while no component emits them with a non-native payload.
+// Native attributes a component may forward to a DOM root. `id` and most
+// handlers are left out: they collide with numeric `id` props and same-named emits.
 import type {
   AnchorHTMLAttributes,
   AriaAttributes,
