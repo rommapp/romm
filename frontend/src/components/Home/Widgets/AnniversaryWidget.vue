@@ -11,6 +11,7 @@ import type { ComponentPublicInstance, Ref } from "vue";
 import { useI18n } from "vue-i18n";
 import CachedPlatformIcon from "@/components/shared/CachedPlatformIcon.vue";
 import GameCover from "@/components/shared/GameCover.vue";
+import { useUISettings } from "@/composables/useUISettings";
 import { RButton } from "@/lib";
 import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
@@ -24,6 +25,7 @@ import WidgetCard from "./WidgetCard.vue";
 defineOptions({ inheritAttrs: false });
 
 const { t } = useI18n();
+const { groupRoms } = useUISettings();
 
 // A Home page can sit open across local midnight, and the card is pinned to a
 // date, so the day it was loaded for is compared against the clock.
@@ -88,6 +90,7 @@ function fetchPage(query: AnniversaryQuery, offset: number) {
     orderDir: "asc",
     limit: PAGE_SIZE,
     offset,
+    groupByMetaId: groupRoms.value,
     // The counter needs the total once; a later page already has it.
     withTotal: offset === 0,
     ...NO_SIDECARS,

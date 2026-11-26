@@ -6,12 +6,19 @@ import type { SimpleRom } from "@/stores/roms";
 import { romFixture, romMetadataFixture } from "@/utils/rom.fixtures";
 import AnniversaryWidget from "./AnniversaryWidget.vue";
 
-const { getRoms } = vi.hoisted(() => ({ getRoms: vi.fn() }));
+const { getRoms, groupRoms } = vi.hoisted(() => ({
+  getRoms: vi.fn(),
+  groupRoms: { value: true },
+}));
 
 vi.mock("vue-i18n");
 
 vi.mock("@/plugins/router", () => ({
   ROUTES: { ROM: "rom" },
+}));
+
+vi.mock("@/composables/useUISettings", () => ({
+  useUISettings: () => ({ groupRoms }),
 }));
 
 vi.mock("@/services/api/rom", () => ({
@@ -96,6 +103,7 @@ function loadingOf(wrapper: ReturnType<typeof mountWidget>) {
 
 describe("AnniversaryWidget", () => {
   beforeEach(() => {
+    groupRoms.value = true;
     // 8 September 2026, local time, so the request is asserted against a
     // known calendar day rather than whenever the suite happens to run.
     vi.useFakeTimers();
@@ -122,6 +130,48 @@ describe("AnniversaryWidget", () => {
         withFilterValues: false,
         withRomIdIndex: false,
       }),
+    );
+  });
+
+  it("groups sibling versions like the gallery does", async () => {
+    getRoms.mockResolvedValue(page([]));
+
+    mountWidget();
+    await flushPromises();
+
+    expect(getRoms).toHaveBeenCalledWith(
+      expect.objectContaining({ groupByMetaId: true }),
+    );
+  });
+
+  it("lists every version when the user turned grouping off", async () => {
+    groupRoms.value = false;
+    getRoms.mockResolvedValue(page([]));
+
+    mountWidget();
+    await flushPromises();
+
+    expect(getRoms).toHaveBeenCalledWith(
+      expect.objectContaining({ groupByMetaId: false }),
+    );
+  });
+
+  it("groups the pages after the first one too", async () => {
+    getRoms
+      .mockResolvedValueOnce(
+        page([rom(1, "Chrono Trigger", releasedOn(1995, 9, 8))], 2),
+      )
+      .mockResolvedValueOnce(
+        page([rom(2, "Super Metroid", releasedOn(2005, 9, 8))], 2),
+      );
+
+    const wrapper = mountWidget();
+    await flushPromises();
+    await arrows(wrapper).next.trigger("click");
+    await flushPromises();
+
+    expect(getRoms).toHaveBeenLastCalledWith(
+      expect.objectContaining({ offset: 1, groupByMetaId: true }),
     );
   });
 
