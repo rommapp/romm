@@ -258,11 +258,11 @@ interface State {
   // resolves: view shows a skeleton hero/skeleton rows during this
   // phase.
   initialFetching: boolean;
-  // True once total / charIndex / romIdIndex have been
-  // populated, either by the lightweight `fetchInitialMetadata()`
-  // bootstrap or by `fetchWindowAt(0)`. Used to gate the initial
-  // bootstrap dedup independently of `loadedWindows` (metadata
-  // bootstrap doesn't load any window).
+  // True once total / charIndex / romIdIndex have been populated, either
+  // by the lightweight `fetchInitialMetadata()` bootstrap or by
+  // `fetchWindowAt(0)`. Used to gate the initial bootstrap dedup
+  // independently of `loadedWindows` (metadata bootstrap doesn't load any
+  // window).
   metadataLoaded: boolean;
   // The scope the filter drawer's lists were fetched for, as a JSON key, or
   // null while they answer no known scope.
@@ -645,11 +645,10 @@ export default defineStore("v2GalleryRoms", {
     },
 
     /** Lightweight bootstrap: fetch only the gallery's metadata (total,
-     * char_index and rom_id_index) without loading any
-     * items. Sizes the virtualiser (via `total`) before any window
-     * lands, so both layouts can render skeleton rows immediately and
-     * then hydrate them through the viewport-driven `fetchWindowAt`
-     * sync.
+     * char_index and rom_id_index) without loading any items. Sizes the
+     * virtualiser (via `total`) before any window lands, so both layouts
+     * can render skeleton rows immediately and then hydrate them through
+     * the viewport-driven `fetchWindowAt` sync.
      *
      * The backend's `limit` minimum is 1, so we still pay for one
      * `SimpleRomSchema` build server-side, but the item is discarded
@@ -775,17 +774,17 @@ export default defineStore("v2GalleryRoms", {
       const controller = new AbortController();
       inFlightControllers.set(ctrlKey, controller);
 
-      // Skip the char-index / id-index aggregations when the
-      // bootstrap already loaded them. Capture the decision now: it also gates
-      // whether this response is allowed to re-apply that metadata below. The
-      // backend returns an EMPTY (but truthy) `char_index: {}` object when it
-      // is skipped, so re-applying it would wipe the populated values and
-      // blank the AlphaStrip. The id
-      // index is a full-library scan we already paid for in the bootstrap, so
-      // window fetches opt out of recomputing it. Dropping it makes the backend
-      // count the result set separately instead, which is the same scan under
-      // another name for a total the bootstrap already gave us, so opt out of
-      // that too and keep the window fetch to just its page of covers.
+      // Skip the char-index / id-index aggregations when the bootstrap
+      // already loaded them. Capture the decision now: it also gates whether
+      // this response is allowed to re-apply that metadata below. The backend
+      // returns an EMPTY (but truthy) `char_index: {}` object when it is
+      // skipped, so re-applying it would wipe the populated values and blank
+      // the AlphaStrip. The id index is a full-library scan we already paid
+      // for in the bootstrap, so window fetches opt out of recomputing it.
+      // Dropping it makes the backend count the result set separately
+      // instead, which is the same scan under another name for a total the
+      // bootstrap already gave us, so opt out of that too and keep the window
+      // fetch to just its page of covers.
       const withAggregations = !this.metadataLoaded;
       // With the whole ordered index in hand, a window loads by id and the
       // backend skips the filtered, offset-paged query.
@@ -813,9 +812,9 @@ export default defineStore("v2GalleryRoms", {
         const data = response.data;
         // Only apply the full metadata when this window actually fetched the
         // aggregations (a window reached before the bootstrap resolved).
-        // Otherwise char_index comes back empty and would
-        // clobber what the bootstrap populated; `total` comes back null and
-        // the guard below leaves the established size alone.
+        // Otherwise char_index comes back empty and would clobber what the
+        // bootstrap populated; `total` comes back null and the guard below
+        // leaves the established size alone.
         if (offset === 0 && withAggregations) {
           this._applyMetadata(data);
         } else if (data.total !== null && data.total !== undefined) {

@@ -856,11 +856,10 @@ def get_roms(
     # keyed by its platform): the sidecar cache key encodes user/order/grouping
     # but not the filters, so anything that narrows `query` has to gate caching
     # or a narrowed list leaks under the shared "all" key.
-    is_unscoped_scope = not filters.has_scope()
     is_unfiltered = (
         not filters.has_filters() and not updated_after and not parsed_released_days
     )
-    is_unscoped = is_unscoped_scope and is_unfiltered
+    is_unscoped = not filters.has_scope() and is_unfiltered
 
     # One key for both ordered sidecars: the same request must not read the
     # char index and the id index under different per-user versions.
