@@ -20,8 +20,6 @@ import LiveSessionCard from "@/components/Home/LiveSessionCard.vue";
 import WidgetBar from "@/components/Home/Widgets/WidgetBar.vue";
 import PlatformTile from "@/components/Platforms/PlatformTile.vue";
 import CardRow from "@/components/shared/CardRow.vue";
-import PageHeadBand from "@/components/shared/PageHeadBand.vue";
-import PageHeader from "@/components/shared/PageHeader.vue";
 import RecommendationReason from "@/components/shared/RecommendationReason.vue";
 import { useGridNav } from "@/composables/useGridNav";
 import { useLoadingPhase } from "@/composables/useLoadingPhase";
@@ -279,10 +277,6 @@ function collectionCovers(c: {
 
 <template>
   <div class="r-home">
-    <PageHeadBand class="r-home__head">
-      <PageHeader :title="t('common.home')" />
-    </PageHeadBand>
-
     <div ref="gridRoot" class="r-home__sections">
       <!-- Empty library state, shown when nothing has been ingested
            yet. Hides every section underneath so the user lands on a
@@ -642,12 +636,11 @@ function collectionCovers(c: {
 
 <style scoped>
 .r-home {
+  padding-top: calc(var(--r-page-head-band-offset, 0px) + var(--r-space-8));
   padding-bottom: 48px;
 }
-
-/* The sections run to the screen edges, so only the head takes the gutter. */
-.r-home__head {
-  padding-inline: var(--r-row-pad);
+html[data-bp~="xs"] .r-home {
+  padding-top: calc(var(--r-page-head-band-offset, 0px) + var(--r-space-4));
 }
 
 .r-home__sections {

@@ -148,30 +148,30 @@ html[data-bp~="xs"] .r-bottom-nav {
   padding-inline: 10px;
 }
 
-/* A dense frost, so busy cover art behind doesn't compete with the labels. */
+/* Keep the tabs on the shared nav-pill surface, sized for touch targets. */
 .r-bottom-nav__group.r-segmented-control--tab {
   pointer-events: auto;
   flex: 1;
   box-sizing: border-box;
   max-width: var(--r-bottom-nav-max-w);
-  padding: 4px;
   gap: 0;
-  background: color-mix(in srgb, var(--r-color-bg) 62%, transparent);
-  backdrop-filter: blur(24px);
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, white 28%, transparent),
-    inset 0 -1px 0 color-mix(in srgb, white 6%, transparent),
-    inset 0 0 18px color-mix(in srgb, white 5%, transparent),
-    var(--r-elev-1);
 }
 
-/* A translucent capsule, so the tinted icon + label carry the selection. */
-.r-bottom-nav__group.r-segmented-control--tab.r-segmented-control--horizontal
+.r-bottom-nav__group.r-segmented-control--tab
   :deep(.r-segmented-control__indicator) {
-  top: 4px;
-  bottom: 4px;
-  background: var(--r-color-surface-hover);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, white 12%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--r-color-brand-primary) 14%,
+    var(--r-color-surface)
+  );
+}
+
+.r-bottom-nav__group.r-segmented-control--tab
+  :deep(.r-segmented-control__btn--active),
+.r-bottom-nav__group.r-segmented-control--tab
+  :deep(.r-segmented-control__btn--active:hover) {
+  color: var(--r-color-brand-primary);
+  font-weight: var(--r-font-weight-medium);
 }
 
 .r-bottom-nav__group.r-segmented-control--tab :deep(.r-segmented-control__btn) {
@@ -184,32 +184,6 @@ html[data-bp~="xs"] .r-bottom-nav {
   padding: 4px 6px;
   touch-action: manipulation;
   container-type: inline-size;
-}
-
-.r-bottom-nav__group.r-segmented-control--tab
-  :deep(.r-segmented-control__btn--active),
-.r-bottom-nav__group.r-segmented-control--tab
-  :deep(.r-segmented-control__btn--active:hover) {
-  /* Pulled toward fg so the tint stays legible over a warm backdrop. */
-  color: color-mix(
-    in srgb,
-    var(--r-color-brand-primary) 75%,
-    var(--r-color-fg)
-  );
-}
-
-/* Mirrors the shared glass bar: reduced motion drops the costly blur. */
-html.r-reduced-motion .r-bottom-nav__group.r-segmented-control--tab {
-  background: var(--r-glass-bar-bg);
-  backdrop-filter: var(--r-glass-bar-filter);
-}
-
-/* No hover fill on the bar; the primitive's press scale gives the feedback. */
-.r-bottom-nav__group.r-segmented-control--tab
-  :deep(
-    .r-segmented-control__btn:hover:not(.r-segmented-control__btn--active)
-  ) {
-  background: transparent;
 }
 
 /* The controller glyph is wide and short and sits low in its box, so it
