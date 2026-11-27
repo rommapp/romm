@@ -343,20 +343,92 @@ def core_library_name(container: ResolvedContainer, core: str) -> str | None:
     return cached[1].library_names.get(core) if cached is not None else None
 
 
-def firmware_payload(platform_id: int, library_path: str) -> list[dict[str, Any]]:
-    """The platform's present firmware, as the broker's activate takes it."""
-    return [
-        {
-            "file_name": fw.file_name,
-            "path": f"{library_path}/{fw.full_path}",
-            "size": fw.file_size_bytes,
-            "md5": fw.md5_hash or None,
-            "sha1": fw.sha1_hash or None,
-        }
-        for fw in db_firmware_handler.list_firmware(
-            platform_ids=[platform_id], missing=False
+def firmware_payload(
+    platform_id: int, library_path: str
+) -> list[dict[str, Any]] | None:
+    """The platform's present firmware, as the broker's activate takes it.
+
+    None when the lookup fails: the firmware is optional, the launch is not.
+    """
+    try:
+        return [
+            {
+                "file_name": fw.file_name,
+                "path": f"{library_path}/{fw.full_path}",
+                "size": fw.file_size_bytes,
+                "md5": fw.md5_hash or None,
+                "sha1": fw.sha1_hash or None,
+            }
+            for fw in db_firmware_handler.list_firmware(
+                platform_ids=[platform_id], missing=False
+            )
+        ]
+    except Exception:
+        # A missing BIOS shows in the emulator; a refused launch shows nothing.
+        log.exception("could not list firmware for platform %s", platform_id)
+        return None
+
+
+_FIRMWARE_NAMES_SHOWN = 10
+"""How many failed file names one warning lists before it just counts."""
+
+_FIRMWARE_NAME_CHARS = 128
+"""How much of one failed file name the warning shows."""
+
+_FIRMWARE_BUCKETS = ("placed", "unchanged", "kept", "skipped", "failed")
+"""The lists a broker firmware report carries."""
+
+
+def _log_firmware_report(
+    container: ResolvedContainer, emulator: str, report: Any
+) -> None:
+    """Log the broker's firmware report: counts always, failures as a warning.
+
+    A kept file is the player's own and expected on every launch, so only a
+    failed one is worth a warning. The reason for each is in the broker log.
+    The broker always sends an object with all five lists; anything else (not
+    an object, a list missing, or something else in its place) is warned
+    about as unreadable.
+    """
+    buckets = (
+        {key: report.get(key) for key in _FIRMWARE_BUCKETS}
+        if isinstance(report, dict)
+        else {}
+    )
+    if not buckets or not all(isinstance(value, list) for value in buckets.values()):
+        log.warning(
+            "broker on %s sent a firmware report RomM cannot read for %s",
+            container.key,
+            emulator,
         )
-    ]
+        return
+    counts = {key: len(value) for key, value in buckets.items()}
+    message = "broker firmware on %s for %s, %s"
+    if any(counts.values()):
+        log.info(message, container.key, emulator, counts)
+    else:
+        # Nothing to place: a line on every launch would be noise.
+        log.debug(message, container.key, emulator, counts)
+    failed = buckets["failed"]
+    if failed:
+        shown = ", ".join(
+            (
+                repr(name[:_FIRMWARE_NAME_CHARS])
+                if isinstance(name, str)
+                else f"<{type(name).__name__}>"
+            )
+            for name in failed[:_FIRMWARE_NAMES_SHOWN]
+        )
+        more = len(failed) - _FIRMWARE_NAMES_SHOWN
+        log.warning(
+            "broker on %s could not place %d firmware file(s) for %s: %s%s "
+            "(the broker log has the reason for each)",
+            container.key,
+            len(failed),
+            emulator,
+            shown,
+            f" and {more} more" if more > 0 else "",
+        )
 
 
 def activate(
@@ -434,7 +506,14 @@ def activate(
         )
 
     resp = resp if isinstance(resp, dict) else {}
-    log.info("broker activated session, %s", resp)
+    report = resp.get("firmware")
+    log.info(
+        "broker activated session, %s",
+        {k: v for k, v in resp.items() if k != "firmware"},
+    )
+    if report is not None:
+        # None is an older or sync-disabled broker, which sends no report.
+        _log_firmware_report(container, emulator, report)
     if not isinstance(resp.get("core_tier"), str):
         resp.pop("core_tier", None)
     if core and resp.get("core") != core:
