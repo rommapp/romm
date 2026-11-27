@@ -558,6 +558,23 @@ def test_get_roms_without_provider_metadata(
     assert default["igdb_metadata"] and default["merged_ra_metadata"]
 
 
+def test_get_rom_serves_the_ra_player_count(
+    client: TestClient, access_token: str, platform: Platform
+) -> None:
+    # A client divides an achievement's num_awarded by it for the unlock rate.
+    rom = make_rom(
+        platform,
+        "ra_rom",
+        ra_metadata={"achievements": [], "num_distinct_players": 1234},
+    )
+
+    response = client.get(
+        f"/api/roms/{rom.id}", headers={"Authorization": f"Bearer {access_token}"}
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["merged_ra_metadata"]["num_distinct_players"] == 1234
+
+
 def test_get_roms_sorted_by_user_field_keeps_all_roms(
     client: TestClient,
     access_token: str,
