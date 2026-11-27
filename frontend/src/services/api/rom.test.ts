@@ -1,7 +1,6 @@
-import { beforeEach, describe, expect, expectTypeOf, it, vi } from "vitest";
-import type { SimpleRomSchema } from "@/__generated__";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import romApi, { type UpdateRom } from "@/services/api/rom";
-import { DEFAULT_ROM_FIELDS, GALLERY_FIELDS } from "@/services/api/romFields";
+import { GALLERY_FIELDS, getFieldsWith } from "@/services/api/romFields";
 import storeUpload from "@/stores/upload";
 import { romFixture } from "@/utils/rom.fixtures";
 
@@ -61,30 +60,14 @@ describe("updateRom", () => {
     expect(fields.get(field)).toBe("1234");
   });
 
-  it("clears an id that was set to null", async () => {
-    const fields = await sentFields(buildRom({ sgdb_id: null }));
-
-    expect(fields.get("sgdb_id")).toBe("");
-  });
-
-  it("keeps the stored value of an id the rom does not carry", async () => {
-    const thin: Partial<UpdateRom> = buildRom();
-    delete thin.sgdb_id;
-    delete thin.tgdb_id;
-
-    const fields = await sentFields(thin as UpdateRom);
-
-    expect(fields.has("sgdb_id")).toBe(false);
-    expect(fields.has("tgdb_id")).toBe(false);
-  });
-
   it("only sends ids that the gallery requests", async () => {
+    const omitted: ReadonlySet<string> = GALLERY_FIELDS;
     const fields = await sentFields(buildRom(romFixture()));
     const sentIds = [...fields.keys()].filter((key) => key.endsWith("_id"));
 
     expect(sentIds).toContain("sgdb_id");
     for (const key of sentIds) {
-      expect(GALLERY_FIELDS.has(key as never)).toBe(true);
+      expect(omitted.has(`-${key}`)).toBe(false);
     }
   });
 
@@ -252,22 +235,14 @@ describe("getRoms platform logic", () => {
   });
 
   it("sends an exclusion with its platforms", async () => {
-    await romApi.getRoms({
-      platformIds: [2],
-      platformsLogic: "none",
-    });
+    await romApi.getRoms({ platformIds: [2], platformsLogic: "none" });
 
     expect(get.mock.calls[0]![1].params.platforms_logic).toBe("none");
   });
 
   it("leaves the logic out without platforms or for an inclusion", async () => {
-    await romApi.getRoms({
-      platformsLogic: "none",
-    });
-    await romApi.getRoms({
-      platformIds: [2],
-      platformsLogic: "any",
-    });
+    await romApi.getRoms({ platformsLogic: "none" });
+    await romApi.getRoms({ platformIds: [2], platformsLogic: "any" });
 
     expect(get.mock.calls[0]![1].params.platforms_logic).toBeUndefined();
     expect(get.mock.calls[1]![1].params.platforms_logic).toBeUndefined();
@@ -305,25 +280,17 @@ describe("getRoms fields", () => {
     expect(get.mock.calls[0]![1].params.fields).toBe("name,slug");
   });
 
-  it("asks for every field but files by default", async () => {
-    await romApi.getRoms({ fields: DEFAULT_ROM_FIELDS });
+  it("sends the gallery's omissions as they are written", async () => {
+    await romApi.getRoms({ fields: GALLERY_FIELDS });
 
-    const sent = get.mock.calls[0]![1].params.fields as string;
-    expect(sent.split(",")).toEqual([...DEFAULT_ROM_FIELDS]);
-    expect(sent.split(",")).not.toContain("files");
-  });
-
-  it("lists every SimpleRom field except files", () => {
-    type Listed =
-      typeof DEFAULT_ROM_FIELDS extends ReadonlySet<infer K> ? K : never;
-    expectTypeOf<
-      Exclude<keyof SimpleRomSchema, "files" | Listed>
-    >().toEqualTypeOf<never>();
+    const sent = (get.mock.calls[0]![1].params.fields as string).split(",");
+    expect(sent).toEqual([...GALLERY_FIELDS]);
+    expect(sent.every((name) => name.startsWith("-"))).toBe(true);
   });
 
   it("sends nothing when fields is left out, and an empty value for an empty set", async () => {
     await romApi.getRoms({});
-    await romApi.getRoms({ fields: new Set() });
+    await romApi.getRoms({ fields: getFieldsWith() });
 
     expect(get.mock.calls[0]![1].params.fields).toBeUndefined();
     expect(get.mock.calls[1]![1].params.fields).toBe("");

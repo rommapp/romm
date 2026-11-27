@@ -646,6 +646,28 @@ def test_get_roms_a_derived_field_reads_only_the_columns_it_declares(
     assert alone[field] == full[field]
 
 
+def test_get_roms_excluded_fields_are_the_only_difference_from_a_full_response(
+    client: TestClient, access_token: str, platform: Platform
+) -> None:
+    make_rom(platform, "test_rom", igdb_metadata={"alternative_names": ["Alt"]})
+    headers = {"Authorization": f"Bearer {access_token}"}
+    params = {"platform_id": platform.id}
+
+    (full,) = client.get("/api/roms", headers=headers, params=params).json()["items"]
+    (trimmed,) = client.get(
+        "/api/roms",
+        headers=headers,
+        params={**params, "fields": "-igdb_metadata,-crc_hash"},
+    ).json()["items"]
+
+    assert set(full) - set(trimmed) == {"igdb_metadata", "crc_hash", "files"}
+    # A rom with no row of the user's own gets a default one stamped with the time of the request.
+    for item in (full, trimmed):
+        item["rom_user"].pop("created_at")
+        item["rom_user"].pop("updated_at")
+    assert trimmed == {name: full[name] for name in trimmed}
+
+
 def test_get_roms_fields_takes_the_provider_metadata_group(
     client: TestClient, access_token: str, platform: Platform
 ) -> None:
@@ -704,6 +726,28 @@ def test_get_roms_fields_prefers_fields_over_with_provider_metadata(
     ).json()["items"]
 
     assert set(item) == {"id", "name", "igdb_metadata"}
+
+
+def test_get_roms_fields_never_writes_a_column_it_left_unread(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    executed_statements: list[str],
+) -> None:
+    rom = make_rom(platform, "test_rom", igdb_metadata={"alternative_names": ["Alt"]})
+    executed_statements.clear()
+
+    response = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"platform_id": platform.id, "fields": "name"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert not [s for s in executed_statements if re.match(r"\s*UPDATE\s+roms\b", s)]
+    stored = db_rom_handler.get_rom(rom.id)
+    assert stored is not None
+    assert stored.igdb_metadata == {"alternative_names": ["Alt"]}
 
 
 def _add_file(rom: Rom, platform: Platform) -> None:

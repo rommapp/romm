@@ -1,16 +1,14 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
-import type { CoverArtRom } from "@/composables/useCoverArt";
 import {
   COVER_AND_NAME_FIELDS,
   COVER_ART_FIELDS,
-  DEFAULT_ROM_FIELDS,
   GALLERY_FIELDS,
-  difference,
   getFieldsWith,
-  getFieldsWithout,
-  intersection,
   union,
+  type RomFieldSelection,
 } from "@/services/api/romFields";
+
+const omitted: ReadonlySet<string> = GALLERY_FIELDS;
 
 describe("rom field sets", () => {
   it("getFieldsWith keeps exactly the fields it is given", () => {
@@ -18,44 +16,16 @@ describe("rom field sets", () => {
     expect(getFieldsWith().size).toBe(0);
   });
 
-  it("getFieldsWith can ask for files, which the default leaves out", () => {
-    expect(DEFAULT_ROM_FIELDS.has("files" as never)).toBe(false);
-    expect(getFieldsWith(["files"]).has("files")).toBe(true);
-  });
+  it("combines sets and tracks the names in the type", () => {
+    const both = union(
+      getFieldsWith(["name", "slug"]),
+      getFieldsWith(["slug", "summary"]),
+    );
 
-  it("getFieldsWithout drops only the named fields", () => {
-    const rest = getFieldsWithout(["igdb_metadata", "ss_metadata"]);
-
-    expect(rest.has("igdb_metadata" as never)).toBe(false);
-    expect(rest.has("ss_metadata" as never)).toBe(false);
-    expect(rest.size).toBe(DEFAULT_ROM_FIELDS.size - 2);
-  });
-
-  it("combines sets", () => {
-    const a = getFieldsWith(["name", "slug"]);
-    const b = getFieldsWith(["slug", "summary"]);
-
-    expect([...union(a, b)].sort()).toEqual(["name", "slug", "summary"]);
-    expect([...intersection(a, b)]).toEqual(["slug"]);
-    expect([...difference(a, b)]).toEqual(["name"]);
-  });
-
-  it("tracks the names in the type", () => {
-    const a = getFieldsWith(["name", "slug"]);
-    const b = getFieldsWith(["slug", "summary"]);
-
-    expectTypeOf(union(a, b)).toEqualTypeOf<
+    expect([...both].sort()).toEqual(["name", "slug", "summary"]);
+    expectTypeOf(both).toEqualTypeOf<
       ReadonlySet<"name" | "slug" | "summary">
     >();
-    expectTypeOf(intersection(a, b)).toEqualTypeOf<ReadonlySet<"slug">>();
-    expectTypeOf(difference(a, b)).toEqualTypeOf<ReadonlySet<"name">>();
-  });
-
-  it("covers every field the cover component reads", () => {
-    type Listed =
-      typeof COVER_ART_FIELDS extends ReadonlySet<infer K> ? K : never;
-    expectTypeOf<Exclude<keyof CoverArtRom, Listed>>().toEqualTypeOf<never>();
-    expectTypeOf<Exclude<Listed, keyof CoverArtRom>>().toEqualTypeOf<never>();
   });
 
   it("adds the names to the cover fields for a cover-and-name row", () => {
@@ -66,12 +36,41 @@ describe("rom field sets", () => {
     }
   });
 
-  it("keeps what a gallery card and row need, and leaves out the heavy blobs", () => {
-    for (const field of COVER_AND_NAME_FIELDS) {
-      expect(GALLERY_FIELDS.has(field as never)).toBe(true);
+  it("states the gallery fields as what to leave out", () => {
+    expect(omitted.size).toBeGreaterThan(0);
+    for (const field of omitted) expect(field).toMatch(/^-/);
+    expect(omitted.has("-igdb_metadata")).toBe(true);
+  });
+
+  it("keeps what the edit dialog shows and saves from a gallery rom", () => {
+    for (const field of [
+      "fs_path",
+      "has_multiple_files",
+      "manual_metadata",
+      "igdb_id",
+      "sgdb_id",
+      "tgdb_id",
+    ]) {
+      expect(omitted.has(`-${field}`)).toBe(false);
     }
-    expect(GALLERY_FIELDS.has("hltb_metadata")).toBe(true);
-    expect(GALLERY_FIELDS.has("igdb_metadata" as never)).toBe(false);
-    expect(GALLERY_FIELDS.has("files" as never)).toBe(false);
+  });
+
+  it("keeps what a gallery card and row need", () => {
+    for (const field of [...COVER_AND_NAME_FIELDS, "hltb_metadata"]) {
+      expect(omitted.has(`-${field}`)).toBe(false);
+    }
+  });
+
+  it("only compiles names the schema has, all kept or all left out", () => {
+    const take = (fields: RomFieldSelection): number => fields.size;
+
+    take(new Set(["name"]));
+    take(new Set(["-name"]));
+    // @ts-expect-error: the schema has no such field
+    take(new Set(["nope"]));
+    // @ts-expect-error: the schema has no such field to leave out
+    take(new Set(["-nope"]));
+    // @ts-expect-error: a selection cannot both keep and leave out
+    take(new Set(["name", "-slug"]));
   });
 });

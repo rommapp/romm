@@ -641,7 +641,9 @@ def parse_released_days(values: list[str] | None) -> list[tuple[int, int]]:
 ROM_FILTER_QUERY = as_query_dependency(RomFilterParams)
 
 
-ROM_FIELDS = field_selection(SimpleRomSchema, groups=ROM_FIELD_GROUPS)
+ROM_FIELDS = field_selection(
+    SimpleRomSchema, groups=ROM_FIELD_GROUPS, on_request=frozenset({"files"})
+)
 WITHOUT_PROVIDER_METADATA = (
     field_names(SimpleRomSchema) - ROM_FIELD_GROUPS["provider_metadata"]
 )

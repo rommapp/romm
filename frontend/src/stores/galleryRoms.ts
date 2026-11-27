@@ -122,7 +122,7 @@ const MAX_WINDOW_RETRIES = 3;
 const retryTimers = new Map<number, ReturnType<typeof setTimeout>>();
 const retryCounts = new Map<number, number>();
 
-function clearRetry(offset: number): void {
+function clearRetry(offset: number) {
   const timer = retryTimers.get(offset);
   if (timer !== undefined) clearTimeout(timer);
   retryTimers.delete(offset);
@@ -139,11 +139,11 @@ function clearRetry(offset: number): void {
 const MAX_CONCURRENT_WINDOWS = 4;
 const queuedWindows: number[] = [];
 
-function clearQueue(): void {
+function clearQueue() {
   queuedWindows.length = 0;
 }
 
-function abortAllInFlight(): void {
+function abortAllInFlight() {
   for (const ctrl of inFlightControllers.values()) ctrl.abort();
   inFlightControllers.clear();
   for (const timer of retryTimers.values()) clearTimeout(timer);
@@ -155,7 +155,7 @@ function abortAllInFlight(): void {
 // Abort a single in-flight window fetch. The rejected request is caught
 // as a cancel in `fetchWindowAt` (no `failedWindows` entry, no retry) and
 // its `finally` clears the pending/controller bookkeeping.
-function cancelWindow(offset: number): void {
+function cancelWindow(offset: number) {
   const ctrl = inFlightControllers.get(`window:${offset}`);
   if (ctrl) ctrl.abort();
 }
@@ -176,9 +176,9 @@ function cancelWindow(offset: number): void {
 const APPLY_BATCH_SIZE = 8;
 
 function nextFrame(): Promise<void> {
-  return new Promise((resolve): void => {
+  return new Promise((resolve) => {
     if (typeof requestAnimationFrame !== "undefined") {
-      requestAnimationFrame((): void => resolve());
+      requestAnimationFrame(() => resolve());
     } else {
       setTimeout(resolve, 0);
     }
@@ -193,7 +193,8 @@ async function applyItemsBatched(
   for (let i = 0; i < entries.length; i += APPLY_BATCH_SIZE) {
     if (!isStillRelevant()) return;
     const end = Math.min(i + APPLY_BATCH_SIZE, entries.length);
-    for (const [position, rom] of entries.slice(i, end)) {
+    for (let j = i; j < end; j++) {
+      const [position, rom] = entries[j]!;
       byPosition.set(position, rom);
     }
     if (end < entries.length) await nextFrame();
@@ -208,9 +209,7 @@ export function placeById(
   ids: number[],
   baseOffset: number,
 ): [number, SimpleRom][] {
-  const positionOf = new Map(
-    ids.map((id, i): [number, number] => [id, baseOffset + i]),
-  );
+  const positionOf = new Map(ids.map((id, i) => [id, baseOffset + i]));
   return items.flatMap((rom): [number, SimpleRom][] => {
     const position = positionOf.get(rom.id);
     return position === undefined ? [] : [[position, rom]];
@@ -307,10 +306,10 @@ function alignToWindow(offset: number): number {
 }
 
 export default defineStore("v2GalleryRoms", {
-  state: (): State => defaults(),
+  state: () => defaults(),
 
   getters: {
-    onGalleryView: (state): boolean =>
+    onGalleryView: (state) =>
       !!(
         state.currentPlatform ||
         state.currentCollection ||
@@ -319,7 +318,7 @@ export default defineStore("v2GalleryRoms", {
         state.currentSearch
       ),
     /** True when at least the first window has loaded. */
-    hasInitial: (state): boolean => state.loadedWindows.size > 0,
+    hasInitial: (state) => state.loadedWindows.size > 0,
     /** The order the backend applied: null for relevance, and an unset sort
      * it kept by name reads as name. */
     effectiveOrderBy: (state): GalleryOrderKey | null =>
@@ -332,25 +331,25 @@ export default defineStore("v2GalleryRoms", {
   },
 
   actions: {
-    setCurrentPlatform(platform: Platform | null): void {
+    setCurrentPlatform(platform: Platform | null) {
       this.currentPlatform = platform;
     },
-    setCurrentCollection(collection: Collection | null): void {
+    setCurrentCollection(collection: Collection | null) {
       this.currentCollection = collection;
     },
-    setCurrentVirtualCollection(collection: VirtualCollection | null): void {
+    setCurrentVirtualCollection(collection: VirtualCollection | null) {
       this.currentVirtualCollection = collection;
     },
-    setCurrentSmartCollection(collection: SmartCollection | null): void {
+    setCurrentSmartCollection(collection: SmartCollection | null) {
       this.currentSmartCollection = collection;
     },
 
     /** An unset sort orders by relevance, which has no direction. */
-    setOrderBy(key: GalleryOrderKey | null): void {
+    setOrderBy(key: GalleryOrderKey | null) {
       this.orderBy = key;
       if (key === null) this.orderDir = DEFAULT_ORDER_DIR;
     },
-    setOrderDir(dir: GalleryOrderDir): void {
+    setOrderDir(dir: GalleryOrderDir) {
       this.orderDir = dir;
     },
 
@@ -374,7 +373,7 @@ export default defineStore("v2GalleryRoms", {
     /** Drop everything tied to the previous gallery context but keep
      * order-by / order-dir. Call before switching platform / collection
      * or when filters change. */
-    resetGallery(): void {
+    resetGallery() {
       abortAllInFlight();
       this.currentPlatform = null;
       this.currentCollection = null;
@@ -398,7 +397,7 @@ export default defineStore("v2GalleryRoms", {
     },
 
     /** Drop the loaded windows but keep the gallery context. */
-    invalidateWindows(): void {
+    invalidateWindows() {
       abortAllInFlight();
       this.total = 0;
       this.resultParams = null;
@@ -425,9 +424,7 @@ export default defineStore("v2GalleryRoms", {
      * Returns:
      *   Whether the new result was applied (false when superseded). */
     async refreshResults(
-      commit: (apply: () => boolean) => void | Promise<void> = (
-        apply,
-      ): void => {
+      commit: (apply: () => boolean) => void | Promise<void> = (apply) => {
         apply();
       },
     ): Promise<boolean> {
@@ -441,8 +438,7 @@ export default defineStore("v2GalleryRoms", {
       const controller = new AbortController();
       inFlightControllers.set(ctrlKey, controller);
       // A newer refresh or any context switch replaces or drops this entry.
-      const isCurrent = (): boolean =>
-        inFlightControllers.get(ctrlKey) === controller;
+      const isCurrent = () => inFlightControllers.get(ctrlKey) === controller;
 
       try {
         const response = await romApi.getRoms({
@@ -452,7 +448,7 @@ export default defineStore("v2GalleryRoms", {
         if (!isCurrent()) return false;
         const data = response.data;
         let applied = false;
-        await commit((): boolean => {
+        await commit(() => {
           if (!isCurrent()) return false;
           // Window and select-all fetches for the old result end with it.
           abortAllInFlight();
@@ -461,12 +457,10 @@ export default defineStore("v2GalleryRoms", {
           this.initialFetching = false;
           this.selectingAll = false;
           const next = new Map<number, SimpleRom>();
-          data.items.forEach((rom, i): Map<number, SimpleRomSchema> =>
-            next.set(i, rom),
-          );
+          data.items.forEach((rom, i) => next.set(i, rom));
           this.charIndex = {};
           this.romIdIndex = [];
-          this._applyMetadata(data, { galleryFilter, platformsStore });
+          this._applyMetadata(data, galleryFilter, platformsStore);
           this.byPosition = next;
           this.loadedWindows = new Set([0]);
           this.resultParams = { ...params };
@@ -506,10 +500,7 @@ export default defineStore("v2GalleryRoms", {
       return raw === null ? true : raw === "true";
     },
 
-    _buildRequestParams(
-      galleryFilter: GalleryFilterStore,
-      offset: number,
-    ): RequestParams {
+    _buildRequestParams(galleryFilter: GalleryFilterStore, offset: number) {
       // Determine platform IDs from the gallery context, falling back to
       // the gallery-filter store's platform multi-select.
       let platformIds: number[] | null = null;
@@ -518,7 +509,7 @@ export default defineStore("v2GalleryRoms", {
       if (this.currentPlatform) {
         platformIds = [this.currentPlatform.id];
       } else if (galleryFilter.selectedPlatforms.length > 0) {
-        platformIds = galleryFilter.selectedPlatforms.map((p): number => p.id);
+        platformIds = galleryFilter.selectedPlatforms.map((p) => p.id);
         platformsLogic = galleryFilter.platformsLogic;
       } else if (galleryFilter.selectedPlatform) {
         platformIds = [galleryFilter.selectedPlatform.id];
@@ -588,13 +579,10 @@ export default defineStore("v2GalleryRoms", {
      * `fetchInitialMetadata()` bootstrap. */
     _applyMetadata(
       data: GetRomsResponse,
-      stores: {
-        galleryFilter: GalleryFilterStore;
-        platformsStore: ReturnType<typeof storePlatforms>;
-      },
+      galleryFilter: GalleryFilterStore,
+      platformsStore: ReturnType<typeof storePlatforms>,
       sidecars: SidecarOptions = {},
-    ): void {
-      const { galleryFilter, platformsStore } = stores;
+    ) {
       if (data.total !== null && data.total !== undefined) {
         this.total = data.total;
       }
@@ -615,7 +603,7 @@ export default defineStore("v2GalleryRoms", {
         if (galleryFilter.filterPlatforms.length === 0) {
           const platformIds = data.filter_values.platforms ?? [];
           galleryFilter.setFilterPlatforms(
-            platformsStore.allPlatforms.filter((p): boolean =>
+            platformsStore.allPlatforms.filter((p) =>
               platformIds.includes(p.id),
             ),
           );
@@ -677,7 +665,8 @@ export default defineStore("v2GalleryRoms", {
         if (inFlightControllers.get(ctrlKey) !== controller) return;
         this._applyMetadata(
           response.data,
-          { galleryFilter, platformsStore },
+          galleryFilter,
+          platformsStore,
           sidecars,
         );
       } catch (err) {
@@ -767,7 +756,7 @@ export default defineStore("v2GalleryRoms", {
         // clobber what the bootstrap populated; `total` comes back null and
         // the guard below leaves the established size alone.
         if (offset === 0 && withAggregations) {
-          this._applyMetadata(data, { galleryFilter, platformsStore });
+          this._applyMetadata(data, galleryFilter, platformsStore);
         } else if (data.total !== null && data.total !== undefined) {
           this.total = data.total;
         }
@@ -795,7 +784,7 @@ export default defineStore("v2GalleryRoms", {
                 offset + i,
                 rom,
               ]),
-          (): boolean => inFlightControllers.get(ctrlKey) === controller,
+          () => inFlightControllers.get(ctrlKey) === controller,
         );
 
         // A context switch during the frame-yielded apply may have
@@ -826,7 +815,7 @@ export default defineStore("v2GalleryRoms", {
         if (attempts < MAX_WINDOW_RETRIES && !retryTimers.has(offset)) {
           retryCounts.set(offset, attempts + 1);
           const timer = setTimeout(
-            (): void => {
+            () => {
               retryTimers.delete(offset);
               void this.fetchWindowAt(offset);
             },
@@ -895,7 +884,7 @@ export default defineStore("v2GalleryRoms", {
     /** Start queued windows as in-flight slots free up. Called from a
      * window fetch's `finally`; the cap in `fetchWindowAt` guards the
      * ceiling, so this just feeds it the next parked offset. */
-    _drainWindowQueue(): void {
+    _drainWindowQueue() {
       while (
         queuedWindows.length > 0 &&
         this.pendingWindows.size < MAX_CONCURRENT_WINDOWS
@@ -917,7 +906,7 @@ export default defineStore("v2GalleryRoms", {
      * downloading and applying in the background: the exact wasted
      * network / backend / render work this store exists to avoid on
      * low-power devices. Driven by the shell's debounced viewport sync. */
-    syncVisibleWindows(positions: Iterable<number>): void {
+    syncVisibleWindows(positions: Iterable<number>) {
       const wanted = new Set<number>();
       for (const p of positions) {
         if (p < 0) continue;
@@ -935,10 +924,7 @@ export default defineStore("v2GalleryRoms", {
       }
       // Drop parked windows that scrolled out of view before getting a slot.
       for (let i = queuedWindows.length - 1; i >= 0; i--) {
-        const queued = queuedWindows[i];
-        if (queued !== undefined && !wanted.has(queued)) {
-          queuedWindows.splice(i, 1);
-        }
+        if (!wanted.has(queuedWindows[i]!)) queuedWindows.splice(i, 1);
       }
       for (const offset of wanted) {
         void this.fetchWindowAt(offset);
@@ -949,7 +935,7 @@ export default defineStore("v2GalleryRoms", {
      * the loaded cache. The shell calls this when the gallery unmounts so
      * navigating away mid-scroll doesn't leave downloads running; a
      * return to the same gallery still reuses `loadedWindows`. */
-    abortInFlight(): void {
+    abortInFlight() {
       // An unfinished refresh leaves the old result under the new filters.
       if (this.refreshing) {
         this.invalidateWindows();
@@ -964,7 +950,7 @@ export default defineStore("v2GalleryRoms", {
      * holds it: used by edit / favourite / status flows. Mutating
      * via `set(pos, rom)` on the reactive Map triggers only the
      * dependents reading that specific position. */
-    update(rom: SimpleRom): void {
+    update(rom: SimpleRom) {
       for (const [pos, existing] of this.byPosition) {
         if (existing.id === rom.id) {
           this.byPosition.set(pos, rom);
@@ -974,10 +960,10 @@ export default defineStore("v2GalleryRoms", {
     },
 
     /** Reconcile the gallery after ROMs are deleted. */
-    remove(roms: SimpleRom[]): void {
+    remove(roms: SimpleRom[]) {
       if (this.currentPlatform) {
         const removedFromPlatform = roms.filter(
-          (rom): boolean => rom.platform_id === this.currentPlatform?.id,
+          (rom) => rom.platform_id === this.currentPlatform?.id,
         ).length;
         this.currentPlatform = {
           ...this.currentPlatform,

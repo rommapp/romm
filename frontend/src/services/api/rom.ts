@@ -1,4 +1,4 @@
-import type { AxiosProgressEvent, AxiosResponse } from "axios";
+import type { AxiosProgressEvent } from "axios";
 import Bowser from "bowser";
 import type {
   Body_delete_roms_api_roms_delete_post as DeleteRomsInput,
@@ -21,6 +21,7 @@ import type {
 } from "@/__generated__";
 import { type CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
 import api from "@/services/api";
+import type { RomFieldSelection } from "@/services/api/romFields";
 import socket from "@/services/socket";
 import type { PlatformFilterLogic } from "@/stores/galleryFilter";
 import storeUpload from "@/stores/upload";
@@ -152,7 +153,7 @@ async function uploadRoms({
   romId?: number;
   folder?: string;
   overwrite?: boolean;
-}): Promise<PromiseSettledResult<null>[]> {
+}) {
   if (!socket.connected) socket.connect();
   const uploadStore = storeUpload();
 
@@ -240,9 +241,9 @@ export interface GetRomsParams {
   romIds?: number[] | null;
   // Cancel an in-flight request
   signal?: AbortSignal;
-  /** The rom fields to return, plus `id`. Leave it out to get every field a
-   * rom list returns by default. An empty set returns only the ids. */
-  fields?: ReadonlySet<keyof SimpleRom>;
+  /** The rom fields to return or to leave out; `id` always comes back. Without
+   * it, a list returns its default fields. An empty set returns only the ids. */
+  fields?: RomFieldSelection;
 }
 
 /** The `/roms` query string for `params`, shared with the cached client. */
@@ -306,66 +307,7 @@ export function buildGetRomsQuery({
   withTotal = undefined,
   romIds = null,
   fields,
-}: Omit<GetRomsParams, "signal">): {
-  rom_ids: number[] | undefined;
-  fields: string | undefined;
-  with_total?: boolean;
-  with_rom_id_index?: boolean;
-  with_filter_values?: boolean;
-  with_char_index?: boolean;
-  released_days: string[] | undefined;
-  released_before_year: number | null | undefined;
-  verified?: boolean;
-  has_soundtrack?: boolean;
-  has_states?: boolean;
-  has_saves?: boolean;
-  has_ra?: boolean;
-  physical?: boolean;
-  missing?: boolean;
-  playable?: boolean;
-  duplicate?: boolean;
-  favorite?: boolean;
-  matched?: boolean;
-  hltb_main_story_max?: number;
-  hltb_main_story_min?: number;
-  platform_ids: number[] | undefined;
-  platforms_logic: "none" | undefined;
-  collection_id: number | null;
-  virtual_collection_id: string | null;
-  smart_collection_id: number | null;
-  search_term: string | null;
-  limit: number;
-  offset: number;
-  order_by: string | null;
-  order_dir: string | null;
-  group_by_meta_id: boolean;
-  genres: string[] | undefined;
-  franchises: string[] | undefined;
-  collections: string[] | undefined;
-  companies: string[] | undefined;
-  publishers: string[] | undefined;
-  developers: string[] | undefined;
-  age_ratings: string[] | undefined;
-  statuses: string[] | undefined;
-  regions: string[] | undefined;
-  languages: string[] | undefined;
-  player_counts: string[] | undefined;
-  metadata_providers: string[] | undefined;
-  tags: string[] | undefined;
-  genres_logic: string | undefined;
-  franchises_logic: string | undefined;
-  collections_logic: string | undefined;
-  companies_logic: string | undefined;
-  publishers_logic: string | undefined;
-  developers_logic: string | undefined;
-  age_ratings_logic: string | undefined;
-  regions_logic: string | undefined;
-  languages_logic: string | undefined;
-  statuses_logic: string | undefined;
-  player_counts_logic: string | undefined;
-  metadata_providers_logic: string | undefined;
-  tags_logic: string | undefined;
-} {
+}: Omit<GetRomsParams, "signal">) {
   return {
     platform_ids:
       platformIds && platformIds.length > 0 ? platformIds : undefined,
@@ -515,10 +457,7 @@ export function buildGetRomsQuery({
   };
 }
 
-async function getRoms({
-  signal,
-  ...params
-}: GetRomsParams): Promise<AxiosResponse<GetRomsResponse>> {
+async function getRoms({ signal, ...params }: GetRomsParams) {
   return api.get<GetRomsResponse>(`/roms`, {
     params: buildGetRomsQuery(params),
     ...(signal ? { signal } : {}),
@@ -528,7 +467,7 @@ async function getRoms({
 export const RECENT_ROMS_LIMIT = 15;
 export const RECENT_PLAYED_ROMS_LIMIT = 15;
 
-async function getRecentRoms(): Promise<AxiosResponse<GetRomsResponse>> {
+async function getRecentRoms() {
   return api.get<GetRomsResponse>("/roms", {
     params: {
       order_by: "id",
@@ -542,7 +481,7 @@ async function getRecentRoms(): Promise<AxiosResponse<GetRomsResponse>> {
   });
 }
 
-async function getRecentPlayedRoms(): Promise<AxiosResponse<GetRomsResponse>> {
+async function getRecentPlayedRoms() {
   return api.get<GetRomsResponse>("/roms", {
     params: {
       order_by: "last_played",
@@ -570,7 +509,7 @@ async function getSimilarRoms({
   romId: number;
   limit?: number;
   signal?: AbortSignal;
-}): Promise<AxiosResponse<SimilarRomSchema[]>> {
+}) {
   return api.get<SimilarRomSchema[]>(`/roms/${romId}/similar`, {
     params: { limit },
     ...config,
@@ -586,7 +525,7 @@ async function getRecommendedRoms({
   limit?: number;
   refresh?: boolean;
   signal?: AbortSignal;
-} = {}): Promise<AxiosResponse<RecommendedRomSchema[]>> {
+} = {}) {
   return api.get<RecommendedRomSchema[]>("/recommendations", {
     params: { limit, ...(refresh ? { refresh: true } : {}) },
     ...config,
@@ -599,7 +538,7 @@ async function getRom({
 }: {
   romId: number;
   signal?: AbortSignal;
-}): Promise<AxiosResponse<DetailedRomSchema>> {
+}) {
   return api.get<DetailedRom>(`/roms/${romId}`, config);
 }
 
@@ -609,7 +548,7 @@ async function getRomSimple({
 }: {
   romId: number;
   signal?: AbortSignal;
-}): Promise<AxiosResponse<SimpleRomSchema>> {
+}) {
   // `/roms/{id}/simple`: returns `SimpleRomSchema` with no eager-loaded
   // notes / saves / states / screenshots / collections arrays. Designed
   // for the v2 gallery card's per-card fetch path. Detail-level data is
@@ -627,7 +566,7 @@ async function getRandomRom({
   collectionId?: number | null;
   virtualCollectionId?: string | null;
   smartCollectionId?: number | null;
-} = {}): Promise<AxiosResponse<SimpleRomSchema | null>> {
+} = {}) {
   return api.get<SimpleRom | null>("/roms/random", {
     params: {
       platform_ids:
@@ -645,7 +584,7 @@ async function getRomByMetadataProvider({
 }: {
   field: Partial<keyof DetailedRom>;
   id: number;
-}): Promise<AxiosResponse<DetailedRomSchema>> {
+}) {
   return api.get<DetailedRom>(`/roms/by-metadata-provider/`, {
     params: { [field]: id },
   });
@@ -659,7 +598,7 @@ async function searchRom({
   romId: number;
   searchTerm: string;
   searchBy: string;
-}): Promise<AxiosResponse<SearchRomSchema[]>> {
+}) {
   return api.get<SearchRom[]>("/search/roms", {
     params: {
       rom_id: romId,
@@ -677,7 +616,7 @@ async function createPhysicalRom({
   platformId: number;
   name?: string | undefined;
   upc?: string | undefined;
-}): Promise<AxiosResponse<DetailedRomSchema>> {
+}) {
   const payload: PhysicalRomCreateForm = {
     platform_id: platformId,
     name: name || null,
@@ -686,7 +625,7 @@ async function createPhysicalRom({
   return api.post<DetailedRom>("/roms/physical", payload);
 }
 
-function triggerFileDownload(href: string): Promise<void> {
+function triggerFileDownload(href: string) {
   return new Promise<void>((resolve) => {
     const a = document.createElement("a");
     a.href = href;
@@ -710,15 +649,13 @@ async function downloadRom({
   rom: SimpleRom;
   fileIDs?: number[];
   format?: string;
-}): Promise<void> {
+}) {
   return triggerFileDownload(getDownloadPath({ rom, fileIDs, format }));
 }
 
 /** Ask for one byte of a `?format=` download, which starts its conversion.
  *  206/200 once it can be served, 202 while it converts, 406 when it can't be. */
-async function probeFormatDownload(
-  href: string,
-): Promise<{ status: number; retryAfterSeconds: number | null }> {
+async function probeFormatDownload(href: string) {
   const response = await api.get(href, {
     // `href` is a full `/api` path.
     baseURL: "",
@@ -752,7 +689,7 @@ async function bulkDownloadRoms({
   virtualCollectionId?: string | undefined;
   smartCollectionId?: number | undefined;
   filename?: string | undefined;
-}): Promise<void> {
+}) {
   const queryParams = new URLSearchParams();
   if (platformId != null) {
     queryParams.append("platform_id", String(platformId));
@@ -795,13 +732,9 @@ async function updateRom({
   rom: UpdateRom;
   removeCover?: boolean;
   unmatch?: boolean;
-}): Promise<AxiosResponse<DetailedRomSchema>> {
-  // An id the rom doesn't carry (undefined) stays out of the form, so it keeps
-  // its stored value; only an id set to null is sent empty to clear it.
-  const toFormIdValue = (
-    value: number | string | null | undefined,
-  ): string | undefined =>
-    value === undefined ? undefined : value === null ? "" : String(value);
+}) {
+  const toFormIdValue = (value: number | string | null | undefined): string =>
+    value === null || value === undefined ? "" : String(value);
 
   const fields: FormInputField<UpdateRomInput>[] = [
     ["name", rom.name],
@@ -857,7 +790,7 @@ async function uploadManuals({
 }: {
   romId: number;
   filesToUpload: File[];
-}): Promise<PromiseSettledResult<unknown>[]> {
+}) {
   const uploadStore = storeUpload();
 
   const promises = filesToUpload.map((file) => {
@@ -888,19 +821,11 @@ async function uploadManuals({
   return Promise.allSettled(promises);
 }
 
-async function removeManual({
-  romId,
-}: {
-  romId: number;
-}): Promise<AxiosResponse<DetailedRomSchema>> {
+async function removeManual({ romId }: { romId: number }) {
   return api.delete<DetailedRom>(`/roms/${romId}/manuals`);
 }
 
-async function redownloadManual({
-  romId,
-}: {
-  romId: number;
-}): Promise<AxiosResponse> {
+async function redownloadManual({ romId }: { romId: number }) {
   return api.post(`/roms/${romId}/manuals/redownload`);
 }
 
@@ -910,7 +835,7 @@ async function uploadSoundtracks({
 }: {
   romId: number;
   filesToUpload: File[];
-}): Promise<PromiseSettledResult<unknown>[]> {
+}) {
   const uploadStore = storeUpload();
 
   const promises = filesToUpload.map((file) => {
@@ -947,7 +872,7 @@ async function removeSoundtrack({
 }: {
   romId: number;
   fileId: number;
-}): Promise<AxiosResponse> {
+}) {
   return api.delete(`/roms/${romId}/soundtracks/${fileId}`);
 }
 
@@ -957,7 +882,7 @@ async function removeScreenshot({
 }: {
   romId: number;
   fileId: number;
-}): Promise<AxiosResponse> {
+}) {
   return api.delete(`/roms/${romId}/screenshots/${fileId}`);
 }
 
@@ -967,7 +892,7 @@ async function getSoundtrackMetadata({
 }: {
   romId: number;
   signal?: AbortSignal;
-}): Promise<AxiosResponse<SoundtrackTrackMetaSchema[]>> {
+}) {
   return api.get<SoundtrackTrackMetaSchema[]>(
     `/roms/${romId}/soundtracks/metadata`,
     config,
@@ -980,7 +905,7 @@ async function uploadManualFiles({
 }: {
   romId: number;
   filesToUpload: File[];
-}): Promise<PromiseSettledResult<unknown>[]> {
+}) {
   const uploadStore = storeUpload();
 
   const promises = filesToUpload.map((file) => {
@@ -1017,7 +942,7 @@ async function deleteManualFile({
 }: {
   romId: number;
   fileId: number;
-}): Promise<AxiosResponse> {
+}) {
   return api.delete(`/roms/${romId}/manuals/files/${fileId}`);
 }
 
@@ -1027,7 +952,7 @@ async function deleteRomFile({
 }: {
   romId: number;
   fileId: number;
-}): Promise<AxiosResponse> {
+}) {
   return api.delete(`/roms/${romId}/files/${fileId}`);
 }
 
@@ -1037,7 +962,7 @@ async function deleteWalkthroughFile({
 }: {
   romId: number;
   fileId: number;
-}): Promise<AxiosResponse> {
+}) {
   return api.delete(`/roms/${romId}/walkthroughs/files/${fileId}`);
 }
 
@@ -1047,7 +972,7 @@ async function addGamefaqsWalkthrough({
 }: {
   romId: number;
   url: string;
-}): Promise<AxiosResponse> {
+}) {
   return api.post(`/roms/${romId}/walkthroughs/gamefaqs`, { url });
 }
 
@@ -1057,7 +982,7 @@ async function getFileProgress({
 }: {
   romId: number;
   fileId: number;
-}): Promise<AxiosResponse<RomFileUserSchema>> {
+}) {
   return api.get<RomFileUserSchema>(`/roms/${romId}/files/${fileId}/progress`);
 }
 
@@ -1069,7 +994,7 @@ async function updateFileProgress({
   romId: number;
   fileId: number;
   data: { progress?: number; last_page?: number | null; finished?: boolean };
-}): Promise<AxiosResponse<RomFileUserSchema>> {
+}) {
   return api.put<RomFileUserSchema>(
     `/roms/${romId}/files/${fileId}/progress`,
     data,
@@ -1086,7 +1011,7 @@ async function updateUserRomProps({
   data: Partial<RomUserData>;
   updateLastPlayed?: boolean;
   removeLastPlayed?: boolean;
-}): Promise<AxiosResponse<RomUserSchema>> {
+}) {
   const params = new URLSearchParams();
   if (updateLastPlayed) {
     params.set("update_last_played", "true");
@@ -1106,7 +1031,7 @@ async function deleteRoms({
 }: {
   roms: SimpleRom[];
   deleteFromFs: number[];
-}): Promise<AxiosResponse<BulkOperationResponse>> {
+}) {
   const payload: DeleteRomsInput = {
     roms: roms.map((r) => r.id),
     delete_from_fs: deleteFromFs,
@@ -1126,7 +1051,7 @@ async function createRomNote({
     is_public?: boolean;
     tags?: string[];
   };
-}): Promise<AxiosResponse<UserNoteSchema>> {
+}) {
   return api.post<UserNoteSchema>(`/roms/${romId}/notes`, noteData);
 }
 
@@ -1143,7 +1068,7 @@ async function updateRomNote({
     is_public?: boolean;
     tags?: string[];
   };
-}): Promise<AxiosResponse<UserNoteSchema>> {
+}) {
   return api.put<UserNoteSchema>(`/roms/${romId}/notes/${noteId}`, noteData);
 }
 
@@ -1153,7 +1078,7 @@ async function deleteRomNote({
 }: {
   romId: number;
   noteId: number;
-}): Promise<AxiosResponse<UserNoteSchema>> {
+}) {
   return api.delete<UserNoteSchema>(`/roms/${romId}/notes/${noteId}`);
 }
 
@@ -1167,7 +1092,7 @@ async function getRomNotes({
   publicOnly?: boolean;
   search?: string;
   tags?: string[];
-}): Promise<AxiosResponse<UserNoteSchema[]>> {
+}) {
   return api.get<UserNoteSchema[]>(`/roms/${romId}/notes`, {
     params: {
       public_only: publicOnly,
@@ -1177,7 +1102,7 @@ async function getRomNotes({
   });
 }
 
-async function getRomFilters(): Promise<AxiosResponse<RomFiltersDict>> {
+async function getRomFilters() {
   return api.get<RomFiltersDict>("/roms/filters");
 }
 

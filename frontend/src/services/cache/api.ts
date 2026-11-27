@@ -34,7 +34,7 @@ class CachedApiService {
   private createRequestConfig(
     method: Method,
     url: string,
-    params?: AxiosRequestConfig["params"],
+    params?: any,
   ): AxiosRequestConfig {
     return {
       method,
@@ -76,29 +76,25 @@ class CachedApiService {
     return cacheService.request<GetRomsResponse>(config, onBackgroundUpdate);
   }
 
-  private async clearRomsCache(
-    params: Record<string, string | number | boolean>,
-  ): Promise<void> {
-    const queryString = new URLSearchParams(
-      Object.entries(params).map(([key, value]) => [key, String(value)]),
-    ).toString();
+  private async clearRomsCache(params: any) {
+    const queryString = params ? new URLSearchParams(params).toString() : "";
     await cacheService.clearCacheForPattern(`/roms?${queryString}`);
   }
 
-  async clearRecentRomsCache(): Promise<void> {
+  async clearRecentRomsCache() {
     await this.clearRomsCache(RECENT_ROMS_PARAMS);
   }
 
-  async clearRecentPlayedRomsCache(): Promise<void> {
+  async clearRecentPlayedRomsCache() {
     await this.clearRomsCache(RECENT_PLAYED_ROMS_PARAMS);
   }
 
   // Cache management methods
-  async clearCache(): Promise<void> {
+  async clearCache() {
     return cacheService.clearCache();
   }
 
-  async getCacheSize(): Promise<number> {
+  async getCacheSize() {
     return cacheService.getCacheSize();
   }
 }

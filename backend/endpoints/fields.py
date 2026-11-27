@@ -16,8 +16,20 @@ def field_selection(
     schema: type[BaseModel],
     *,
     groups: Mapping[str, frozenset[str]] | None = None,
+    on_request: frozenset[str] = frozenset(),
 ) -> Callable[..., frozenset[str] | None]:
-    """The dependency behind a `fields` query parameter: the names to keep, or None, with a 422 for a name `schema` lacks."""
+    """The dependency behind a `fields` query parameter.
+
+    Args:
+        schema: The model whose fields can be selected.
+        groups: Names that stand for several fields, written `@name`.
+        on_request: Fields a response holds only when they are named.
+
+    Returns:
+        A dependency giving the names to keep, or None without `fields`. It
+        raises a 422 for a name `schema` lacks, or for a mix of names to keep
+        and names to leave out.
+    """
     allowed = field_names(schema)
     known_groups = groups or {}
 
@@ -31,21 +43,35 @@ def field_selection(
                     f" in the group. Groups: {', '.join(f'`@{g}`' for g in known_groups) or 'none'}."
                     " Name only the fields you read to get a much smaller response;"
                     " the raw provider metadata, `@provider_metadata`, is the largest"
-                    " part. `id` is always included. A requested field with no value is"
+                    " part. To name what to leave out instead, start every name"
+                    " with `-`, as in `-summary,-@group`; every other field is"
+                    " returned"
+                    f"{''.join(f', except `{f}`' for f in sorted(on_request))}."
+                    " Names with and without `-` cannot be mixed."
+                    " `id` is always included. A requested field with no value is"
                     " null, and a field left out is not in the response. Leave"
                     " `fields` out to get every field. A name the schema does not"
-                    " have returns 422."
+                    " have returns 422. The response schema lists every field, and"
+                    " a response to `fields` holds only a subset of them."
                 )
             ),
         ] = None,
     ) -> frozenset[str] | None:
         if fields is None:
             return None
+        parts = [part for part in (p.strip() for p in fields.split(",")) if part]
+        excluding = any(part.startswith("-") for part in parts)
+        if excluding and not all(part.startswith("-") for part in parts):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="fields cannot mix names to include and names to leave out.",
+            )
         names: set[str] = set()
-        for name in (part.strip() for part in fields.split(",")):
+        for part in parts:
+            name = part.removeprefix("-")
             if name.startswith("@") and name[1:] in known_groups:
                 names |= known_groups[name[1:]]
-            elif name:
+            else:
                 names.add(name)
         unknown = names - allowed
         if unknown:
@@ -53,7 +79,8 @@ def field_selection(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"{schema.__name__} has no fields named {', '.join(sorted(unknown))}.",
             )
-        return frozenset(names) | {"id"}
+        selected = allowed - names - on_request if excluding else frozenset(names)
+        return selected | {"id"}
 
     return dependency
 
