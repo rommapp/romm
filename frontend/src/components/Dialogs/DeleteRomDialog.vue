@@ -16,7 +16,8 @@ import { ROUTES } from "@/plugins/router";
 import configApi from "@/services/api/config";
 import romApi from "@/services/api/rom";
 import storeConfig from "@/stores/config";
-import storeRoms, { type SimpleRom } from "@/stores/roms";
+import type { SimpleRom } from "@/stores/galleryRoms";
+import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { settleWithLimit } from "@/utils/settleWithLimit";
 

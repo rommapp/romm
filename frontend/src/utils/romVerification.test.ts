@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { RomHasheousMetadata, RomRAMetadata } from "@/__generated__";
-import { rom as listRom } from "@/components/Gallery/listRowFixture";
 import type { SimpleRom } from "@/stores/roms";
+import { romFixture as listRom } from "./rom.fixtures";
 import { isRomVerified, VERIFICATION_DATABASES } from "./romVerification";
 
 const rom = (

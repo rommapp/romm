@@ -465,29 +465,29 @@ class RomSchema(BaseModel):
     metadatum: RomMetadataSchema
     """The metadata merged from every matched provider, used for filtering and sorting."""
     igdb_metadata: RomIGDBMetadata | None
-    """The raw IGDB metadata. An empty object when there is no match, and null when `with_provider_metadata` is false."""
+    """The raw IGDB metadata. An empty object when there is no match. Included unless `fields` leaves it out. It is one of the largest fields, so leaving it out makes a `GET /api/roms` response much smaller."""
     moby_metadata: RomMobyMetadata | None
-    """The raw MobyGames metadata. An empty object when there is no match, and null when `with_provider_metadata` is false."""
+    """The raw MobyGames metadata. An empty object when there is no match. Included unless `fields` leaves it out. It is one of the largest fields, so leaving it out makes a `GET /api/roms` response much smaller."""
     ss_metadata: RomSSMetadata | None
-    """The raw ScreenScraper metadata. An empty object when there is no match, and null when `with_provider_metadata` is false."""
+    """The raw ScreenScraper metadata. An empty object when there is no match. Included unless `fields` leaves it out. It is one of the largest fields, so leaving it out makes a `GET /api/roms` response much smaller."""
     launchbox_metadata: RomLaunchboxMetadata | None
-    """The raw LaunchBox metadata. An empty object when there is no match, and null when `with_provider_metadata` is false."""
+    """The raw LaunchBox metadata. An empty object when there is no match. Included unless `fields` leaves it out. It is one of the largest fields, so leaving it out makes a `GET /api/roms` response much smaller."""
     hasheous_metadata: RomHasheousMetadata | None
-    """The raw Hasheous metadata. An empty object when there is no match, and null when `with_provider_metadata` is false."""
+    """The raw Hasheous metadata. An empty object when there is no match. Included unless `fields` leaves it out. It is one of the largest fields, so leaving it out makes a `GET /api/roms` response much smaller."""
     flashpoint_metadata: RomFlashpointMetadata | None
-    """The raw Flashpoint Project metadata. An empty object when there is no match, and null when `with_provider_metadata` is false."""
+    """The raw Flashpoint Project metadata. An empty object when there is no match. Included unless `fields` leaves it out. It is one of the largest fields, so leaving it out makes a `GET /api/roms` response much smaller."""
     hltb_metadata: RomHLTBMetadata | None
-    """The raw HowLongToBeat metadata. An empty object when there is no match, and null when `with_provider_metadata` is false."""
+    """The raw HowLongToBeat metadata. An empty object when there is no match. Included unless `fields` leaves it out. It is one of the largest fields, so leaving it out makes a `GET /api/roms` response much smaller."""
     demozoo_metadata: RomDemozooMetadata | None
-    """The raw Demozoo metadata. An empty object when there is no match, and null when `with_provider_metadata` is false."""
+    """The raw Demozoo metadata. An empty object when there is no match. Included unless `fields` leaves it out. It is one of the largest fields, so leaving it out makes a `GET /api/roms` response much smaller."""
     pouet_metadata: RomPouetMetadata | None
-    """The raw Pouët metadata. An empty object when there is no match, and null when `with_provider_metadata` is false."""
+    """The raw Pouët metadata. An empty object when there is no match. Included unless `fields` leaves it out. It is one of the largest fields, so leaving it out makes a `GET /api/roms` response much smaller."""
     csdb_metadata: RomCsdbMetadata | None
-    """The raw CSDb metadata. An empty object when there is no match, and null when `with_provider_metadata` is false."""
+    """The raw CSDb metadata. An empty object when there is no match. Included unless `fields` leaves it out. It is one of the largest fields, so leaving it out makes a `GET /api/roms` response much smaller."""
     steam_metadata: RomSteamMetadata | None
-    """The raw Steam metadata. An empty object when there is no match, and null when `with_provider_metadata` is false."""
+    """The raw Steam metadata. An empty object when there is no match. Included unless `fields` leaves it out. It is one of the largest fields, so leaving it out makes a `GET /api/roms` response much smaller."""
     gamelist_metadata: RomGamelistMetadata | None
-    """The raw ES-DE `gamelist.xml` metadata. An empty object when there is no entry, and null when `with_provider_metadata` is false."""
+    """The raw ES-DE `gamelist.xml` metadata. An empty object when there is no entry. Included unless `fields` leaves it out. It is one of the largest fields, so leaving it out makes a `GET /api/roms` response much smaller."""
     manual_metadata: ManualMetadata | None
     """The metadata the user entered by hand. It takes precedence over provider metadata in `metadatum`."""
 
@@ -678,6 +678,8 @@ PROVIDER_METADATA_FIELDS: Final = (
     "merged_ra_metadata",
 )
 
+ROM_FIELD_GROUPS: Final = {"provider_metadata": frozenset(PROVIDER_METADATA_FIELDS)}
+
 
 class SimpleRomSchema(RomSchema):
     screenshot_path: str | None = None
@@ -692,7 +694,6 @@ class SimpleRomSchema(RomSchema):
         siblings: Sequence[tuple[Rom, bool]] | None = None,
         screenshot_path: str | None = None,
         has_notes: bool | None = None,
-        with_provider_metadata: bool = True,
     ) -> SimpleRomSchema:
         db_rom = cls.populate_properties(db_rom, request, has_notes=has_notes)
         db_rom.screenshot_path = screenshot_path  # type: ignore[attr-defined]
@@ -724,11 +725,7 @@ class SimpleRomSchema(RomSchema):
             SiblingRomSchema.from_rom(s, is_main_sibling=is_main)
             for s, is_main in siblings
         ]
-        schema = cls.model_validate(db_rom)
-        if not with_provider_metadata:
-            # Nulled on the schema, as `db_rom` is session-bound and would be flushed.
-            schema = schema.model_copy(update=dict.fromkeys(PROVIDER_METADATA_FIELDS))
-        return schema
+        return cls.model_validate(db_rom)
 
     @classmethod
     def from_orm_with_factory(cls, db_rom: Rom) -> SimpleRomSchema:

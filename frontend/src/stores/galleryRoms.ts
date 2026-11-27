@@ -31,7 +31,67 @@ import storePlatforms, { type Platform } from "@/stores/platforms";
 import type { ExtractPiniaStoreType } from "@/types";
 import { playtimeHoursToSeconds } from "@/utils/time";
 
-export type SimpleRom = SimpleRomSchema;
+/** The rom fields a gallery card reads. The gallery requests these alone, so
+ * the rest of a gallery rom may be missing. */
+export const ROM_CARD_FIELDS = [
+  "created_at",
+  "csdb_id",
+  "demozoo_id",
+  "flashpoint_id",
+  "fs_extension",
+  "fs_name",
+  "fs_name_no_ext",
+  "fs_name_no_tags",
+  "fs_size_bytes",
+  "gamelist_id",
+  "gamelist_metadata",
+  "has_file_on_disk",
+  "has_jsdos_bundle",
+  "has_nested_single_file",
+  "has_simple_single_file",
+  "hasheous_id",
+  "hltb_id",
+  "hltb_metadata",
+  "igdb_id",
+  "is_easyrpg_game",
+  "is_identified",
+  "is_identifying",
+  "is_unidentified",
+  "languages",
+  "launchbox_id",
+  "launchbox_metadata",
+  "libretro_id",
+  "metadatum",
+  "moby_id",
+  "name",
+  "name_sort_key",
+  "path_cover_large",
+  "path_cover_small",
+  "path_video",
+  "platform_custom_name",
+  "platform_display_name",
+  "platform_fs_slug",
+  "platform_id",
+  "platform_slug",
+  "pouet_id",
+  "ra_id",
+  "regions",
+  "rom_user",
+  "screenshot_path",
+  "sibling_roms",
+  "ss_id",
+  "ss_metadata",
+  "steam_id",
+  "summary",
+  "updated_at",
+  "url_cover",
+] as const satisfies readonly (keyof SimpleRomSchema)[];
+
+export type SimpleRom = Pick<
+  SimpleRomSchema,
+  (typeof ROM_CARD_FIELDS)[number] | "id"
+> &
+  Partial<Omit<SimpleRomSchema, (typeof ROM_CARD_FIELDS)[number] | "id">>;
 
 /** Sort keys the backend accepts for `/roms` ordering. The handler
  * resolves the column against `Rom`, then `RomMetadata`, then
@@ -442,6 +502,7 @@ export default defineStore("v2GalleryRoms", {
       try {
         const response = await romApi.getRoms({
           ...params,
+          fields: ROM_CARD_FIELDS,
           signal: controller.signal,
         });
         if (!isCurrent()) return false;
@@ -576,7 +637,7 @@ export default defineStore("v2GalleryRoms", {
      * first fetch). Shared by `fetchWindowAt(0)` and the lightweight
      * `fetchInitialMetadata()` bootstrap. */
     _applyMetadata(
-      data: GetRomsResponse,
+      data: Omit<GetRomsResponse, "items">,
       galleryFilter: GalleryFilterStore,
       platformsStore: ReturnType<typeof storePlatforms>,
       sidecars: SidecarOptions = {},
@@ -654,6 +715,7 @@ export default defineStore("v2GalleryRoms", {
           ...params,
           ...sidecars,
           limit: 1,
+          fields: ROM_CARD_FIELDS,
           signal: controller.signal,
         });
         // Re-check that this bootstrap is still the relevant one:
@@ -738,6 +800,7 @@ export default defineStore("v2GalleryRoms", {
           ...params,
           ...(withAggregations ? {} : SKIP_AGGREGATES),
           ...(windowIds ? { romIds: windowIds } : {}),
+          fields: ROM_CARD_FIELDS,
           signal: controller.signal,
         });
         // Re-check identity: invalidateWindows / resetGallery / a context
@@ -958,7 +1021,7 @@ export default defineStore("v2GalleryRoms", {
     },
 
     /** Reconcile the gallery after ROMs are deleted. */
-    remove(roms: SimpleRom[]) {
+    remove(roms: Pick<SimpleRom, "id" | "platform_id">[]) {
       if (this.currentPlatform) {
         const removedFromPlatform = roms.filter(
           (rom) => rom.platform_id === this.currentPlatform?.id,

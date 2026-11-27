@@ -15,6 +15,7 @@ import { useScanProviders } from "@/composables/useScanProviders";
 import { useScanTrigger } from "@/composables/useScanTrigger";
 import { useSnackbar } from "@/composables/useSnackbar";
 import { RAlert, RButton, RDialog, RIcon } from "@/lib";
+import type { SimpleRom as GalleryRom } from "@/stores/galleryRoms";
 import { type SimpleRom } from "@/stores/roms";
 import {
   scanNeedsMetadataSource,
@@ -31,7 +32,7 @@ const show = ref(false);
 // many at once, individual menus pass one. Internally we always
 // normalise to an array so the scan emit groups by platform without
 // branching on the input shape.
-const roms = ref<SimpleRom[]>([]);
+const roms = ref<GalleryRom[]>([]);
 const { startScan } = useScanTrigger();
 
 const {
@@ -106,14 +107,14 @@ const openSingle = (payload: SimpleRom) => {
   roms.value = [payload];
   show.value = true;
 };
-const openBulk = (payload: SimpleRom[]) => {
+const openBulk = (payload: GalleryRom[]) => {
   roms.value = payload;
   show.value = true;
 };
 useEmitterEvent("showRefreshMetadataDialog", openSingle);
 useEmitterEvent("showRefreshMetadataDialogBulk", openBulk);
 
-const singleRom = computed<SimpleRom | null>(() =>
+const singleRom = computed<GalleryRom | null>(() =>
   roms.value.length === 1 ? roms.value[0]! : null,
 );
 const singleRomCover = computed<string | null>(() => {

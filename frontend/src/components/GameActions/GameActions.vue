@@ -20,7 +20,7 @@ import { METRICS } from "@/components/GameActions/metrics";
 import { useBreakpoint } from "@/composables/useBreakpoint";
 import { useGameActions } from "@/composables/useGameActions";
 import { useGridNav } from "@/composables/useGridNav";
-import type { SimpleRom } from "@/stores/roms";
+import type { SimpleRom } from "@/stores/galleryRoms";
 
 defineOptions({ inheritAttrs: false });
 

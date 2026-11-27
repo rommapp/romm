@@ -2,7 +2,7 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import collectionApi from "@/services/api/collection";
 import storeCollections from "@/stores/collections";
-import type { SimpleRom } from "@/stores/roms";
+import type { SimpleRom } from "@/stores/galleryRoms";
 import type { Events } from "@/types/emitter";
 
 export function useFavoriteToggle(emitter?: Emitter<Events>) {

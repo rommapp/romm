@@ -17,9 +17,10 @@ import { useViewTransition } from "@/composables/useViewTransition";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeFormatConversions from "@/stores/formatConversions";
+import type { SimpleRom } from "@/stores/galleryRoms";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
-import type { DetailedRom, SimpleRom } from "@/stores/roms";
+import type { DetailedRom } from "@/stores/roms";
 import { useStreamingStore } from "@/stores/streaming";
 import type { Events } from "@/types/emitter";
 import type { PlayingStatus } from "@/utils";
@@ -309,9 +310,7 @@ export function useGameActions(
   });
 
   function installOnDevice() {
-    const rom = getRom();
-    if (!rom) return;
-    emitter?.emit("showInstallOnDeviceDialog", rom);
+    withFullRom((rom) => emitter?.emit("showInstallOnDeviceDialog", rom));
   }
 
   const canOpenInFlashpoint = computed(() => {
@@ -422,6 +421,20 @@ export function useGameActions(
     return rom ? `/platform/${rom.platform_id}` : null;
   });
 
+  // A gallery rom has only the fields a card reads, so a dialog opens on the whole rom.
+  function withFullRom(
+    open: (rom: Awaited<ReturnType<typeof romApi.getRom>>["data"]) => void,
+  ) {
+    const rom = getRom();
+    if (!rom) return;
+    romApi
+      .getRom({ romId: rom.id })
+      .then(({ data }) => open(data))
+      .catch((error: unknown) =>
+        console.error("Could not load the rom", error),
+      );
+  }
+
   function goToPlatform() {
     const path = platformPath.value;
     if (path) void router.push(path);
@@ -511,9 +524,7 @@ export function useGameActions(
   }
 
   function shareQR() {
-    const rom = getRom();
-    if (!rom) return;
-    emitter?.emit("showQRCodeDialog", rom);
+    withFullRom((rom) => emitter?.emit("showQRCodeDialog", rom));
   }
 
   // Launch the game in installed Flashpoint
@@ -551,9 +562,7 @@ export function useGameActions(
   }
 
   function refreshMetadata() {
-    const rom = getRom();
-    if (!rom) return;
-    emitter?.emit("showRefreshMetadataDialog", rom);
+    withFullRom((rom) => emitter?.emit("showRefreshMetadataDialog", rom));
   }
 
   // Reconciling one rom's files contacts no provider, so it needs no dialog: it goes
@@ -579,15 +588,11 @@ export function useGameActions(
   }
 
   function edit() {
-    const rom = getRom();
-    if (!rom) return;
-    emitter?.emit("showEditRomDialog", rom);
+    withFullRom((rom) => emitter?.emit("showEditRomDialog", rom));
   }
 
   function match() {
-    const rom = getRom();
-    if (!rom) return;
-    emitter?.emit("showMatchRomDialog", rom);
+    withFullRom((rom) => emitter?.emit("showMatchRomDialog", rom));
   }
 
   function remove() {

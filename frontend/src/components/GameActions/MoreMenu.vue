@@ -13,7 +13,7 @@
 import { ref } from "vue";
 import GameActionsList from "@/components/GameActions/GameActionsList.vue";
 import { RMenu } from "@/lib";
-import type { SimpleRom } from "@/stores/roms";
+import type { SimpleRom } from "@/stores/galleryRoms";
 
 defineOptions({ inheritAttrs: false });
 

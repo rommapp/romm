@@ -47,7 +47,7 @@ import { useBreakpoint } from "@/composables/useBreakpoint";
 import { useEmitterEvent } from "@/composables/useEmitterEvent";
 import { GAME_ACTIONS_KEY, useGameActions } from "@/composables/useGameActions";
 import { RDivider, RIcon, RMenu, RMenuItem, RTooltip } from "@/lib";
-import type { SimpleRom } from "@/stores/roms";
+import type { SimpleRom } from "@/stores/galleryRoms";
 import { romStatusMap } from "@/utils";
 import { opensInNewContext } from "@/utils/mouseGestures";
 import {

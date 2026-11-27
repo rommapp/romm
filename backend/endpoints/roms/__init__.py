@@ -50,10 +50,12 @@ from config import (
 )
 from config.config_manager import MetadataMediaType
 from decorators.auth import protected_route
+from endpoints.fields import field_names, field_selection, project_page
 from endpoints.responses import BulkOperationResponse
 from endpoints.responses.base import PAGE_QUERY, BaseModel, LimitOffsetPage, PageParams
 from endpoints.responses.recommendation import SimilarRomSchema
 from endpoints.responses.rom import (
+    ROM_FIELD_GROUPS,
     DetailedRomSchema,
     ManualMetadata,
     RomUserSchema,
@@ -166,6 +168,7 @@ from models.rom import (
     SaveTargetLayout,
     apply_file_stats,
     compute_name_sort_key,
+    provider_columns_read_by,
 )
 from utils import switch
 from utils.background_tasks import fire_and_forget
@@ -638,10 +641,22 @@ def parse_released_days(values: list[str] | None) -> list[tuple[int, int]]:
 ROM_FILTER_QUERY = as_query_dependency(RomFilterParams)
 
 
-@protected_route(router.get, "", [Scope.ROMS_READ])
+ROM_FIELDS = field_selection(SimpleRomSchema, groups=ROM_FIELD_GROUPS)
+WITHOUT_PROVIDER_METADATA = (
+    field_names(SimpleRomSchema) - ROM_FIELD_GROUPS["provider_metadata"]
+)
+
+
+@protected_route(
+    router.get,
+    "",
+    [Scope.ROMS_READ],
+    response_model=CustomLimitOffsetPage[SimpleRomSchema],
+)
 def get_roms(
     request: Request,
     filters: Annotated[RomFilterParams, Depends(ROM_FILTER_QUERY)],
+    selection: Annotated[frozenset[str] | None, Depends(ROM_FIELDS)],
     params: Annotated[PageParams, Depends(PAGE_QUERY)],
     with_char_index: Annotated[
         bool,
@@ -695,18 +710,17 @@ def get_roms(
         ),
     ] = True,
     with_provider_metadata: Annotated[
-        bool,
+        bool | None,
         Query(
+            deprecated=True,
             description=(
-                "Whether to include the raw metadata from each provider, in fields"
-                " such as `igdb_metadata` and `ss_metadata`. Set it to false for a"
-                " smaller response. When false, those fields are null. When true,"
-                " a provider with no match gives an empty object."
-                " `manual_metadata` and the merged `metadatum` are always"
-                " included."
-            )
+                "Deprecated: use `fields`. Set it to false to leave out the raw"
+                " metadata from each provider, such as `igdb_metadata`. It has the"
+                " same effect as a `fields` list without `@provider_metadata`, but"
+                " `fields` can leave out more. If both are given, `fields` is used."
+            ),
         ),
-    ] = True,
+    ] = None,
     order_by: Annotated[
         str,
         Query(
@@ -771,27 +785,51 @@ def get_roms(
             ),
         ),
     ] = None,
-) -> CustomLimitOffsetPage[SimpleRomSchema]:
-    """Retrieve a page of roms, or the roms named by `rom_ids`."""
+) -> CustomLimitOffsetPage[SimpleRomSchema] | Response:
+    """Retrieve a page of roms, or the roms named by `rom_ids`. Name the fields you read in `fields` to get much smaller responses."""
     perms = get_permissions(request)
+    if selection is None and with_provider_metadata is False:
+        selection = WITHOUT_PROVIDER_METADATA
+
+    def reads(field: str) -> bool:
+        return selection is None or field in selection
+
+    # Naming `files` in `fields` also loads each rom's files.
+    load_files = with_files or (selection is not None and "files" in selection)
+
+    def _respond(
+        page: CustomLimitOffsetPage[SimpleRomSchema],
+    ) -> CustomLimitOffsetPage[SimpleRomSchema] | Response:
+        if selection is None:
+            return page
+        # The response model would reject the items that leave fields out.
+        return project_page(page, SimpleRomSchema, selection)
 
     def _transform(session: Session, items: Sequence[Rom]) -> list[SimpleRomSchema]:
         item_ids = [i.id for i in items]
         files_by_rom = (
             db_rom_handler.get_files_for_roms(item_ids, session=session)
-            if with_files
+            if load_files
             else {}
         )
-        siblings_by_rom = db_rom_handler.get_siblings_for_roms(
-            item_ids,
-            user_id=request.user.id,
-            session=session,
-            visibility=perms.rom_visibility,
+        siblings_by_rom = (
+            db_rom_handler.get_siblings_for_roms(
+                item_ids,
+                user_id=request.user.id,
+                session=session,
+                visibility=perms.rom_visibility,
+            )
+            if reads("sibling_roms")
+            else {}
         )
-        rom_ids_with_notes = db_rom_handler.get_rom_ids_with_notes(
-            item_ids, user_id=request.user.id, session=session
+        rom_ids_with_notes = (
+            db_rom_handler.get_rom_ids_with_notes(
+                item_ids, user_id=request.user.id, session=session
+            )
+            if reads("has_notes")
+            else set()
         )
-        if with_files:
+        if load_files:
             for item in items:
                 apply_file_stats(item, files_by_rom.get(item.id, []))
 
@@ -814,7 +852,6 @@ def get_roms(
                 siblings=siblings_by_rom.get(item.id, []),
                 screenshot_path=screenshot_by_rom.get(item.id),
                 has_notes=item.id in rom_ids_with_notes,
-                with_provider_metadata=with_provider_metadata,
             )
             for item in items
         ]
@@ -824,13 +861,16 @@ def get_roms(
             return []
         # The access check on caller-supplied ids; paged ids already passed the
         # filters and the sibling grouping, so neither is re-run.
+        provider_columns = provider_columns_read_by(selection)
         page_rows = session.scalars(
             db_rom_handler.get_page_rows_query(
                 page_ids,
                 visibility=perms.rom_visibility,
-                include_file_stats=not with_files,
+                include_file_stats=not load_files,
+                provider_columns=provider_columns,
             )
         ).all()
+        db_rom_handler.blank_unread_provider_columns(page_rows, provider_columns)
         rows_by_id = {rom.id: rom for rom in page_rows}
         return _transform(session, [rows_by_id[i] for i in page_ids if i in rows_by_id])
 
@@ -853,14 +893,16 @@ def get_roms(
     if rom_ids is not None:
         # The caller already holds the ordered list, so nothing spans the set.
         with sync_session.begin() as session:
-            return CustomLimitOffsetPage(
-                items=_hydrate(session, rom_ids),
-                total=None,
-                limit=len(rom_ids),
-                offset=0,
-                char_index={},
-                rom_id_index=[],
-                filter_values=empty_filter_values,
+            return _respond(
+                CustomLimitOffsetPage(
+                    items=_hydrate(session, rom_ids),
+                    total=None,
+                    limit=len(rom_ids),
+                    offset=0,
+                    char_index={},
+                    rom_id_index=[],
+                    filter_values=empty_filter_values,
+                )
             )
 
     parsed_released_days = parse_released_days(released_days)
@@ -1009,14 +1051,16 @@ def get_roms(
                 ).all()
             )
 
-        return CustomLimitOffsetPage(
-            items=_hydrate(session, page_ids),
-            total=resolve_total(),
-            limit=params.limit,
-            offset=params.offset,
-            char_index=char_index_dict,
-            rom_id_index=rom_id_index,
-            filter_values=filter_values,
+        return _respond(
+            CustomLimitOffsetPage(
+                items=_hydrate(session, page_ids),
+                total=resolve_total(),
+                limit=params.limit,
+                offset=params.offset,
+                char_index=char_index_dict,
+                rom_id_index=rom_id_index,
+                filter_values=filter_values,
+            )
         )
 
 

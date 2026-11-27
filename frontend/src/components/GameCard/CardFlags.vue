@@ -8,7 +8,7 @@
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useUISettings } from "@/composables/useUISettings";
-import type { SimpleRom } from "@/stores/roms";
+import type { SimpleRom } from "@/stores/galleryRoms";
 import { languageToEmoji, regionToEmoji } from "@/utils";
 
 const props = defineProps<{ rom: SimpleRom }>();

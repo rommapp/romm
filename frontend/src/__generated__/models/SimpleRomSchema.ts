@@ -112,51 +112,51 @@ export type SimpleRomSchema = {
      */
     metadatum: RomMetadataSchema;
     /**
-     * The raw IGDB metadata. An empty object when there is no match, and null when `with_provider_metadata` is false.
+     * The raw IGDB metadata. An empty object when there is no match. Not in the response when `fields` leaves it out.
      */
     igdb_metadata: (RomIGDBMetadata | null);
     /**
-     * The raw MobyGames metadata. An empty object when there is no match, and null when `with_provider_metadata` is false.
+     * The raw MobyGames metadata. An empty object when there is no match. Not in the response when `fields` leaves it out.
      */
     moby_metadata: (RomMobyMetadata | null);
     /**
-     * The raw ScreenScraper metadata. An empty object when there is no match, and null when `with_provider_metadata` is false.
+     * The raw ScreenScraper metadata. An empty object when there is no match. Not in the response when `fields` leaves it out.
      */
     ss_metadata: (RomSSMetadata | null);
     /**
-     * The raw LaunchBox metadata. An empty object when there is no match, and null when `with_provider_metadata` is false.
+     * The raw LaunchBox metadata. An empty object when there is no match. Not in the response when `fields` leaves it out.
      */
     launchbox_metadata: (RomLaunchboxMetadata | null);
     /**
-     * The raw Hasheous metadata. An empty object when there is no match, and null when `with_provider_metadata` is false.
+     * The raw Hasheous metadata. An empty object when there is no match. Not in the response when `fields` leaves it out.
      */
     hasheous_metadata: (RomHasheousMetadata | null);
     /**
-     * The raw Flashpoint Project metadata. An empty object when there is no match, and null when `with_provider_metadata` is false.
+     * The raw Flashpoint Project metadata. An empty object when there is no match. Not in the response when `fields` leaves it out.
      */
     flashpoint_metadata: (RomFlashpointMetadata | null);
     /**
-     * The raw HowLongToBeat metadata. An empty object when there is no match, and null when `with_provider_metadata` is false.
+     * The raw HowLongToBeat metadata. An empty object when there is no match. Not in the response when `fields` leaves it out.
      */
     hltb_metadata: (RomHLTBMetadata | null);
     /**
-     * The raw Demozoo metadata. An empty object when there is no match, and null when `with_provider_metadata` is false.
+     * The raw Demozoo metadata. An empty object when there is no match. Not in the response when `fields` leaves it out.
      */
     demozoo_metadata: (RomDemozooMetadata | null);
     /**
-     * The raw Pouët metadata. An empty object when there is no match, and null when `with_provider_metadata` is false.
+     * The raw Pouët metadata. An empty object when there is no match. Not in the response when `fields` leaves it out.
      */
     pouet_metadata: (RomPouetMetadata | null);
     /**
-     * The raw CSDb metadata. An empty object when there is no match, and null when `with_provider_metadata` is false.
+     * The raw CSDb metadata. An empty object when there is no match. Not in the response when `fields` leaves it out.
      */
     csdb_metadata: (RomCsdbMetadata | null);
     /**
-     * The raw Steam metadata. An empty object when there is no match, and null when `with_provider_metadata` is false.
+     * The raw Steam metadata. An empty object when there is no match. Not in the response when `fields` leaves it out.
      */
     steam_metadata: (RomSteamMetadata | null);
     /**
-     * The raw ES-DE `gamelist.xml` metadata. An empty object when there is no entry, and null when `with_provider_metadata` is false.
+     * The raw ES-DE `gamelist.xml` metadata. An empty object when there is no entry. Not in the response when `fields` leaves it out.
      */
     gamelist_metadata: (RomGamelistMetadata | null);
     /**

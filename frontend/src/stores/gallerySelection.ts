@@ -28,7 +28,7 @@
 //     decide so an in-page filter change can preserve it.
 import { defineStore } from "pinia";
 import { toRaw } from "vue";
-import type { SimpleRom } from "@/stores/roms";
+import type { SimpleRom } from "@/stores/galleryRoms";
 
 interface State {
   selected: Map<number, SimpleRom>;

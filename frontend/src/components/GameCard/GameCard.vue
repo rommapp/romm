@@ -55,8 +55,8 @@ import { useViewTransition } from "@/composables/useViewTransition";
 import RCheckbox from "@/lib/forms/RCheckbox/RCheckbox.vue";
 import RButton from "@/lib/primitives/RButton/RButton.vue";
 import RTooltip from "@/lib/structural/RTooltip/RTooltip.vue";
+import type { SimpleRom } from "@/stores/galleryRoms";
 import storeGallerySelection from "@/stores/gallerySelection";
-import type { SimpleRom } from "@/stores/roms";
 
 defineOptions({ inheritAttrs: false });
 

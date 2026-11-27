@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import storeGalleryFilter from "@/stores/galleryFilter";
 // Import after the mock so the store binds to the mocked rom API.
 import storeGalleryRoms, {
+  ROM_CARD_FIELDS,
   orderSupportsLetters,
   SELECT_ALL_PAGE_SIZE,
   type GalleryOrderKey,
@@ -55,6 +56,15 @@ describe("galleryRoms windowed fetch", () => {
     store.syncVisibleWindows([0]);
 
     expect(getRoms.mock.calls[0]![0].orderBy).toBe("");
+  });
+
+  it("asks for the card fields only", () => {
+    getRoms.mockImplementation(() => Promise.resolve(windowResponse()));
+    const store = storeGalleryRoms();
+
+    store.syncVisibleWindows([0]);
+
+    expect(getRoms.mock.calls[0]![0].fields).toBe(ROM_CARD_FIELDS);
   });
 
   it("collapses many visible positions into one request per 72-item window", async () => {

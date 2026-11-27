@@ -2,8 +2,9 @@ import cronstrue from "cronstrue";
 import { formatDistanceToNow } from "date-fns";
 import type { RomFileSchema, RomUserStatus } from "@/__generated__";
 import type { Config } from "@/stores/config";
+import type { SimpleRom } from "@/stores/galleryRoms";
 import type { Heartbeat } from "@/stores/heartbeat";
-import type { DetailedRom, SimpleRom } from "@/stores/roms";
+import type { DetailedRom } from "@/stores/roms";
 
 export {
   getDownloadFileName,

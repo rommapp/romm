@@ -11,7 +11,8 @@ import { useRoute } from "vue-router";
 import { useBackgroundArt } from "@/composables/useBackgroundArt";
 import { usePageTitle } from "@/composables/usePageTitle";
 import storeGalleryRoms from "@/stores/galleryRoms";
-import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
+import type { SimpleRom } from "@/stores/galleryRoms";
+import storeRoms, { type DetailedRom } from "@/stores/roms";
 
 export function usePlayerHero(rom: Ref<DetailedRom | null>): {
   romId: number;

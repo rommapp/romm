@@ -254,3 +254,21 @@ describe("getRoms by id", () => {
     expect(get.mock.calls[0]![1].params.rom_ids).toBeUndefined();
   });
 });
+
+describe("getRoms fields", () => {
+  beforeEach(() => get.mockReset().mockResolvedValue({ data: { items: [] } }));
+
+  it("sends the named fields as one comma-separated parameter", async () => {
+    await romApi.getRoms({ fields: ["name", "summary"] });
+
+    expect(get.mock.calls[0]![1].params.fields).toBe("name,summary");
+  });
+
+  it("sends no fields parameter when none are named", async () => {
+    await romApi.getRoms({});
+    await romApi.getRoms({ fields: [] });
+
+    expect(get.mock.calls[0]![1].params.fields).toBeUndefined();
+    expect(get.mock.calls[1]![1].params.fields).toBeUndefined();
+  });
+});

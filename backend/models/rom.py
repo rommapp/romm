@@ -90,6 +90,34 @@ PROVIDER_ALTERNATIVE_NAME_SOURCES = (
     ("moby_metadata", "alternate_titles"),
     ("ss_metadata", "alternative_names"),
 )
+# The provider columns each schema field reads: a provider's field reads its own
+# column, and the derived fields read the columns they are computed from.
+FIELD_PROVIDER_COLUMNS: Final = {
+    **{
+        column: (column,)
+        for column in PROVIDER_METADATA_COLUMNS
+        if column != "ra_metadata"
+    },
+    "merged_ra_metadata": ("ra_metadata",),
+    "path_video": ("ss_metadata", "gamelist_metadata", "launchbox_metadata"),
+    "youtube_video_id": (
+        "igdb_metadata",
+        "launchbox_metadata",
+        "demozoo_metadata",
+        "pouet_metadata",
+    ),
+    "alternative_names": tuple(c for c, _ in PROVIDER_ALTERNATIVE_NAME_SOURCES),
+}
+
+
+def provider_columns_read_by(fields: Iterable[str] | None) -> tuple[str, ...]:
+    """The provider metadata columns a response with `fields` has to load, or all of them when `fields` is None."""
+    if fields is None:
+        return PROVIDER_METADATA_COLUMNS
+    needed = {c for f in fields for c in FIELD_PROVIDER_COLUMNS.get(f, ())}
+    return tuple(c for c in PROVIDER_METADATA_COLUMNS if c in needed)
+
+
 MANUAL_ALTERNATIVE_NAME_SOURCE = ("manual_metadata", "alternative_names")
 ALTERNATIVE_NAME_SOURCES = (
     MANUAL_ALTERNATIVE_NAME_SOURCE,

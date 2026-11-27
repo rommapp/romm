@@ -140,6 +140,8 @@ export const METADATA_SOURCE_INFO: ReadonlyMap<
 ]);
 
 /** Returns the providers whose id field is populated on the given ROM. */
-export function activeProviders(rom: SimpleRom): MetadataProvider[] {
+export function activeProviders(
+  rom: Partial<Pick<SimpleRom, ProviderIdKey>>,
+): MetadataProvider[] {
   return METADATA_PROVIDERS.filter((p) => Boolean(rom[p.key]));
 }

@@ -84,8 +84,9 @@ import streamingApi, {
 } from "@/services/api/streaming";
 import storeAuth from "@/stores/auth";
 import storeGalleryRoms from "@/stores/galleryRoms";
+import type { SimpleRom } from "@/stores/galleryRoms";
 import storeHeartbeat from "@/stores/heartbeat";
-import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
+import storeRoms, { type DetailedRom } from "@/stores/roms";
 import {
   type SessionStatus,
   type SessionTermination,

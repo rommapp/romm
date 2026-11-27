@@ -10,7 +10,8 @@ import { usePlayFocus } from "@/composables/usePlayFocus";
 import { usePlayerNav } from "@/composables/usePlayerNav";
 import { useStageActive } from "@/composables/useStageActive";
 import { RButton, RCard, RSpinner } from "@/lib";
-import type { DetailedRom, SimpleRom } from "@/stores/roms";
+import type { SimpleRom } from "@/stores/galleryRoms";
+import type { DetailedRom } from "@/stores/roms";
 
 interface Props {
   /** Full rom once loaded, else the cover-only seed during the morph-in. */

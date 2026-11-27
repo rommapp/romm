@@ -311,7 +311,7 @@ export default defineStore("collections", {
     getVirtualCollection(virtualCollectionId: string) {
       return this.virtualCollections.find((p) => p.id === virtualCollectionId);
     },
-    isFavorite(rom: SimpleRom) {
+    isFavorite(rom: Pick<SimpleRom, "id">) {
       return this.favoriteCollection?.rom_ids?.includes(rom.id);
     },
     reset() {

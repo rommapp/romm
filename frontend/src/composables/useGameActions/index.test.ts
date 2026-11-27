@@ -1,3 +1,4 @@
+import { flushPromises } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActionKey } from "@/__generated__";
 import storeFormatConversions from "@/stores/formatConversions";
@@ -18,6 +19,7 @@ const snackbarInfo = vi.fn();
 const snackbarError = vi.fn();
 const probeFormatDownload = vi.fn();
 const downloadRom = vi.fn();
+const getRom = vi.fn();
 const confirmProtectedLaunch = { value: true };
 const canPlayEJS = { value: true };
 const canPlayJsDos = { value: false };
@@ -57,6 +59,7 @@ vi.mock("@/services/api/rom", () => ({
     updateUserRomProps: vi.fn(),
     probeFormatDownload: (href: string) => probeFormatDownload(href),
     downloadRom: (opts: unknown) => downloadRom(opts),
+    getRom: (opts: unknown) => getRom(opts),
   },
 }));
 
@@ -184,6 +187,7 @@ function romWithStatus(
 beforeEach(() => {
   probeFormatDownload.mockReset();
   downloadRom.mockReset();
+  getRom.mockReset();
   clipboardCopy.mockReset();
   emitterEmit.mockReset();
   confirmProtectedLaunch.value = true;
@@ -807,6 +811,34 @@ describe("useGameActions.copyDownloadLink", () => {
     expect(emitterEmit).toHaveBeenCalledWith(
       "showCopyDownloadLinkDialog",
       LINK,
+    );
+  });
+});
+
+describe("useGameActions.edit", () => {
+  it("opens the dialog on the whole rom, fetched by id", async () => {
+    const whole = { ...romWithStatus(null), summary: "the whole rom" };
+    getRom.mockResolvedValue({ data: whole });
+    const actions = useGameActions(() => romWithStatus(null));
+
+    actions.edit();
+    await flushPromises();
+
+    expect(getRom).toHaveBeenCalledWith({ romId: 1 });
+    expect(emitterEmit).toHaveBeenCalledWith("showEditRomDialog", whole);
+  });
+
+  it("opens nothing when the rom cannot be fetched", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    getRom.mockRejectedValue(new Error("offline"));
+    const actions = useGameActions(() => romWithStatus(null));
+
+    actions.edit();
+    await flushPromises();
+
+    expect(emitterEmit).not.toHaveBeenCalledWith(
+      "showEditRomDialog",
+      expect.anything(),
     );
   });
 });

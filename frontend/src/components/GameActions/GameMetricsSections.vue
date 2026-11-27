@@ -10,7 +10,7 @@ import MetricSection from "@/components/GameActions/MetricSection.vue";
 import { METRICS } from "@/components/GameActions/metrics";
 import { useGameActions } from "@/composables/useGameActions";
 import { RDivider } from "@/lib";
-import type { SimpleRom } from "@/stores/roms";
+import type { SimpleRom } from "@/stores/galleryRoms";
 
 defineOptions({ inheritAttrs: false });
 

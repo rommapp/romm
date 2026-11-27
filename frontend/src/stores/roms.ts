@@ -47,7 +47,7 @@ export default defineStore("roms", {
     },
     /** Spread `rom` over the cached record so its detailed-only fields
      * survive a SimpleRom write. */
-    mergeIntoDetailedRom(rom: SimpleRom) {
+    mergeIntoDetailedRom(rom: Pick<SimpleRom, "id"> & Partial<SimpleRom>) {
       if (this.currentRom?.id === rom.id) {
         this.currentRom = { ...this.currentRom, ...rom };
       }
@@ -90,7 +90,7 @@ export default defineStore("roms", {
       this.continuePlayingRoms = [rom, ...this.continuePlayingRoms];
       void cachedApiService.clearRecentPlayedRomsCache();
     },
-    removeFromContinuePlaying(rom: SimpleRom) {
+    removeFromContinuePlaying(rom: Pick<SimpleRom, "id">) {
       this.continuePlayingRoms = this.continuePlayingRoms.filter(
         (value) => value.id !== rom.id,
       );

@@ -11,9 +11,10 @@
 import romApi from "@/services/api/rom";
 import storeCollections from "@/stores/collections";
 import storeGalleryFilter from "@/stores/galleryFilter";
-import storeGalleryRoms, { type GalleryOrderKey } from "@/stores/galleryRoms";
+import storeGalleryRoms from "@/stores/galleryRoms";
+import type { SimpleRom, GalleryOrderKey } from "@/stores/galleryRoms";
 import storeGallerySelection from "@/stores/gallerySelection";
-import storeRoms, { type DetailedRom, type SimpleRom } from "@/stores/roms";
+import storeRoms, { type DetailedRom } from "@/stores/roms";
 
 /** The value the gallery is ordered by, per sort key. Declared as a full
  * `Record` so a new `GalleryOrderKey` fails to compile until it's handled
@@ -32,8 +33,11 @@ const SORT_VALUE: Record<GalleryOrderKey, (rom: SimpleRom) => unknown> = {
   last_played: (rom) => rom.rom_user?.last_played,
 };
 
-const replaceById = (roms: SimpleRom[], rom: SimpleRom) =>
-  roms.map((cached) => (cached.id === rom.id ? rom : cached));
+const replaceById = <T extends Pick<SimpleRom, "id">>(
+  roms: T[],
+  rom: Pick<T, "id"> & Partial<T>,
+) =>
+  roms.map((cached) => (cached.id === rom.id ? { ...cached, ...rom } : cached));
 
 export function useRomSync() {
   const romsStore = storeRoms();
@@ -74,7 +78,7 @@ export function useRomSync() {
 
   /** Drop ROMs that have left the current view from the gallery cache and the
    * selection. Callers that delete a ROM outright must also prune Home's rows. */
-  function removeCachedRoms(roms: SimpleRom[]) {
+  function removeCachedRoms(roms: Pick<SimpleRom, "id" | "platform_id">[]) {
     gallerySelection.removeIds(roms.map((rom) => rom.id));
     galleryRomsStore.remove(roms);
   }

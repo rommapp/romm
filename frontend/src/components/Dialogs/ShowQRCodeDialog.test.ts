@@ -1,9 +1,9 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import mitt, { type Emitter } from "mitt";
 import { describe, expect, it, vi } from "vitest";
-import { rom } from "@/components/Gallery/listRowFixture";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import { romFixture as rom } from "@/utils/rom.fixtures";
 import ShowQRCodeDialog from "./ShowQRCodeDialog.vue";
 
 // Each encode waits for releaseQR() so a test can look between the link

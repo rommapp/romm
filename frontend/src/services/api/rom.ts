@@ -1,4 +1,4 @@
-import type { AxiosProgressEvent } from "axios";
+import type { AxiosProgressEvent, AxiosResponse } from "axios";
 import Bowser from "bowser";
 import type {
   Body_delete_roms_api_roms_delete_post as DeleteRomsInput,
@@ -238,6 +238,9 @@ export interface GetRomsParams {
   /** Load exactly these roms, in this order; the backend skips the filtered
    * query, the sidecars and the total. */
   romIds?: number[] | null;
+  /** The rom fields to return, plus `id`. The other fields are left out of
+   * each item, and the backend skips what only they need. */
+  fields?: readonly (keyof SimpleRom)[] | null;
   // Cancel an in-flight request
   signal?: AbortSignal;
 }
@@ -302,6 +305,7 @@ export function buildGetRomsQuery({
   withRomIdIndex = undefined,
   withTotal = undefined,
   romIds = null,
+  fields = null,
 }: Omit<GetRomsParams, "signal">) {
   return {
     platform_ids:
@@ -448,9 +452,21 @@ export function buildGetRomsQuery({
       : {}),
     ...(withTotal !== undefined ? { with_total: withTotal } : {}),
     rom_ids: romIds && romIds.length > 0 ? romIds : undefined,
+    fields: fields && fields.length > 0 ? fields.join(",") : undefined,
   };
 }
 
+// With `fields`, an item has only those fields and `id`.
+function getRoms<K extends keyof SimpleRom>(
+  params: GetRomsParams & { fields: readonly K[] },
+): Promise<
+  AxiosResponse<
+    Omit<GetRomsResponse, "items"> & { items: Pick<SimpleRom, K | "id">[] }
+  >
+>;
+function getRoms(
+  params: GetRomsParams,
+): Promise<AxiosResponse<GetRomsResponse>>;
 async function getRoms({ signal, ...params }: GetRomsParams) {
   return api.get<GetRomsResponse>(`/roms`, {
     params: buildGetRomsQuery(params),
@@ -640,7 +656,7 @@ async function downloadRom({
   fileIDs = [],
   format,
 }: {
-  rom: SimpleRom;
+  rom: Parameters<typeof getDownloadPath>[0]["rom"];
   fileIDs?: number[];
   format?: string;
 }) {
@@ -1023,7 +1039,7 @@ async function deleteRoms({
   roms,
   deleteFromFs = [],
 }: {
-  roms: SimpleRom[];
+  roms: Pick<SimpleRom, "id">[];
   deleteFromFs: number[];
 }) {
   const payload: DeleteRomsInput = {

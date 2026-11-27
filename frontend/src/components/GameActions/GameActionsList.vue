@@ -3,7 +3,7 @@ import { computed, toRef } from "vue";
 import { useI18n } from "vue-i18n";
 import { useGameActions } from "@/composables/useGameActions";
 import { RDivider, RMenuItem } from "@/lib";
-import type { SimpleRom } from "@/stores/roms";
+import type { SimpleRom } from "@/stores/galleryRoms";
 
 defineOptions({ inheritAttrs: false });
 

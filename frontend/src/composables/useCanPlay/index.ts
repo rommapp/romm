@@ -14,9 +14,9 @@ import { storeToRefs } from "pinia";
 import { computed, type ComputedRef } from "vue";
 import { useCan } from "@/composables/useCan";
 import storeConfig from "@/stores/config";
+import type { SimpleRom } from "@/stores/galleryRoms";
 import storeHeartbeat from "@/stores/heartbeat";
 import { useNativeStore } from "@/stores/native";
-import type { SimpleRom } from "@/stores/roms";
 import { useStreamingStore } from "@/stores/streaming";
 import {
   hasJsDosBundle,

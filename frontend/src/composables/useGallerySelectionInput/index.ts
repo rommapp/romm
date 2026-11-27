@@ -26,8 +26,8 @@
 // press state inside the composable keeps the GameCard / GameListRow
 // markup free of pointer-tracking boilerplate.
 import storeGalleryRoms from "@/stores/galleryRoms";
+import type { SimpleRom } from "@/stores/galleryRoms";
 import storeGallerySelection from "@/stores/gallerySelection";
-import type { SimpleRom } from "@/stores/roms";
 
 const LONG_PRESS_MS = 500;
 const LONG_PRESS_MOVE_TOLERANCE_PX = 8;

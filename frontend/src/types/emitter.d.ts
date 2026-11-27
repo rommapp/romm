@@ -5,6 +5,7 @@ import type {
 } from "@/__generated__";
 import type { ClientTokenSchema } from "@/services/api/client-token";
 import type { Collection, SmartCollection } from "@/stores/collections";
+import type { SimpleRom as GalleryRom } from "@/stores/galleryRoms";
 import type { Platform } from "@/stores/platforms";
 import type { DetailedRom, SimpleRom } from "@/stores/roms";
 import type { User } from "@/stores/users";
@@ -27,7 +28,7 @@ export type Events = {
   showCreateCollectionDialog: null;
   showCreateSmartCollectionDialog: null;
   /** Opens ManageCollectionsDialog with the given selection. */
-  showManageCollectionsDialog: SimpleRom[];
+  showManageCollectionsDialog: GalleryRom[];
   /** v2: fired by ManageCollectionsDialog when it closes, so the
    *  GameActionButton that opened it can drop its pinned-hover state. */
   closeManageCollectionsDialog: null;
@@ -49,9 +50,9 @@ export type Events = {
   showRefreshMetadataDialog: SimpleRom;
   /** Bulk refresh of multiple ROMs from the SelectionBar. The
    * RefreshMetadataDialog listens to both this and the single event. */
-  showRefreshMetadataDialogBulk: SimpleRom[];
+  showRefreshMetadataDialogBulk: GalleryRom[];
   showCopyDownloadLinkDialog: string;
-  showDeleteRomDialog: SimpleRom[];
+  showDeleteRomDialog: GalleryRom[];
   showUploadRomDialog: Platform | null;
   showAddPhysicalGameDialog: Platform | null;
   showDeleteFirmwareDialog: FirmwareSchema[];

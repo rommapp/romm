@@ -36,7 +36,7 @@ import storeCollections, {
   type CollectionType,
 } from "@/stores/collections";
 import storeGalleryRoms from "@/stores/galleryRoms";
-import type { SimpleRom } from "@/stores/roms";
+import type { SimpleRom } from "@/stores/galleryRoms";
 import type { Events } from "@/types/emitter";
 import { collectionCoverList } from "@/utils/collectionCovers";
 
