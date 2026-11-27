@@ -712,16 +712,14 @@ def get_roms(
     with_provider_metadata: Annotated[
         bool,
         Query(
-            deprecated=True,
             description=(
-                "Deprecated: use `fields`. Whether to include the raw metadata from"
-                " each provider, in fields such as `igdb_metadata` and"
-                " `ss_metadata`. Set it to false for a smaller response. When"
-                " false, those fields are null. When true, a provider with no"
-                " match gives an empty object. `manual_metadata` and the merged"
-                " `metadatum` are always included. If `fields` is given, it is"
-                " used instead."
-            ),
+                "Whether to include the raw metadata from each provider, in fields"
+                " such as `igdb_metadata` and `ss_metadata`. Set it to false for a"
+                " smaller response. When false, those fields are null. When true,"
+                " a provider with no match gives an empty object."
+                " `manual_metadata` and the merged `metadatum` are always"
+                " included. If `fields` is given, it is used instead."
+            )
         ),
     ] = True,
     order_by: Annotated[
@@ -771,7 +769,7 @@ def get_roms(
             description=(
                 "Whether to include each rom's `files`: the files that make it up,"
                 " with their sizes and hashes. Off by default, since lists rarely"
-                " need them."
+                " need them. If `fields` is given, it is used instead."
             )
         ),
     ] = False,
@@ -796,8 +794,7 @@ def get_roms(
     def reads(field: str) -> bool:
         return selection is None or field in selection
 
-    # Naming `files` in `fields` also loads each rom's files.
-    load_files = with_files or (selection is not None and "files" in selection)
+    load_files = with_files if selection is None else "files" in selection
 
     def _respond(
         page: CustomLimitOffsetPage[SimpleRomSchema],

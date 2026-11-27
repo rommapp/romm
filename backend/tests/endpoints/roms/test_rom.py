@@ -706,6 +706,46 @@ def test_get_roms_fields_prefers_fields_over_with_provider_metadata(
     assert set(item) == {"id", "name", "igdb_metadata"}
 
 
+def _add_file(rom: Rom, platform: Platform) -> None:
+    db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="test_rom.zip",
+            file_path=f"{platform.slug}/roms",
+            file_size_bytes=1024,
+            last_modified=1700000000.0,
+        )
+    )
+
+
+def test_get_roms_fields_naming_files_loads_them_without_with_files(
+    client: TestClient, access_token: str, rom: Rom, platform: Platform
+) -> None:
+    _add_file(rom, platform)
+
+    (item,) = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"platform_id": platform.id, "fields": "files"},
+    ).json()["items"]
+
+    assert [f["file_name"] for f in item["files"]] == ["test_rom.zip"]
+
+
+def test_get_roms_fields_without_files_ignores_with_files(
+    client: TestClient, access_token: str, rom: Rom, platform: Platform
+) -> None:
+    _add_file(rom, platform)
+
+    (item,) = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"platform_id": platform.id, "fields": "name", "with_files": True},
+    ).json()["items"]
+
+    assert set(item) == {"id", "name"}
+
+
 def test_get_roms_sorted_by_user_field_keeps_all_roms(
     client: TestClient,
     access_token: str,
