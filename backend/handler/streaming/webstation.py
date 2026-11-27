@@ -380,28 +380,19 @@ _FIRMWARE_BUCKETS = ("placed", "unchanged", "kept", "skipped", "failed")
 
 
 def _log_firmware_report(
-    container: ResolvedContainer, emulator: str, report: Any
+    container: ResolvedContainer, emulator: str, report: object
 ) -> None:
-    """Log the broker's firmware report: counts always, failures as a warning.
-
-    A kept file is the player's own and expected on every launch, so only a
-    failed one is worth a warning. The reason for each is in the broker log.
-    The broker always sends an object with all five lists; anything else (not
-    an object, a list missing, or something else in its place) is warned
-    about as unreadable.
-    """
-    buckets = (
-        {key: report.get(key) for key in _FIRMWARE_BUCKETS}
-        if isinstance(report, dict)
-        else {}
-    )
-    if not buckets or not all(isinstance(value, list) for value in buckets.values()):
+    """Log the broker's firmware report: counts always, failures as a warning."""
+    if not isinstance(report, dict) or not all(
+        isinstance(report.get(key), list) for key in _FIRMWARE_BUCKETS
+    ):
         log.warning(
-            "broker on %s sent a firmware report RomM cannot read for %s",
+            "broker on %s sent an unreadable firmware report for %s",
             container.key,
             emulator,
         )
         return
+    buckets: dict[str, list[Any]] = {key: report[key] for key in _FIRMWARE_BUCKETS}
     counts = {key: len(value) for key, value in buckets.items()}
     message = "broker firmware on %s for %s, %s"
     if any(counts.values()):

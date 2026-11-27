@@ -13493,7 +13493,7 @@ def test_a_report_that_is_not_five_lists_is_warned_about(caplog, report):
 
     warnings = [r for r in records if r.levelno == logging.WARNING]
     assert len(warnings) == 1
-    assert "firmware report RomM cannot read" in warnings[0].getMessage()
+    assert "unreadable firmware report" in warnings[0].getMessage()
     assert not [r for r in records if "broker firmware on" in r.getMessage()]
 
 
@@ -13529,7 +13529,9 @@ def test_the_counts_line_names_only_the_report_buckets(caplog):
     lines = [r for r in records if "broker firmware on" in r.getMessage()]
     assert len(lines) == 1
     assert lines[0].levelno == logging.INFO
-    assert lines[0].args[2] == {
+    args = lines[0].args
+    assert isinstance(args, tuple)
+    assert args[2] == {
         "placed": 1,
         "unchanged": 0,
         "kept": 0,
