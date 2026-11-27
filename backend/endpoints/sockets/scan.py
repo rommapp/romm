@@ -694,6 +694,11 @@ async def _identify_rom(
             sha1_hash=parsed_rom_files.sha1_hash,
             title_id=parsed_rom_files.identity.title_id,
         )
+        if missing_match is None:
+            missing_match = db_rom_handler.get_matching_missing_rom_by_fs_name(
+                platform_id=platform.id,
+                fs_name=fs_rom["fs_name"],
+            )
         if missing_match is not None:
             # Move the existing entry onto the new file, clearing its missing state.
             rom = db_rom_handler.update_rom(

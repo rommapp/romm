@@ -4031,6 +4031,27 @@ class DBRomsHandler(DBBaseHandler):
 
         return None
 
+    @begin_session
+    def get_matching_missing_rom_by_fs_name(
+        self,
+        platform_id: int,
+        fs_name: str,
+        session: Session = INJECTED_SESSION,
+    ) -> Rom | None:
+        """Find a unique missing ROM with the same filename on a platform."""
+        matches = session.scalars(
+            select(Rom)
+            .where(
+                and_(
+                    Rom.platform_id == platform_id,
+                    Rom.missing_from_fs.is_(True),
+                    Rom.fs_name == fs_name,
+                )
+            )
+            .limit(2)
+        ).all()
+        return matches[0] if len(matches) == 1 else None
+
     def _collect_filter_values(
         self,
         session: Session,
