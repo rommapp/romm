@@ -193,12 +193,9 @@ describe("getRoms game-length range", () => {
   });
 
   async function sentParams(
-    params: Omit<Parameters<typeof romApi.getRoms>[0], "fields">,
+    params: Parameters<typeof romApi.getRoms>[0],
   ): Promise<Record<string, unknown>> {
-    await romApi.getRoms({
-      ...params,
-      fields: DEFAULT_ROM_FIELDS,
-    });
+    await romApi.getRoms(params);
     return get.mock.calls[0]![1].params as Record<string, unknown>;
   }
 
@@ -230,7 +227,6 @@ describe("getRoms platform logic", () => {
     await romApi.getRoms({
       platformIds: [2],
       platformsLogic: "none",
-      fields: DEFAULT_ROM_FIELDS,
     });
 
     expect(get.mock.calls[0]![1].params.platforms_logic).toBe("none");
@@ -239,12 +235,10 @@ describe("getRoms platform logic", () => {
   it("leaves the logic out without platforms or for an inclusion", async () => {
     await romApi.getRoms({
       platformsLogic: "none",
-      fields: DEFAULT_ROM_FIELDS,
     });
     await romApi.getRoms({
       platformIds: [2],
       platformsLogic: "any",
-      fields: DEFAULT_ROM_FIELDS,
     });
 
     expect(get.mock.calls[0]![1].params.platforms_logic).toBeUndefined();
@@ -259,13 +253,13 @@ describe("getRoms by id", () => {
   });
 
   it("sends the ids in order", async () => {
-    await romApi.getRoms({ romIds: [5, 3, 9], fields: DEFAULT_ROM_FIELDS });
+    await romApi.getRoms({ romIds: [5, 3, 9] });
 
     expect(get.mock.calls[0]![1].params.rom_ids).toEqual([5, 3, 9]);
   });
 
   it("leaves rom_ids out of a paged request", async () => {
-    await romApi.getRoms({ offset: 72, fields: DEFAULT_ROM_FIELDS });
+    await romApi.getRoms({ offset: 72 });
 
     expect(get.mock.calls[0]![1].params.rom_ids).toBeUndefined();
   });

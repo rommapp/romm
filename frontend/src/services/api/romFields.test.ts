@@ -4,6 +4,7 @@ import {
   COVER_AND_NAME_FIELDS,
   COVER_ART_FIELDS,
   DEFAULT_ROM_FIELDS,
+  GALLERY_FIELDS,
   difference,
   getFieldsWith,
   getFieldsWithout,
@@ -63,5 +64,14 @@ describe("rom field sets", () => {
     for (const field of COVER_ART_FIELDS) {
       expect(COVER_AND_NAME_FIELDS.has(field)).toBe(true);
     }
+  });
+
+  it("keeps what a gallery card and row need, and leaves out the heavy blobs", () => {
+    for (const field of COVER_AND_NAME_FIELDS) {
+      expect(GALLERY_FIELDS.has(field as never)).toBe(true);
+    }
+    expect(GALLERY_FIELDS.has("hltb_metadata")).toBe(true);
+    expect(GALLERY_FIELDS.has("igdb_metadata" as never)).toBe(false);
+    expect(GALLERY_FIELDS.has("files" as never)).toBe(false);
   });
 });

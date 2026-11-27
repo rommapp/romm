@@ -1,8 +1,5 @@
 import type { SimpleRomSchema } from "@/__generated__";
 
-/** Every `SimpleRomSchema` field except `files`, which a rom list leaves empty
- * unless it is asked for. Sending it asks for the same response as sending
- * no `fields`. */
 const NAMES = [
   "id",
   "igdb_id",
@@ -95,11 +92,12 @@ const NAMES = [
   "screenshot_path",
 ] as const satisfies readonly (keyof SimpleRomSchema)[];
 
-export const DEFAULT_ROM_FIELDS: ReadonlySet<(typeof NAMES)[number]> = new Set(
-  NAMES,
-);
-
 type DefaultField = (typeof NAMES)[number];
+
+/** Every `SimpleRomSchema` field except `files`, which a rom list leaves empty
+ * unless it is asked for. Sending all of them returns the same response as
+ * sending no `fields`. */
+export const DEFAULT_ROM_FIELDS: ReadonlySet<DefaultField> = new Set(NAMES);
 
 /** Exactly these fields, plus `id`. With no list, only the ids. */
 export const getFieldsWith = <K extends keyof SimpleRomSchema>(
@@ -166,3 +164,45 @@ export const COVER_AND_NAME_FIELDS = union(
   COVER_ART_FIELDS,
   getFieldsWith(["name", "fs_name"]),
 );
+
+/** What a gallery card or list row reads: every default field except those
+ * only the details page, dialogs and firmware code use. */
+export const GALLERY_FIELDS = getFieldsWithout([
+  "igdb_metadata",
+  "moby_metadata",
+  "hasheous_metadata",
+  "flashpoint_metadata",
+  "demozoo_metadata",
+  "pouet_metadata",
+  "csdb_metadata",
+  "steam_metadata",
+  "crc_hash",
+  "md5_hash",
+  "sha1_hash",
+  "ra_hash",
+  "title_id",
+  "save_target",
+  "save_target_layout",
+  "fs_path",
+  "full_path",
+  "upc",
+  "revision",
+  "version",
+  "is_physical",
+  "missing_from_fs",
+  "sgdb_id",
+  "tgdb_id",
+  "has_manual",
+  "path_manual",
+  "url_manual",
+  "has_soundtrack",
+  "youtube_video_id",
+  "merged_screenshots",
+  "merged_ra_metadata",
+  "manual_metadata",
+  "alternative_names",
+  "tags",
+  "slug",
+  "has_notes",
+  "has_multiple_files",
+]);

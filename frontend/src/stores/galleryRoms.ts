@@ -19,7 +19,7 @@ import type { SimpleRomSchema } from "@/__generated__/";
 import type { CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
 import { userStorage } from "@/composables/useUserLocalStorage";
 import romApi, { type GetRomsParams } from "@/services/api/rom";
-import { getFieldsWithout } from "@/services/api/romFields";
+import { GALLERY_FIELDS } from "@/services/api/romFields";
 import {
   type Collection,
   type SmartCollection,
@@ -578,45 +578,7 @@ export default defineStore("v2GalleryRoms", {
         hltbMainStoryMax: playtimeHoursToSeconds(
           galleryFilter.selectedLengthMaxHours,
         ),
-        fields: getFieldsWithout([
-          "igdb_metadata",
-          "moby_metadata",
-          "hasheous_metadata",
-          "flashpoint_metadata",
-          "demozoo_metadata",
-          "pouet_metadata",
-          "csdb_metadata",
-          "steam_metadata",
-          "crc_hash",
-          "md5_hash",
-          "sha1_hash",
-          "ra_hash",
-          "title_id",
-          "save_target",
-          "save_target_layout",
-          "fs_path",
-          "full_path",
-          "upc",
-          "revision",
-          "version",
-          "is_physical",
-          "missing_from_fs",
-          "sgdb_id",
-          "tgdb_id",
-          "has_manual",
-          "path_manual",
-          "url_manual",
-          "has_soundtrack",
-          "youtube_video_id",
-          "merged_screenshots",
-          "merged_ra_metadata",
-          "manual_metadata",
-          "alternative_names",
-          "tags",
-          "slug",
-          "has_notes",
-          "has_multiple_files",
-        ]),
+        fields: GALLERY_FIELDS,
       };
     },
 
