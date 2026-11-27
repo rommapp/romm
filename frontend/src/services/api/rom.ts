@@ -21,6 +21,7 @@ import type {
 } from "@/__generated__";
 import { type CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
 import api from "@/services/api";
+import type { RomFieldSelection } from "@/services/api/romFields";
 import socket from "@/services/socket";
 import type { PlatformFilterLogic } from "@/stores/galleryFilter";
 import storeUpload from "@/stores/upload";
@@ -240,6 +241,9 @@ export interface GetRomsParams {
   romIds?: number[] | null;
   // Cancel an in-flight request
   signal?: AbortSignal;
+  /** The rom fields to return or to leave out; `id` always comes back. Without
+   * it, a list returns its default fields. An empty set returns only the ids. */
+  fields?: RomFieldSelection;
 }
 
 /** The `/roms` query string for `params`, shared with the cached client. */
@@ -302,6 +306,7 @@ export function buildGetRomsQuery({
   withRomIdIndex = undefined,
   withTotal = undefined,
   romIds = null,
+  fields,
 }: Omit<GetRomsParams, "signal">) {
   return {
     platform_ids:
@@ -448,6 +453,7 @@ export function buildGetRomsQuery({
       : {}),
     ...(withTotal !== undefined ? { with_total: withTotal } : {}),
     rom_ids: romIds && romIds.length > 0 ? romIds : undefined,
+    fields: fields ? [...fields].join(",") : undefined,
   };
 }
 

@@ -678,6 +678,8 @@ PROVIDER_METADATA_FIELDS: Final = (
     "merged_ra_metadata",
 )
 
+ROM_FIELD_GROUPS: Final = {"provider_metadata": frozenset(PROVIDER_METADATA_FIELDS)}
+
 
 class SimpleRomSchema(RomSchema):
     screenshot_path: str | None = None

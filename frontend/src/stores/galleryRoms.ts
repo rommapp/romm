@@ -19,6 +19,7 @@ import type { SimpleRomSchema } from "@/__generated__/";
 import type { CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
 import { userStorage } from "@/composables/useUserLocalStorage";
 import romApi, { type GetRomsParams } from "@/services/api/rom";
+import { GALLERY_FIELDS } from "@/services/api/romFields";
 import {
   type Collection,
   type SmartCollection,
@@ -568,6 +569,7 @@ export default defineStore("v2GalleryRoms", {
         hltbMainStoryMax: playtimeHoursToSeconds(
           galleryFilter.selectedLengthMaxHours,
         ),
+        fields: GALLERY_FIELDS,
       };
     },
 

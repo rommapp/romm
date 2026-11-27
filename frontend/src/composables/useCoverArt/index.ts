@@ -35,6 +35,7 @@ import {
 } from "vue";
 import { useUISettings } from "@/composables/useUISettings";
 import { toWebpUrl, useWebpSupport } from "@/composables/useWebpSupport";
+import type { COVER_ART_FIELDS } from "@/services/api/romFields";
 import type { SimpleRom } from "@/stores/roms";
 import {
   FRONTEND_RESOURCES_PATH,
@@ -64,14 +65,7 @@ export type AltBoxartStyle = Exclude<BoxartStyle, "cover_path">;
  *  same on every surface without coupling to one schema. */
 export type CoverArtRom = Pick<
   SimpleRom,
-  | "ss_metadata"
-  | "gamelist_metadata"
-  | "launchbox_metadata"
-  | "path_cover_large"
-  | "path_cover_small"
-  | "url_cover"
-  | "path_video"
-  | "platform_slug"
+  typeof COVER_ART_FIELDS extends ReadonlySet<infer K> ? K : never
 >;
 
 /** Canonical width/height ratio per style: mirrors v1's

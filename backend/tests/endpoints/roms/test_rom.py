@@ -16,7 +16,8 @@ from tests.factories import make_rom
 from tests.utils.test_images import png_header_bytes
 
 from config.config_manager import MetadataMediaType
-from endpoints.responses.rom import PROVIDER_METADATA_FIELDS
+from endpoints.fields import field_names
+from endpoints.responses.rom import PROVIDER_METADATA_FIELDS, SimpleRomSchema
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.database import db_collection_handler, db_rom_handler
 from handler.database.rom_filters import RomFiltersDict
@@ -40,6 +41,7 @@ from models.platform import Platform
 from models.rom import (
     PINNED_MEDIA_KEY_MAX_LENGTH,
     PINNED_MEDIA_MAX_ITEMS,
+    PROVIDER_METADATA_COLUMNS,
     Rom,
     RomFile,
     RomFileCategory,
@@ -556,6 +558,236 @@ def test_get_roms_without_provider_metadata(
 
     (default,) = client.get("/api/roms", headers=headers, params=params).json()["items"]
     assert default["igdb_metadata"] and default["merged_ra_metadata"]
+
+
+def test_get_roms_returns_only_the_requested_fields(
+    client: TestClient, access_token: str, platform: Platform
+) -> None:
+    rom = make_rom(platform, "test_rom", igdb_metadata={"alternative_names": ["Alt"]})
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    body = client.get(
+        "/api/roms",
+        headers=headers,
+        params={"platform_id": platform.id, "fields": "name,igdb_metadata,summary"},
+    ).json()
+
+    (item,) = body["items"]
+    assert set(item) == {"id", "name", "igdb_metadata", "summary"}
+    assert item["id"] == rom.id
+    assert item["summary"] is None
+    assert body["total"] == 1
+
+
+@pytest.mark.parametrize("field", sorted(field_names(SimpleRomSchema)))
+def test_get_roms_a_field_has_the_same_value_when_requested_alone(
+    client: TestClient, access_token: str, platform: Platform, field: str
+) -> None:
+    make_rom(
+        platform,
+        "test_rom",
+        igdb_metadata={
+            "alternative_names": ["Alt One"],
+            "youtube_video_id": "dQw4w9WgXcQ",
+        },
+        moby_metadata={"alternate_titles": [{"title": "Alt Two"}]},
+        ss_metadata={"video_path": "ss/video.mp4", "alternative_names": ["Alt Three"]},
+        ra_metadata={"achievements": [], "hash_match": True},
+        manual_metadata={"genres": ["Puzzle"]},
+    )
+    headers = {"Authorization": f"Bearer {access_token}"}
+    params = {"platform_id": platform.id}
+
+    (full,) = client.get("/api/roms", headers=headers, params=params).json()["items"]
+    (alone,) = client.get(
+        "/api/roms", headers=headers, params={**params, "fields": field}
+    ).json()["items"]
+
+    # A rom with no row of the user's own gets a default one stamped with the time of the request.
+    if field == "rom_user":
+        for item in (alone, full):
+            item[field].pop("created_at")
+            item[field].pop("updated_at")
+
+    assert alone[field] == full[field]
+
+
+@pytest.mark.parametrize("column", PROVIDER_METADATA_COLUMNS)
+@pytest.mark.parametrize(
+    "field", ["path_video", "youtube_video_id", "alternative_names"]
+)
+def test_get_roms_a_derived_field_reads_only_the_columns_it_declares(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    column: str,
+    field: str,
+) -> None:
+    rom = make_rom(platform, "test_rom")
+    db_rom_handler.update_rom(
+        rom.id,
+        {
+            column: {
+                "video_path": "x/video.mp4",
+                "youtube_video_id": "dQw4w9WgXcQ",
+                "alternative_names": ["Alt One"],
+                "alternate_titles": [{"title": "Alt One"}],
+            }
+        },
+    )
+    headers = {"Authorization": f"Bearer {access_token}"}
+    params = {"platform_id": platform.id}
+
+    (full,) = client.get("/api/roms", headers=headers, params=params).json()["items"]
+    (alone,) = client.get(
+        "/api/roms", headers=headers, params={**params, "fields": field}
+    ).json()["items"]
+
+    assert alone[field] == full[field]
+
+
+def test_get_roms_excluded_fields_are_the_only_difference_from_a_full_response(
+    client: TestClient, access_token: str, platform: Platform
+) -> None:
+    make_rom(platform, "test_rom", igdb_metadata={"alternative_names": ["Alt"]})
+    headers = {"Authorization": f"Bearer {access_token}"}
+    params = {"platform_id": platform.id}
+
+    (full,) = client.get("/api/roms", headers=headers, params=params).json()["items"]
+    (trimmed,) = client.get(
+        "/api/roms",
+        headers=headers,
+        params={**params, "fields": "-igdb_metadata,-crc_hash"},
+    ).json()["items"]
+
+    assert set(full) - set(trimmed) == {"igdb_metadata", "crc_hash", "files"}
+    # A rom with no row of the user's own gets a default one stamped with the time of the request.
+    for item in (full, trimmed):
+        item["rom_user"].pop("created_at")
+        item["rom_user"].pop("updated_at")
+    assert trimmed == {name: full[name] for name in trimmed}
+
+
+def test_get_roms_fields_takes_the_provider_metadata_group(
+    client: TestClient, access_token: str, platform: Platform
+) -> None:
+    make_rom(platform, "test_rom", igdb_metadata={"alternative_names": ["Alt"]})
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    (item,) = client.get(
+        "/api/roms",
+        headers=headers,
+        params={"platform_id": platform.id, "fields": "name,@provider_metadata"},
+    ).json()["items"]
+
+    assert set(item) == {"id", "name", *PROVIDER_METADATA_FIELDS}
+
+
+def test_get_roms_fields_rejects_an_unknown_name(
+    client: TestClient, access_token: str, platform: Platform
+) -> None:
+    response = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"platform_id": platform.id, "fields": "name,nope,@nope"},
+    )
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+    assert "nope" in response.json()["detail"]
+
+
+def test_get_roms_fields_applies_to_rom_ids_requests(
+    client: TestClient, access_token: str, platform: Platform
+) -> None:
+    rom = make_rom(platform, "test_rom")
+
+    (item,) = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"rom_ids": [rom.id], "fields": "name"},
+    ).json()["items"]
+
+    assert set(item) == {"id", "name"}
+
+
+def test_get_roms_fields_prefers_fields_over_with_provider_metadata(
+    client: TestClient, access_token: str, platform: Platform
+) -> None:
+    make_rom(platform, "test_rom", igdb_metadata={"alternative_names": ["Alt"]})
+
+    (item,) = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={
+            "platform_id": platform.id,
+            "fields": "name,igdb_metadata",
+            "with_provider_metadata": False,
+        },
+    ).json()["items"]
+
+    assert set(item) == {"id", "name", "igdb_metadata"}
+
+
+def test_get_roms_fields_never_writes_a_column_it_left_unread(
+    client: TestClient,
+    access_token: str,
+    platform: Platform,
+    executed_statements: list[str],
+) -> None:
+    rom = make_rom(platform, "test_rom", igdb_metadata={"alternative_names": ["Alt"]})
+    executed_statements.clear()
+
+    response = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"platform_id": platform.id, "fields": "name"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert not [s for s in executed_statements if re.match(r"\s*UPDATE\s+roms\b", s)]
+    stored = db_rom_handler.get_rom(rom.id)
+    assert stored is not None
+    assert stored.igdb_metadata == {"alternative_names": ["Alt"]}
+
+
+def _add_file(rom: Rom, platform: Platform) -> None:
+    db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="test_rom.zip",
+            file_path=f"{platform.slug}/roms",
+            file_size_bytes=1024,
+            last_modified=1700000000.0,
+        )
+    )
+
+
+def test_get_roms_fields_naming_files_loads_them_without_with_files(
+    client: TestClient, access_token: str, rom: Rom, platform: Platform
+) -> None:
+    _add_file(rom, platform)
+
+    (item,) = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"platform_id": platform.id, "fields": "files"},
+    ).json()["items"]
+
+    assert [f["file_name"] for f in item["files"]] == ["test_rom.zip"]
+
+
+def test_get_roms_fields_without_files_ignores_with_files(
+    client: TestClient, access_token: str, rom: Rom, platform: Platform
+) -> None:
+    _add_file(rom, platform)
+
+    (item,) = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"platform_id": platform.id, "fields": "name", "with_files": True},
+    ).json()["items"]
+
+    assert set(item) == {"id", "name"}
 
 
 def test_get_roms_sorted_by_user_field_keeps_all_roms(

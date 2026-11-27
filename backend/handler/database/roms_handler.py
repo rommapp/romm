@@ -38,12 +38,14 @@ from sqlalchemy.orm import (
     Mapper,
     QueryableAttribute,
     Session,
+    defer,
     joinedload,
     load_only,
     raiseload,
     selectinload,
     undefer,
 )
+from sqlalchemy.orm.attributes import set_committed_value
 from sqlalchemy.orm.interfaces import ORMOption
 from sqlalchemy.sql.dml import Insert
 from sqlalchemy.sql.elements import ColumnElement, UnaryExpression
@@ -72,6 +74,7 @@ from models.platform import Platform
 from models.rom import (
     ALTERNATIVE_NAME_SOURCES,
     METADATA_SOURCE_FACET_COLUMNS,
+    PROVIDER_METADATA_COLUMNS,
     ROM_IS_IDENTIFIED,
     ROM_VISIBILITY_COLUMNS,
     SEARCH_TITLE_COLUMNS,
@@ -877,6 +880,10 @@ def _track_text_match(search: str) -> ColumnElement[bool]:
         # Untagged tracks, chiptunes among them, are named by file.
         RomFile.file_name.icontains(search, autoescape=True),
     )
+
+
+def _unread_provider_columns(provider_columns: Sequence[str]) -> list[str]:
+    return [c for c in PROVIDER_METADATA_COLUMNS if c not in provider_columns]
 
 
 class DBRomsHandler(DBBaseHandler):
@@ -1990,8 +1997,19 @@ class DBRomsHandler(DBBaseHandler):
         *,
         visibility: RomVisibilityFilter,
         include_file_stats: bool = False,
+        provider_columns: Sequence[str] = PROVIDER_METADATA_COLUMNS,
     ) -> RomSelect:
-        """The rows of one page, loaded by id with none of the filters re-run."""
+        """The rows of one page, loaded by id with none of the filters re-run.
+
+        Args:
+            page_ids: The ids of the roms to load.
+            visibility: The roms the caller is allowed to see.
+            include_file_stats: Whether to load each rom's file stats.
+            provider_columns: The provider metadata columns to read; the rest are not loaded.
+
+        Returns:
+            A query whose rows need `blank_unread_provider_columns` before use.
+        """
         # The only access check on caller-supplied ids, and it also catches a
         # cached id index that predates a rule change.
         return (
@@ -2003,9 +2021,24 @@ class DBRomsHandler(DBBaseHandler):
                     file_stats=include_file_stats,
                     siblings=False,
                     notes=False,
-                )
+                ),
+                *(
+                    defer(getattr(Rom, column))
+                    for column in _unread_provider_columns(provider_columns)
+                ),
             )
         )
+
+    @staticmethod
+    def blank_unread_provider_columns(
+        roms: Iterable[Rom], provider_columns: Sequence[str]
+    ) -> None:
+        """Mark the columns `get_page_rows_query` left unread as empty, so reading
+        them neither queries nor counts as a change to write."""
+        unread = _unread_provider_columns(provider_columns)
+        for rom in roms:
+            for column in unread:
+                set_committed_value(rom, column, None)
 
     def _scoped_roms_query(
         self,

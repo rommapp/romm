@@ -2,6 +2,7 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent } from "vue";
+import { COVER_AND_NAME_FIELDS } from "@/services/api/romFields";
 import HiddenGamesPicker from "./HiddenGamesPicker.vue";
 
 const { getRoms } = vi.hoisted(() => ({ getRoms: vi.fn() }));
@@ -60,6 +61,7 @@ describe("HiddenGamesPicker search", () => {
     expect(getRoms).toHaveBeenCalledExactlyOnceWith({
       searchTerm: "mario",
       limit: 15,
+      fields: COVER_AND_NAME_FIELDS,
     });
     expect(wrapper.find(".spinner").exists()).toBe(false);
     expect(wrapper.text()).toContain("Super Mario 64");
