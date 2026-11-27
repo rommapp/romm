@@ -266,7 +266,7 @@ interface State {
   metadataLoaded: boolean;
   // The scope the filter drawer's lists were fetched for, as a JSON key, or
   // null when the loaded lists belong to no scope.
-  filterValuesScope: string | null;
+  filterValuesScopeKey: string | null;
   // Set when the library or the gallery context changes, so the lists have to
   // be fetched again.
   filterValuesStale: boolean;
@@ -301,7 +301,7 @@ const defaults = (): State => ({
   failedWindows: new Set(),
   initialFetching: false,
   metadataLoaded: false,
-  filterValuesScope: null,
+  filterValuesScopeKey: null,
   filterValuesStale: false,
   selectingAll: false,
   refreshing: false,
@@ -701,7 +701,7 @@ export default defineStore("v2GalleryRoms", {
       if (!this.metadataLoaded) return;
       const scope = filterValuesScope(this._resultRequest(0));
       const scopeKey = JSON.stringify(scope);
-      if (this.filterValuesScope === scopeKey && !this.filterValuesStale) {
+      if (this.filterValuesScopeKey === scopeKey && !this.filterValuesStale) {
         return;
       }
       const inFlight = inFlightControllers.get(ctrlKey);
@@ -714,11 +714,11 @@ export default defineStore("v2GalleryRoms", {
 
       // Another scope's lists would offer values this result cannot match.
       if (
-        this.filterValuesScope !== null &&
-        this.filterValuesScope !== scopeKey
+        this.filterValuesScopeKey !== null &&
+        this.filterValuesScopeKey !== scopeKey
       ) {
         this._applyFilterValues({});
-        this.filterValuesScope = null;
+        this.filterValuesScopeKey = null;
       }
 
       const controller = new AbortController();
@@ -731,7 +731,7 @@ export default defineStore("v2GalleryRoms", {
         });
         if (inFlightControllers.get(ctrlKey) !== controller) return;
         this._applyFilterValues(response.data);
-        this.filterValuesScope = scopeKey;
+        this.filterValuesScopeKey = scopeKey;
         this.filterValuesStale = false;
       } catch (err) {
         if (axios.isCancel(err)) return;
