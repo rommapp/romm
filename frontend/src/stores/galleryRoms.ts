@@ -265,9 +265,10 @@ interface State {
   // window).
   metadataLoaded: boolean;
   // The scope the filter drawer's lists were fetched for, as a JSON key, or
-  // null while they answer no known scope.
+  // null when the loaded lists belong to no scope.
   filterValuesScope: string | null;
-  // Set when the library or the gallery context changes under the lists.
+  // Set when the library or the gallery context changes, so the lists have to
+  // be fetched again.
   filterValuesStale: boolean;
   // True while a whole-result select-all fetch is in flight.
   selectingAll: boolean;
@@ -694,7 +695,7 @@ export default defineStore("v2GalleryRoms", {
     },
 
     /** Fetch the filter drawer's option lists for the displayed result's
-     * scope, unless they already answer it. */
+     * scope, unless the loaded lists already match it. */
     async fetchFilterValues(): Promise<void> {
       const ctrlKey = "filterValues";
       if (!this.metadataLoaded) return;
