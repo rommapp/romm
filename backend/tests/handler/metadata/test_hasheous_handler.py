@@ -129,6 +129,10 @@ async def test_request_propagates_an_unreachable_hasheous(failure: Exception):
 
     with (
         patch("handler.metadata.hasheous_handler.ctx_httpx_client") as ctx,
+        patch(
+            "handler.metadata.hasheous_handler._rate_limiter.acquire",
+            new_callable=AsyncMock,
+        ),
         pytest.raises(HTTPException),
     ):
         ctx.get.return_value = client
