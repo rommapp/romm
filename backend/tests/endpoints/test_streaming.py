@@ -22,6 +22,7 @@ from main import app
 from sqlalchemy import update
 from tests.auth_helpers import bearer, hide
 from tests.factories import (
+    make_firmware,
     make_platform,
     make_rom,
     make_save,
@@ -757,12 +758,13 @@ def _snes(value, **container) -> ResolvedContainer:
     return _resolved(_webstation(platforms={"snes": value}, **container))
 
 
-def _warnings_of(caplog, build):
-    """Run `build` with the romm logger captured, returning its result."""
+def _warnings_of(caplog, build, level=logging.WARNING):
+    """Run `build` with the romm logger captured from `level` (warnings
+    unless a lower level is asked for), returning its result."""
     romm_logger = logging.getLogger("romm")
     romm_logger.addHandler(caplog.handler)
     try:
-        with caplog.at_level(logging.WARNING, logger="romm"):
+        with caplog.at_level(level, logger="romm"):
             return build()
     finally:
         romm_logger.removeHandler(caplog.handler)
@@ -13163,9 +13165,10 @@ def test_the_activate_body_carries_the_multiplayer_flag(client, access_token, ro
     assert request.call_args.kwargs["body"]["multiplayer"] is True
 
 
-def _activate_body(client, token, rom: Rom) -> dict[str, Any]:
-    """Claim through the webstation protocol and return the activate body."""
-    with _streaming(_ws_for(rom)):
+def _activate_body(client, token, rom: Rom, **overrides) -> dict[str, Any]:
+    """Claim through the webstation protocol and return the activate body,
+    with `overrides` applied to the container entry."""
+    with _streaming({**_ws_for(rom), **overrides}):
         with patch(
             "handler.streaming.broker.request", return_value={"url": "/room/x"}
         ) as request:
@@ -13250,6 +13253,351 @@ def test_the_interface_language_sits_beside_the_rom_not_inside_it(
     body = _activate_body(client, access_token, rom)
 
     assert "gui_language" not in body["rom"]
+
+
+def test_the_activate_body_carries_the_platforms_firmware(
+    client, access_token, rom: Rom, platform: Platform
+):
+    """The broker copies each BIOS to where the emulator looks for it, so a
+    player who uploaded them to the platform has nothing to set up by hand."""
+    make_firmware(
+        platform,
+        "dc_boot.bin",
+        md5_hash="e10c53c2f8b90bab96ead2d368858623",
+        sha1_hash="8951d1bb219ab2ff8583033d2119c899cc81f18c",
+        file_size_bytes=2097152,
+    )
+
+    body = _activate_body(client, access_token, rom)
+
+    assert body["firmware"] == [
+        {
+            "file_name": "dc_boot.bin",
+            "path": f"{LIBRARY_BASE_PATH}/{platform.fs_slug}/bios/dc_boot.bin",
+            "size": 2097152,
+            "md5": "e10c53c2f8b90bab96ead2d368858623",
+            "sha1": "8951d1bb219ab2ff8583033d2119c899cc81f18c",
+        }
+    ]
+
+
+def test_firmware_paths_follow_the_containers_library_path(
+    client, access_token, rom: Rom, platform: Platform
+):
+    """A container that mounts the library elsewhere gets paths valid inside it,
+    the same as the rom path."""
+    make_firmware(platform, "bios.bin")
+
+    body = _activate_body(client, access_token, rom, library_path="/mnt/games/")
+
+    assert body["firmware"][0]["path"] == f"/mnt/games/{platform.fs_slug}/bios/bios.bin"
+
+
+def test_firmware_missing_from_the_library_is_left_out(
+    client, access_token, rom: Rom, firmware, missing_firmware
+):
+    """A file the last scan could not find would only fail on the broker."""
+    body = _activate_body(client, access_token, rom)
+
+    assert [entry["file_name"] for entry in body["firmware"]] == ["present.bin"]
+
+
+def test_firmware_of_other_platforms_is_left_out(
+    client, access_token, rom: Rom, other_platform: Platform
+):
+    """Only the launched game's platform is copied in."""
+    make_firmware(other_platform, "other.bin")
+
+    assert _activate_body(client, access_token, rom)["firmware"] == []
+
+
+def test_firmware_without_hashes_sends_none(
+    client, access_token, rom: Rom, platform: Platform
+):
+    """An empty hash column is no hash, so the broker reads the file instead of
+    checking it against an empty string."""
+    make_firmware(platform, "bios.bin", md5_hash="", sha1_hash="")
+
+    entry = _activate_body(client, access_token, rom)["firmware"][0]
+
+    assert entry["md5"] is None
+    assert entry["sha1"] is None
+
+
+def test_a_failing_firmware_lookup_still_launches(
+    client, access_token, rom: Rom, platform: Platform, caplog
+):
+    """The firmware is optional, so a lookup that breaks on that one query
+    leaves the list off and the game still starts."""
+    make_firmware(platform, "bios.bin")
+    with patch(
+        "handler.streaming.webstation.db_firmware_handler.list_firmware",
+        side_effect=RuntimeError("db down"),
+    ):
+        body = _warnings_of(caplog, lambda: _activate_body(client, access_token, rom))
+
+    assert "firmware" not in body
+    assert body["rom"]["id"] == rom.id
+    logged = [
+        r
+        for r in caplog.records
+        if r.levelno == logging.ERROR
+        and f"could not list firmware for platform {platform.id}" in r.getMessage()
+    ]
+    assert logged
+    assert all(r.exc_info is not None for r in logged)
+
+
+def test_a_container_on_another_protocol_is_sent_no_firmware(
+    client, access_token, rom: Rom, platform: Platform
+):
+    """Only the webstation broker places firmware, so no other container
+    triggers the lookup."""
+    make_firmware(platform, "bios.bin")
+    run_launch_mock = AsyncMock()
+    with (
+        _streaming(_container_for(rom)),
+        patch("handler.streaming.launch.run_launch", run_launch_mock),
+        patch("handler.streaming.webstation.firmware_payload") as payload,
+    ):
+        r = client.post(
+            "/api/streaming/sessions",
+            json={"rom_id": rom.id},
+            headers=bearer(access_token),
+        )
+
+    assert r.status_code == 202
+    payload.assert_not_called()
+    assert run_launch_mock.call_args.kwargs["firmware"] is None
+
+
+def test_a_picked_disc_launch_still_carries_the_firmware(client, access_token):
+    """Booting a disc other than the first changes the rom path, not the
+    platform's firmware."""
+    platform = make_platform("dc")
+    rom = make_rom(platform, "dc-rom", fs_stem="dc")
+    _add_rom_file(rom, "Game (Disc 1).chd")
+    disc = _add_rom_file(rom, "Game (Disc 2).chd")
+    make_firmware(platform, "dc_boot.bin")
+    run_launch_mock = AsyncMock()
+    with (
+        _streaming(_tray_container(rom)),
+        patch("handler.streaming.launch.run_launch", run_launch_mock),
+    ):
+        r = _claim_disc(client, access_token, rom.id, disc.id)
+
+    assert r.status_code == 202
+    kwargs = run_launch_mock.call_args.kwargs
+    assert kwargs["rom_path"] == f"{LIBRARY_BASE_PATH}/{disc.full_path}"
+    assert [entry["file_name"] for entry in kwargs["firmware"]] == ["dc_boot.bin"]
+
+
+def test_activate_leaves_the_firmware_key_off_when_there_is_no_list():
+    """An older broker never sees a field it does not know."""
+    with patch(
+        "handler.streaming.broker.request", return_value={"url": "/room/x"}
+    ) as request:
+        webstation.activate(
+            _resolved(_webstation(platforms={"dc": "flycast"})),
+            session_id="s",
+            user=MagicMock(id=1, username="u"),
+            emulator="flycast",
+            rom={"id": 1, "name": "Game", "platform": "dc"},
+            firmware=None,
+        )
+
+    assert "firmware" not in request.call_args.kwargs["body"]
+
+
+def _activate_with_report(
+    caplog, report: Any, level: int = logging.WARNING
+) -> list[logging.LogRecord]:
+    """Activate against a broker that answers with this firmware report and
+    return the romm log records at `level` or above."""
+    with patch(
+        "handler.streaming.broker.request",
+        return_value={"url": "/room/x", "firmware": report},
+    ):
+        _warnings_of(
+            caplog,
+            lambda: webstation.activate(
+                _resolved(_webstation(platforms={"dc": "flycast"})),
+                session_id="s",
+                user=MagicMock(id=1, username="u"),
+                emulator="flycast",
+                rom={"id": 1, "name": "Game", "platform": "dc"},
+                firmware=[],
+            ),
+            level,
+        )
+    return [r for r in caplog.records if r.levelno >= level]
+
+
+def _report(**buckets: list[Any]) -> dict[str, list[Any]]:
+    """A broker firmware report: all five lists, empty unless given."""
+    return {key: buckets.get(key, []) for key in webstation._FIRMWARE_BUCKETS}
+
+
+def test_a_broker_report_with_failed_firmware_is_logged_as_a_warning(caplog):
+    """The broker skips a BIOS it cannot place without failing the launch, so
+    RomM's log is where an admin finds out, and which container it was."""
+    warnings = _activate_with_report(caplog, _report(failed=["dc_boot.bin"]))
+
+    assert len(warnings) == 1
+    message = warnings[0].getMessage()
+    container = _resolved(_webstation(platforms={"dc": "flycast"}))
+    assert (
+        f"broker on {container.key} could not place 1 firmware file(s) for flycast"
+        in message
+    )
+    assert "dc_boot.bin" in message
+
+
+def test_a_long_failed_list_is_cut_short_in_the_warning(caplog):
+    """A whole platform outside ROM_ROOT fails every launch; one line says so
+    without listing every file."""
+    names = [f"bios{i:02}.bin" for i in range(25)]
+    warnings = _activate_with_report(caplog, _report(failed=names))
+
+    assert len(warnings) == 1
+    message = warnings[0].getMessage()
+    assert "could not place 25 firmware file(s)" in message
+    assert "bios09.bin" in message
+    assert "bios10.bin" not in message
+    assert "and 15 more" in message
+
+
+@pytest.mark.parametrize(
+    "report",
+    [
+        {**_report(), "failed": "dc_boot.bin"},
+        {"placed": ["/config/dc_boot.bin"]},
+        {key: [] for key in webstation._FIRMWARE_BUCKETS if key != "failed"},
+        {**_report(), "placed": "oops"},
+        "garbage",
+        ["dc_boot.bin"],
+    ],
+    ids=[
+        "failed-not-a-list",
+        "only-placed",
+        "no-failed-key",
+        "placed-not-a-list",
+        "a-string",
+        "a-list",
+    ],
+)
+def test_a_report_that_is_not_five_lists_is_warned_about(caplog, report):
+    """The broker always sends all five lists, so any other shape is not read
+    as a clean report."""
+    records = _activate_with_report(caplog, report, logging.INFO)
+
+    warnings = [r for r in records if r.levelno == logging.WARNING]
+    assert len(warnings) == 1
+    assert "unreadable firmware report" in warnings[0].getMessage()
+    assert not [r for r in records if "broker firmware on" in r.getMessage()]
+
+
+def test_failed_names_in_the_warning_are_quoted_and_cut_short(caplog):
+    """A broker name is shown quoted and at most 128 characters long, and a
+    value that is not a name only by its type, so nothing the broker sends can
+    forge or flood the log line."""
+    long_name = "x" * 500
+    warnings = _activate_with_report(
+        caplog,
+        _report(failed=["evil\nINFO forged line", long_name, 7, {"x": "Q" * 999}]),
+    )
+
+    assert len(warnings) == 1
+    message = warnings[0].getMessage()
+    assert "\n" not in message
+    assert "'evil\\nINFO forged line'" in message
+    assert f"'{'x' * 128}'" in message
+    assert "x" * 129 not in message
+    assert "<int>" in message
+    assert "<dict>" in message
+    assert "Q" not in message
+
+
+def test_the_counts_line_names_only_the_report_buckets(caplog):
+    """Keys the broker adds beyond its five lists stay out of the log line."""
+    records = _activate_with_report(
+        caplog,
+        {**_report(placed=["/config/dc_boot.bin"]), "x" * 300: [1, 2]},
+        logging.INFO,
+    )
+
+    lines = [r for r in records if "broker firmware on" in r.getMessage()]
+    assert len(lines) == 1
+    assert lines[0].levelno == logging.INFO
+    args = lines[0].args
+    assert isinstance(args, tuple)
+    assert args[2] == {
+        "placed": 1,
+        "unchanged": 0,
+        "kept": 0,
+        "skipped": 0,
+        "failed": 0,
+    }
+
+
+def test_a_report_with_nothing_in_it_logs_at_debug_only(caplog):
+    """An emulator or platform with no firmware adds no info line per launch;
+    the counts still go to the debug log."""
+    records = _activate_with_report(caplog, _report(), logging.DEBUG)
+
+    lines = [r for r in records if "broker firmware on" in r.getMessage()]
+    assert [r.levelno for r in lines] == [logging.DEBUG]
+
+
+def test_the_report_is_logged_as_counts_and_kept_off_the_activation_line(caplog):
+    """The info log carries the counts; the full report is not repeated in the
+    activation line."""
+    records = _activate_with_report(
+        caplog, _report(placed=["/config/dc_boot.bin"]), logging.INFO
+    )
+
+    messages = [r.getMessage() for r in records]
+    activated = [m for m in messages if m.startswith("broker activated session")]
+    assert len(activated) == 1
+    assert "firmware" not in activated[0]
+    assert len([m for m in messages if "broker firmware on" in m]) == 1
+
+
+@pytest.mark.parametrize(
+    "report",
+    [
+        _report(placed=["/config/dc_boot.bin"]),
+        _report(kept=["/config/dc_flash.bin"]),
+        _report(skipped=["b.bin"]),
+        None,
+    ],
+    ids=["clean", "kept-only", "skipped-only", "sync-off"],
+)
+def test_a_broker_report_without_failures_raises_no_warning(caplog, report):
+    """A player's own dump is kept on every launch by design, and an older or
+    sync-disabled broker sends no report, so none of these is worth a warning."""
+    assert not _activate_with_report(caplog, report)
+
+
+def test_the_fallback_activate_after_a_refused_save_still_carries_the_firmware(
+    client, access_token, rom: Rom, admin_user: User, platform: Platform
+):
+    """When the broker refuses the default save and RomM boots the newest
+    archive instead, the second activate sends the same firmware list."""
+    _add_save(rom, admin_user, "Game [retroarch a].saves.zip", "retroarch", "h1")
+    _add_save(rom, admin_user, "Game [2026-10-06_10-00-00].srm", "mgba", "h2")
+    make_firmware(platform, "bios.bin")
+
+    resp, activate, _hydrate, _sent, _session = _claim_refused_once(
+        client, access_token, rom, _refused_save(".import/save/Game.srm"), None
+    )
+
+    assert resp.status_code == 202
+    sent = [c.kwargs["firmware"] for c in activate.call_args_list]
+    assert len(sent) == 2
+    # Each activate is checked on its own, not one shared list against itself.
+    for firmware in sent:
+        assert [entry["file_name"] for entry in firmware] == ["bios.bin"]
 
 
 def test_a_claim_on_a_container_that_cannot_seat_a_joiner_stays_solo(

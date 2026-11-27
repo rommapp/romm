@@ -68,6 +68,7 @@ async def run_launch(
     restored_save_id: int | None = None,
     restored_save_hash: str | None = None,
     restored_without_state: bool = False,
+    firmware: list[dict[str, Any]] | None = None,
 ) -> None:
     """Start the game, then tell the player's tabs where to find it.
 
@@ -83,6 +84,8 @@ async def run_launch(
         restored_save_id: the native save archive `archive_path` restores.
         restored_save_hash: that archive's content hash when it was restored.
         restored_without_state: the archive's states stayed off the container.
+        firmware: the platform's firmware for the broker to put in place, from
+            `webstation.firmware_payload`.
     """
     # Nothing beats for the player until the stream is up, so without this the
     # next claimant reads the record as abandoned and tears the container down
@@ -120,6 +123,7 @@ async def run_launch(
             resume_slot=resume_slot if resume_on_activate else None,
             memory_card_synced=memory_card_synced,
             multiplayer=multiplayer,
+            firmware=firmware,
         )
 
     try:

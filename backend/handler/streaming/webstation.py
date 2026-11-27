@@ -34,6 +34,7 @@ from fastapi import HTTPException
 from redis.exceptions import RedisError
 
 from config import STREAMING_LAUNCH_TIMEOUT, STREAMING_SAVE_TIMEOUT
+from handler.database import db_firmware_handler
 from handler.redis_handler import sync_cache
 from handler.streaming import broker
 from handler.streaming.config import ResolvedContainer
@@ -342,6 +343,85 @@ def core_library_name(container: ResolvedContainer, core: str) -> str | None:
     return cached[1].library_names.get(core) if cached is not None else None
 
 
+def firmware_payload(
+    platform_id: int, library_path: str
+) -> list[dict[str, Any]] | None:
+    """The platform's present firmware, as the broker's activate takes it.
+
+    None when the lookup fails: the firmware is optional, the launch is not.
+    """
+    try:
+        return [
+            {
+                "file_name": fw.file_name,
+                "path": f"{library_path}/{fw.full_path}",
+                "size": fw.file_size_bytes,
+                "md5": fw.md5_hash or None,
+                "sha1": fw.sha1_hash or None,
+            }
+            for fw in db_firmware_handler.list_firmware(
+                platform_ids=[platform_id], missing=False
+            )
+        ]
+    except Exception:
+        # A missing BIOS shows in the emulator; a refused launch shows nothing.
+        log.exception("could not list firmware for platform %s", platform_id)
+        return None
+
+
+_FIRMWARE_NAMES_SHOWN = 10
+"""How many failed file names one warning lists before it just counts."""
+
+_FIRMWARE_NAME_CHARS = 128
+"""How much of one failed file name the warning shows."""
+
+_FIRMWARE_BUCKETS = ("placed", "unchanged", "kept", "skipped", "failed")
+"""The lists a broker firmware report carries."""
+
+
+def _log_firmware_report(
+    container: ResolvedContainer, emulator: str, report: object
+) -> None:
+    """Log the broker's firmware report: counts always, failures as a warning."""
+    if not isinstance(report, dict) or not all(
+        isinstance(report.get(key), list) for key in _FIRMWARE_BUCKETS
+    ):
+        log.warning(
+            "broker on %s sent an unreadable firmware report for %s",
+            container.key,
+            emulator,
+        )
+        return
+    buckets: dict[str, list[Any]] = {key: report[key] for key in _FIRMWARE_BUCKETS}
+    counts = {key: len(value) for key, value in buckets.items()}
+    message = "broker firmware on %s for %s, %s"
+    if any(counts.values()):
+        log.info(message, container.key, emulator, counts)
+    else:
+        # Nothing to place: a line on every launch would be noise.
+        log.debug(message, container.key, emulator, counts)
+    failed = buckets["failed"]
+    if failed:
+        shown = ", ".join(
+            (
+                repr(name[:_FIRMWARE_NAME_CHARS])
+                if isinstance(name, str)
+                else f"<{type(name).__name__}>"
+            )
+            for name in failed[:_FIRMWARE_NAMES_SHOWN]
+        )
+        more = len(failed) - _FIRMWARE_NAMES_SHOWN
+        log.warning(
+            "broker on %s could not place %d firmware file(s) for %s: %s%s "
+            "(the broker log has the reason for each)",
+            container.key,
+            len(failed),
+            emulator,
+            shown,
+            f" and {more} more" if more > 0 else "",
+        )
+
+
 def activate(
     container: ResolvedContainer,
     *,
@@ -354,11 +434,13 @@ def activate(
     resume_slot: int | None = None,
     memory_card_synced: bool = False,
     multiplayer: bool = False,
+    firmware: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """POST /activate. Raises HTTPException the same way commands.launch does.
 
     `rom` is omitted for emulators the broker registers with requires_rom
-    False, the desktop being the one that matters here.
+    False, the desktop being the one that matters here. `firmware` comes from
+    `firmware_payload`; a broker without firmware sync ignores it.
     """
     body: dict[str, Any] = {
         "session_id": session_id,
@@ -395,6 +477,8 @@ def activate(
         save["memory_card_synced"] = True
     if save:
         body["save"] = save
+    if firmware is not None:
+        body["firmware"] = firmware
 
     path = container.protocol.session_route("/activate")
     try:
@@ -413,7 +497,14 @@ def activate(
         )
 
     resp = resp if isinstance(resp, dict) else {}
-    log.info("broker activated session, %s", resp)
+    report = resp.get("firmware")
+    log.info(
+        "broker activated session, %s",
+        {k: v for k, v in resp.items() if k != "firmware"},
+    )
+    if report is not None:
+        # None is an older or sync-disabled broker, which sends no report.
+        _log_firmware_report(container, emulator, report)
     if not isinstance(resp.get("core_tier"), str):
         resp.pop("core_tier", None)
     if core and resp.get("core") != core:
