@@ -19,6 +19,7 @@ import type { SimpleRomSchema } from "@/__generated__/";
 import type { CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
 import { userStorage } from "@/composables/useUserLocalStorage";
 import romApi, { type GetRomsParams } from "@/services/api/rom";
+import { getFieldsWithout } from "@/services/api/romFields";
 import {
   type Collection,
   type SmartCollection,
@@ -577,6 +578,45 @@ export default defineStore("v2GalleryRoms", {
         hltbMainStoryMax: playtimeHoursToSeconds(
           galleryFilter.selectedLengthMaxHours,
         ),
+        fields: getFieldsWithout([
+          "igdb_metadata",
+          "moby_metadata",
+          "hasheous_metadata",
+          "flashpoint_metadata",
+          "demozoo_metadata",
+          "pouet_metadata",
+          "csdb_metadata",
+          "steam_metadata",
+          "crc_hash",
+          "md5_hash",
+          "sha1_hash",
+          "ra_hash",
+          "title_id",
+          "save_target",
+          "save_target_layout",
+          "fs_path",
+          "full_path",
+          "upc",
+          "revision",
+          "version",
+          "is_physical",
+          "missing_from_fs",
+          "sgdb_id",
+          "tgdb_id",
+          "has_manual",
+          "path_manual",
+          "url_manual",
+          "has_soundtrack",
+          "youtube_video_id",
+          "merged_screenshots",
+          "merged_ra_metadata",
+          "manual_metadata",
+          "alternative_names",
+          "tags",
+          "slug",
+          "has_notes",
+          "has_multiple_files",
+        ]),
       };
     },
 
@@ -593,25 +633,25 @@ export default defineStore("v2GalleryRoms", {
       sidecars: SidecarOptions = {},
     ): void {
       const { galleryFilter, platformsStore } = stores;
-      if (data.total !== null) {
+      if (data.total !== null && data.total !== undefined) {
         this.total = data.total;
       }
       // A skipped sidecar comes back empty but truthy, so applying it would
       // blank whatever a previous fetch populated (same trap `fetchWindowAt`
       // guards with `withAggregations`).
-      if (sidecars.withCharIndex !== false) {
+      if (sidecars.withCharIndex !== false && data.char_index) {
         this.charIndex = data.char_index;
         this.relevanceLed =
           this.orderBy === null &&
           this.total > 0 &&
           Object.keys(data.char_index).length === 0;
       }
-      if (sidecars.withRomIdIndex !== false) {
+      if (sidecars.withRomIdIndex !== false && data.rom_id_index) {
         this.romIdIndex = data.rom_id_index;
       }
-      if (sidecars.withFilterValues !== false) {
+      if (sidecars.withFilterValues !== false && data.filter_values) {
         if (galleryFilter.filterPlatforms.length === 0) {
-          const platformIds = data.filter_values.platforms;
+          const platformIds = data.filter_values.platforms ?? [];
           galleryFilter.setFilterPlatforms(
             platformsStore.allPlatforms.filter((p): boolean =>
               platformIds.includes(p.id),
@@ -766,7 +806,7 @@ export default defineStore("v2GalleryRoms", {
         // the guard below leaves the established size alone.
         if (offset === 0 && withAggregations) {
           this._applyMetadata(data, { galleryFilter, platformsStore });
-        } else if (data.total !== null) {
+        } else if (data.total !== null && data.total !== undefined) {
           this.total = data.total;
         }
 

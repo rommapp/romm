@@ -4,6 +4,7 @@ import {
   RECENT_PLAYED_ROMS_LIMIT,
   RECENT_ROMS_LIMIT,
 } from "@/services/api/rom";
+import { DEFAULT_ROM_FIELDS } from "@/services/api/romFields";
 import cacheService from "@/services/cache";
 import cachedApiService from "@/services/cache/api";
 
@@ -92,6 +93,7 @@ describe("gallery request", () => {
       releasedDays: ["12-25"],
       releasedBeforeYear: 2000,
       withTotal: false,
+      fields: DEFAULT_ROM_FIELDS,
     };
 
     await cachedApiService.getRoms(params, noop);

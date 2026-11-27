@@ -10,6 +10,7 @@ import GameCover from "@/components/shared/GameCover.vue";
 import { useDebouncedSearch } from "@/composables/useDebouncedSearch";
 import { RButton, RIcon, RSpinner, RTextField } from "@/lib";
 import romApi from "@/services/api/rom";
+import { COVER_AND_NAME_FIELDS } from "@/services/api/romFields";
 import type { SimpleRom } from "@/stores/roms";
 
 defineOptions({ inheritAttrs: false });
@@ -52,7 +53,11 @@ watch(term, async (searchTerm) => {
   }
   fetching.value = true;
   try {
-    const { data } = await romApi.getRoms({ searchTerm, limit: 15 });
+    const { data } = await romApi.getRoms({
+      searchTerm,
+      limit: 15,
+      fields: COVER_AND_NAME_FIELDS,
+    });
     if (token !== searchToken) return;
     results.value = data.items;
     for (const rom of data.items) romCache.value[rom.id] = rom;

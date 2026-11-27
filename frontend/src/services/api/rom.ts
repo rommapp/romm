@@ -240,6 +240,9 @@ export interface GetRomsParams {
   romIds?: number[] | null;
   // Cancel an in-flight request
   signal?: AbortSignal;
+  /** The rom fields to return, plus `id`. Leave it out to get every field a
+   * rom list returns by default. An empty set returns only the ids. */
+  fields?: ReadonlySet<keyof SimpleRom>;
 }
 
 /** The `/roms` query string for `params`, shared with the cached client. */
@@ -302,8 +305,10 @@ export function buildGetRomsQuery({
   withRomIdIndex = undefined,
   withTotal = undefined,
   romIds = null,
+  fields,
 }: Omit<GetRomsParams, "signal">): {
   rom_ids: number[] | undefined;
+  fields: string | undefined;
   with_total?: boolean;
   with_rom_id_index?: boolean;
   with_filter_values?: boolean;
@@ -506,6 +511,7 @@ export function buildGetRomsQuery({
       : {}),
     ...(withTotal !== undefined ? { with_total: withTotal } : {}),
     rom_ids: romIds && romIds.length > 0 ? romIds : undefined,
+    fields: fields ? [...fields].join(",") : undefined,
   };
 }
 

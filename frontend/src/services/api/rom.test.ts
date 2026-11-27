@@ -1,5 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, expectTypeOf, it, vi } from "vitest";
+import type { SimpleRomSchema } from "@/__generated__";
 import romApi, { type UpdateRom } from "@/services/api/rom";
+import { DEFAULT_ROM_FIELDS } from "@/services/api/romFields";
 import storeUpload from "@/stores/upload";
 
 const { get, post, put } = vi.hoisted(() => ({
@@ -191,9 +193,12 @@ describe("getRoms game-length range", () => {
   });
 
   async function sentParams(
-    params: Parameters<typeof romApi.getRoms>[0],
+    params: Omit<Parameters<typeof romApi.getRoms>[0], "fields">,
   ): Promise<Record<string, unknown>> {
-    await romApi.getRoms(params);
+    await romApi.getRoms({
+      ...params,
+      fields: DEFAULT_ROM_FIELDS,
+    });
     return get.mock.calls[0]![1].params as Record<string, unknown>;
   }
 
@@ -222,14 +227,25 @@ describe("getRoms platform logic", () => {
   });
 
   it("sends an exclusion with its platforms", async () => {
-    await romApi.getRoms({ platformIds: [2], platformsLogic: "none" });
+    await romApi.getRoms({
+      platformIds: [2],
+      platformsLogic: "none",
+      fields: DEFAULT_ROM_FIELDS,
+    });
 
     expect(get.mock.calls[0]![1].params.platforms_logic).toBe("none");
   });
 
   it("leaves the logic out without platforms or for an inclusion", async () => {
-    await romApi.getRoms({ platformsLogic: "none" });
-    await romApi.getRoms({ platformIds: [2], platformsLogic: "any" });
+    await romApi.getRoms({
+      platformsLogic: "none",
+      fields: DEFAULT_ROM_FIELDS,
+    });
+    await romApi.getRoms({
+      platformIds: [2],
+      platformsLogic: "any",
+      fields: DEFAULT_ROM_FIELDS,
+    });
 
     expect(get.mock.calls[0]![1].params.platforms_logic).toBeUndefined();
     expect(get.mock.calls[1]![1].params.platforms_logic).toBeUndefined();
@@ -243,14 +259,51 @@ describe("getRoms by id", () => {
   });
 
   it("sends the ids in order", async () => {
-    await romApi.getRoms({ romIds: [5, 3, 9] });
+    await romApi.getRoms({ romIds: [5, 3, 9], fields: DEFAULT_ROM_FIELDS });
 
     expect(get.mock.calls[0]![1].params.rom_ids).toEqual([5, 3, 9]);
   });
 
   it("leaves rom_ids out of a paged request", async () => {
-    await romApi.getRoms({ offset: 72 });
+    await romApi.getRoms({ offset: 72, fields: DEFAULT_ROM_FIELDS });
 
     expect(get.mock.calls[0]![1].params.rom_ids).toBeUndefined();
+  });
+});
+
+describe("getRoms fields", () => {
+  beforeEach(() => {
+    get.mockReset();
+    get.mockResolvedValue({ data: {} });
+  });
+
+  it("sends the fields as a comma-separated list", async () => {
+    await romApi.getRoms({ fields: new Set(["name", "slug"]) });
+
+    expect(get.mock.calls[0]![1].params.fields).toBe("name,slug");
+  });
+
+  it("asks for every field but files by default", async () => {
+    await romApi.getRoms({ fields: DEFAULT_ROM_FIELDS });
+
+    const sent = get.mock.calls[0]![1].params.fields as string;
+    expect(sent.split(",")).toEqual([...DEFAULT_ROM_FIELDS]);
+    expect(sent.split(",")).not.toContain("files");
+  });
+
+  it("lists every SimpleRom field except files", () => {
+    type Listed =
+      typeof DEFAULT_ROM_FIELDS extends ReadonlySet<infer K> ? K : never;
+    expectTypeOf<
+      Exclude<keyof SimpleRomSchema, "files" | Listed>
+    >().toEqualTypeOf<never>();
+  });
+
+  it("sends nothing when fields is left out, and an empty value for an empty set", async () => {
+    await romApi.getRoms({});
+    await romApi.getRoms({ fields: new Set() });
+
+    expect(get.mock.calls[0]![1].params.fields).toBeUndefined();
+    expect(get.mock.calls[1]![1].params.fields).toBe("");
   });
 });
