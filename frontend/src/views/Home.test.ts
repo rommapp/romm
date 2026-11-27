@@ -255,6 +255,8 @@ describe("Home", () => {
 
     const wrapper = mountHome();
 
+    expect(wrapper.find(".page-head-band").exists()).toBe(false);
+
     // Setup has run but nothing has resolved: the stores are still empty,
     // which is exactly the transient state that used to fire the request.
     expect(getLibraryInfo).not.toHaveBeenCalled();

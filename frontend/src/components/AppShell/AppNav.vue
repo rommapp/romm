@@ -205,6 +205,19 @@ const scrolled = computed(
   justify-content: center;
 }
 
+.r-nav__center :deep(.r-segmented-control__indicator) {
+  background: color-mix(
+    in srgb,
+    var(--r-color-brand-primary) 14%,
+    var(--r-color-surface)
+  );
+}
+.r-nav__center :deep(.r-segmented-control__btn--active),
+.r-nav__center :deep(.r-segmented-control__btn--active:hover) {
+  color: var(--r-color-brand-primary);
+  font-weight: var(--r-font-weight-medium);
+}
+
 .r-nav__right {
   display: flex;
   align-items: center;
