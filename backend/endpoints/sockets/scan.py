@@ -1420,7 +1420,7 @@ async def scan_platforms(
 
         log.info(f"{emoji.EMOJI_CHECK_MARK} Scan completed")
 
-        # The library changed; drop cached filter values.
+        # The library changed; drop the cached gallery sidecars.
         db_rom_handler.invalidate_filter_values_cache()
 
         # Smart collection membership is derived from the library, and is no

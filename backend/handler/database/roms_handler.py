@@ -353,7 +353,7 @@ _ROM_USER_WRITE_BATCH_SIZE = 1000
 _USER_OWNED_ROM_USER_STATUSES = (RomUserStatus.RETIRED, RomUserStatus.NEVER_PLAYING)
 
 
-# Cached ROM filter values (genres/franchises/etc.) so it doesn't get
+# Cached gallery sidecars (letter index, id list) so they don't get
 # recomputed on every call to /api/roms
 ROM_FILTERS_CACHE_VERSION_KEY = "filter_values:ver"
 ROM_FILTERS_CACHE_TTL = 60 * 60 * 24 * 7  # 7 days
@@ -787,7 +787,7 @@ RECOMMENDATION_SEED_FIELDS = frozenset(
 )
 
 # A write that changes a gallery sort key sets this in `session.info`; the cached
-# filter values are then dropped once, after the transaction commits.
+# sidecars are then dropped once, after the transaction commits.
 FILTER_VALUES_BUMP_KEY = "filter_values_bump"
 
 

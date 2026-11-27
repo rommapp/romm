@@ -778,7 +778,7 @@ def test_get_roms_filter_by_tags(
     response = client.get(
         "/api/roms/filter-values",
         headers={"Authorization": f"Bearer {access_token}"},
-        params={"platform_id": platform.id},
+        params={"platform_ids": platform.id},
     )
     assert response.status_code == status.HTTP_200_OK
     assert "Proto" in response.json()["tags"]
@@ -823,7 +823,7 @@ def test_get_filter_values_are_never_null(
     response = client.get(
         "/api/roms/filter-values",
         headers={"Authorization": f"Bearer {access_token}"},
-        params={"platform_id": platform.id},
+        params={"platform_ids": platform.id},
     )
     assert response.status_code == status.HTTP_200_OK
 
@@ -831,6 +831,33 @@ def test_get_filter_values_are_never_null(
     assert_filter_values_are_lists(filter_values)
     assert filter_values["genres"] == []
     assert filter_values["platforms"] == [platform.id]
+
+
+def test_get_filter_values_follow_the_scope_and_ignore_other_filters(
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+    platform: Platform,
+    other_platform: Platform,
+) -> None:
+    db_rom_handler.update_rom(rom.id, {"igdb_metadata": {"genres": ["RPG"]}})
+    make_rom(other_platform, "other_rom", igdb_metadata={"genres": ["Shooter"]})
+
+    def genres(**params: Any) -> list[str]:
+        response = client.get(
+            "/api/roms/filter-values",
+            headers={"Authorization": f"Bearer {access_token}"},
+            params=params,
+        )
+        assert response.status_code == status.HTTP_200_OK
+        values: list[str] = response.json()["genres"]
+        return values
+
+    assert genres() == ["RPG", "Shooter"]
+    assert genres(platform_ids=platform.id) == ["RPG"]
+    assert genres(platform_ids=platform.id, platforms_logic="none") == ["Shooter"]
+    # The dropdowns keep offering what the applied filters would narrow away.
+    assert genres(platform_ids=platform.id, genres="Shooter", missing=True) == ["RPG"]
 
 
 def test_get_filter_values_omit_values_of_hidden_roms(
@@ -846,7 +873,7 @@ def test_get_filter_values_omit_values_of_hidden_roms(
         response = client.get(
             "/api/roms/filter-values",
             headers={"Authorization": f"Bearer {viewer_access_token}"},
-            params={"platform_id": platform.id},
+            params={"platform_ids": platform.id},
         )
         assert response.status_code == status.HTTP_200_OK
         values: list[str] = response.json()["genres"]
@@ -881,7 +908,7 @@ def test_get_roms_reads_names_from_metadata_objects(
     response = client.get(
         "/api/roms/filter-values",
         headers={"Authorization": f"Bearer {access_token}"},
-        params={"platform_id": platform.id},
+        params={"platform_ids": platform.id},
     )
     assert response.json()["genres"] == ["Action", "RPG"]
 

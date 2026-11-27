@@ -18,7 +18,10 @@ import { defineStore } from "pinia";
 import type { RomFiltersDict, SimpleRomSchema } from "@/__generated__/";
 import type { CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
 import { userStorage } from "@/composables/useUserLocalStorage";
-import romApi, { type GetRomsParams } from "@/services/api/rom";
+import romApi, {
+  type FilterValuesParams,
+  type GetRomsParams,
+} from "@/services/api/rom";
 import {
   type Collection,
   type SmartCollection,
@@ -100,13 +103,16 @@ const SKIP_AGGREGATES = { ...NO_SIDECARS, withTotal: false };
 
 // In-flight `AbortController`s keyed by request: `window:${offset}`
 // for a windowed fetch, `bootstrap` for the lightweight metadata
-// bootstrap, `refresh` for a filter refetch. Lives outside store state so
+// bootstrap, `refresh` for a filter refetch, `filterValues` for the filter
+// drawer's option lists. Lives outside store state so
 // Pinia doesn't try to proxy native abort objects (which break under
 // reactivity).
 // `invalidateWindows()` / `resetGallery()` abort every pending request,
 // so a fast-typed search box or a platform-switch mid-load doesn't
 // leave server work going for results we'll throw away.
 const inFlightControllers = new Map<string, AbortController>();
+// The scope key the in-flight `filterValues` request was made for.
+let filterValuesFetchScope: string | null = null;
 
 // A failed window is only refetched when `fetchWindowAt` is called for it
 // again, which for a static viewport (no scroll) never happens on its own.
@@ -258,8 +264,11 @@ interface State {
   // bootstrap dedup independently of `loadedWindows` (metadata
   // bootstrap doesn't load any window).
   metadataLoaded: boolean;
-  // The `resultEpoch` the filter drawer's lists were fetched for.
-  filterValuesEpoch: number;
+  // The scope the filter drawer's lists were fetched for, as a JSON key, or
+  // null while they answer no known scope.
+  filterValuesScope: string | null;
+  // Set when the library or the gallery context changes under the lists.
+  filterValuesStale: boolean;
   // True while a whole-result select-all fetch is in flight.
   selectingAll: boolean;
   // True while `refreshResults` refetches: the previous result stays on
@@ -291,7 +300,8 @@ const defaults = (): State => ({
   failedWindows: new Set(),
   initialFetching: false,
   metadataLoaded: false,
-  filterValuesEpoch: -1,
+  filterValuesScope: null,
+  filterValuesStale: false,
   selectingAll: false,
   refreshing: false,
   relevanceLed: false,
@@ -303,6 +313,20 @@ type RequestParams = Omit<GetRomsParams, "signal">;
 
 function alignToWindow(offset: number): number {
   return Math.floor(offset / WINDOW_SIZE) * WINDOW_SIZE;
+}
+
+/** The fields of `params` the filter drawer's option lists depend on. */
+function filterValuesScope(
+  params: RequestParams,
+): Required<FilterValuesParams> {
+  return {
+    searchTerm: params.searchTerm ?? null,
+    platformIds: params.platformIds ?? null,
+    platformsLogic: params.platformsLogic ?? null,
+    collectionId: params.collectionId ?? null,
+    virtualCollectionId: params.virtualCollectionId ?? null,
+    smartCollectionId: params.smartCollectionId ?? null,
+  };
 }
 
 export default defineStore("v2GalleryRoms", {
@@ -391,6 +415,7 @@ export default defineStore("v2GalleryRoms", {
       this.failedWindows = new Set();
       this.initialFetching = false;
       this.metadataLoaded = false;
+      this.filterValuesStale = true;
       this.selectingAll = false;
       this.refreshing = false;
       this.relevanceLed = false;
@@ -410,6 +435,7 @@ export default defineStore("v2GalleryRoms", {
       this.failedWindows = new Set();
       this.initialFetching = false;
       this.metadataLoaded = false;
+      this.filterValuesStale = true;
       this.selectingAll = false;
       this.refreshing = false;
     },
@@ -594,8 +620,9 @@ export default defineStore("v2GalleryRoms", {
       this.metadataLoaded = true;
     },
 
-    /** Put the filter drawer's option lists into the filter store. */
-    _applyFilterValues(values: RomFiltersDict) {
+    /** Put the filter drawer's option lists into the filter store; a missing
+     * list empties it. */
+    _applyFilterValues(values: Partial<RomFiltersDict>) {
       const galleryFilter = storeGalleryFilter();
       const platformsStore = storePlatforms();
       if (galleryFilter.filterPlatforms.length === 0) {
@@ -668,24 +695,44 @@ export default defineStore("v2GalleryRoms", {
     },
 
     /** Fetch the filter drawer's option lists for the displayed result's
-     * scope. The drawer is the only reader, so nothing asks until it opens;
-     * a fetch for the displayed result is not repeated. */
+     * scope, unless they already answer it. */
     async fetchFilterValues(): Promise<void> {
       const ctrlKey = "filterValues";
-      const epoch = this.resultEpoch;
-      if (!this.metadataLoaded || this.filterValuesEpoch === epoch) return;
-      if (inFlightControllers.has(ctrlKey)) return;
+      if (!this.metadataLoaded) return;
+      const scope = filterValuesScope(this._resultRequest(0));
+      const scopeKey = JSON.stringify(scope);
+      if (this.filterValuesScope === scopeKey && !this.filterValuesStale) {
+        return;
+      }
+      const inFlight = inFlightControllers.get(ctrlKey);
+      if (inFlight) {
+        if (filterValuesFetchScope === scopeKey) return;
+        // A refresh does not abort this request, so a superseded scope's
+        // response would otherwise land and block the current one.
+        inFlight.abort();
+      }
+
+      // Another scope's lists would offer values this result cannot match.
+      if (
+        this.filterValuesScope !== null &&
+        this.filterValuesScope !== scopeKey
+      ) {
+        this._applyFilterValues({});
+        this.filterValuesScope = null;
+      }
 
       const controller = new AbortController();
       inFlightControllers.set(ctrlKey, controller);
+      filterValuesFetchScope = scopeKey;
       try {
         const response = await romApi.getFilterValues({
-          ...this._resultRequest(0),
+          ...scope,
           signal: controller.signal,
         });
         if (inFlightControllers.get(ctrlKey) !== controller) return;
         this._applyFilterValues(response.data);
-        this.filterValuesEpoch = epoch;
+        this.filterValuesScope = scopeKey;
+        this.filterValuesStale = false;
       } catch (err) {
         if (axios.isCancel(err)) return;
         console.error("[v2GalleryRoms] filter values fetch failed", err);

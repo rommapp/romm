@@ -180,19 +180,7 @@ describe("galleryRoms windowed fetch", () => {
     expect(params.withTotal).toBeUndefined();
   });
 
-  it("never asks the gallery request for filter values", async () => {
-    getRoms.mockResolvedValue({
-      data: { total: 1, items: [], char_index: {}, rom_id_index: [] },
-    });
-    const store = storeGalleryRoms();
-
-    await store.fetchInitialMetadata();
-
-    const params = getRoms.mock.calls[0]![0];
-    expect(params).not.toHaveProperty("withFilterValues");
-  });
-
-  it("fetches the filter values once per displayed result", async () => {
+  it("fetches the filter values once per scope", async () => {
     getRoms.mockResolvedValue({
       data: { total: 1, items: [], char_index: {}, rom_id_index: [] },
     });
@@ -212,12 +200,88 @@ describe("galleryRoms windowed fetch", () => {
     });
     expect(galleryFilter.filterGenres).toEqual(["RPG"]);
 
+    // A filter or sort change replaces the result but keeps its scope.
+    store.resultEpoch += 1;
     await store.fetchFilterValues();
     expect(getFilterValues).toHaveBeenCalledTimes(1);
 
-    store.resultEpoch += 1;
+    store.resultParams = { ...store.resultParams!, searchTerm: "zelda" };
     await store.fetchFilterValues();
     expect(getFilterValues).toHaveBeenCalledTimes(2);
+    expect(getFilterValues.mock.calls[1]![0]).toMatchObject({
+      searchTerm: "zelda",
+    });
+  });
+
+  it("empties another scope's lists while the new ones load", async () => {
+    getRoms.mockResolvedValue({
+      data: { total: 1, items: [], char_index: {}, rom_id_index: [] },
+    });
+    getFilterValues.mockResolvedValue({
+      data: { genres: ["RPG"], platforms: [] },
+    });
+    const galleryFilter = storeGalleryFilter();
+    const store = storeGalleryRoms();
+    await store.fetchInitialMetadata();
+    await store.fetchFilterValues();
+    const pending = deferred();
+    getFilterValues.mockReturnValue(pending.promise);
+
+    store.resultParams = { ...store.resultParams!, searchTerm: "zelda" };
+    const fetching = store.fetchFilterValues();
+
+    expect(galleryFilter.filterGenres).toEqual([]);
+    pending.resolve({ data: { genres: ["Action"], platforms: [] } });
+    await fetching;
+    expect(galleryFilter.filterGenres).toEqual(["Action"]);
+  });
+
+  it("drops an in-flight fetch for a superseded scope", async () => {
+    getRoms.mockResolvedValue({
+      data: { total: 1, items: [], char_index: {}, rom_id_index: [] },
+    });
+    const galleryFilter = storeGalleryFilter();
+    const store = storeGalleryRoms();
+    await store.fetchInitialMetadata();
+    const stale = deferred();
+    const current = deferred();
+    getFilterValues
+      .mockReturnValueOnce(stale.promise)
+      .mockReturnValueOnce(current.promise);
+
+    const first = store.fetchFilterValues();
+    store.resultParams = { ...store.resultParams!, searchTerm: "zelda" };
+    const second = store.fetchFilterValues();
+
+    expect(getFilterValues).toHaveBeenCalledTimes(2);
+    expect(getFilterValues.mock.calls[0]![0].signal.aborted).toBe(true);
+    current.resolve({ data: { genres: ["Action"], platforms: [] } });
+    stale.resolve({ data: { genres: ["RPG"], platforms: [] } });
+    await Promise.all([first, second]);
+    expect(galleryFilter.filterGenres).toEqual(["Action"]);
+
+    await store.fetchFilterValues();
+    expect(getFilterValues).toHaveBeenCalledTimes(2);
+  });
+
+  it("fetches the filter values again after the library changes", async () => {
+    getRoms.mockResolvedValue({
+      data: { total: 1, items: [], char_index: {}, rom_id_index: [] },
+    });
+    getFilterValues.mockResolvedValue({
+      data: { genres: ["RPG"], platforms: [] },
+    });
+    const galleryFilter = storeGalleryFilter();
+    const store = storeGalleryRoms();
+    await store.fetchInitialMetadata();
+    await store.fetchFilterValues();
+
+    store.invalidateWindows();
+    await store.fetchInitialMetadata();
+    await store.fetchFilterValues();
+
+    expect(getFilterValues).toHaveBeenCalledTimes(2);
+    expect(galleryFilter.filterGenres).toEqual(["RPG"]);
   });
 
   it("does not fetch the filter values before the bootstrap", async () => {

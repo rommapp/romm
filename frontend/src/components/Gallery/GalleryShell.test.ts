@@ -6,11 +6,15 @@ import { RVirtualScroller } from "@/lib";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryRoms from "@/stores/galleryRoms";
 import { romFixture } from "@/utils/rom.fixtures";
+import FilterDrawer from "./FilterDrawer.vue";
 import GalleryShell from "./GalleryShell.vue";
 import GalleryToolbar from "./GalleryToolbar.vue";
 import GameListRow from "./GameListRow.vue";
 
-const { getRoms } = vi.hoisted(() => ({ getRoms: vi.fn() }));
+const { getRoms, getFilterValues } = vi.hoisted(() => ({
+  getRoms: vi.fn(),
+  getFilterValues: vi.fn(),
+}));
 
 vi.mock("vue-i18n");
 
@@ -20,7 +24,9 @@ vi.mock("vue-router", async (importOriginal) => ({
   onBeforeRouteLeave: vi.fn(),
 }));
 
-vi.mock("@/services/api/rom", () => ({ default: { getRoms } }));
+vi.mock("@/services/api/rom", () => ({
+  default: { getRoms, getFilterValues },
+}));
 
 function scrollerItems(wrapper: ReturnType<typeof shallowMount>) {
   return wrapper
@@ -206,5 +212,37 @@ describe("GalleryShell search result count", () => {
     await flushPromises();
 
     expect(suffix()).toBeUndefined();
+  });
+});
+
+describe("GalleryShell filter drawer", () => {
+  it("fetches the filter values only once the drawer opens", async () => {
+    getRoms.mockImplementation(() => new Promise(() => {}));
+    getFilterValues.mockResolvedValue({
+      data: { genres: ["RPG"], platforms: [] },
+    });
+    const galleryRoms = storeGalleryRoms();
+    galleryRoms.currentSearch = true;
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: "/search", component: { template: "<div />" } }],
+    });
+    await router.push("/search");
+    const wrapper = shallowMount(GalleryShell, {
+      props: { hasHeader: false, searchPlaceholder: "", emptyMessage: "" },
+      global: { plugins: [router] },
+    });
+    await flushPromises();
+    galleryRoms._resultRequest(0);
+    galleryRoms.metadataLoaded = true;
+    galleryRoms.initialFetching = false;
+    await flushPromises();
+    expect(getFilterValues).not.toHaveBeenCalled();
+
+    wrapper.findComponent(FilterDrawer).vm.$emit("update:modelValue", true);
+    await flushPromises();
+
+    expect(getFilterValues).toHaveBeenCalledTimes(1);
+    expect(storeGalleryFilter().filterGenres).toEqual(["RPG"]);
   });
 });

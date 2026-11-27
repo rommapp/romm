@@ -1,28 +1,19 @@
-"""Cache gating for the gallery sidecars (filter values, char index, id index).
+"""Cache gating for the gallery sidecars (char index, id index).
 
-`GET /roms` returns three whole-library aggregates alongside the page. Only the
+`GET /roms` returns two whole-library aggregates alongside the page. Only the
 fully unscoped scan may be memoised under the shared "all" key, because that key
 encodes user/order/grouping but none of the filters.
 
-The filter-value list is the exception: it is built from `unfiltered_query` with
-only platform / collection / search applied, so the row-level filters (missing,
-favorite, duplicate, ...) never reach its query and its result is byte-identical
-to the unfiltered one. Locking it out of the cache made the Missing tab recompute
-the whole library on every visit, sort change and platform pick (issue #3992).
-
-These tests pin the split gate:
-  1. a row-level filter reads and writes the shared filter-values entry,
-  2. a scope filter (platform / collection / search) does neither,
-  3. the char index and the id index stay live under any row-level filter,
+These tests pin the gate:
+  1. the char index and the id index stay live under any row-level filter,
      since both narrow with it,
-  4. RomUser-column sorts key on a per-user sort version, so a rom_user
+  2. RomUser-column sorts key on a per-user sort version, so a rom_user
      write refreshes that user's sorted index without touching other
      users' entries or the name-sorted one, and `hidden` still bumps
      globally,
-  5. grouped sets key on a per-user sibling version moved only by
-     main-sibling picks, and filter values use one order-free per-user
-     entry,
-  6. grouped pages read their window of the id list the index request
+  3. grouped sets key on a per-user sibling version moved only by
+     main-sibling picks,
+  4. grouped pages read their window of the id list the index request
      cached, which a grouped single-platform set also caches, under a key
      naming its platform.
 """

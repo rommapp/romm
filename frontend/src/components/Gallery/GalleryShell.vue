@@ -215,8 +215,8 @@ const {
 // Drawer open state, bound to FilterDrawer via v-model.
 const filterDrawerOpen = ref(false);
 
-// The drawer's lists are fetched when it opens, and again when the result it
-// lists changes while it stays open.
+// The drawer asks for its lists when it opens and when the result changes
+// under it; the store skips the request while the lists still fit the scope.
 watch(
   [
     filterDrawerOpen,
