@@ -1,3 +1,4 @@
+import asyncio
 import json
 from collections.abc import Callable
 from typing import Any, Final, NotRequired, TypedDict
@@ -7,7 +8,7 @@ import pydash
 import yarl
 from fastapi import status
 
-from adapters.services.provider_http import unavailable
+from adapters.services.provider_http import RATE_LIMIT_BACKOFF_SECONDS, unavailable
 from adapters.services.response_validation import parse_response
 from config import DEV_MODE, HASHEOUS_API_ENABLED, HASHEOUS_API_URL
 from handler.filesystem.base_handler import (
@@ -23,6 +24,7 @@ from utils.context import ctx_httpx_client
 from utils.datetime import parse_utc_timestamp
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.platform_slugs import fill_duplicate_slugs
+from utils.rate_limiter import RateLimiter
 
 from .base_handler import BaseRom, MetadataHandler
 from .igdb_handler import (
@@ -30,6 +32,11 @@ from .igdb_handler import (
     IGDBMetadata,
     IGDBMetadataPlatform,
 )
+
+# Hasheous enforces a Default Rate Limit profile that rejects bursts with 429.
+HASHEOUS_MAX_REQUESTS_PER_SECOND: Final[float] = 4
+HASHEOUS_MAX_REQUEST_ATTEMPTS: Final[int] = 3
+_rate_limiter = RateLimiter(HASHEOUS_MAX_REQUESTS_PER_SECOND)
 
 
 class HasheousMetadata(TypedDict):
@@ -244,6 +251,7 @@ class HasheousHandler(MetadataHandler):
 
     async def heartbeat(self) -> bool:
         async def probe() -> bool:
+            await _rate_limiter.acquire()
             response = await ctx_httpx_client.get().get(self.healthcheck_endpoint)
             response.raise_for_status()
             return True
@@ -264,56 +272,80 @@ class HasheousHandler(MetadataHandler):
         if method not in ["GET", "POST"]:
             raise ValueError(f"Unsupported HTTP method: {method}")
 
-        try:
-            log.debug(
-                "API request: Method=%s, URL=%s, Params=%s, Data=%s",
-                method,
-                url,
-                params,
-                data,
-            )
+        log.debug(
+            "API request: Method=%s, URL=%s, Params=%s, Data=%s",
+            method,
+            url,
+            params,
+            data,
+        )
 
-            # Prepare request kwargs
-            request_kwargs: dict[str, Any] = {
-                "url": url,
-                "params": params,
-                "headers": {
-                    "Content-Type": "application/json-patch+json",
-                    "User-Agent": f"RomM/{get_version()}",
-                    "X-Client-API-Key": self.app_api_key,
-                },
-                "timeout": 120,
-            }
+        # Prepare request kwargs
+        request_kwargs: dict[str, Any] = {
+            "url": url,
+            "params": params,
+            "headers": {
+                "Content-Type": "application/json-patch+json",
+                "User-Agent": f"RomM/{get_version()}",
+                "X-Client-API-Key": self.app_api_key,
+            },
+            "timeout": 120,
+        }
 
-            # Add method-specific parameters
-            if method == "POST":
-                request_kwargs["json"] = data
+        # Add method-specific parameters
+        if method == "POST":
+            request_kwargs["json"] = data
 
-            res = await httpx_client.request(method, **request_kwargs)
-            res.raise_for_status()
-            return parse_response(dict[str, Any], res.content, source="Hasheous") or {}
-        except httpx2.HTTPStatusError as exc:
-            # Check if its a 404 error
-            if exc.response.status_code == status.HTTP_404_NOT_FOUND:
-                log.debug("Game not found in Hasheous API")
+        for attempt in range(1, HASHEOUS_MAX_REQUEST_ATTEMPTS + 1):
+            is_last = attempt == HASHEOUS_MAX_REQUEST_ATTEMPTS
+            await _rate_limiter.acquire()
+            try:
+                res = await httpx_client.request(method, **request_kwargs)
+                res.raise_for_status()
+                return (
+                    parse_response(dict[str, Any], res.content, source="Hasheous") or {}
+                )
+            except httpx2.HTTPStatusError as exc:
+                # Check if its a 404 error
+                if exc.response.status_code == status.HTTP_404_NOT_FOUND:
+                    log.debug("Game not found in Hasheous API")
+                    return {}
+
+                if (
+                    not is_last
+                    and exc.response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+                ):
+                    backoff = float(RATE_LIMIT_BACKOFF_SECONDS)
+                    try:
+                        body = exc.response.json()
+                        if isinstance(body, dict) and isinstance(
+                            body.get("retryAfterSeconds"), (int, float)
+                        ):
+                            backoff = max(1.0, float(body["retryAfterSeconds"]))
+                    except ValueError:
+                        pass
+                    log.warning("Hasheous: rate limit hit, retrying after %ss", backoff)
+                    await asyncio.sleep(backoff)
+                    continue
+
+                log.error(
+                    "Hasheous API returned an error: %s %s",
+                    exc.response.status_code,
+                    exc.response.text,
+                )
+                raise unavailable("Hasheous") from exc
+            except httpx2.TimeoutException as exc:
+                log.error("Hasheous API timed out: %s", exc)
+                raise unavailable("Hasheous") from exc
+            except httpx2.TransportError as exc:
+                log.critical("Connection error: can't connect to Hasheous")
+                raise unavailable("Hasheous") from exc
+            except json.decoder.JSONDecodeError as exc:
+                # Log the error and return an empty dict if the response is not valid JSON
+                log.error(exc)
                 return {}
 
-            log.error(
-                "Hasheous API returned an error: %s %s",
-                exc.response.status_code,
-                exc.response.text,
-            )
-            raise unavailable("Hasheous") from exc
-        except httpx2.TimeoutException as exc:
-            log.error("Hasheous API timed out: %s", exc)
-            raise unavailable("Hasheous") from exc
-        except httpx2.TransportError as exc:
-            log.critical("Connection error: can't connect to Hasheous")
-            raise unavailable("Hasheous") from exc
-        except json.decoder.JSONDecodeError as exc:
-            # Log the error and return an empty dict if the response is not valid JSON
-            log.error(exc)
-            return {}
+        return {}
 
     def get_platform(self, slug: str) -> HasheousPlatform:
         if slug not in HASHEOUS_PLATFORM_LIST:

@@ -2,8 +2,10 @@
 the request's error mapping, the heartbeat, the IGDB proxy, and matches whose
 shape Hasheous did not promise."""
 
+import asyncio
 from collections.abc import AsyncIterator
 from typing import Any
+from unittest.mock import AsyncMock, MagicMock
 
 import httpx2
 import pytest
@@ -37,6 +39,12 @@ async def hasheous(
     monkeypatch: pytest.MonkeyPatch,
 ) -> AsyncIterator[tuple[HasheousHandler, HasheousStub]]:
     monkeypatch.setattr(hasheous_handler, "HASHEOUS_API_ENABLED", True)
+    monkeypatch.setattr(hasheous_handler._rate_limiter, "acquire", AsyncMock())
+    # Swap only this module's reference, so httpx2 keeps its real sleep.
+    monkeypatch.setattr(
+        "handler.metadata.hasheous_handler.asyncio",
+        MagicMock(wraps=asyncio, sleep=AsyncMock()),
+    )
     stub = HasheousStub()
     client = httpx2.AsyncClient(transport=httpx2.MockTransport(stub))
     token = ctx_httpx_client.set(client)
@@ -114,23 +122,47 @@ class TestRequest:
 
         assert await handler._request(handler.games_endpoint) == {}
 
+    async def test_a_rate_limited_request_backs_off_and_retries(
+        self, hasheous: tuple[HasheousHandler, HasheousStub]
+    ):
+        handler, stub = hasheous
+        stub.replies = [
+            _json({"error": "Rate limit exceeded.", "retryAfterSeconds": 1}, status_code=429),
+            _json({"id": 1}),
+        ]
+
+        assert await handler._request(handler.games_endpoint) == {"id": 1}
+        assert len(stub.requests) == 2
+        hasheous_handler.asyncio.sleep.assert_awaited_once_with(1.0)  # type: ignore[attr-defined]
+
     @pytest.mark.parametrize(
-        "reply",
+        "replies",
         [
-            _json({}, status_code=500),
-            httpx2.ConnectError("refused"),
-            httpx2.ReadTimeout("slow"),
-            httpx2.RemoteProtocolError("dropped"),
+            [
+                _json({}, status_code=429),
+                _json({}, status_code=429),
+                _json({}, status_code=429),
+            ],
+            [_json({}, status_code=500)],
+            [httpx2.ConnectError("refused")],
+            [httpx2.ReadTimeout("slow")],
+            [httpx2.RemoteProtocolError("dropped")],
         ],
-        ids=["server_error", "refused", "timeout", "dropped"],
+        ids=[
+            "rate_limited_exhausted",
+            "server_error",
+            "refused",
+            "timeout",
+            "dropped",
+        ],
     )
     async def test_a_failed_request_is_unavailable(
         self,
         hasheous: tuple[HasheousHandler, HasheousStub],
-        reply: httpx2.Response | Exception,
+        replies: list[httpx2.Response | Exception],
     ):
         handler, stub = hasheous
-        stub.replies = [reply]
+        stub.replies = list(replies)
 
         with pytest.raises(HTTPException) as exc:
             await handler._request(handler.games_endpoint)
