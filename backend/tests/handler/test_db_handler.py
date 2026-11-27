@@ -1113,6 +1113,51 @@ def test_get_matching_missing_rom_ignores_empty_hashes(platform: Platform):
     assert match is None
 
 
+def test_get_matching_missing_rom_by_fs_name_returns_unique_match(platform: Platform):
+    """A moved file can be recovered when its exact filename is unchanged."""
+    missing = _add_missing_rom(platform, "Moved")
+
+    match = db_rom_handler.get_matching_missing_rom_by_fs_name(platform.id, "Moved.zip")
+
+    assert match is not None
+    assert match.id == missing.id
+
+
+def test_get_matching_missing_rom_by_fs_name_ignores_present_rom(
+    platform: Platform,
+):
+    """Present rows must not be candidates for filename reassociation."""
+    make_rom(platform, "Present.zip", missing_from_fs=False)
+
+    assert (
+        db_rom_handler.get_matching_missing_rom_by_fs_name(platform.id, "Present.zip")
+        is None
+    )
+
+
+def test_get_matching_missing_rom_by_fs_name_rejects_ambiguous_match(
+    platform: Platform,
+):
+    """Two missing rows with the same filename must not be guessed between."""
+    make_rom(
+        platform,
+        "Duplicate",
+        fs_path=f"{platform.slug}/roms/one",
+        missing_from_fs=True,
+    )
+    make_rom(
+        platform,
+        "Duplicate",
+        fs_path=f"{platform.slug}/roms/two",
+        missing_from_fs=True,
+    )
+
+    assert (
+        db_rom_handler.get_matching_missing_rom_by_fs_name(platform.id, "Duplicate.zip")
+        is None
+    )
+
+
 def test_users(admin_user):
     db_user_handler.add_user(
         User(

@@ -1135,6 +1135,7 @@ def patch_identify_rom(
 
     db = mocker.patch.object(scan_module, "db_rom_handler")
     db.add_rom.return_value = MagicMock(is_identified=False, id=99)
+    db.get_matching_missing_rom_by_fs_name.return_value = None
 
     platform = Platform(name=platform_slug, slug=platform_slug, fs_slug=platform_slug)
     platform.id = 1
@@ -1283,6 +1284,7 @@ class TestIdentifyRomReassociation:
         """
         db, platform = patched
         db.get_matching_missing_rom.return_value = None
+        db.get_matching_missing_rom_by_fs_name.return_value = None
         mocker.patch.object(
             fs_rom_handler,
             "get_rom_files",
@@ -1311,6 +1313,7 @@ class TestIdentifyRomReassociation:
     async def test_files_are_reconciled_in_place(self, patched):
         db, platform = patched
         db.get_matching_missing_rom.return_value = None
+        db.get_matching_missing_rom_by_fs_name.return_value = None
         db.sync_rom_files.return_value = SyncedRomFiles(
             files=[], orphaned_cover_paths=[]
         )
@@ -1323,6 +1326,7 @@ class TestIdentifyRomReassociation:
     async def test_orphaned_soundtrack_covers_are_unlinked(self, patched, mocker):
         db, platform = patched
         db.get_matching_missing_rom.return_value = None
+        db.get_matching_missing_rom_by_fs_name.return_value = None
         db.sync_rom_files.return_value = SyncedRomFiles(
             files=[], orphaned_cover_paths=["covers/track01.png"]
         )
@@ -1335,10 +1339,15 @@ class TestIdentifyRomReassociation:
     async def test_creates_new_entry_when_no_match(self, patched):
         db, platform = patched
         db.get_matching_missing_rom.return_value = None
+        db.get_matching_missing_rom_by_fs_name.return_value = None
 
         await self._run(platform)
 
         db.get_matching_missing_rom.assert_called_once()
+        db.get_matching_missing_rom_by_fs_name.assert_called_once_with(
+            platform_id=1,
+            fs_name="New Name.zip",
+        )
         # No reassociation update happens on the create path.
         db.update_rom.assert_not_called()
         # A new row is inserted, then the scan result is persisted (two calls).
@@ -1351,9 +1360,29 @@ class TestIdentifyRomReassociation:
         assert created.fs_size_bytes is None
         assert created.title_id is None
 
+    async def test_reassociates_with_unique_missing_filename(self, patched):
+        db, platform = patched
+        missing = MagicMock(id=42, name="Old Name", fs_name="Moved.zip")
+        db.get_matching_missing_rom.return_value = None
+        db.get_matching_missing_rom_by_fs_name.return_value = missing
+        db.update_rom.return_value = missing
+
+        await run_identify_rom(platform, make_fs_rom("Moved.zip"))
+
+        db.get_matching_missing_rom_by_fs_name.assert_called_once_with(
+            platform_id=1,
+            fs_name="Moved.zip",
+        )
+        rom_id, data = db.update_rom.call_args.args
+        assert rom_id == 42
+        assert data["fs_name"] == "Moved.zip"
+        assert data["missing_from_fs"] is False
+        assert db.add_rom.call_count == 1
+
     async def test_new_entry_is_inserted_with_hashes(self, patched, mocker):
         db, platform = patched
         db.get_matching_missing_rom.return_value = None
+        db.get_matching_missing_rom_by_fs_name.return_value = None
         mocker.patch.object(
             fs_rom_handler,
             "get_rom_files",
@@ -3166,6 +3195,7 @@ def identify_harness(mocker):
         is_identified=False, id=1, url_cover="", url_manual="", url_screenshots=[]
     )
     db.get_matching_missing_rom.return_value = None
+    db.get_matching_missing_rom_by_fs_name.return_value = None
     db.sync_rom_files.return_value = SyncedRomFiles(files=[], orphaned_cover_paths=[])
 
     loaded_rom_files = mocker.patch.object(
