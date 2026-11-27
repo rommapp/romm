@@ -9,6 +9,7 @@ from tests.sql_dialects import POSTGRESQL_DIALECT, compile_sql
 from handler.auth.rom_visibility import UNRESTRICTED, RomVisibilityFilter
 from handler.database import db_rom_handler
 from handler.database.rom_filters import RomFilterParams
+from models.rom import PROVIDER_METADATA_COLUMNS
 
 PAGE_IDS = [11, 22, 33]
 
@@ -62,3 +63,20 @@ def test_loading_a_page_keeps_the_file_stats_the_serializer_reads():
             PAGE_IDS, visibility=UNRESTRICTED, include_file_stats=True
         )
     )
+
+
+def test_loading_a_page_reads_every_provider_column_by_default():
+    sql = _sql(db_rom_handler.get_page_rows_query(PAGE_IDS, visibility=UNRESTRICTED))
+
+    assert all(f"roms.{column}" in sql for column in PROVIDER_METADATA_COLUMNS)
+
+
+def test_loading_a_page_leaves_out_the_provider_columns_it_is_not_given():
+    sql = _sql(
+        db_rom_handler.get_page_rows_query(
+            PAGE_IDS, visibility=UNRESTRICTED, provider_columns=("ss_metadata",)
+        )
+    )
+
+    assert "roms.ss_metadata" in sql
+    assert "roms.igdb_metadata" not in sql
