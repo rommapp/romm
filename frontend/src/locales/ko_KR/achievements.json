@@ -1,0 +1,20 @@
+{
+  "counter-total": "합계",
+  "earned-on": "{date}에 획득",
+  "empty-earned-hint": "이 라이브러리의 게임에는 아직 획득한 도전 과제가 없습니다. 하나를 해제하고 다시 동기화하면 여기에 나타납니다.",
+  "empty-earned-title": "아직 획득한 도전 과제가 없습니다",
+  "empty-unlinked-hint": "프로필을 열고 RetroAchievements에서 사용자 이름을 입력한 뒤 저장을 누르세요. 저장하면 동기화도 시작됩니다.",
+  "empty-unlinked-title": "연결된 RetroAchievements 계정이 없습니다",
+  "empty-unsynced-hint": "프로필을 열고 RetroAchievements에서 동기화를 누르세요.",
+  "empty-unsynced-title": "아직 동기화하지 않았습니다",
+  "filter-all-games": "모든 게임",
+  "filter-game": "게임",
+  "game-achievements-n": "도전 과제 {n}개 | 도전 과제 {n}개",
+  "go-to-profile": "프로필 열기",
+  "load-error": "도전 과제를 불러오지 못했습니다",
+  "open-game": "{name} 열기",
+  "points-label": "점수",
+  "sort-catalog": "카탈로그 순서",
+  "sort-date": "날짜",
+  "sort-other": "기타"
+}

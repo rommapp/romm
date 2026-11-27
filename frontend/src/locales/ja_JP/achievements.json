@@ -1,0 +1,20 @@
+{
+  "counter-total": "合計",
+  "earned-on": "{date} に獲得",
+  "empty-earned-hint": "このライブラリのゲームには、まだ獲得した実績がありません。実績を解除して再度同期すると、ここに表示されます。",
+  "empty-earned-title": "まだ獲得した実績はありません",
+  "empty-unlinked-hint": "プロフィールを開き、RetroAchievements にユーザー名を入力して保存してください。保存すると同期も始まります。",
+  "empty-unlinked-title": "RetroAchievements アカウントが未連携です",
+  "empty-unsynced-hint": "プロフィールを開き、RetroAchievements で同期を押してください。",
+  "empty-unsynced-title": "まだ同期されていません",
+  "filter-all-games": "すべてのゲーム",
+  "filter-game": "ゲーム",
+  "game-achievements-n": "実績 {n} 件 | 実績 {n} 件",
+  "go-to-profile": "プロフィールを開く",
+  "load-error": "実績を読み込めませんでした",
+  "open-game": "{name} を開く",
+  "points-label": "ポイント",
+  "sort-catalog": "カタログ順",
+  "sort-date": "日付",
+  "sort-other": "その他"
+}

@@ -38,6 +38,7 @@ import { installStageActiveClass } from "@/composables/useStageActive";
 import { installSyncConflictToast } from "@/composables/useSyncConflictToast";
 import { installBackMorph } from "@/composables/useViewTransition";
 import socket from "@/services/socket";
+import { prefetchEarnedAchievements } from "@/services/api/user";
 import storeCollections from "@/stores/collections";
 import { useNativeStore } from "@/stores/native";
 import storePlatforms from "@/stores/platforms";
@@ -197,6 +198,7 @@ onMounted(() => {
   // Hydrate the streaming config so `containerForPlatform` resolves and
   // the Play CTA shows on streamable platforms. v1 ran this in `Main.vue`.
   void streamingStore.fetchConfig();
+  void prefetchEarnedAchievements();
 });
 
 onBeforeUnmount(() => {

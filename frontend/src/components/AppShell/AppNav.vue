@@ -1,8 +1,8 @@
 <script setup lang="ts">
 // AppNav: the top navigation. Logo on the left, centred tab pill of
-// content destinations (Home / Platforms / Collections / Search), and
-// a right cluster of utility chrome (scan and conversion indicators, the
-// mini player on phones, user menu).
+// content destinations (Home / Platforms / Collections / Achievements /
+// Search), and a right cluster of utility chrome (scan and conversion
+// indicators, the mini player on phones, user menu).
 // Highlighting is derived from `route.path`
 // rather than route names so gallery subroutes (e.g. /rom/:id) still
 // light up the Home tab.

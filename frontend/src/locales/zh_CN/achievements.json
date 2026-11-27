@@ -1,0 +1,20 @@
+{
+  "counter-total": "总计",
+  "earned-on": "于 {date} 获得",
+  "empty-earned-hint": "这个库里的游戏还没有已获得的成就。解锁一个并再次同步后，它会显示在这里。",
+  "empty-earned-title": "还没有已获得的成就",
+  "empty-unlinked-hint": "打开个人资料，在 RetroAchievements 下输入用户名并按保存。保存也会开始同步。",
+  "empty-unlinked-title": "未关联 RetroAchievements 账户",
+  "empty-unsynced-hint": "打开个人资料，在 RetroAchievements 下按同步。",
+  "empty-unsynced-title": "尚未同步",
+  "filter-all-games": "全部游戏",
+  "filter-game": "游戏",
+  "game-achievements-n": "{n} 个成就 | {n} 个成就",
+  "go-to-profile": "打开个人资料",
+  "load-error": "无法加载成就",
+  "open-game": "打开 {name}",
+  "points-label": "点数",
+  "sort-catalog": "目录顺序",
+  "sort-date": "日期",
+  "sort-other": "其他"
+}

@@ -1,0 +1,20 @@
+{
+  "counter-total": "Total",
+  "earned-on": "Obtenu le {date}",
+  "empty-earned-hint": "Aucun succès obtenu pour les jeux de cette bibliothèque. Quand tu en débloques un et que tu synchronises à nouveau, il apparaît ici.",
+  "empty-earned-title": "Aucun succès obtenu",
+  "empty-unlinked-hint": "Ouvre ton profil, saisis ton nom d'utilisateur sous RetroAchievements et appuie sur Enregistrer. L'enregistrement lance aussi la synchronisation.",
+  "empty-unlinked-title": "Aucun compte RetroAchievements lié",
+  "empty-unsynced-hint": "Ouvre ton profil et appuie sur Synchroniser sous RetroAchievements.",
+  "empty-unsynced-title": "Rien n'a encore été synchronisé",
+  "filter-all-games": "Tous les jeux",
+  "filter-game": "Jeu",
+  "game-achievements-n": "{n} succès | {n} succès",
+  "go-to-profile": "Ouvrir le profil",
+  "load-error": "Impossible de charger les succès",
+  "open-game": "Ouvrir {name}",
+  "points-label": "Points",
+  "sort-catalog": "Ordre du catalogue",
+  "sort-date": "Date",
+  "sort-other": "Autres"
+}

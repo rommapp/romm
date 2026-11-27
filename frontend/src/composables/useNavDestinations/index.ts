@@ -1,7 +1,7 @@
-// useNavDestinations: single source of truth for the four primary
-// content destinations (Home / Platforms / Collections / Search) and the
-// route-path → active-tab derivation. Shared by `AppNav` (desktop top
-// pill) and `BottomNav` (mobile bottom bar) so the two never drift in
+// useNavDestinations: single source of truth for the primary content
+// destinations (Home / Platforms / Collections / Achievements / Search)
+// and the route-path → active-tab derivation. Shared by `AppNav` (desktop
+// top pill) and `BottomNav` (mobile bottom bar) so the two never drift in
 // labels, icons, ordering, or active-state logic.
 //
 // Highlighting is derived from `route.path` (not route names) so gallery
@@ -12,7 +12,12 @@ import type { ComputedRef } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 
-export type NavDestinationId = "home" | "platforms" | "collections" | "search";
+export type NavDestinationId =
+  | "home"
+  | "platforms"
+  | "collections"
+  | "achievements"
+  | "search";
 
 export interface NavDestination {
   id: NavDestinationId;
@@ -28,6 +33,7 @@ export const NAV_TARGETS: readonly { id: NavDestinationId; to: string }[] = [
   { id: "home", to: "/" },
   { id: "platforms", to: "/platforms" },
   { id: "collections", to: "/collections" },
+  { id: "achievements", to: "/achievements" },
   { id: "search", to: "/search" },
 ];
 
@@ -37,6 +43,7 @@ const NAV_META: Record<NavDestinationId, { labelKey: string; icon: string }> = {
   // Same glyph GameCard uses for its "add to collection" action:
   // keeps the icon stable across every generic "Collections" surface.
   collections: { labelKey: "common.collections", icon: "mdi-bookmark-outline" },
+  achievements: { labelKey: "common.achievements", icon: "mdi-trophy-outline" },
   search: { labelKey: "common.search", icon: "mdi-magnify" },
 };
 
@@ -60,6 +67,7 @@ export function navDestinationAt(path: string): NavDestinationId | null {
   if (isUnder(path, "/collections") || isUnder(path, "/collection")) {
     return "collections";
   }
+  if (isUnder(path, "/achievements")) return "achievements";
   if (isUnder(path, "/search")) return "search";
   return null;
 }

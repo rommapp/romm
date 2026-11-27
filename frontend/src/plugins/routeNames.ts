@@ -38,6 +38,7 @@ export const ROUTES = {
   PAIR_DEVICE: "pair-device",
   PLATFORMS_INDEX: "platforms-index",
   COLLECTIONS_INDEX: "collections-index",
+  ACHIEVEMENTS: "achievements",
   CONTROLLER_DEBUG: "controller-debug",
   NOT_FOUND: "404",
 } as const;

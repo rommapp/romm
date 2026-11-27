@@ -2,9 +2,10 @@
 // AchievementsTab: RetroAchievements summary + filter row + per-achievement
 // list. The "earned" set comes from the parent (computed off
 // auth.user.ra_progression so it stays reactive).
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { RAGameRomAchievement, RomRAMetadata } from "@/__generated__";
+import { useBackgroundArt } from "@/composables/useBackgroundArt";
 import { REmptyState } from "@/lib";
 import { isAchievementEarned } from "@/utils/achievements";
 
@@ -17,11 +18,22 @@ const props = withDefaults(
     metadata: RomRAMetadata | null | undefined;
     apiBase?: string | undefined;
     earnedAchievementIds?: ReadonlySet<string>;
+    backgroundUrl?: string | null;
   }>(),
   {
     apiBase: undefined,
     earnedAchievementIds: () => new Set<string>(),
+    backgroundUrl: null,
   },
+);
+
+const setBgArt = useBackgroundArt();
+watch(
+  () => props.backgroundUrl,
+  (url) => {
+    if (url) setBgArt(url);
+  },
+  { immediate: true },
 );
 
 type TypeFilter = "all" | "progression" | "missable" | "win_condition";

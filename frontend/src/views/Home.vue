@@ -17,6 +17,9 @@ import type {
 import CollectionTile from "@/components/Collections/CollectionTile.vue";
 import { GameCard, GameCardSkeleton } from "@/components/GameCard";
 import LiveSessionCard from "@/components/Home/LiveSessionCard.vue";
+import RecentAchievementCard, {
+  type RecentAchievementItem,
+} from "@/components/Home/RecentAchievementCard.vue";
 import WidgetBar from "@/components/Home/Widgets/WidgetBar.vue";
 import PlatformTile from "@/components/Platforms/PlatformTile.vue";
 import CardRow from "@/components/shared/CardRow.vue";
@@ -25,6 +28,7 @@ import PageHeader from "@/components/shared/PageHeader.vue";
 import RecommendationReason from "@/components/shared/RecommendationReason.vue";
 import { useGridNav } from "@/composables/useGridNav";
 import { useLoadingPhase } from "@/composables/useLoadingPhase";
+import { useSocketEvent } from "@/composables/useSocketEvent";
 import { useUISettings } from "@/composables/useUISettings";
 import { useVisiblePoll } from "@/composables/useVisiblePoll";
 import { useWebpSupport } from "@/composables/useWebpSupport";
@@ -36,6 +40,10 @@ import romApi, {
   RECOMMENDED_ROMS_LIMIT,
 } from "@/services/api/rom";
 import setupApi from "@/services/api/setup";
+import {
+  refreshEarnedAchievements,
+  useEarnedAchievementsState,
+} from "@/services/api/user";
 import storeCollections from "@/stores/collections";
 import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
@@ -74,6 +82,40 @@ const {
 
 const fetchingRecent = ref(false);
 const fetchingContinue = ref(false);
+const { payload: earnedAchievements, load: loadEarnedAchievements } =
+  useEarnedAchievementsState();
+useSocketEvent<{ ok: boolean }>("ra:synced", ({ ok }) => {
+  if (ok) void refreshEarnedAchievements();
+});
+
+const RECENT_ACHIEVEMENTS_LIMIT = 15;
+
+const recentAchievements = computed<RecentAchievementItem[]>(() => {
+  const games = earnedAchievements.value?.games ?? [];
+  const unlocked: Array<RecentAchievementItem & { earnedAt: string }> = [];
+  for (const game of games) {
+    for (const achievement of game.achievements) {
+      if (!achievement.earned || !achievement.earned_at) continue;
+      unlocked.push({
+        id: achievement.id,
+        title: achievement.title,
+        badgePath: achievement.badge_path,
+        badgeUrl: achievement.badge_url,
+        romId: game.rom_id,
+        romName: game.name,
+        gameIconUrl: game.cover_url,
+        pathCoverLarge: game.path_cover_large ?? null,
+        pathCoverSmall: game.path_cover_small ?? null,
+        urlCover: game.url_cover ?? null,
+        earnedAt: achievement.earned_at,
+      });
+    }
+  }
+  unlocked.sort((a, b) =>
+    a.earnedAt < b.earnedAt ? 1 : a.earnedAt > b.earnedAt ? -1 : 0,
+  );
+  return unlocked.slice(0, RECENT_ACHIEVEMENTS_LIMIT);
+});
 
 // Ranked server-side from the similarity index plus this user's play history,
 // so the row is fetched here rather than derived from the store's rails.
@@ -184,6 +226,7 @@ onMounted(async () => {
   if (showRecommendations.value) {
     void loadRecommendations();
   }
+  void loadEarnedAchievements();
 
   await Promise.allSettled(initialLoads);
   initialLoadDone.value = true;
@@ -395,6 +438,23 @@ function collectionCovers(c: {
             :style="{ '--card-fade-i': i }"
             :session="session"
             :webp="supportsWebp"
+          />
+        </CardRow>
+
+        <CardRow
+          v-if="recentAchievements.length"
+          :title="t('home.recent-achievements')"
+          :count="recentAchievements.length"
+        >
+          <template #icon>
+            <RIcon icon="mdi-trophy" size="20" />
+          </template>
+          <RecentAchievementCard
+            v-for="(item, i) in recentAchievements"
+            :key="`ach-${item.romId}-${item.id}`"
+            class="r-card-fade"
+            :style="{ '--card-fade-i': i }"
+            :item="item"
           />
         </CardRow>
 

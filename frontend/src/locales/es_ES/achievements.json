@@ -1,0 +1,20 @@
+{
+  "counter-total": "Total",
+  "earned-on": "Obtenido el {date}",
+  "empty-earned-hint": "Todavía no hay logros obtenidos en juegos de esta biblioteca. Cuando desbloquees alguno y vuelvas a sincronizar, aparecerán aquí.",
+  "empty-earned-title": "Todavía no hay logros obtenidos",
+  "empty-unlinked-hint": "En tu perfil, sección RetroAchievements, escribe tu usuario y pulsa Guardado. Al guardar empieza la sincronización.",
+  "empty-unlinked-title": "Sin cuenta de RetroAchievements",
+  "empty-unsynced-hint": "En tu perfil, sección RetroAchievements, pulsa Sincronizar.",
+  "empty-unsynced-title": "Aún no hay una sincronización",
+  "filter-all-games": "Todos los juegos",
+  "filter-game": "Juego",
+  "game-achievements-n": "{n} logro | {n} logros",
+  "go-to-profile": "Abrir perfil",
+  "load-error": "No se pudieron cargar los logros",
+  "open-game": "Abrir {name}",
+  "points-label": "Puntos",
+  "sort-catalog": "Orden del catálogo",
+  "sort-date": "Fecha",
+  "sort-other": "Otros"
+}

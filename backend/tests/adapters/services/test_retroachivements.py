@@ -1,6 +1,6 @@
 import asyncio
 import json
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
@@ -61,7 +61,7 @@ UNCREDITED_GAME = {
 }
 
 
-def _session_returning(body: dict[str, object]) -> MagicMock:
+def _session_returning(body: Mapping[str, object]) -> MagicMock:
     mock_response = MagicMock()
     mock_response.read = AsyncMock(return_value=json.dumps(body).encode())
     mock_response.raise_for_status.return_value = None
@@ -183,6 +183,22 @@ class TestRetroAchievementsServiceUnit:
             "adapters.services.retroachievements.ctx_aiohttp_session", mock_context
         ):
             assert await service.get_game_extended_details(999999) is None
+
+    @pytest.mark.asyncio
+    async def test_get_game_reads_the_image_icon(self, service):
+        body = {
+            "Title": "Yu-Gi-Oh! Forbidden Memories",
+            "ImageIcon": "/Images/047227.png",
+        }
+        context = _session_returning(body)
+
+        with patch("adapters.services.retroachievements.ctx_aiohttp_session", context):
+            assert await service.get_game(11246) == body
+
+        requested = str(context.get.return_value.get.call_args.args[0])
+        assert "API_GetGame.php" in requested
+        assert "11246" in requested
+        assert "047227" not in requested
 
     @pytest.mark.asyncio
     async def test_game_extended_details_accept_missing_credits(self, service):
