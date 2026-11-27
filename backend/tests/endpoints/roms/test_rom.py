@@ -804,7 +804,7 @@ def assert_filter_values_are_lists(filter_values: dict[str, object]) -> None:
     assert all(isinstance(value, list) for value in filter_values.values())
 
 
-def test_get_roms_no_longer_returns_filter_values(
+def test_get_roms_omits_filter_values(
     client: TestClient, access_token: str, rom: Rom, platform: Platform
 ) -> None:
     response = client.get(
@@ -863,7 +863,7 @@ def test_get_filter_values_follow_the_scope_and_ignore_other_filters(
 def test_get_filter_values_omit_values_of_hidden_roms(
     client: TestClient,
     viewer_access_token: str,
-    viewer_user,
+    viewer_user: User,
     rom: Rom,
     platform: Platform,
 ) -> None:
