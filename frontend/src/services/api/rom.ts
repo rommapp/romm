@@ -796,8 +796,12 @@ async function updateRom({
   removeCover?: boolean;
   unmatch?: boolean;
 }): Promise<AxiosResponse<DetailedRomSchema>> {
-  const toFormIdValue = (value: number | string | null | undefined): string =>
-    value === null || value === undefined ? "" : String(value);
+  // An id the rom doesn't carry (undefined) stays out of the form, so it keeps
+  // its stored value; only an id set to null is sent empty to clear it.
+  const toFormIdValue = (
+    value: number | string | null | undefined,
+  ): string | undefined =>
+    value === undefined ? undefined : value === null ? "" : String(value);
 
   const fields: FormInputField<UpdateRomInput>[] = [
     ["name", rom.name],

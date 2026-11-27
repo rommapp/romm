@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 import type { SimpleRomSchema } from "@/__generated__";
 import romApi, { type UpdateRom } from "@/services/api/rom";
-import { DEFAULT_ROM_FIELDS } from "@/services/api/romFields";
+import { DEFAULT_ROM_FIELDS, GALLERY_FIELDS } from "@/services/api/romFields";
 import storeUpload from "@/stores/upload";
+import { romFixture } from "@/utils/rom.fixtures";
 
 const { get, post, put } = vi.hoisted(() => ({
   get: vi.fn(),
@@ -58,6 +59,33 @@ describe("updateRom", () => {
     const fields = await sentFields(buildRom({ [field]: 1234 }));
 
     expect(fields.get(field)).toBe("1234");
+  });
+
+  it("clears an id that was set to null", async () => {
+    const fields = await sentFields(buildRom({ sgdb_id: null }));
+
+    expect(fields.get("sgdb_id")).toBe("");
+  });
+
+  it("keeps the stored value of an id the rom does not carry", async () => {
+    const thin: Partial<UpdateRom> = buildRom();
+    delete thin.sgdb_id;
+    delete thin.tgdb_id;
+
+    const fields = await sentFields(thin as UpdateRom);
+
+    expect(fields.has("sgdb_id")).toBe(false);
+    expect(fields.has("tgdb_id")).toBe(false);
+  });
+
+  it("only sends ids that the gallery requests", async () => {
+    const fields = await sentFields(buildRom(romFixture()));
+    const sentIds = [...fields.keys()].filter((key) => key.endsWith("_id"));
+
+    expect(sentIds).toContain("sgdb_id");
+    for (const key of sentIds) {
+      expect(GALLERY_FIELDS.has(key as never)).toBe(true);
+    }
   });
 
   it.each([

@@ -2001,8 +2001,14 @@ class DBRomsHandler(DBBaseHandler):
     ) -> RomSelect:
         """The rows of one page, loaded by id with none of the filters re-run.
 
-        Provider metadata columns outside `provider_columns` are not read; pass
-        the loaded rows to `blank_unread_provider_columns` before using them.
+        Args:
+            page_ids: The ids of the roms to load.
+            visibility: The roms the caller is allowed to see.
+            include_file_stats: Whether to load each rom's file stats.
+            provider_columns: The provider metadata columns to read; the rest are not loaded.
+
+        Returns:
+            A query whose rows need `blank_unread_provider_columns` before use.
         """
         # The only access check on caller-supplied ids, and it also catches a
         # cached id index that predates a rule change.

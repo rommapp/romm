@@ -190,8 +190,6 @@ export const GALLERY_FIELDS = getFieldsWithout([
   "version",
   "is_physical",
   "missing_from_fs",
-  "sgdb_id",
-  "tgdb_id",
   "has_manual",
   "path_manual",
   "url_manual",
