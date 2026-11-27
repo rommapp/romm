@@ -1362,7 +1362,7 @@ def get_gallery_filter_values(
     request: Request,
     filters: Annotated[RomFilterParams, Depends(ROM_FILTER_QUERY)],
 ) -> RomFiltersDict:
-    """Get the options for the filter dropdowns from the roms in the current platform, collection or search, ignoring the other filters."""
+    """Get the options for the gallery's filter dropdowns. The values come from every rom the caller can see in the current platform, collection or search, ignoring the other filters, so selecting a value never removes the other options from its dropdown."""
     perms = get_permissions(request)
     unfiltered_query, _ = db_rom_handler.get_roms_query(
         user_id=request.user.id,

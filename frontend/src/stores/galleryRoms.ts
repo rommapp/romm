@@ -258,8 +258,8 @@ interface State {
   // resolves: view shows a skeleton hero/skeleton rows during this
   // phase.
   initialFetching: boolean;
-  // True once total / charIndex / romIdIndex have been populated, either
-  // by the lightweight `fetchInitialMetadata()` bootstrap or by
+  // True once `total`, `charIndex` and `romIdIndex` have been populated,
+  // either by the lightweight `fetchInitialMetadata()` bootstrap or by
   // `fetchWindowAt(0)`. Used to gate the initial bootstrap dedup
   // independently of `loadedWindows` (metadata bootstrap doesn't load any
   // window).
@@ -774,7 +774,7 @@ export default defineStore("v2GalleryRoms", {
       const controller = new AbortController();
       inFlightControllers.set(ctrlKey, controller);
 
-      // Skip the char-index / id-index aggregations when the bootstrap
+      // Skip the char-index and id-index aggregations when the bootstrap
       // already loaded them. Capture the decision now: it also gates whether
       // this response is allowed to re-apply that metadata below. The backend
       // returns an EMPTY (but truthy) `char_index: {}` object when it is
