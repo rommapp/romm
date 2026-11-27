@@ -35,7 +35,7 @@ from handler.filesystem.base_handler import (
     TRANSLATION_TAG,
     normalize_provider_languages,
     normalize_provider_regions,
-    region_name_to_provider_shortcode,
+    preferred_region_codes,
 )
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -192,38 +192,15 @@ def add_ss_auth_to_url(url: str | None) -> str:
 
 
 def get_preferred_regions(rom: Rom | None = None) -> list[str]:
-    """Get preferred regions, prepending the rom's own region tags when available.
+    """Get ScreenScraper regions in preference order, ending with its catch-all regions.
 
-    When a rom is tagged with multiple regions (e.g. "(Japan, USA)"), the rom's
-    own tags are reordered according to the user's SCAN_REGION_PRIORITY so the
-    user's preference wins among the regions the file is actually tagged as.
-    Filename-tagged regions not present in the priority list keep their relative
-    order and follow the prioritized ones.
-
-    With SCAN_REGION_MODE set to "prefer_config" the configured priority is
-    authoritative instead: config regions come first and the rom's own tags
-    become the fallback. Everything region-selected reads this ordering, so a
-    game picked up in French comes back with its French artwork, title and
-    release date rather than a mix.
+    Everything region-selected reads this ordering, so a game picked up in French
+    comes back with its French artwork, title and release date rather than a mix.
     """
-    config = cm.get_config()
-    priority = config.SCAN_REGION_PRIORITY
-
-    rom_codes: list[str] = []
-    if rom is not None and isinstance(rom.regions, list):
-        for region_name in rom.regions:
-            code = region_name_to_provider_shortcode(region_name)
-            if code:
-                rom_codes.append(code)
-        rom_codes.sort(
-            key=lambda code: priority.index(code) if code in priority else len(priority)
-        )
-
-    if config.SCAN_REGION_MODE == "prefer_config":
-        ordered = priority + rom_codes
-    else:
-        ordered = rom_codes + priority
-
+    rom_regions = (
+        rom.regions if rom is not None and isinstance(rom.regions, list) else []
+    )
+    ordered = preferred_region_codes(rom_regions)
     return list(dict.fromkeys(ordered + ["us", "wor", "ss", "eu", "jp", "cus"])) + [
         "unk"
     ]
