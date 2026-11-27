@@ -353,7 +353,7 @@ _ROM_USER_WRITE_BATCH_SIZE = 1000
 _USER_OWNED_ROM_USER_STATUSES = (RomUserStatus.RETIRED, RomUserStatus.NEVER_PLAYING)
 
 
-# Cached gallery sidecars (letter index, id list) so they don't get
+# Cached ROM filter values (genres/franchises/etc.) so it doesn't get
 # recomputed on every call to /api/roms
 ROM_FILTERS_CACHE_VERSION_KEY = "filter_values:ver"
 ROM_FILTERS_CACHE_TTL = 60 * 60 * 24 * 7  # 7 days
@@ -495,6 +495,10 @@ def user_sibling_cache_version(user_id: int) -> str:
 def _sidecar_redis_key(prefix: str, cache_key: str, version: str) -> str:
     """Every gallery sidecar key shares this shape, so none can omit the schema version."""
     return f"{prefix}:{ROM_FILTERS_CACHE_SCHEMA_VERSION}:{cache_key}:v{version}"
+
+
+def _filter_values_redis_key(cache_key: str, version: str) -> str:
+    return _sidecar_redis_key("filter_values", cache_key, version)
 
 
 def _char_index_redis_key(cache_key: str, version: str) -> str:
@@ -787,7 +791,7 @@ RECOMMENDATION_SEED_FIELDS = frozenset(
 )
 
 # A write that changes a gallery sort key sets this in `session.info`; the cached
-# sidecars are then dropped once, after the transaction commits.
+# filter values are then dropped once, after the transaction commits.
 FILTER_VALUES_BUMP_KEY = "filter_values_bump"
 
 
@@ -4089,16 +4093,30 @@ class DBRomsHandler(DBBaseHandler):
         self,
         query: RomSelect,
         *,
+        cache_key: str | None = None,
         session: Session = INJECTED_SESSION,
     ) -> RomFiltersDict:
         """
         Returns the list of filters given the current subset of ROMs in the query
         """
+        redis_key: str | None = None
+        version: str | None = None
+        if cache_key:
+            version = _filter_values_cache_version()
+            redis_key = _filter_values_redis_key(cache_key, version)
+            cached = sync_cache.get(redis_key)
+            if cached is not None:
+                filters: RomFiltersDict = json.loads(cached)
+                return filters
+
         ids_subq = query.order_by(None).with_only_columns(Rom.id).scalar_subquery()
 
         statement = _FILTER_VALUES_SELECT.where(RomFacets.rom_id.in_(ids_subq))
 
-        return self._collect_filter_values(session, statement)
+        result = self._collect_filter_values(session, statement)
+        if redis_key is not None and version is not None:
+            _store_versioned_cache(redis_key, version, result)
+        return result
 
     @begin_session
     def get_rom_filters(

@@ -309,6 +309,14 @@ def build_grouped_page_cache_key(
     return f"{base_key}:p{platform_id}"
 
 
+def build_unscoped_filter_values_cache_key(
+    user_id: int, is_unscoped: bool
+) -> str | None:
+    """Filter values ignore ordering and grouping (their query strips both),
+    so one per-user entry serves every sort."""
+    return f"all:u{user_id}" if is_unscoped else None
+
+
 class RomUpdateForm(BaseModel):
     igdb_id: str | None = None
     """IGDB game ID."""
@@ -1374,7 +1382,14 @@ def get_gallery_filter_values(
         user_id=request.user.id,
         visibility=perms.rom_visibility,
     )
-    return db_rom_handler.with_filter_values(query=scoped_query)
+    # `hidden`, the only RomUser column filter values read, already bumps the
+    # global version, so no per-user version is embedded.
+    return db_rom_handler.with_filter_values(
+        query=scoped_query,
+        cache_key=build_unscoped_filter_values_cache_key(
+            request.user.id, not filters.has_scope()
+        ),
+    )
 
 
 @protected_route(
