@@ -41,6 +41,9 @@ const roms = ref<SimpleRom[]>([]);
 const total = ref(0);
 const loadedDay = ref("");
 const dayQuery = ref<AnniversaryQuery | null>(null);
+// Offsets index the list as grouped for the first page, so the later pages of
+// the day keep that grouping even if the setting changes in another tab.
+const dayGrouped = ref(true);
 const index = ref(0);
 const loading = ref(false);
 const paging = ref(false);
@@ -82,7 +85,7 @@ function dayKey(date: Date): string {
   return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
 }
 
-function fetchPage(query: AnniversaryQuery, offset: number) {
+function fetchPage(query: AnniversaryQuery, offset: number, grouped: boolean) {
   return romApi.getRoms({
     releasedDays: query.days,
     releasedBeforeYear: query.beforeYear,
@@ -90,7 +93,7 @@ function fetchPage(query: AnniversaryQuery, offset: number) {
     orderDir: "asc",
     limit: PAGE_SIZE,
     offset,
-    groupByMetaId: groupRoms.value,
+    groupByMetaId: grouped,
     // The counter needs the total once; a later page already has it.
     withTotal: offset === 0,
     ...NO_SIDECARS,
@@ -112,6 +115,8 @@ async function load() {
 
   const query = anniversaryQuery(today);
   dayQuery.value = query;
+  const grouped = groupRoms.value;
+  dayGrouped.value = grouped;
   if (!query) {
     // 1 January, which the helper refuses: there is nothing to ask for.
     showEmptyDay();
@@ -125,7 +130,7 @@ async function load() {
 
   loading.value = true;
   try {
-    const { data } = await fetchPage(query, 0);
+    const { data } = await fetchPage(query, 0, grouped);
     if (stale()) return;
     roms.value = data.items;
     total.value = data.total ?? data.items.length;
@@ -151,7 +156,11 @@ async function loadNextPage() {
 
   paging.value = true;
   try {
-    const { data } = await fetchPage(query, roms.value.length);
+    const { data } = await fetchPage(
+      query,
+      roms.value.length,
+      dayGrouped.value,
+    );
     if (loadedDay.value !== day) return;
     roms.value = [...roms.value, ...data.items];
   } catch {

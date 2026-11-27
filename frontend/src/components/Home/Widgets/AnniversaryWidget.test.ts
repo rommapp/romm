@@ -175,6 +175,26 @@ describe("AnniversaryWidget", () => {
     );
   });
 
+  it("keeps the day's grouping when the setting changes between pages", async () => {
+    getRoms
+      .mockResolvedValueOnce(
+        page([rom(1, "Chrono Trigger", releasedOn(1995, 9, 8))], 2),
+      )
+      .mockResolvedValueOnce(
+        page([rom(2, "Super Metroid", releasedOn(2005, 9, 8))], 2),
+      );
+
+    const wrapper = mountWidget();
+    await flushPromises();
+    groupRoms.value = false;
+    await arrows(wrapper).next.trigger("click");
+    await flushPromises();
+
+    expect(getRoms).toHaveBeenLastCalledWith(
+      expect.objectContaining({ offset: 1, groupByMetaId: true }),
+    );
+  });
+
   it("never asks on 1 January, where year-only metadata piles up", async () => {
     vi.setSystemTime(new Date(2026, 0, 1, 12, 0, 0));
 
