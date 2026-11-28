@@ -22,6 +22,7 @@ export default defineConfig(({ mode }) => {
   const backendPort = env.DEV_PORT ?? "5000";
   const httpsMode = env.DEV_HTTPS === "true";
   const pwaDevEnabled = env.DEV_PWA === "true";
+  const vueDevtoolsEnabled = env.DEV_VUE_DEVTOOLS === "true";
 
   const proxyTarget = env.DEV_PROXY_TARGET || `http://127.0.0.1:${backendPort}`;
   const remote = Boolean(env.DEV_PROXY_TARGET);
@@ -78,7 +79,7 @@ export default defineConfig(({ mode }) => {
       previewAssets(),
       platformIconManifest(),
       trimMdiIcons(),
-      vueDevTools(),
+      vueDevtoolsEnabled && vueDevTools(),
       httpsMode &&
         mkcert({
           savePath: "/app/.vite-plugin-mkcert",
