@@ -7,7 +7,7 @@ from pathlib import Path
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
-# What the RQ workers, cron and the gunicorn master must not load before they fork.
+# The RQ workers, cron and the gunicorn master must not load these before they fork.
 HEAVY = (
     "sqlalchemy",
     "fastapi",
@@ -22,7 +22,7 @@ HEAVY = (
 
 
 def _loaded_by(module: str, tmp_path: Path) -> set[str]:
-    # A fresh interpreter, since this one has long since loaded everything.
+    # Run in a fresh interpreter, since this one has long since loaded everything.
     (tmp_path / "config").mkdir()
     result = subprocess.run(
         [
