@@ -5,7 +5,7 @@ import os
 import re
 import tempfile
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Final, Literal
@@ -102,7 +102,7 @@ class SigilRefusal(SaveRestoreError):
 
 
 class SharedContainerRequired(SaveRestoreError):
-    """The target is a card or volume every game shares, so the client must send its own."""
+    """The target is a card, volume or drive image every game shares, so the client must send its own."""
 
     def __init__(self, container_path: str) -> None:
         super().__init__(
@@ -173,15 +173,35 @@ def _sync_kwargs(game: SigilGame, target: RestoreTarget, root: Path) -> dict[str
     }
 
 
-def _locate(binding: Any, game: SigilGame, target: RestoreTarget, root: Path) -> Any:
+def _locate(
+    binding: Any,
+    game: SigilGame,
+    target: RestoreTarget,
+    root: Path,
+    listing: Sequence[str] | None = None,
+) -> Any:
     return binding.locate_saves(
         game.result,
         target.core,
         target.content_path,
         save_root=root,
+        listing=listing,
         options=dict(target.options),
         profile=target.profile,
     )
+
+
+def _shared_file(
+    binding: Any, game: SigilGame, target: RestoreTarget, root: Path, path: str
+) -> bool:
+    """Whether sigil counts `path` under the save root as a file every game shares."""
+    if not path:
+        return False
+    try:
+        located = _locate(binding, game, target, root, listing=[path])
+    except binding.SigilError:
+        return False
+    return path in located.unkeyed
 
 
 def _restore(
@@ -221,7 +241,15 @@ def _restore_per_game(
     binding = _binding()
     with tempfile.TemporaryDirectory(prefix="romm-restore-") as tmp:
         root = Path(tmp)
-        _restore(unit, game, target, root, companions)
+        try:
+            _restore(unit, game, target, root, companions)
+        except SigilRefusal as refusal:
+            # A refusal naming a file every game shares asks for the client's own.
+            if refusal.code is RefusalCode.NO_TARGET and _shared_file(
+                binding, game, target, root, refusal.problem
+            ):
+                raise SharedContainerRequired(refusal.problem) from refusal
+            raise
         written = _files_under(root)
         if not written:
             raise SigilRefusal(RefusalCode.NOT_FOUND, "The restore wrote no files")
@@ -288,6 +316,49 @@ def _selecting_options(
     return options
 
 
+def _merge(
+    unit: bytes,
+    game: SigilGame,
+    target: RestoreTarget,
+    companions: Sequence[RestoreCompanion],
+    root: Path,
+    scratch: Path,
+) -> Any:
+    """Merge the unit into what the save root holds; return what sigil locates there.
+
+    Raises:
+        SigilRefusal: sigil refused the merge and wrote nothing.
+    """
+    binding = _binding()
+    try:
+        located = _locate(binding, game, target, root)
+        if game.result.platform in VOLUME_PLATFORMS:
+            # A managed merge would drop every other game's saves on the volume.
+            seen = binding.collect(
+                **_sync_kwargs(game, target, root),
+                mode=_UNMANAGED,
+                claimed=_unit_save_names(unit, scratch),
+                companions=[
+                    binding.SigilCompanion(game_ids=c.game_ids) for c in companions
+                ],
+            )
+            _restore(
+                unit,
+                game,
+                target,
+                root,
+                companions,
+                mode=_UNMANAGED,
+                state=seen.state,
+                overwrite_local=True,
+            )
+        else:
+            _restore(unit, game, target, root, companions, overwrite_local=True)
+    except binding.SigilError as exc:
+        raise _refusal(exc, companions) from exc
+    return located
+
+
 def _merge_into_container(
     unit: bytes,
     game: SigilGame,
@@ -296,7 +367,6 @@ def _merge_into_container(
     container_path: str,
     container: bytes,
 ) -> RestoredFiles:
-    binding = _binding()
     with tempfile.TemporaryDirectory(prefix="romm-restore-") as tmp:
         root = Path(tmp, "root")
         scratch = Path(tmp, "scratch")
@@ -310,31 +380,14 @@ def _merge_into_container(
         os.utime(sent, ns=(0, 0))
 
         try:
-            located = _locate(binding, game, target, root)
-            if game.result.platform in VOLUME_PLATFORMS:
-                # A managed merge would drop every other game's saves on the volume.
-                seen = binding.collect(
-                    **_sync_kwargs(game, target, root),
-                    mode=_UNMANAGED,
-                    claimed=_unit_save_names(unit, scratch),
-                    companions=[
-                        binding.SigilCompanion(game_ids=c.game_ids) for c in companions
-                    ],
-                )
-                _restore(
-                    unit,
-                    game,
-                    target,
-                    root,
-                    companions,
-                    mode=_UNMANAGED,
-                    state=seen.state,
-                    overwrite_local=True,
-                )
-            else:
-                _restore(unit, game, target, root, companions, overwrite_local=True)
-        except binding.SigilError as exc:
-            raise _refusal(exc, companions) from exc
+            located = _merge(unit, game, target, companions, root, scratch)
+        except SigilRefusal as refusal:
+            option = refusal.problem if refusal.code is RefusalCode.INVALID_ARG else ""
+            if not option or target.options.get(option):
+                raise
+            # The option names the file the saves go in, which the client sent.
+            target = replace(target, options={**target.options, option: container_path})
+            located = _merge(unit, game, target, companions, root, scratch)
 
         written = tuple(
             path
@@ -365,7 +418,8 @@ async def restore_per_game(
     """Restore a unit into an empty save root and return what lands there.
 
     Raises:
-        SharedContainerRequired: the target is a card or volume every game shares.
+        SharedContainerRequired: the target is a card, volume or drive image
+            every game shares.
         SigilRefusal: sigil refused the restore.
     """
     return await asyncio.to_thread(_restore_per_game, unit, game, target, companions)
@@ -379,11 +433,12 @@ async def merge_into_container(
     container: bytes,
     companions: Sequence[RestoreCompanion] = (),
 ) -> RestoredFiles:
-    """Merge a unit into the client's own card or volume and return it rewritten.
+    """Merge a unit into the client's own card, volume or drive image and return it rewritten.
 
     Args:
         container_path: where the container sits under the save root; the caller
-            has checked it stays inside.
+            has checked it stays inside. An option sigil refuses for lacking
+            is taken to name it.
 
     Raises:
         ContainerMismatch: the restore wrote anywhere but `container_path`.

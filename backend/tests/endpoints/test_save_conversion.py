@@ -350,6 +350,18 @@ class TestGetWithCore:
         assert response.status_code == status.HTTP_200_OK
         assert _awaited_args(restore)[2].core == "dolphin"
 
+    def test_an_xbox_save_converts_for_xemu(
+        self, client, headers, admin_user: User, stored_game, restore
+    ):
+        save = _stored(
+            make_save(_rom_on("xbox", "Game", admin_user), admin_user, "g.zip")
+        )
+
+        response = _get(client, save, headers, "core=xemu")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert _awaited_args(restore)[2].core == "xemu"
+
     def test_a_ds_save_converts_for_desmume(
         self, client, headers, admin_user: User, stored_game, restore
     ):

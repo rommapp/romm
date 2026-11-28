@@ -18,6 +18,8 @@ SATURN_VOLUME = 32 * 1024
 # Past the archive block's save fields and its empty block list's terminator.
 SATURN_DATA_OFFSET = 0x24
 SATURN_DATA = SATURN_BLOCK - SATURN_DATA_OFFSET
+SATURN_CART = 512 * 1024
+SATURN_CART_BLOCK = 512
 
 
 def ps1_card(
@@ -49,18 +51,24 @@ def ps1_card(
     return bytes(card)
 
 
-def saturn_volume(saves: list[tuple[str, int]]) -> bytes:
-    """A 32 KiB Saturn internal backup RAM volume: `saves` is (name, fill byte)
-    each, one block apiece holding SATURN_DATA bytes."""
-    volume = bytearray(SATURN_VOLUME)
-    volume[:SATURN_BLOCK] = b"BackUpRam Format" * (SATURN_BLOCK // 16)
+def saturn_volume(
+    saves: list[tuple[str, int]],
+    size: int = SATURN_VOLUME,
+    block_size: int = SATURN_BLOCK,
+) -> bytes:
+    """A Saturn backup RAM volume, by default the 32 KiB internal one (a 4 Mbit
+    cart is SATURN_CART bytes in SATURN_CART_BLOCK blocks): `saves` is (name,
+    fill byte) each, one block apiece filled past SATURN_DATA_OFFSET."""
+    data = block_size - SATURN_DATA_OFFSET
+    volume = bytearray(size)
+    volume[:block_size] = b"BackUpRam Format" * (block_size // 16)
     for block, (name, fill) in enumerate(saves, start=2):
-        archive = bytearray(SATURN_BLOCK)
+        archive = bytearray(block_size)
         archive[0:4] = struct.pack(">I", 0x80000000)
         archive[4:15] = name.encode("ascii").ljust(11, b"\0")
-        archive[0x1E:0x22] = struct.pack(">I", SATURN_DATA)
-        archive[SATURN_DATA_OFFSET:] = bytes([fill]) * SATURN_DATA
-        volume[block * SATURN_BLOCK : (block + 1) * SATURN_BLOCK] = archive
+        archive[0x1E:0x22] = struct.pack(">I", data)
+        archive[SATURN_DATA_OFFSET:] = bytes([fill]) * data
+        volume[block * block_size : (block + 1) * block_size] = archive
     return bytes(volume)
 
 
@@ -137,3 +145,64 @@ def card_entries(binding: ModuleType, data: bytes) -> dict[str, str]:
         path.write_bytes(data)
         listing = binding.list_card(path)
     return {entry.name: entry.owner_id for entry in listing.entries}
+
+
+XBOX_DRIVE_E = 0xABE80000
+XBOX_DRIVE_E_SIZE = 0x131F00000
+
+
+def xbox_drive() -> bytes:
+    """A blank Xbox hard-disk image as xemu keeps one: an 8 GiB qcow2 image
+    holding a FATX partition E: with an empty root directory."""
+    cluster = 0x10000
+    per_l2 = cluster // 8
+    size = 0x200000000
+    fat_bytes = ((XBOX_DRIVE_E_SIZE // 0x4000 + 1) * 4 + 0xFFF) & ~0xFFF
+    root = XBOX_DRIVE_E + 0x1000 + fat_bytes
+    guest: dict[int, bytearray] = {}
+
+    def put(offset: int, data: bytes) -> None:
+        at = offset % cluster
+        guest.setdefault(offset // cluster, bytearray(cluster))[
+            at : at + len(data)
+        ] = data
+
+    superblock = b"FATX" + struct.pack("<III", 0x0D03A0, 32, 1) + b"\x00\x00"
+    put(XBOX_DRIVE_E, superblock + b"\xff" * (0x1000 - len(superblock)))
+    put(XBOX_DRIVE_E + 0x1000, struct.pack("<II", 0xFFFFFFF8, 0xFFFFFFFF))
+    put(root, b"\xff" * 0x4000)
+
+    # The header, the refcount table and its one block, the L1 table, one L2
+    # table, then the drive's clusters.
+    refcount_table, refcount_block, l1, l2, data = (n * cluster for n in range(1, 6))
+    image = bytearray(data + len(guest) * cluster)
+    for n, (index, content) in enumerate(sorted(guest.items())):
+        host = data + n * cluster
+        image[host : host + cluster] = content
+        struct.pack_into(">Q", image, l2 + (index % per_l2) * 8, host | 1 << 63)
+    struct.pack_into(
+        ">Q", image, l1 + (XBOX_DRIVE_E // cluster // per_l2) * 8, l2 | 1 << 63
+    )
+    struct.pack_into(">Q", image, refcount_table, refcount_block)
+    for n in range(len(image) // cluster):
+        struct.pack_into(">H", image, refcount_block + n * 2, 1)
+    struct.pack_into(
+        ">IIQIIQIIQQIIQ",
+        image,
+        0,
+        0x514649FB,
+        3,
+        0,
+        0,
+        16,
+        size,
+        0,
+        size // (cluster * per_l2),
+        l1,
+        refcount_table,
+        1,
+        0,
+        0,
+    )
+    struct.pack_into(">QQQII", image, 72, 0, 0, 0, 4, 104)
+    return bytes(image)
