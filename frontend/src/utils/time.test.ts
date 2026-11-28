@@ -77,6 +77,11 @@ describe("formatPlaytime", () => {
     expect(formatPlaytime(null, "en-US")).toBeNull();
   });
 
+  it("reports an estimate that rounds to 60 minutes as an hour", () => {
+    expect(formatPlaytime(59 * 60 + 30, "en-US")).toBe("1h");
+    expect(formatPlaytime(59 * 60 + 29, "en-US")).toBe("59m");
+  });
+
   it("formats the number in the caller's locale", () => {
     expect(formatPlaytime(12.5 * HOUR, "de-DE")).toBe("12,5h");
   });

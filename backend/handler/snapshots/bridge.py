@@ -53,7 +53,11 @@ async def hold_legacy_upload(
         {
             "shape": save_shape_of(path),
             "format": SaveFormat.NATIVE,
-            "identity_hash": await identity_hash_of_file(path),
+            "identity_hash": await identity_hash_of_file(
+                path,
+                platform_slug=rom.platform_slug,
+                features=rom_file.sigil_features,
+            ),
         },
         touch=False,
     )

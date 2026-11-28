@@ -19,6 +19,7 @@
 // Loading replaces the trailing append-inner content with a spinner;
 // clearable shows an × that wipes the value (focus is preserved).
 import {
+  type HTMLAttributes,
   computed,
   getCurrentInstance,
   nextTick,
@@ -52,8 +53,8 @@ interface Props {
   type?: string;
   /** Native input length cap. */
   maxlength?: number | undefined;
-  variant?: "outlined" | "filled" | "underlined" | "plain";
-  density?: "default" | "comfortable" | "compact";
+  variant?: "outlined" | "filled" | "underlined" | "plain" | undefined;
+  density?: "default" | "comfortable" | "compact" | undefined;
   prependInnerIcon?: string | undefined;
   appendInnerIcon?: string | undefined;
   /** Tooltip text shown on hover/focus over the prepend-inner
@@ -73,7 +74,7 @@ interface Props {
   name?: string | undefined;
   rules?: Rule[] | undefined;
   hint?: string | undefined;
-  hideDetails?: boolean | "auto";
+  hideDetails?: boolean | "auto" | undefined;
   required?: boolean;
   disabled?: boolean;
   readonly?: boolean;
@@ -112,6 +113,10 @@ interface Props {
   /** Muted text after the value, before any append adornment (a unit, a
    *  result count). Single-line only. */
   suffix?: string | undefined;
+  /** Native `inputmode`, `min` and `step` on the `<input>`. */
+  inputmode?: HTMLAttributes["inputmode"] | undefined;
+  min?: number | string | undefined;
+  step?: number | string | undefined;
   /** Wires the native input as a combobox owning a popup, putting the role
    *  on the input rather than the outer element (a `<label>` when this field
    *  owns its visible label). Single-line only: `role="combobox"` is not
@@ -164,6 +169,9 @@ const props = withDefaults(defineProps<Props>(), {
   mono: false,
   subtitle: undefined,
   suffix: undefined,
+  inputmode: undefined,
+  min: undefined,
+  step: undefined,
   popup: undefined,
 });
 
@@ -200,6 +208,19 @@ const emit = defineEmits<{
 
 const slots = useSlots();
 const attrs = useAttrs();
+
+// Listeners stay on the root so a click anywhere in the field reaches them.
+const isRootAttr = (key: string) =>
+  key === "class" ||
+  key === "style" ||
+  key.startsWith("data-") ||
+  /^on[A-Z]/.test(key);
+const rootAttrs = computed(() =>
+  Object.fromEntries(Object.entries(attrs).filter(([k]) => isRootAttr(k))),
+);
+const inputAttrs = computed(() =>
+  Object.fromEntries(Object.entries(attrs).filter(([k]) => !isRootAttr(k))),
+);
 const inputRef = ref<HTMLInputElement | HTMLTextAreaElement | null>(null);
 // Stable id for `aria-describedby`. The instance uid is unique per mounted
 // component, which is plenty for aria wiring.
@@ -343,8 +364,10 @@ const hasSubtitle = computed(() => !!props.subtitle || !!slots.subtitle);
 const effectivePlaceholder = computed(
   () => props.placeholder ?? (!props.prefixLabel ? props.label : undefined),
 );
-const effectiveAriaLabel = computed(() =>
-  !props.prefixLabel ? props.label : undefined,
+const effectiveAriaLabel = computed(
+  () =>
+    (attrs["aria-label"] as string | undefined) ??
+    (!props.prefixLabel ? props.label : undefined),
 );
 
 // True when the parent is subscribed to a click on the adornment.
@@ -402,7 +425,7 @@ function onAppendInnerClick(evt: MouseEvent) {
        plain <div> to avoid nested labels and `label-has-for` lints. -->
   <component
     :is="prefixLabel ? 'label' : 'div'"
-    v-bind="attrs"
+    v-bind="rootAttrs"
     class="r-text-field"
     :class="[
       `r-text-field--variant-${variant}`,
@@ -494,6 +517,7 @@ function onAppendInnerClick(evt: MouseEvent) {
         :aria-label="effectiveAriaLabel"
         :aria-invalid="hasError || undefined"
         :aria-describedby="showDetails ? `${fieldId}-details` : undefined"
+        v-bind="inputAttrs"
         @input="onInput"
         @focus="onFocus"
         @blur="onBlur"
@@ -504,6 +528,9 @@ function onAppendInnerClick(evt: MouseEvent) {
         class="r-text-field__input"
         :value="modelValue ?? ''"
         :type="type"
+        :inputmode="inputmode"
+        :min="min"
+        :step="step"
         :placeholder="effectivePlaceholder"
         :maxlength="maxlength"
         :name="name"
@@ -520,6 +547,7 @@ function onAppendInnerClick(evt: MouseEvent) {
         :aria-expanded="popup ? popup.expanded : undefined"
         :aria-controls="popup?.controls"
         :aria-activedescendant="popup?.activedescendant"
+        v-bind="inputAttrs"
         @input="onInput"
         @focus="onFocus"
         @blur="onBlur"

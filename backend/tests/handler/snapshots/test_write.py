@@ -17,8 +17,10 @@ from tests.handler.snapshots.pushes import (
     first_push,
     md5,
     part,
+    pokemon_red,
     push,
     push_save,
+    red_ram,
     save_entry,
     stored_bytes,
     stored_files,
@@ -979,6 +981,43 @@ async def test_a_clock_only_change_is_no_new_snapshot(
     if outcome == Outcome.UNCHANGED:
         assert result.snapshot.id == first.snapshot.id
         assert stored_files(_assets_dir) == files_before
+
+
+@pytest.mark.parametrize(
+    "offset,outcome",
+    [(0x0100, Outcome.UNCHANGED), (0x2600, Outcome.CREATED)],
+    ids=["sprite buffer", "main data"],
+)
+async def test_a_pokemon_save_is_new_only_when_more_than_scratch_ram_changed(
+    admin_user: User, offset: int, outcome: Outcome
+):
+    sigil = pytest.importorskip("sigil")
+    rom, rom_file = pokemon_red(sigil.FEATURE_GB_SCRATCH_GEN1)
+    saved, changed = red_ram(), red_ram({offset: 0x5A})
+    first = await write_snapshot(
+        push(
+            admin_user,
+            rom,
+            rom_file,
+            Manifest(save=save_entry(saved, SaveFormat.NATIVE)),
+            expected=None,
+            parts={SAVE_PART: part(saved, "Pokemon Red.srm")},
+        )
+    )
+
+    result = await write_snapshot(
+        push(
+            admin_user,
+            rom,
+            rom_file,
+            Manifest(save=save_entry(changed, SaveFormat.NATIVE)),
+            expected=first.snapshot.id,
+            channel_id=first.snapshot.channel_id,
+            parts={SAVE_PART: part(changed, "Pokemon Red.srm")},
+        )
+    )
+
+    assert result.outcome == outcome
 
 
 async def test_the_same_save_in_another_form_makes_a_new_current(

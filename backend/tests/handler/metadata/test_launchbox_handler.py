@@ -56,7 +56,6 @@ from handler.metadata.launchbox_handler.utils import (
     launchbox_region_to_shortcode,
     parse_playmode,
     parse_release_date,
-    parse_videourl,
     sanitize_filename,
 )
 from handler.redis_handler import async_cache
@@ -290,32 +289,6 @@ class TestParsePlaymode:
 
     def test_empty(self):
         assert parse_playmode("") is False
-
-
-class TestParseVideourl:
-    def test_youtube_watch(self):
-        assert (
-            parse_videourl("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
-            == "dQw4w9WgXcQ"
-        )
-
-    def test_youtube_watch_with_extra_params(self):
-        assert parse_videourl("https://www.youtube.com/watch?v=abc123&t=30") == "abc123"
-
-    def test_youtu_be(self):
-        assert parse_videourl("https://youtu.be/dQw4w9WgXcQ") == "dQw4w9WgXcQ"
-
-    def test_youtu_be_with_query(self):
-        assert parse_videourl("https://youtu.be/abc123?t=30") == "abc123"
-
-    def test_non_youtube(self):
-        assert parse_videourl("https://vimeo.com/123456") == ""
-
-    def test_none(self):
-        assert parse_videourl(None) == ""
-
-    def test_empty(self):
-        assert parse_videourl("") == ""
 
 
 # ===========================================================================
@@ -1058,9 +1031,9 @@ class TestBuildLaunchboxMetadata:
         assert meta.get("cooperative", None) is True
 
     def test_youtube_video_id_extracted(self):
-        local = {"VideoUrl": "https://www.youtube.com/watch?v=abc123"}
+        local = {"VideoUrl": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}
         meta = build_launchbox_metadata(local=local, remote=None, images=[])
-        assert meta.get("youtube_video_id", None) == "abc123"
+        assert meta.get("youtube_video_id", None) == "dQw4w9WgXcQ"
 
     def test_companies_deduplicated(self):
         local = {"Developer": "Nintendo", "Publisher": "Nintendo"}
@@ -1516,6 +1489,27 @@ class TestRegionAwareCover:
     def test_rom_region_shortcodes_from_filename(self):
         codes = rom_region_shortcodes("007 - Nightfire (USA).chd")
         assert codes[0] == "us"
+
+    def test_rom_region_shortcodes_follow_prefer_config(self):
+        config = MagicMock(
+            SCAN_REGION_PRIORITY=["eu", "us"], SCAN_REGION_MODE="prefer_config"
+        )
+        with patch(
+            "handler.metadata.launchbox_handler.media.cm.get_config",
+            return_value=config,
+        ):
+            assert rom_region_shortcodes("007 - Nightfire (USA).chd") == ("eu", "us")
+            assert rom_region_shortcodes("007 - Nightfire.chd") == ("eu", "us")
+
+    def test_untagged_rom_has_no_region_shortcodes_under_prefer_rom_tags(self):
+        config = MagicMock(
+            SCAN_REGION_PRIORITY=["eu", "us"], SCAN_REGION_MODE="prefer_rom_tags"
+        )
+        with patch(
+            "handler.metadata.launchbox_handler.media.cm.get_config",
+            return_value=config,
+        ):
+            assert rom_region_shortcodes("007 - Nightfire.chd") == ()
 
 
 class TestRemoteMatchLocalImages:

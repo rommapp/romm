@@ -160,8 +160,8 @@ class _Plan:
     parent: Snapshot | None
     resolved: Resolved
     expected_current_id: int | None = None
-    # The current snapshot this push adds no progress to: the same content, or
-    # a save whose clock alone moved.
+    # The current snapshot this push adds no progress to: the content matches, or
+    # the save has the same identity hash because only a clock or scratch RAM moved.
     same_as: int | None = None
     saves: dict[str, Save] = field(default_factory=dict)
     states: dict[str, State] = field(default_factory=dict)
@@ -175,7 +175,7 @@ class _Plan:
     # Bank hashes to store, each with the part key it is stored under.
     uploaded_states: dict[str, str] = field(default_factory=dict)
     copied_states: dict[str, str] = field(default_factory=dict)
-    # The sent save part's identity hash, once `_clock_only` has computed it.
+    # The sent save part's identity hash, once `_same_save_identity` has computed it.
     sent_save_identity: str | None = None
     written_paths: list[str] = field(default_factory=list)
     # Screenshots for rows already stored, kept even when the push changes nothing.
@@ -207,8 +207,11 @@ def _content(write: SnapshotWrite, key: str) -> AssetContent | None:
     return part.content if part else None
 
 
-async def _clock_only(write: SnapshotWrite, plan: _Plan, current: Snapshot) -> bool:
-    """Whether the push differs from `current` only in its save's clock, in the same shape and format."""
+async def _same_save_identity(
+    write: SnapshotWrite, plan: _Plan, current: Snapshot
+) -> bool:
+    """Whether the push has `current`'s bank and a save with the same identity
+    hash, shape and format."""
     sent = _content(write, SAVE_PART)
     if plan.resolved.save is None or sent is None:
         return False
@@ -222,7 +225,9 @@ async def _clock_only(write: SnapshotWrite, plan: _Plan, current: Snapshot) -> b
     ):
         return False
     plan.sent_save_identity = await identity_hash(
-        await asyncio.to_thread(part_bytes, sent)
+        await asyncio.to_thread(part_bytes, sent),
+        platform_slug=write.rom.platform_slug,
+        features=write.rom_file.sigil_features,
     )
     return plan.sent_save_identity == held.save.identity_hash
 
@@ -344,7 +349,8 @@ async def _plan(write: SnapshotWrite, match_current: bool = True) -> _Plan:
         and current is not None
         and current.is_hardcore == write.manifest.is_hardcore
         and (
-            current.digest == resolved.digest or await _clock_only(write, plan, current)
+            current.digest == resolved.digest
+            or await _same_save_identity(write, plan, current)
         )
     ):
         plan.same_as = current.id
@@ -504,7 +510,11 @@ async def _store_part(
             identity_hash=(
                 plan.sent_save_identity
                 if sent and plan.sent_save_identity
-                else await identity_hash_of_file(fs_asset_handler.validate_path(path))
+                else await identity_hash_of_file(
+                    fs_asset_handler.validate_path(path),
+                    platform_slug=write.rom.platform_slug,
+                    features=write.rom_file.sigil_features,
+                )
             ),
             shape=entry.shape,
             format=entry.format,

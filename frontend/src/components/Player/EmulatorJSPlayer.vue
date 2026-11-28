@@ -29,7 +29,10 @@ import {
   sessionScreenshotFile,
 } from "@/services/api/save";
 import syncApi from "@/services/api/sync";
-import pendingAssetStore, { pendingAssetId } from "@/services/pending-asset";
+import pendingAssetStore, {
+  claimPendingAsset,
+  pendingAssetId,
+} from "@/services/pending-asset";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import storeHeartbeat from "@/stores/heartbeat";
@@ -42,6 +45,7 @@ import { browserDeviceId } from "@/utils/saveSync/browserDevice";
 import { bytesEqual, saveContentHash } from "@/utils/saveSync/hash";
 import { createRetryBackoff } from "@/utils/saveSync/retryBackoff";
 import {
+  madeSnapshot,
   sendPushOnUnload,
   sessionTarget,
   SnapshotSession,
@@ -197,19 +201,22 @@ function announceBranch(outcome: PushOutcome) {
  * Sends `content` through the session, holding nothing itself.
  *
  * Returns:
- *   Whether the server took it, as the channel's current or as a branch.
+ *   The push outcome, as the channel's current or as a branch, or null when
+ *   the push failed.
  */
-async function sendContent(content: SnapshotContent): Promise<boolean> {
+async function sendContent(
+  content: SnapshotContent,
+): Promise<PushOutcome | null> {
   const writer = snapshotSession();
-  if (!writer || !heartbeatStore.connected) return false;
+  if (!writer || !heartbeatStore.connected) return null;
   try {
     const outcome = await writer.push(content);
     announceBranch(outcome);
     romAssetsStale = true;
-    return true;
+    return outcome;
   } catch (error) {
     console.error("Snapshot push failed", error);
-    return false;
+    return null;
   }
 }
 // Bytes the server already holds, so forced writes can skip an unchanged SRAM.
@@ -224,14 +231,22 @@ let saveGeneration = 0;
 let saveLoading = false;
 // The bytes of the write on the wire, for the unload path to leave alone.
 let inFlightSave: Uint8Array | null = null;
+function queueSaveWork<T>(work: () => Promise<T>): Promise<T> {
+  const job = saveWrite.then(work);
+  saveWrite = job.catch(() => undefined);
+  return job;
+}
 // Progress the server has not taken yet, kept in the browser with the frame
 // from when the game wrote it, so a later retry pictures that moment.
 let pendingSave: SessionFile | null = null;
 // A private window keeps nothing, and a notice must not promise it did.
 let pendingSaveKept = false;
+// Only a save held since the last restore may be dropped; an older one is still owed.
+let pendingSaveGeneration = -1;
 // One row per session: a save an earlier session never got through still owes
 // the server its own version, so this must not write over it.
 const pendingSaveId = pendingAssetId(romRef.value.id);
+const releasePendingSave = claimPendingAsset(pendingSaveId);
 function currentSlot(): string | undefined {
   return loadedSave?.slot || props.saveSlot || undefined;
 }
@@ -260,6 +275,10 @@ async function holdForLater(
 }
 async function rememberPendingSave(save: SessionFile) {
   pendingSave = save;
+  pendingSaveGeneration = saveGeneration;
+  // The unload path reads this during the write, so the old save's hold
+  // can't vouch for the new one.
+  pendingSaveKept = false;
   pendingSaveKept = await holdForLater(pendingSaveId, "save", {
     kind: "save",
     save,
@@ -289,14 +308,51 @@ function announceHeldBack(kind: "save" | "state", kept: boolean) {
     icon: kept ? "mdi-cloud-clock-outline" : "mdi-cloud-off-outline",
   });
 }
+/** Tries to keep an unsent save and its screenshot in the browser. */
+function holdSave(
+  saveFile: Uint8Array,
+  screenshotFile: ArrayBuffer | undefined,
+  generation = saveGeneration,
+): Promise<void> {
+  return queueSaveWork(async () => {
+    // The session keeps the device id it was created with, so registration comes first.
+    await deviceReady;
+    // Bytes already held keep the frame from when the game wrote them.
+    if (generation !== saveGeneration || heldFor(pendingSave, saveFile)) return;
+    await rememberPendingSave(
+      saveFileOf(toArrayBuffer(saveFile), screenshotFile),
+    );
+  });
+}
+let forgettingSuperseded = false;
+/** Drops a held save once the SRAM is back on bytes the server holds. */
+function forgetSupersededSave(saveFile: Uint8Array) {
+  const generation = saveGeneration;
+  if (forgettingSuperseded || pendingSaveGeneration !== generation) return;
+  forgettingSuperseded = true;
+  void queueSaveWork(async () => {
+    if (
+      pendingSave &&
+      generation === saveGeneration &&
+      pendingSaveGeneration === generation &&
+      !saveTracker.hasChanges(saveFile)
+    ) {
+      await forgetPendingSave();
+    }
+  })
+    .catch(() => undefined)
+    .finally(() => {
+      forgettingSuperseded = false;
+    });
+}
 function writeSave(
   file: { saveFile: ArrayBuffer; screenshotFile?: ArrayBuffer | undefined },
   generation = saveGeneration,
-): Promise<boolean> {
-  if (saveLoading) return Promise.resolve(false);
-  const write = saveWrite.then(async () => {
+): Promise<PushOutcome | null> {
+  if (saveLoading) return Promise.resolve(null);
+  return queueSaveWork(async () => {
     await deviceReady;
-    if (generation !== saveGeneration) return false;
+    if (generation !== saveGeneration) return null;
     const bytes = new Uint8Array(file.saveFile);
     inFlightSave = bytes;
     try {
@@ -320,8 +376,6 @@ function writeSave(
       inFlightSave = null;
     }
   });
-  saveWrite = write.catch(() => false);
-  return write;
 }
 async function writeSaveIfChanged(file: {
   saveFile: ArrayBuffer;
@@ -330,7 +384,7 @@ async function writeSaveIfChanged(file: {
   const generation = saveGeneration;
   await saveWrite;
   if (saveTracker.isUploaded(new Uint8Array(file.saveFile))) return true;
-  return writeSave(file, generation);
+  return (await writeSave(file, generation)) !== null;
 }
 /**
  * Writes a state into `slot` of the session's core, with the SRAM beside it
@@ -371,10 +425,14 @@ async function writeState({
   };
   const pendingId = pendingAssetId(romRef.value.id);
   const kept = await holdForLater(pendingId, "state", content);
-  const written = await sendContent(content);
+  const written = (await sendContent(content)) !== null;
   if (!written) return { written, kept };
   await pendingAssetStore.clear(pendingId);
-  if (saveFile?.byteLength) saveTracker.markUploaded(saveFile);
+  if (saveFile?.byteLength) {
+    saveTracker.markUploaded(saveFile);
+    // The state push carried this SRAM, so the copy held on the older base needn't sync.
+    if (heldFor(pendingSave, saveFile)) await forgetPendingSave();
+  }
   return { written, kept: false };
 }
 // A state restores the machine mid-scene: its frames, sound and SRAM on the way
@@ -480,6 +538,7 @@ onBeforeUnmount(() => {
   uninstallAutoSaveSync();
   refreshStaleRomAssets();
   exitEmulatorOnce();
+  releasePendingSave();
   fullScreen.value = false;
   playing.value = false;
 });
@@ -544,11 +603,18 @@ function installAutoSaveSync() {
       !saveFile?.byteLength
     )
       return;
-    if (!saveTracker.shouldUpload(saveFile)) return;
+    const tick = saveTracker.offer(saveFile, performance.now());
+    if (tick === "idle") {
+      if (pendingSave && !saveTracker.hasChanges(saveFile)) {
+        forgetSupersededSave(saveFile);
+      }
+      return;
+    }
+    const generation = saveGeneration;
     // Down, the write makes no request, so only a server that answered with a
     // failure has anything to back off from.
     const online = heartbeatStore.connected;
-    if (online && !retryBackoff.ready()) return;
+    if (tick === "upload" && online && !retryBackoff.ready()) return;
     uploading = true;
     try {
       // The capture needs the game running, so it happens here, once per save:
@@ -556,18 +622,24 @@ function installAutoSaveSync() {
       const screenshotFile = heldFor(pendingSave, saveFile)
         ? undefined
         : await captureScreenshot();
-      const written = await writeSave({
-        saveFile: toArrayBuffer(saveFile),
-        screenshotFile,
-      });
-      if (written) {
+      if (tick === "hold") {
+        await holdSave(saveFile, screenshotFile, generation);
+        return;
+      }
+      const outcome = await writeSave(
+        { saveFile: toArrayBuffer(saveFile), screenshotFile },
+        generation,
+      );
+      if (outcome) {
         retryBackoff.reset();
         heldBackSave = null;
-        displayMessage(t("play.save-synced"), {
-          duration: 3000,
-          tone: "success",
-          icon: "mdi-cloud-sync",
-        });
+        if (madeSnapshot(outcome)) {
+          displayMessage(t("play.save-synced"), {
+            duration: 3000,
+            tone: "success",
+            icon: "mdi-cloud-sync",
+          });
+        }
         return;
       }
       if (online) retryBackoff.failed();
@@ -653,6 +725,9 @@ function onBeforeUnload(event: BeforeUnloadEvent) {
   const saveFile = unsyncedSave(emulator);
   if (!saveFile) return;
   unloadSave = saveFile;
+  // The browser already holds these bytes and syncs them on the next visit,
+  // so the tab can close without a prompt.
+  if (pendingSaveKept && heldFor(pendingSave, saveFile)) return;
   // EmulatorJS tears the core down on this event, and a cancelled close has
   // to keep the game running.
   event.stopImmediatePropagation();
@@ -717,7 +792,7 @@ async function loadSave(
 }
 
 // Progress the tick has not taken yet belongs to the save being left, so it
-// goes out (or is held) before a switch replaces the SRAM.
+// goes out (or is held) before a save switch or a state replaces the SRAM.
 async function uploadUnsyncedSave() {
   const emulator = autoSyncedEmulator();
   const saveFile = emulator ? unsyncedSave(emulator) : null;
@@ -728,7 +803,7 @@ async function uploadUnsyncedSave() {
   try {
     await writeSave({ saveFile: toArrayBuffer(saveFile), screenshotFile });
   } catch (error) {
-    console.error("Save sync before switching failed", error);
+    console.error("Save sync before replacing the SRAM failed", error);
   }
 }
 
@@ -790,6 +865,7 @@ async function applyState(state: Uint8Array) {
 }
 
 async function loadState(state: StateSchema) {
+  await uploadUnsyncedSave();
   // Raised before the download, since the picker resumes the game meanwhile.
   holdBackUntilStateApplied();
   try {
@@ -930,6 +1006,7 @@ window.EJS_onGameStart = () => {
       window.EJS_emulator.storage.states
         .get(window.EJS_emulator.getBaseFileName() + ".state")
         .then(async (e: Uint8Array) => {
+          await uploadUnsyncedSave();
           await applyState(e);
           displayMessage(t("play.quick-state-loaded"), {
             duration: 3000,
