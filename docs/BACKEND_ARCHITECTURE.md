@@ -294,7 +294,7 @@ Every schema change ships as an Alembic migration in `alembic/versions/`.
 
 ### Download conversion
 
-With rom-converto enabled (`ROM_CONVERTO_ENABLED`, `converto.download_conversion_enabled`), `?format=zso,iso` lists the formats a client can read. A single-file download whose stored format is listed is served as-is. Otherwise the first listed format with a copy cached under `/tmp/romm/cache/converts` (`$ROMM_TMP_PATH/cache/converts` when set) is served, then the first one rom-converto can produce: answered by the same request if it converts within a few seconds, else `202` with `Retry-After` while it finishes. `406` means no listed format can be served, and `HEAD` reports the same without starting a conversion. Only signed-in, non-kiosk users start conversions. A rom's detail response lists the formats its single file can be converted to in `download_formats`, empty when the caller can't start a conversion.
+With rom-converto enabled (`ROM_CONVERTO_ENABLED`, `converto.download_conversion_enabled`), `?format=zso,iso` lists the formats a client can read. A single-file download whose stored format is listed is served as-is. Otherwise the first listed format with a copy cached under `/tmp/romm/cache/converts` (`$ROMM_TMP_PATH/cache/converts` when set) is served, then the first one rom-converto can produce: answered by the same request if it converts within a few seconds, else `202` with `Retry-After` while it finishes. `406` means no listed format can be served, and `HEAD` reports the same without starting a conversion. Only signed-in, non-kiosk users start conversions. A rom's detail response lists the formats its single file can be converted to in `download_formats`, empty when the caller can't start a conversion. A ROM stored as a `.zip`, `.7z`, `.rar`, `.tar`, `.tar.gz` or `.tgz` archive converts only when the scan recorded its members (`archive_members`) and exactly one of them is a disc or ROM image; the converted copy is named after the archive. The scan records members only when it hashes the archive, so archives on platforms RomM never hashes (Switch, Switch 2, Wii U, PS3, Xbox 360) or scanned with hashing off get no conversions.
 
 ### Queueing a scan over HTTP
 
@@ -710,17 +710,23 @@ marked `destructive` asks for a typed confirmation before the UI runs it, and
 one marked `single_instance` answers 409 while a job of it is queued or running.
 
 `convert_library` is both, and runs only with `ROM_CONVERTO_ENABLED` set. It
-only converts losslessly (no xiso) and only identified ROMs, since a converted
-file no longer hash-matches a DAT. It stages each output under a `.romm_tmp_`
-directory beside the ROM, rewrites `.m3u` entries in folder ROMs, and refreshes
-the ROM's files while the originals are still on disk, so the ROM keeps its id,
-saves and collections. In one transaction it then moves every user's save
-channels, the ROM's snapshot hashes and its states' discs from each replaced
-file to the file that replaced it. A channel on the ROM's sync file (its
-`channel_file_id`) moves to the new sync file instead when this run wrote that
-file and the user has no channel of that label there. Only then are the
-originals (and a cue's tracks) deleted. A failure before that point removes the
-outputs and puts the playlists back.
+only converts losslessly (no xiso, no `cue to-iso`, which keeps only the first
+track) and only identified ROMs, since a converted file no longer hash-matches a
+DAT. It stages each output under a `.romm_tmp_` directory beside the ROM,
+rewrites `.m3u` entries in folder ROMs, and refreshes the ROM's files while the
+originals are still on disk, so the ROM keeps its id, saves and collections. In
+one transaction it then moves every user's save channels, the ROM's snapshot
+hashes and its states' discs from each replaced file to the file that replaced
+it. A channel on the ROM's sync file (its `channel_file_id`) moves to the new
+sync file instead when this run wrote that file and the user has no channel of
+that label there. Only then are the originals (and a cue's tracks) deleted. A
+failure before that point removes the outputs and puts the playlists back.
+
+An archived ROM converts only when the scan recorded its members with exactly
+one image, and only when deleting the archive loses nothing: it is unchanged
+since the scan and holds just the image, or a cue sheet (up to 1 MiB) and the
+tracks it references. Any other archive is left alone and counted as
+unsupported. An archive that changes while it converts is kept.
 
 `cleanup_orphaned_resources` skips the cleanup when the database reports no
 platforms at all while artwork is still on disk, since that usually means the
@@ -770,7 +776,7 @@ CRC32, MD5 and SHA1 identify ROMs and verify BIOS files; MD5 also deduplicates s
 Alongside hashing, scans extract platform-native title IDs from ROM binaries via
 the optional `sigil` binding (Switch, PlayStation, Nintendo, Xbox and Dreamcast
 families). The feature no-ops when the binding is absent, and can be turned off
-with `skip_title_id_extraction`.
+with `skip_title_id_extraction`. With rom-converto enabled and `converto.scan_metadata` on, scans also read per-file title IDs with rom-converto, including from the image inside a `.zip`, `.7z`, `.rar`, `.tar`, `.tar.gz` or `.tgz` archive. It reads an archive only when the scan did not record its members or one of them has an extension rom-converto's `info` recognizes. It unpacks that image into the temp directory first (under `ROMM_TMP_PATH` when set), at most `ROM_CONVERTO_MAX_CONCURRENCY` at a time per worker, and an archive it can't read or that times out is not retried until the file changes.
 
 ---
 
