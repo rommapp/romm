@@ -588,8 +588,6 @@ class CustomLimitOffsetPage[T: PydanticBaseModel](LimitOffsetPage[T]):
     """For each first letter, the position in the full result where roms starting with it begin. Empty when `with_char_index` is false, the sort is not alphabetical, or a search ranks by relevance."""
     rom_id_index: list[int]
     """The IDs of every matching rom, in order. Empty when `with_rom_id_index` is false."""
-    filter_values: RomFiltersDict
-    """The options for the filter dropdowns. Every list is empty when `with_filter_values` is false."""
 
 
 # Month 1-12 and day 1-31, so a match is already a calendar day.
@@ -644,20 +642,6 @@ def get_roms(
                 ' jump bar. `{"A": 0, "B": 38}` means the first rom starting with'
                 " B is at position 38. It is empty when the sort is not"
                 " alphabetical or a search is ranked by relevance."
-            )
-        ),
-    ] = True,
-    with_filter_values: Annotated[
-        bool,
-        Query(
-            description=(
-                "Whether to return `filter_values`: the options for the filter"
-                " dropdowns, as lists of the distinct genres, franchises,"
-                " collections, companies, publishers, developers, game modes, age"
-                " ratings, player counts, regions, languages, tags and platforms."
-                " The values come from all roms in the current platform, collection"
-                " or search, ignoring the other filters, so selecting a value"
-                " never removes the other options from the same dropdown."
             )
         ),
     ] = True,
@@ -826,22 +810,6 @@ def get_roms(
         rows_by_id = {rom.id: rom for rom in page_rows}
         return _transform(session, [rows_by_id[i] for i in page_ids if i in rows_by_id])
 
-    empty_filter_values = RomFiltersDict(
-        genres=[],
-        franchises=[],
-        collections=[],
-        companies=[],
-        publishers=[],
-        developers=[],
-        game_modes=[],
-        age_ratings=[],
-        player_counts=[],
-        regions=[],
-        languages=[],
-        tags=[],
-        platforms=[],
-    )
-
     if rom_ids is not None:
         # The caller already holds the ordered list, so nothing spans the set.
         with sync_session.begin() as session:
@@ -852,7 +820,6 @@ def get_roms(
                 offset=0,
                 char_index={},
                 rom_id_index=[],
-                filter_values=empty_filter_values,
             )
 
     parsed_released_days = parse_released_days(released_days)
@@ -889,14 +856,10 @@ def get_roms(
     # keyed by its platform): the sidecar cache key encodes user/order/grouping
     # but not the filters, so anything that narrows `query` has to gate caching
     # or a narrowed list leaks under the shared "all" key.
-    #
-    # The filter-value list is gated on the scope alone: it is computed with
-    # only the scope applied, so a filter it never applies cannot stale it.
-    is_unscoped_scope = not filters.has_scope()
     is_unfiltered = (
         not filters.has_filters() and not updated_after and not parsed_released_days
     )
-    is_unscoped = is_unscoped_scope and is_unfiltered
+    is_unscoped = not filters.has_scope() and is_unfiltered
 
     # One key for both ordered sidecars: the same request must not read the
     # char index and the id index under different per-user versions.
@@ -930,26 +893,6 @@ def get_roms(
             cache_key=sidecar_cache_key,
         )
         char_index_dict = {char: index for (char, index) in char_index}
-
-    filter_values = empty_filter_values
-    if with_filter_values:
-        # We use the unfiltered query so applied filters don't affect the list
-        filter_query = db_rom_handler.filter_roms(
-            query=unfiltered_query,
-            # Scope only: the dropdowns list what the applied filters could
-            # still narrow to, so the applied filters themselves are left out.
-            filters=filters.scope_only(),
-            user_id=request.user.id,
-            visibility=perms.rom_visibility,
-        )
-        # `hidden`, the only RomUser column filter values read, already
-        # bumps the global version, so no per-user version is embedded.
-        filter_values = db_rom_handler.with_filter_values(
-            query=filter_query,
-            cache_key=build_unscoped_filter_values_cache_key(
-                request.user.id, is_unscoped_scope
-            ),
-        )
 
     # The full ordered id list backs virtual scroll, so it's computed over the
     # whole result set. Callers that only need a page (e.g. the home rails) opt
@@ -1008,7 +951,6 @@ def get_roms(
             offset=params.offset,
             char_index=char_index_dict,
             rom_id_index=rom_id_index,
-            filter_values=filter_values,
         )
 
 
@@ -1413,6 +1355,33 @@ def get_rom_filters(request: Request) -> RomFiltersDict:
     from handler.database import db_rom_handler
 
     return db_rom_handler.get_rom_filters(get_rom_visibility_filter(request))
+
+
+@protected_route(router.get, "/filter-values", [Scope.ROMS_READ])
+def get_gallery_filter_values(
+    request: Request,
+    filters: Annotated[RomFilterParams, Depends(ROM_FILTER_QUERY)],
+) -> RomFiltersDict:
+    """Get the options for the gallery's filter dropdowns. The values come from every rom the caller can see in the current platform, collection or search, ignoring the other filters, so selecting a value never removes the other options from its dropdown."""
+    perms = get_permissions(request)
+    unfiltered_query, _ = db_rom_handler.get_roms_query(
+        user_id=request.user.id,
+        search_term=filters.search_term,
+    )
+    scoped_query = db_rom_handler.filter_roms(
+        query=unfiltered_query,
+        filters=filters.scope_only(),
+        user_id=request.user.id,
+        visibility=perms.rom_visibility,
+    )
+    # `hidden`, the only RomUser column filter values read, already bumps the
+    # global version, so no per-user version is embedded.
+    return db_rom_handler.with_filter_values(
+        query=scoped_query,
+        cache_key=build_unscoped_filter_values_cache_key(
+            request.user.id, not filters.has_scope()
+        ),
+    )
 
 
 @protected_route(

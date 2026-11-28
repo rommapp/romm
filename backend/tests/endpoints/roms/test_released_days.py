@@ -52,7 +52,6 @@ def _get(client: TestClient, token: str, **params):
             "order_by": "first_release_date",
             "order_dir": "asc",
             "with_char_index": False,
-            "with_filter_values": False,
             "with_rom_id_index": False,
             **params,
         },
@@ -287,7 +286,7 @@ def test_the_filtered_page_is_not_served_from_the_unscoped_cache(
     unscoped = client.get(
         "/api/roms",
         headers={"Authorization": f"Bearer {access_token}"},
-        params={"with_rom_id_index": True, "with_filter_values": False},
+        params={"with_rom_id_index": True},
     )
     assert len(unscoped.json()["rom_id_index"]) == 2
 
@@ -297,7 +296,6 @@ def test_the_filtered_page_is_not_served_from_the_unscoped_cache(
         params={
             "released_days": "9-8",
             "with_rom_id_index": True,
-            "with_filter_values": False,
         },
     )
 

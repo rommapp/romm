@@ -2,7 +2,6 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { RomFiltersDict } from './RomFiltersDict';
 import type { SimpleRomSchema } from './SimpleRomSchema';
 export type CustomLimitOffsetPage_SimpleRomSchema_ = {
     items: Array<SimpleRomSchema>;
@@ -23,9 +22,5 @@ export type CustomLimitOffsetPage_SimpleRomSchema_ = {
      * The IDs of every matching rom, in order. Empty when `with_rom_id_index` is false.
      */
     rom_id_index: Array<number>;
-    /**
-     * The options for the filter dropdowns. Every list is empty when `with_filter_values` is false.
-     */
-    filter_values: RomFiltersDict;
 };
 

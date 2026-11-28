@@ -773,8 +773,15 @@ def test_get_roms_filter_by_tags(
 
     body = response.json()
     assert {item["id"] for item in body["items"]} == {rom_proto.id}
-    # The selectable tag list is surfaced through filter_values.
-    assert "Proto" in body["filter_values"]["tags"]
+
+    # The selectable tag list is served by the filter-values endpoint.
+    response = client.get(
+        "/api/roms/filter-values",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"platform_ids": platform.id},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert "Proto" in response.json()["tags"]
 
     # "none" logic returns the ROMs not carrying the selected tag.
     response = client.get(
@@ -797,26 +804,86 @@ def assert_filter_values_are_lists(filter_values: dict[str, object]) -> None:
     assert all(isinstance(value, list) for value in filter_values.values())
 
 
-@pytest.mark.parametrize("with_filter_values", [True, False])
-def test_get_roms_filter_values_are_never_null(
+def test_get_roms_omits_filter_values(
+    client: TestClient, access_token: str, rom: Rom, platform: Platform
+) -> None:
+    response = client.get(
+        "/api/roms",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"platform_id": platform.id},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert "filter_values" not in response.json()
+
+
+def test_get_filter_values_are_never_null(
+    client: TestClient, access_token: str, rom: Rom, platform: Platform
+) -> None:
+    # `rom` carries no metadata, so every facet column is null.
+    response = client.get(
+        "/api/roms/filter-values",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"platform_ids": platform.id},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    filter_values = response.json()
+    assert_filter_values_are_lists(filter_values)
+    assert filter_values["genres"] == []
+    assert filter_values["platforms"] == [platform.id]
+
+
+def test_get_filter_values_follow_the_scope_and_ignore_other_filters(
     client: TestClient,
     access_token: str,
     rom: Rom,
     platform: Platform,
-    with_filter_values: bool,
+    other_platform: Platform,
 ) -> None:
-    # `rom` carries no metadata, so every facet column is null.
-    response = client.get(
-        "/api/roms",
-        headers={"Authorization": f"Bearer {access_token}"},
-        params={"platform_id": platform.id, "with_filter_values": with_filter_values},
-    )
-    assert response.status_code == status.HTTP_200_OK
+    db_rom_handler.update_rom(rom.id, {"igdb_metadata": {"genres": ["RPG"]}})
+    make_rom(other_platform, "other_rom", igdb_metadata={"genres": ["Shooter"]})
 
-    filter_values = response.json()["filter_values"]
-    assert_filter_values_are_lists(filter_values)
-    assert filter_values["genres"] == []
-    assert filter_values["platforms"] == ([platform.id] if with_filter_values else [])
+    def genres(**params: Any) -> list[str]:
+        response = client.get(
+            "/api/roms/filter-values",
+            headers={"Authorization": f"Bearer {access_token}"},
+            params=params,
+        )
+        assert response.status_code == status.HTTP_200_OK
+        values: list[str] = response.json()["genres"]
+        return values
+
+    assert genres() == ["RPG", "Shooter"]
+    assert genres(platform_ids=platform.id) == ["RPG"]
+    assert genres(platform_ids=platform.id, platforms_logic="none") == ["Shooter"]
+    # The dropdowns keep offering what the applied filters would narrow away.
+    assert genres(platform_ids=platform.id, genres="Shooter", missing=True) == ["RPG"]
+
+
+def test_get_filter_values_omit_values_of_hidden_roms(
+    client: TestClient,
+    viewer_access_token: str,
+    viewer_user: User,
+    rom: Rom,
+    platform: Platform,
+) -> None:
+    db_rom_handler.update_rom(rom.id, {"igdb_metadata": {"genres": ["Secret"]}})
+
+    def genres() -> list[str]:
+        response = client.get(
+            "/api/roms/filter-values",
+            headers={"Authorization": f"Bearer {viewer_access_token}"},
+            params={"platform_ids": platform.id},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        values: list[str] = response.json()["genres"]
+        return values
+
+    assert genres() == ["Secret"]
+
+    hide(PermEntity.ROMS, rom.id, user_id=viewer_user.id)
+
+    assert genres() == []
 
 
 def test_get_roms_reads_names_from_metadata_objects(
@@ -830,14 +897,20 @@ def test_get_roms_reads_names_from_metadata_objects(
     response = client.get(
         "/api/roms",
         headers={"Authorization": f"Bearer {access_token}"},
-        params={"platform_id": platform.id, "with_filter_values": True},
+        params={"platform_id": platform.id},
     )
     assert response.status_code == status.HTTP_200_OK
 
     body = response.json()
     assert body["items"][0]["igdb_metadata"]["genres"] == ["RPG", "Action"]
     assert body["items"][0]["metadatum"]["genres"] == ["Action", "RPG"]
-    assert body["filter_values"]["genres"] == ["Action", "RPG"]
+
+    response = client.get(
+        "/api/roms/filter-values",
+        headers={"Authorization": f"Bearer {access_token}"},
+        params={"platform_ids": platform.id},
+    )
+    assert response.json()["genres"] == ["Action", "RPG"]
 
 
 def test_get_rom_filters_are_never_null(

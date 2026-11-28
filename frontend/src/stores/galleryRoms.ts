@@ -15,10 +15,13 @@
 //   - selection state (`stores/gallerySelection`).
 import axios from "axios";
 import { defineStore } from "pinia";
-import type { SimpleRomSchema } from "@/__generated__/";
+import type { RomFiltersDict, SimpleRomSchema } from "@/__generated__/";
 import type { CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
 import { userStorage } from "@/composables/useUserLocalStorage";
-import romApi, { type GetRomsParams } from "@/services/api/rom";
+import romApi, {
+  type FilterValuesParams,
+  type GetRomsParams,
+} from "@/services/api/rom";
 import {
   type Collection,
   type SmartCollection,
@@ -92,7 +95,6 @@ export const SELECT_ALL_PAGE_SIZE = 10_000;
 // scan, and a misspelled name would silently re-enable one.
 export const NO_SIDECARS: SidecarOptions = {
   withCharIndex: false,
-  withFilterValues: false,
   withRomIdIndex: false,
 };
 
@@ -101,13 +103,16 @@ const SKIP_AGGREGATES = { ...NO_SIDECARS, withTotal: false };
 
 // In-flight `AbortController`s keyed by request: `window:${offset}`
 // for a windowed fetch, `bootstrap` for the lightweight metadata
-// bootstrap, `refresh` for a filter refetch. Lives outside store state so
+// bootstrap, `refresh` for a filter refetch, `filterValues` for the filter
+// drawer's option lists. Lives outside store state so
 // Pinia doesn't try to proxy native abort objects (which break under
 // reactivity).
 // `invalidateWindows()` / `resetGallery()` abort every pending request,
 // so a fast-typed search box or a platform-switch mid-load doesn't
 // leave server work going for results we'll throw away.
 const inFlightControllers = new Map<string, AbortController>();
+// The scope key the in-flight `filterValues` request was made for.
+let filterValuesFetchScope: string | null = null;
 
 // A failed window is only refetched when `fetchWindowAt` is called for it
 // again, which for a static viewport (no scroll) never happens on its own.
@@ -222,7 +227,6 @@ export function placeById(
  * lists it discards. Omitted flags keep the backend's default (`true`). */
 export interface SidecarOptions {
   withCharIndex?: boolean;
-  withFilterValues?: boolean;
   withRomIdIndex?: boolean;
 }
 
@@ -254,12 +258,18 @@ interface State {
   // resolves: view shows a skeleton hero/skeleton rows during this
   // phase.
   initialFetching: boolean;
-  // True once total / charIndex / romIdIndex / filter_values have been
-  // populated, either by the lightweight `fetchInitialMetadata()`
-  // bootstrap or by `fetchWindowAt(0)`. Used to gate the initial
-  // bootstrap dedup independently of `loadedWindows` (metadata
-  // bootstrap doesn't load any window).
+  // True once `total`, `charIndex` and `romIdIndex` have been populated,
+  // either by the lightweight `fetchInitialMetadata()` bootstrap or by
+  // `fetchWindowAt(0)`. Used to gate the initial bootstrap dedup
+  // independently of `loadedWindows` (metadata bootstrap doesn't load any
+  // window).
   metadataLoaded: boolean;
+  // The scope the filter drawer's lists were fetched for, as a JSON key, or
+  // null when the loaded lists belong to no scope.
+  filterValuesScopeKey: string | null;
+  // Set when the library or the gallery context changes, so the lists have to
+  // be fetched again.
+  filterValuesStale: boolean;
   // True while a whole-result select-all fetch is in flight.
   selectingAll: boolean;
   // True while `refreshResults` refetches: the previous result stays on
@@ -291,6 +301,8 @@ const defaults = (): State => ({
   failedWindows: new Set(),
   initialFetching: false,
   metadataLoaded: false,
+  filterValuesScopeKey: null,
+  filterValuesStale: false,
   selectingAll: false,
   refreshing: false,
   relevanceLed: false,
@@ -302,6 +314,20 @@ type RequestParams = Omit<GetRomsParams, "signal">;
 
 function alignToWindow(offset: number): number {
   return Math.floor(offset / WINDOW_SIZE) * WINDOW_SIZE;
+}
+
+/** The fields of `params` the filter drawer's option lists depend on. */
+function filterValuesScope(
+  params: RequestParams,
+): Required<FilterValuesParams> {
+  return {
+    searchTerm: params.searchTerm ?? null,
+    platformIds: params.platformIds ?? null,
+    platformsLogic: params.platformsLogic ?? null,
+    collectionId: params.collectionId ?? null,
+    virtualCollectionId: params.virtualCollectionId ?? null,
+    smartCollectionId: params.smartCollectionId ?? null,
+  };
 }
 
 export default defineStore("v2GalleryRoms", {
@@ -390,6 +416,7 @@ export default defineStore("v2GalleryRoms", {
       this.failedWindows = new Set();
       this.initialFetching = false;
       this.metadataLoaded = false;
+      this.filterValuesStale = true;
       this.selectingAll = false;
       this.refreshing = false;
       this.relevanceLed = false;
@@ -409,6 +436,7 @@ export default defineStore("v2GalleryRoms", {
       this.failedWindows = new Set();
       this.initialFetching = false;
       this.metadataLoaded = false;
+      this.filterValuesStale = true;
       this.selectingAll = false;
       this.refreshing = false;
     },
@@ -432,7 +460,6 @@ export default defineStore("v2GalleryRoms", {
       this.refreshing = true;
 
       const galleryFilter = storeGalleryFilter();
-      const platformsStore = storePlatforms();
       const params = this._buildRequestParams(galleryFilter, 0);
       const controller = new AbortController();
       inFlightControllers.set(ctrlKey, controller);
@@ -459,7 +486,7 @@ export default defineStore("v2GalleryRoms", {
           data.items.forEach((rom, i) => next.set(i, rom));
           this.charIndex = {};
           this.romIdIndex = [];
-          this._applyMetadata(data, galleryFilter, platformsStore);
+          this._applyMetadata(data);
           this.byPosition = next;
           this.loadedWindows = new Set([0]);
           this.resultParams = { ...params };
@@ -571,16 +598,10 @@ export default defineStore("v2GalleryRoms", {
       };
     },
 
-    /** Apply the metadata side effects from a `getRoms` response:
-     * total, char_index, rom_id_index, plus filter side panels (only on
-     * first fetch). Shared by `fetchWindowAt(0)` and the lightweight
-     * `fetchInitialMetadata()` bootstrap. */
-    _applyMetadata(
-      data: GetRomsResponse,
-      galleryFilter: GalleryFilterStore,
-      platformsStore: ReturnType<typeof storePlatforms>,
-      sidecars: SidecarOptions = {},
-    ) {
+    /** Apply the metadata side effects from a `getRoms` response: total,
+     * char_index and rom_id_index. Shared by `fetchWindowAt(0)` and the
+     * lightweight `fetchInitialMetadata()` bootstrap. */
+    _applyMetadata(data: GetRomsResponse, sidecars: SidecarOptions = {}) {
       if (data.total !== null && data.total !== undefined) {
         this.total = data.total;
       }
@@ -597,36 +618,38 @@ export default defineStore("v2GalleryRoms", {
       if (sidecars.withRomIdIndex !== false && data.rom_id_index) {
         this.romIdIndex = data.rom_id_index;
       }
-      if (sidecars.withFilterValues !== false && data.filter_values) {
-        if (galleryFilter.filterPlatforms.length === 0) {
-          const platformIds = data.filter_values.platforms ?? [];
-          galleryFilter.setFilterPlatforms(
-            platformsStore.allPlatforms.filter((p) =>
-              platformIds.includes(p.id),
-            ),
-          );
-        }
-        galleryFilter.setFilterCollections(data.filter_values.collections);
-        galleryFilter.setFilterGenres(data.filter_values.genres);
-        galleryFilter.setFilterFranchises(data.filter_values.franchises);
-        galleryFilter.setFilterCompanies(data.filter_values.companies);
-        galleryFilter.setFilterPublishers(data.filter_values.publishers);
-        galleryFilter.setFilterDevelopers(data.filter_values.developers);
-        galleryFilter.setFilterAgeRatings(data.filter_values.age_ratings);
-        galleryFilter.setFilterRegions(data.filter_values.regions);
-        galleryFilter.setFilterLanguages(data.filter_values.languages);
-        galleryFilter.setFilterPlayerCounts(data.filter_values.player_counts);
-        galleryFilter.setFilterTags(data.filter_values.tags);
-      }
       this.metadataLoaded = true;
     },
 
+    /** Put the filter drawer's option lists into the filter store; a missing
+     * list empties it. */
+    _applyFilterValues(values: Partial<RomFiltersDict>) {
+      const galleryFilter = storeGalleryFilter();
+      const platformsStore = storePlatforms();
+      if (galleryFilter.filterPlatforms.length === 0) {
+        const platformIds = values.platforms ?? [];
+        galleryFilter.setFilterPlatforms(
+          platformsStore.allPlatforms.filter((p) => platformIds.includes(p.id)),
+        );
+      }
+      galleryFilter.setFilterCollections(values.collections);
+      galleryFilter.setFilterGenres(values.genres);
+      galleryFilter.setFilterFranchises(values.franchises);
+      galleryFilter.setFilterCompanies(values.companies);
+      galleryFilter.setFilterPublishers(values.publishers);
+      galleryFilter.setFilterDevelopers(values.developers);
+      galleryFilter.setFilterAgeRatings(values.age_ratings);
+      galleryFilter.setFilterRegions(values.regions);
+      galleryFilter.setFilterLanguages(values.languages);
+      galleryFilter.setFilterPlayerCounts(values.player_counts);
+      galleryFilter.setFilterTags(values.tags);
+    },
+
     /** Lightweight bootstrap: fetch only the gallery's metadata (total,
-     * char_index, rom_id_index, filter_values) without loading any
-     * items. Sizes the virtualiser (via `total`) before any window
-     * lands, so both layouts can render skeleton rows immediately and
-     * then hydrate them through the viewport-driven `fetchWindowAt`
-     * sync.
+     * char_index and rom_id_index) without loading any items. Sizes the
+     * virtualiser (via `total`) before any window lands, so both layouts
+     * can render skeleton rows immediately and then hydrate them through
+     * the viewport-driven `fetchWindowAt` sync.
      *
      * The backend's `limit` minimum is 1, so we still pay for one
      * `SimpleRomSchema` build server-side, but the item is discarded
@@ -642,8 +665,6 @@ export default defineStore("v2GalleryRoms", {
 
       this.initialFetching = true;
 
-      const galleryFilter = storeGalleryFilter();
-      const platformsStore = storePlatforms();
       const params = this._resultRequest(0);
       const ctrlKey = "bootstrap";
       const controller = new AbortController();
@@ -661,12 +682,7 @@ export default defineStore("v2GalleryRoms", {
         // newer bootstrap may have replaced our entry under the same key.
         // Identity comparison avoids applying stale metadata in that race.
         if (inFlightControllers.get(ctrlKey) !== controller) return;
-        this._applyMetadata(
-          response.data,
-          galleryFilter,
-          platformsStore,
-          sidecars,
-        );
+        this._applyMetadata(response.data, sidecars);
       } catch (err) {
         if (axios.isCancel(err)) return;
         console.error("[v2GalleryRoms] bootstrap fetch failed", err);
@@ -674,6 +690,55 @@ export default defineStore("v2GalleryRoms", {
         if (inFlightControllers.get(ctrlKey) === controller) {
           inFlightControllers.delete(ctrlKey);
           this.initialFetching = false;
+        }
+      }
+    },
+
+    /** Fetch the filter drawer's option lists for the displayed result's
+     * scope, unless the loaded lists already match it. */
+    async fetchFilterValues(): Promise<void> {
+      const ctrlKey = "filterValues";
+      if (!this.metadataLoaded) return;
+      const scope = filterValuesScope(this._resultRequest(0));
+      const scopeKey = JSON.stringify(scope);
+      if (this.filterValuesScopeKey === scopeKey && !this.filterValuesStale) {
+        return;
+      }
+      const inFlight = inFlightControllers.get(ctrlKey);
+      if (inFlight) {
+        if (filterValuesFetchScope === scopeKey) return;
+        // A refresh does not abort this request, so a superseded scope's
+        // response would otherwise land and block the current one.
+        inFlight.abort();
+      }
+
+      // Another scope's lists would offer values this result cannot match.
+      if (
+        this.filterValuesScopeKey !== null &&
+        this.filterValuesScopeKey !== scopeKey
+      ) {
+        this._applyFilterValues({});
+        this.filterValuesScopeKey = null;
+      }
+
+      const controller = new AbortController();
+      inFlightControllers.set(ctrlKey, controller);
+      filterValuesFetchScope = scopeKey;
+      try {
+        const response = await romApi.getFilterValues({
+          ...scope,
+          signal: controller.signal,
+        });
+        if (inFlightControllers.get(ctrlKey) !== controller) return;
+        this._applyFilterValues(response.data);
+        this.filterValuesScopeKey = scopeKey;
+        this.filterValuesStale = false;
+      } catch (err) {
+        if (axios.isCancel(err)) return;
+        console.error("[v2GalleryRoms] filter values fetch failed", err);
+      } finally {
+        if (inFlightControllers.get(ctrlKey) === controller) {
+          inFlightControllers.delete(ctrlKey);
         }
       }
     },
@@ -705,24 +770,22 @@ export default defineStore("v2GalleryRoms", {
       this.failedWindows.delete(offset);
       if (offset === 0 && !this.metadataLoaded) this.initialFetching = true;
 
-      const galleryFilter = storeGalleryFilter();
-      const platformsStore = storePlatforms();
       const params = this._resultRequest(offset);
       const ctrlKey = `window:${offset}`;
       const controller = new AbortController();
       inFlightControllers.set(ctrlKey, controller);
 
-      // Skip the char-index / filter-value / id-index aggregations when the
-      // bootstrap already loaded them. Capture the decision now: it also gates
-      // whether this response is allowed to re-apply that metadata below. The
-      // backend returns an EMPTY (but truthy) `char_index: {}` / `filter_values`
-      // object when these are skipped, so re-applying it would wipe the
-      // populated values and blank the AlphaStrip / filter drawer. The id
-      // index is a full-library scan we already paid for in the bootstrap, so
-      // window fetches opt out of recomputing it. Dropping it makes the backend
-      // count the result set separately instead, which is the same scan under
-      // another name for a total the bootstrap already gave us, so opt out of
-      // that too and keep the window fetch to just its page of covers.
+      // Skip the char-index and id-index aggregations when the bootstrap
+      // already loaded them. Capture the decision now: it also gates whether
+      // this response is allowed to re-apply that metadata below. The backend
+      // returns an EMPTY (but truthy) `char_index: {}` object when it is
+      // skipped, so re-applying it would wipe the populated values and blank
+      // the AlphaStrip. The id index is a full-library scan we already paid
+      // for in the bootstrap, so window fetches opt out of recomputing it.
+      // Dropping it makes the backend count the result set separately
+      // instead, which is the same scan under another name for a total the
+      // bootstrap already gave us, so opt out of that too and keep the window
+      // fetch to just its page of covers.
       const withAggregations = !this.metadataLoaded;
       // With the whole ordered index in hand, a window loads by id and the
       // backend skips the filtered, offset-paged query.
@@ -750,11 +813,11 @@ export default defineStore("v2GalleryRoms", {
         const data = response.data;
         // Only apply the full metadata when this window actually fetched the
         // aggregations (a window reached before the bootstrap resolved).
-        // Otherwise char_index / filter_values come back empty and would
-        // clobber what the bootstrap populated; `total` comes back null and
-        // the guard below leaves the established size alone.
+        // Otherwise char_index comes back empty and would clobber what the
+        // bootstrap populated; `total` comes back null and the guard below
+        // leaves the established size alone.
         if (offset === 0 && withAggregations) {
-          this._applyMetadata(data, galleryFilter, platformsStore);
+          this._applyMetadata(data);
         } else if (data.total !== null && data.total !== undefined) {
           this.total = data.total;
         }

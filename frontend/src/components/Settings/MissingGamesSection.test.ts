@@ -89,7 +89,6 @@ describe("MissingGamesSection", () => {
     const params = getRoms.mock.calls[0]![0];
     expect(params.filterMissing).toBe(true);
     expect(params.withCharIndex).toBe(false);
-    expect(params.withFilterValues).toBe(false);
     expect(params.withRomIdIndex).toBe(false);
   });
 
@@ -106,7 +105,6 @@ describe("MissingGamesSection", () => {
     const params = getRoms.mock.calls[0]![0];
     expect(params.orderBy).toBe("fs_size_bytes");
     expect(params.withCharIndex).toBe(false);
-    expect(params.withFilterValues).toBe(false);
     expect(params.withRomIdIndex).toBe(false);
   });
 
