@@ -199,7 +199,7 @@ All user-visible text is a message key, written `t("namespace.key")`. Locale fil
 
 **Scripts** live in `frontend/package.json`, and `frontend/AGENTS.md` explains the common ones. `typecheck` (`vue-tsc --build`) covers the app, the Node tooling and the e2e suite.
 
-**Vite** (`vite.config.js`): the Vue plugin, PWA, and project plugins from `scripts/` (`precompress` for static assets, `playerIsolationHeaders`, `previewAssets`, `platformIconManifest`, `trimMdiIcons`). The dev server proxies `/api`, `/ws`, `/netplay` and `/openapi.json` to the backend (`DEV_PORT` or `DEV_PROXY_TARGET`).
+**Vite** (`vite.config.js`): the Vue plugin, PWA, Vue DevTools (dev server only, behind `DEV_VUE_DEVTOOLS=true`, toggled with Alt+Shift+D), and project plugins from `scripts/` (`precompress` for static assets, `playerIsolationHeaders`, `previewAssets`, `platformIconManifest`, `trimMdiIcons`). The dev server proxies `/api`, `/ws`, `/netplay` and `/openapi.json` to the backend (`DEV_PORT` or `DEV_PROXY_TARGET`).
 
 **Tests** (`vitest.config.ts`, three projects):
 

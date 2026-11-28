@@ -2,6 +2,7 @@ import vue from "@vitejs/plugin-vue";
 import { defineConfig, loadEnv } from "vite";
 import mkcert from "vite-plugin-mkcert";
 import { VitePWA } from "vite-plugin-pwa";
+import vueDevTools from "vite-plugin-vue-devtools";
 import { appAliases } from "./scripts/aliases";
 import { platformIconManifest } from "./scripts/platformIconManifest";
 import { playerIsolationHeaders } from "./scripts/playerIsolationHeaders";
@@ -21,6 +22,7 @@ export default defineConfig(({ mode }) => {
   const backendPort = env.DEV_PORT ?? "5000";
   const httpsMode = env.DEV_HTTPS === "true";
   const pwaDevEnabled = env.DEV_PWA === "true";
+  const vueDevtoolsEnabled = env.DEV_VUE_DEVTOOLS === "true";
 
   const proxyTarget = env.DEV_PROXY_TARGET || `http://127.0.0.1:${backendPort}`;
   const remote = Boolean(env.DEV_PROXY_TARGET);
@@ -77,6 +79,7 @@ export default defineConfig(({ mode }) => {
       previewAssets(),
       platformIconManifest(),
       trimMdiIcons(),
+      vueDevtoolsEnabled && vueDevTools(),
       httpsMode &&
         mkcert({
           savePath: "/app/.vite-plugin-mkcert",

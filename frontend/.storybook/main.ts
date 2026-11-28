@@ -1,5 +1,11 @@
 import type { StorybookConfig } from "@storybook/vue3-vite";
 
+const DEVTOOLS_PLUGINS = new Set([
+  "vite-plugin-vue-devtools",
+  "vite-plugin-inspect",
+  "vite-plugin-vue-inspector",
+]);
+
 const config: StorybookConfig = {
   stories: ["../src/**/*.stories.@(js|jsx|ts|tsx)", "../src/**/*.mdx"],
   addons: [
@@ -27,7 +33,12 @@ const config: StorybookConfig = {
     function isBlocked(name: string) {
       // romm:precompress writes .gz siblings for nginx; storybook-static is
       // never served by nginx, so they would be dead weight.
-      return name.startsWith("vite-plugin-pwa") || name === "romm:precompress";
+      // Vue DevTools would float its overlay over every story canvas.
+      return (
+        name.startsWith("vite-plugin-pwa") ||
+        name === "romm:precompress" ||
+        DEVTOOLS_PLUGINS.has(name)
+      );
     }
     function keep(plugin: unknown): unknown[] {
       if (!plugin) return [];
