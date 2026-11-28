@@ -167,7 +167,7 @@ from models.rom import (
     apply_file_stats,
     compute_name_sort_key,
 )
-from utils import safe_int, safe_str_to_bool, switch
+from utils import int_or_none, safe_str_to_bool, switch
 from utils.background_tasks import fire_and_forget
 from utils.conversion_cache import (
     RETRY_AFTER_SECONDS,
@@ -233,13 +233,6 @@ router.include_router(patch_router)
 
 # RomUser fields the statuses filter branches on.
 STATUS_MEMBERSHIP_FIELDS = frozenset({"status", "now_playing", "backlogged", "hidden"})
-
-
-def safe_int_or_none(value: Any) -> int | None:
-    if value is None or value == "":
-        return None
-
-    return safe_int(value)
 
 
 def refresh_affected_smart_collections(
@@ -2047,7 +2040,7 @@ def _parse_match_id(field: str, value: str | None) -> int | str | None:
         return value or None
     if field in _SCENE_MATCH_ID_FIELDS:
         return scene_id_or_none(value, field.removesuffix("_id"))
-    return safe_int_or_none(value)
+    return int_or_none(value)
 
 
 async def _refetch_launchbox(rom: Rom, launchbox_id: Any) -> Mapping[str, object]:
