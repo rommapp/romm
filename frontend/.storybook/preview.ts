@@ -41,7 +41,7 @@ setup((app) => {
   // Snackbar and confirm composables inject the app-wide event bus.
   app.provide("emitter", mitt<Events>());
   // A catch-all router so primitives that render real `<router-link>`s
-  // (RBtn / RListItem / RMenuItem with `to`) resolve a proper `href`
+  // (RButton / RListItem / RMenuItem with `to`) resolve a proper `href`
   // instead of crashing on `router.resolve`. Any string path resolves.
   app.use(
     createRouter({

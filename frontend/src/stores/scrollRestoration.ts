@@ -1,17 +1,5 @@
-// scrollRestoration (v2): remembers each route's last scrollTop on the
-// gallery views' custom scroll containers (RVirtualScroller's
-// containerEl).
-//
-// Why this exists: Vue Router's built-in `scrollBehavior` only restores
-// `window` scroll. Gallery views use a child scroller: going back from
-// GameDetails would otherwise dump the user at the top instead of where
-// they left off. This store captures `scrollTop` per fullPath; views
-// save on `onBeforeRouteLeave` and read in `onMounted` after the first
-// window has resolved.
-//
-// Restoration is non-destructive: re-reading the same key keeps the
-// value so a user that navigates away and back-and-forth keeps landing
-// at the last saved position.
+// Each gallery route's last page scroll, reapplied once the first window has
+// loaded: the router's own restore runs before the rows have their height.
 import { defineStore } from "pinia";
 
 interface State {

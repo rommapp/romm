@@ -16,7 +16,7 @@ import { useObjectUrl } from "@vueuse/core";
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import PasswordField from "@/components/shared/PasswordField.vue";
-import { RBtn, RForm, RIcon, RTextField, RTooltip } from "@/lib";
+import { RButton, RForm, RIcon, RTextField, RTooltip } from "@/lib";
 import { defaultAvatarPath } from "@/utils";
 import {
   asciiOnly,
@@ -108,7 +108,7 @@ const abilities = [
             :alt="draft.username || t('settings.change-avatar')"
           />
           <span class="r-setup-admin__avatar-edit">
-            <RIcon name="mdi-camera" :size="22" />
+            <RIcon icon="mdi-camera" :size="22" />
           </span>
         </button>
         <input
@@ -121,7 +121,7 @@ const abilities = [
         />
         <RTooltip>
           <template #activator="{ props: tipProps }">
-            <RBtn
+            <RButton
               v-bind="tipProps"
               variant="text"
               size="small"
@@ -146,12 +146,12 @@ const abilities = [
           :key="ability.icon"
           class="r-setup-admin__ability"
         >
-          <RIcon :name="ability.icon" :size="18" color="primary" />
+          <RIcon :icon="ability.icon" :size="18" color="primary" />
           <span>{{ t(ability.textKey) }}</span>
         </li>
       </ul>
       <div class="r-setup-admin__warning">
-        <RIcon name="mdi-key-outline" :size="16" color="warning" />
+        <RIcon icon="mdi-key-outline" :size="16" color="warning" />
         <span>{{ t("setup.admin-credentials-warning") }}</span>
       </div>
     </aside>

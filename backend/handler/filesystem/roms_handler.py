@@ -65,7 +65,11 @@ from utils.archives import (
     read_tar_archive_files,
     read_zip_archive_files,
 )
-from utils.filesystem import ARCHIVE_FORMAT_BY_SUFFIX, iter_files
+from utils.filesystem import (
+    ARCHIVE_FORMAT_BY_SUFFIX,
+    COMPRESSED_FILE_SUFFIXES,
+    iter_files,
+)
 from utils.hashing import crc32_to_hex
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.rom_patcher import is_patch_file_name
@@ -356,6 +360,23 @@ def _top_level_changed(
         ):
             return True
     return any(key[0] == rel_rom_dir and key not in seen for key in existing_by_key)
+
+
+def _arcade_set_archive(
+    entries: Sequence[DirEntry], rom_dir: Path, set_name: str
+) -> Path | None:
+    """Return the top-level archive named after the set, or the largest archive if no name matches.
+
+    The name comes first because a BIOS or parent set kept beside it can be larger.
+    """
+    archives = [
+        (st.st_size, Path(f_path, file_name))
+        for f_path, file_name, st in entries
+        if f_path == rom_dir and file_name.lower().endswith(COMPRESSED_FILE_SUFFIXES)
+    ]
+    named = [a for a in archives if a[1].stem.lower() == set_name.lower()]
+    picked = max(named or archives, key=lambda a: a[0], default=None)
+    return picked[1] if picked else None
 
 
 # File categories that never hold a ROM binary, so sigil has nothing to read.
@@ -809,7 +830,7 @@ class FSRomsHandler(FSHandler):
                 when its top level changed, so unchanged files are not reread.
             cnfg: The config to read, so a scan can load it once.
         """
-        from adapters.services.rahasher import RAHasherService
+        from adapters.services.rahasher import ARCADE_RA_ID, RAHasherService
         from handler.metadata import meta_ra_handler
 
         # The rom's stored directory is the source of truth for its location, so
@@ -924,20 +945,28 @@ class FSRomsHandler(FSHandler):
             if calculate_hashes and top_level_changed:
                 ra_platform = meta_ra_handler.get_platform(rom.platform_slug)
                 if ra_platform and ra_platform["ra_id"]:
+                    # Arcade is hashed by the set's name, which its archive carries. The
+                    # CHD beside it is named after the disc.
+                    set_archive = (
+                        _arcade_set_archive(entries, rom_dir, rom.fs_name)
+                        if ra_platform["ra_id"] == ARCADE_RA_ID
+                        else None
+                    )
                     # RAHasher can't process CHD files via the /* wildcard and instead expects
-                    # track files (bin/cue/etc.). For CHD-only folders, find the largest
-                    # CHD and pass it directly, matching single-file CHD behaviour.
+                    # track files (bin/cue/etc.). For a folder holding a CHD, pass the largest
+                    # one directly, matching single-file CHD behaviour.
                     top_level_chds = [
                         (st.st_size, Path(f_path, file_name))
                         for f_path, file_name, st in entries
                         if f_path == rom_dir and is_chd_file(Path(f_path, file_name))
                     ]
                     largest_chd = max(top_level_chds, key=lambda c: c[0], default=None)
-                    ra_path = (
-                        str(largest_chd[1])
-                        if largest_chd
-                        else f"{abs_fs_path}/{rom.fs_name}/*"
-                    )
+                    if set_archive is not None:
+                        ra_path = str(set_archive)
+                    elif largest_chd:
+                        ra_path = str(largest_chd[1])
+                    else:
+                        ra_path = f"{abs_fs_path}/{rom.fs_name}/*"
                     rom_ra_h = await RAHasherService().calculate_hash(
                         ra_platform,
                         ra_path,

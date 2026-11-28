@@ -26,7 +26,7 @@ import { useThemeMode } from "@/composables/useThemeMode";
 import {
   REmptyState,
   RAvatar,
-  RBtn,
+  RButton,
   RTextField,
   RTooltip,
   RDivider,
@@ -300,14 +300,14 @@ function fmtDate(iso: string): string {
       :hint="t('rom.notes-empty-hint')"
     >
       <template v-if="canCreate" #actions>
-        <RBtn
+        <RButton
           variant="flat"
           color="primary"
           prepend-icon="mdi-plus"
           @click="startAdd"
         >
           {{ t("rom.notes-add-first") }}
-        </RBtn>
+        </RButton>
       </template>
     </REmptyState>
 
@@ -327,7 +327,7 @@ function fmtDate(iso: string): string {
           <PublicBadge v-else-if="item.note.is_public" inline />
         </template>
         <template #actions>
-          <RBtn
+          <RButton
             :disabled="!canCreate"
             variant="outlined"
             size="small"
@@ -336,7 +336,7 @@ function fmtDate(iso: string): string {
             @click="startAdd"
           >
             {{ t("rom.notes-add") }}
-          </RBtn>
+          </RButton>
         </template>
       </SubtabNav>
 
@@ -360,7 +360,7 @@ function fmtDate(iso: string): string {
             </li>
           </ul>
         </template>
-        <RBtn
+        <RButton
           :disabled="!canCreate || !!editForm"
           variant="outlined"
           prepend-icon="mdi-plus"
@@ -369,7 +369,7 @@ function fmtDate(iso: string): string {
           @click="startAdd"
         >
           {{ t("rom.notes-add") }}
-        </RBtn>
+        </RButton>
 
         <template v-if="communityNotes.length > 0">
           <RDivider />
@@ -417,15 +417,15 @@ function fmtDate(iso: string): string {
                 :disabled="saving"
               />
               <div class="r-notes__actions">
-                <RBtn
+                <RButton
                   variant="outlined"
                   size="small"
                   :disabled="saving"
                   @click="cancelEdit"
                 >
                   {{ t("common.cancel") }}
-                </RBtn>
-                <RBtn
+                </RButton>
+                <RButton
                   variant="flat"
                   color="primary"
                   size="small"
@@ -435,7 +435,7 @@ function fmtDate(iso: string): string {
                   @click="saveEdit"
                 >
                   {{ t("common.save") }}
-                </RBtn>
+                </RButton>
               </div>
             </div>
           </header>
@@ -470,7 +470,7 @@ function fmtDate(iso: string): string {
             <div v-if="isSelectedOwn" class="r-notes__actions">
               <RTooltip :text="t('rom.notes-edit')">
                 <template #activator="{ props: activator }">
-                  <RBtn
+                  <RButton
                     v-bind="activator"
                     variant="text"
                     size="small"
@@ -482,7 +482,7 @@ function fmtDate(iso: string): string {
               </RTooltip>
               <RTooltip :text="t('rom.notes-delete')">
                 <template #activator="{ props: activator }">
-                  <RBtn
+                  <RButton
                     v-bind="activator"
                     variant="text"
                     size="small"

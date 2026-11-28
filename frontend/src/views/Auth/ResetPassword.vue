@@ -6,7 +6,7 @@ import AuthBackLink from "@/components/shared/AuthBackLink.vue";
 import AuthCard from "@/components/shared/AuthCard.vue";
 import PasswordField from "@/components/shared/PasswordField.vue";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { RAlert, RBtn } from "@/lib";
+import { RAlert, RButton } from "@/lib";
 import { refetchCSRFToken } from "@/services/api";
 import identityApi from "@/services/api/identity";
 import storeAuth from "@/stores/auth";
@@ -90,7 +90,7 @@ async function resetPassword() {
         :text="t('login.passwords-do-not-match')"
       />
 
-      <RBtn
+      <RButton
         type="submit"
         variant="flat"
         color="primary"
@@ -102,7 +102,7 @@ async function resetPassword() {
         "
       >
         {{ t("login.reset-password") }}
-      </RBtn>
+      </RButton>
     </form>
 
     <AuthBackLink />

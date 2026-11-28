@@ -1,6 +1,7 @@
 import base64
 import time
 from http import HTTPStatus
+from typing import Any
 from unittest import mock
 
 import httpx2
@@ -194,7 +195,9 @@ def test_reset_password_for_a_deleted_user_is_not_found(client, viewer_user: Use
     assert _reset_password(client, token).status_code == status.HTTP_404_NOT_FOUND
 
 
-def _oidc_callback(client: TestClient, user: User | None) -> httpx2.Response:
+def _oidc_callback(
+    client: TestClient, user: User | None, userinfo: dict[str, Any] | None = None
+) -> httpx2.Response:
     fake_oauth = mock.MagicMock()
     fake_oauth.openid.authorize_access_token = mock.AsyncMock(
         return_value={"id_token": "provider-id-token"}
@@ -206,7 +209,7 @@ def _oidc_callback(client: TestClient, user: User | None) -> httpx2.Response:
         mock.patch.object(
             oidc_handler,
             "get_current_active_user_from_openid_token",
-            mock.AsyncMock(return_value=(user, {})),
+            mock.AsyncMock(return_value=(user, userinfo or {})),
         ),
     ):
         return client.get("/api/oauth/openid?code=c&state=s", follow_redirects=False)
@@ -238,6 +241,18 @@ def test_oidc_callback_logs_the_user_in(client: TestClient, admin_user: User):
     ):
         logout = client.post("/api/logout", headers=cookie_header)
     assert "id_token_hint=provider-id-token" in logout.json()["oidc_logout_url"]
+
+
+def test_oidc_callback_syncs_the_picture_claim(client: TestClient, admin_user: User):
+    userinfo = {"picture": "https://idp.example/me.png"}
+    with mock.patch("endpoints.auth.sync_oidc_avatar") as sync:
+        response = _oidc_callback(client, admin_user, userinfo)
+
+    assert response.status_code == HTTPStatus.TEMPORARY_REDIRECT
+    sync.assert_awaited_once()
+    await_args = sync.await_args
+    assert await_args is not None
+    assert await_args.args[1] == userinfo
 
 
 def test_oidc_callback_for_an_unknown_user_is_unauthorized(client: TestClient):

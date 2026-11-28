@@ -27,7 +27,7 @@ import { computed, nextTick, ref, useId, watch } from "vue";
 import { usePopoverDismiss } from "@/composables/usePopoverDismiss";
 import { useChromeLabels } from "@/lib/a11y/chromeLabels";
 import { focusFromInput } from "@/utils/autofocus";
-import RBtn from "../../primitives/RBtn/RBtn.vue";
+import RButton from "../../primitives/RButton/RButton.vue";
 import RIcon from "../../primitives/RIcon/RIcon.vue";
 import RTextField from "../RTextField/RTextField.vue";
 
@@ -60,6 +60,13 @@ interface Props {
    *  Mirrors RTextField's clearable affordance so the two primitives
    *  read as siblings on dialogs that mix text + date fields. */
   clearable?: boolean;
+  /** The remaining props are forwarded to the underlying RTextField. */
+  label?: string | undefined;
+  placeholder?: string | undefined;
+  variant?: "outlined" | "filled" | "underlined" | "plain" | undefined;
+  density?: "default" | "comfortable" | "compact" | undefined;
+  prefixLabel?: "stacked" | "inline" | undefined;
+  hideDetails?: boolean | "auto" | undefined;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -73,6 +80,12 @@ const props = withDefaults(defineProps<Props>(), {
   todayLabel: undefined,
   clearLabel: undefined,
   clearable: false,
+  label: undefined,
+  placeholder: undefined,
+  variant: undefined,
+  density: undefined,
+  prefixLabel: undefined,
+  hideDetails: undefined,
 });
 
 const labels = useChromeLabels();
@@ -456,6 +469,12 @@ usePopoverDismiss(isOpen, close, {
          that would fire alongside the bubbled click and toggle twice. -->
     <RTextField
       v-bind="$attrs"
+      :label="label"
+      :placeholder="placeholder"
+      :variant="variant"
+      :density="density"
+      :prefix-label="prefixLabel"
+      :hide-details="hideDetails"
       :model-value="displayValue"
       :disabled="disabled"
       :focused="isOpen"
@@ -584,10 +603,10 @@ usePopoverDismiss(isOpen, close, {
           <!-- Footer shortcuts. Hidden when the consumer doesn't want
                quick-access buttons (e.g. embedded in a complex form). -->
           <div v-if="!hideFooter" class="r-date-cal__foot">
-            <RBtn variant="text" size="small" @click="selectToday">
+            <RButton variant="text" size="small" @click="selectToday">
               {{ todayText }}
-            </RBtn>
-            <RBtn
+            </RButton>
+            <RButton
               variant="text"
               size="small"
               color="danger"
@@ -595,7 +614,7 @@ usePopoverDismiss(isOpen, close, {
               @click="clearValue"
             >
               {{ clearText }}
-            </RBtn>
+            </RButton>
           </div>
         </div>
       </Transition>

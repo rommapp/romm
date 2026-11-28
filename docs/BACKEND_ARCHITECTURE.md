@@ -149,6 +149,37 @@ Endpoints call handlers; handlers own every query, file write and provider call.
 
 ## 3. Application Lifecycle
 
+### Container Process Model
+
+The image runs several processes, supervised by [s6-overlay](https://github.com/just-containers/s6-overlay) as PID 1. Service definitions live in `docker/s6-overlay/`, and `s6-rc` starts them in dependency order:
+
+```text
+romm-init            oneshot   banner, OTEL detection, ROMM_AUTH_SECRET_KEY, sync folder checks
+  └── romm-valkey        longrun   internal cache (skipped when REDIS_HOST is set)
+      └── romm-valkey-ready    oneshot   polls 127.0.0.1:6379
+          └── romm-migrations      oneshot   alembic upgrade head
+              └── romm-startup         oneshot   startup.py
+                  ├── romm-gunicorn        longrun   ASGI server
+                  │   └── romm-gunicorn-ready  oneshot   polls DEV_PORT
+                  │       └── romm-nginx           longrun   reverse proxy on ROMM_PORT
+                  ├── romm-rq-worker       longrun   high, default and low queues
+                  ├── romm-rq-scan-worker  longrun   scans queue
+                  ├── romm-rq-streaming-worker  longrun   streaming queue (only with streaming enabled)
+                  ├── romm-rq-cron         longrun   periodic tasks from tasks/cron_config.py
+                  ├── romm-watcher         longrun   (ENABLE_RESCAN_ON_FILESYSTEM_CHANGE)
+                  └── romm-sync-watcher    longrun   (ENABLE_SYNC_FOLDER_WATCHER)
+```
+
+Behaviour worth knowing:
+
+- **A failed startup step exits the container** (`S6_BEHAVIOUR_IF_STAGE2_FAILS=2`). An unreachable database at boot is normal when the daemon's restart policy starts containers before their dependencies, so migrations fail, the container exits non-zero, and the restart policy retries.
+- **A crashed service is restarted on its own**, without taking the rest of the container down. Its leftover children are swept first (`finish`), so a replacement can rebind the port a hard-killed parent's workers were still holding.
+- **Shutdown is bounded.** Each service gets `timeout-kill` (10s) before SIGKILL, escalated to the whole process group (`flag-timeout-killpg`). No process can hold PID 1 open indefinitely.
+
+Optional services have no conditional mechanism in `s6-rc`: they start, check their environment variable, and take themselves down with `s6-svc -O` when disabled.
+
+Running with a read-only root filesystem requires `/run` to be mounted **exec**, since s6 executes its generated stage scripts from there.
+
 ### Startup Sequence
 
 ```text
@@ -416,7 +447,7 @@ Coordinates save/state synchronization between devices using three sync modes (`
 
 Clients opt into snapshots by pushing to `/api/snapshots`; a slotted upload through `/saves` files the save under the slot's channel with no snapshot. Saves and states a snapshot holds are immutable: writes to them through the legacy routes answer 409 (423 over WebDAV).
 
-- **Writes:** every snapshot goes through `write.write_snapshot`, which locks the channel row and checks the expected current. A stale push is kept as a branch and answered 409 (`moved`, or `moved_from_older` when its parent is older than the current). A push without an explicit expected current infers it from its parent, the device's held snapshot, or the current the device last learned. A push that adds no progress answers unchanged. Hardcore channels refuse a softcore current.
+- **Writes:** every snapshot goes through `write.write_snapshot`, which locks the channel row and checks the expected current. A stale push is kept as a branch and answered 409 (`moved`, or `moved_from_older` when its parent is older than the current). A push without an explicit expected current infers it from its parent, the device's held snapshot, or the current the device last learned. A push that adds no progress answers unchanged: its bank matches the current's, and its save has the current's identity hash (`hashing.py`). On platforms sigil has a rule for, sigil computes that hash and leaves out the clock and, on Pokemon carts, the scratch RAM. Elsewhere it is the content hash without the clock members. Hardcore channels refuse a softcore current.
 - **Legacy bridge:** once a channel has a current, legacy clients join it (`bridge.py`). Negotiate decides a slot from the channel's history and the snapshot the device holds: a save matching an earlier current is behind, one matching a branch conflicts, and an unknown one uploads from a device on the current and conflicts from one on an older snapshot. A slotted upload becomes the next current and carries the parent's states. Hardcore channels and neutral current saves stay out.
 - **Sharing:** a public channel is readable and writable by every user. The snapshot belongs to the channel owner and records the pusher as author; content reuse by hash only looks inside the channel, so a pusher can't pull in the owner's other saves.
 - **Shared cards and uploads:** a PS1, PS2 or GameCube memory card holding other games' saves is cut to the game's neutral unit before the write (`shared_card.py`), and identity hashes, the digest and reuse all use that unit. Every uploaded zip passes `check_zip`, and a neutral unit also passes `check_neutral_unit`.

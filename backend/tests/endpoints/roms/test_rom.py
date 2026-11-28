@@ -588,6 +588,43 @@ def test_get_roms_sorted_by_user_field_keeps_all_roms(
     assert [item["id"] for item in body["items"]] == [rom.id, never_played.id]
 
 
+def test_get_roms_filter_by_platforms_logic(
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+    platform: Platform,
+    other_platform: Platform,
+):
+    other_rom = make_rom(other_platform, "other_rom", fs_extension="gba")
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    response = client.get(
+        "/api/roms",
+        headers=headers,
+        params={"platform_ids": [platform.id], "platforms_logic": "none"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert {item["id"] for item in response.json()["items"]} == {other_rom.id}
+
+    response = client.get(
+        "/api/roms",
+        headers=headers,
+        params={
+            "platform_ids": [platform.id, other_platform.id],
+            "platforms_logic": "none",
+        },
+    )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["items"] == []
+
+    response = client.get(
+        "/api/roms",
+        headers=headers,
+        params={"platform_ids": [platform.id], "platforms_logic": "all"},
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+
 def test_get_roms_filter_by_metadata_providers(
     client: TestClient, access_token: str, rom: Rom, platform: Platform
 ):
@@ -980,8 +1017,8 @@ def test_get_romfile_nested_file_is_not_top_level(
     nested = db_rom_handler.add_rom_file(
         RomFile(
             rom_id=rom.id,
-            file_name="manual.txt",
-            file_path=f"{rom.fs_path}/{rom.fs_name}/extras",
+            file_name="EBOOT.BIN",
+            file_path=f"{rom.fs_path}/{rom.fs_name}/PS3_GAME/USRDIR",
             file_size_bytes=10,
         )
     )
@@ -994,8 +1031,30 @@ def test_get_romfile_nested_file_is_not_top_level(
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
     assert body["is_top_level"] is False
-    # Only a top-level file picks up the game-file default.
-    assert body["category"] is None
+    # A nested file below no category folder is part of the game too.
+    assert body["category"] == "game"
+
+
+def test_get_romfile_keeps_a_category_folder_category(
+    client: TestClient, access_token: str, rom: Rom
+):
+    manual = db_rom_handler.add_rom_file(
+        RomFile(
+            rom_id=rom.id,
+            file_name="manual.pdf",
+            file_path=f"{rom.fs_path}/{rom.fs_name}/manual",
+            file_size_bytes=10,
+            category=RomFileCategory.MANUAL,
+        )
+    )
+
+    response = client.get(
+        f"/api/roms/{manual.id}/files",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["category"] == "manual"
 
 
 def test_get_romfile_reads_a_patch_format_as_a_patch(

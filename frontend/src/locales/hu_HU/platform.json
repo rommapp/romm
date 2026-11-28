@@ -1,5 +1,6 @@
 {
   "age-rating": "Korhatár",
+  "attributes": "Jellemzők",
   "browse-platform": "{platform} böngészése",
   "category": "Kategória",
   "change-view": "Nézet módosítása",
@@ -128,7 +129,6 @@
   "show-verified-only": "Csak ellenőrzött hash-ű ROM-ok mutatása",
   "status": "Állapot",
   "tag": "Címke",
-  "tags": "Címkék",
   "update-platform-failed": "A platform frissítése sikertelen: {error}",
   "updated": "Platform frissítve",
   "upload-firmware": "Firmware feltöltése",

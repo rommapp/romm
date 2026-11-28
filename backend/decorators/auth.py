@@ -53,6 +53,7 @@ oauth2_password_bearer = OAuth2PasswordBearer(
 )
 
 # Using an OIDC authorization code flow
+OIDC_SSL_CONTEXT = build_ca_ssl_context(OIDC_TLS_CACERTFILE)
 config = Config(
     environ={
         "OIDC_ENABLED": str(OIDC_ENABLED),
@@ -72,7 +73,7 @@ oauth.register(
     or get_well_known_url(config.get("OIDC_SERVER_APPLICATION_URL"), external=True),
     client_kwargs={
         "scope": f"openid profile email {OIDC_CLAIM_ROLES}".strip(),
-        "verify": build_ca_ssl_context(OIDC_TLS_CACERTFILE),
+        "verify": OIDC_SSL_CONTEXT,
         # Authlib only derives a code_verifier when code_challenge_method is set,
         # so providers that mandate PKCE refuse the code without it.
         "code_challenge_method": "S256",

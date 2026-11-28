@@ -1,5 +1,6 @@
 {
   "age-rating": "연령 제한",
+  "attributes": "게임 정보",
   "browse-platform": "{platform} 둘러보기",
   "category": "분류",
   "change-view": "배열 방식 변경",
@@ -128,7 +129,6 @@
   "show-verified-only": "해시가 검증된 ROM만 표시",
   "status": "플레이 상태",
   "tag": "태그",
-  "tags": "태그",
   "update-platform-failed": "플랫폼을 업데이트하지 못했습니다: {error}",
   "updated": "플랫폼이 업데이트되었습니다",
   "upload-firmware": "펌웨어 업로드",

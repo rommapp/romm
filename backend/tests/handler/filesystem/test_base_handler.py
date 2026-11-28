@@ -17,6 +17,7 @@ from handler.filesystem.base_handler import (
     normalize_language,
     normalize_provider_languages,
     normalize_provider_regions,
+    preferred_region_codes,
     provider_language_name,
     provider_region_name,
     region_ranks_for_priority,
@@ -826,6 +827,39 @@ class TestFSHandlerInit:
             FSHandler("/some/unwritable/path")
 
         mkdir.assert_not_called()
+
+
+def _region_codes(regions: list[str], priority: list[str], mode: str) -> list[str]:
+    config = Mock(SCAN_REGION_PRIORITY=priority, SCAN_REGION_MODE=mode)
+    with patch("handler.filesystem.base_handler.cm.get_config", return_value=config):
+        return preferred_region_codes(regions)
+
+
+class TestPreferredRegionCodes:
+    def test_prefer_rom_tags_puts_the_rom_s_tags_first(self):
+        assert _region_codes(["Japan"], ["us", "jp"], "prefer_rom_tags") == [
+            "jp",
+            "us",
+        ]
+
+    def test_prefer_config_puts_the_config_first(self):
+        assert _region_codes(["Japan", "Brazil"], ["us", "jp"], "prefer_config") == [
+            "us",
+            "jp",
+            "br",
+        ]
+
+    def test_the_rom_s_tags_follow_the_configured_order(self):
+        assert _region_codes(["USA", "Japan"], ["jp", "us"], "prefer_rom_tags") == [
+            "jp",
+            "us",
+        ]
+
+    def test_uppercase_config_codes_match_the_rom_s_tags(self):
+        assert _region_codes(["Japan"], ["JP", "US"], "prefer_config") == ["jp", "us"]
+
+    def test_no_rom_tags_leaves_the_config(self):
+        assert _region_codes([], ["eu", "us"], "prefer_rom_tags") == ["eu", "us"]
 
 
 class TestRegionRanksForPriority:

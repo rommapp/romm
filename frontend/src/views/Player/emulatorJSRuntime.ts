@@ -114,12 +114,25 @@ export function buildStateFormData(
   ]);
 }
 
+/** A changed SRAM uploads once it has stopped changing for this long, so a
+ * burst of writes (Pokemon uses SRAM as scratch space in every menu) uploads
+ * once. */
+export const SAVE_SYNC_QUIET_MS = 5_000;
+/** The longest a changed SRAM waits to upload while the game keeps writing it. */
+export const SAVE_SYNC_MAX_WAIT_MS = 60_000;
+
+/** What a tick does with the SRAM: nothing, keep it in the browser, or upload it. */
+export type SaveTick = "idle" | "hold" | "upload";
+
 // Per EmulatorJS "saveSaveFiles" tick, whether the SRAM is worth uploading
 // (#4201). Two agreeing ticks keep a mid-write save from being uploaded (#2349).
 export function createSaveSyncTracker() {
   let lastUploaded: Uint8Array | null = null;
   let baseline: Uint8Array | null = null;
   let previousTick: Uint8Array | null = null;
+  let held: Uint8Array | null = null;
+  let changedAt = 0;
+  let unsentSince: number | null = null;
   // Bytes the server does not hold: neither the last upload nor the SRAM the
   // session started from.
   const hasChanges = (save: Uint8Array): boolean =>
@@ -131,6 +144,8 @@ export function createSaveSyncTracker() {
       lastUploaded = save;
       baseline = save;
       previousTick = save;
+      held = null;
+      unsentSince = null;
     },
     // SRAM restored by a state or a fresh boot: the tick waits for a change,
     // but a forced write still persists it since the server has no copy.
@@ -138,11 +153,39 @@ export function createSaveSyncTracker() {
       lastUploaded = null;
       baseline = save;
       previousTick = save;
+      held = null;
+      unsentSince = null;
     },
-    shouldUpload(save: Uint8Array): boolean {
+    /**
+     * What this tick does with `save`: new bytes that two ticks agree on are
+     * kept in the browser at once, then upload after `SAVE_SYNC_QUIET_MS`
+     * without a change or after `SAVE_SYNC_MAX_WAIT_MS` at most.
+     *
+     * Args:
+     *   save: The SRAM this tick read.
+     *   now: The current time, in milliseconds on a monotonic clock.
+     */
+    offer(save: Uint8Array, now: number): SaveTick {
       const stable = bytesEqual(save, previousTick);
       previousTick = save;
-      return stable && hasChanges(save);
+      if (!stable) {
+        changedAt = now;
+        return "idle";
+      }
+      if (!hasChanges(save)) {
+        unsentSince = null;
+        return "idle";
+      }
+      unsentSince ??= now;
+      if (
+        now - changedAt >= SAVE_SYNC_QUIET_MS ||
+        now - unsentSince >= SAVE_SYNC_MAX_WAIT_MS
+      ) {
+        return "upload";
+      }
+      if (bytesEqual(save, held)) return "idle";
+      held = save;
+      return "hold";
     },
     // Leaving the player cannot wait for a second tick, so it uploads on
     // this alone.
@@ -150,6 +193,7 @@ export function createSaveSyncTracker() {
     markUploaded(save: Uint8Array) {
       lastUploaded = save;
       baseline = null;
+      unsentSince = null;
     },
     // Whether the server already holds these exact bytes.
     isUploaded(save: Uint8Array): boolean {

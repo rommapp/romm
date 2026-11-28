@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { ref } from "vue";
 import RTextField from "@/lib/forms/RTextField/RTextField.vue";
-import RBtn from "@/lib/primitives/RBtn/RBtn.vue";
+import RButton from "@/lib/primitives/RButton/RButton.vue";
 import { a11yTodoRules } from "@/utils/storyA11y";
 import RDrawer from "./RDrawer.vue";
 
@@ -23,11 +23,11 @@ type Story = StoryObj<typeof RDrawer>;
 export const Default: Story = {
   args: { side: "right", width: 380, icon: "mdi-filter-variant" },
   render: (args) => ({
-    components: { RDrawer, RBtn },
+    components: { RDrawer, RButton },
     setup: () => ({ args, open: ref(false) }),
     template: `
       <div style="height:480px;padding:24px;display:flex;align-items:flex-start">
-        <RBtn variant="flat" color="primary" @click="open = true">Open drawer</RBtn>
+        <RButton variant="flat" color="primary" @click="open = true">Open drawer</RButton>
         <RDrawer v-bind="args" v-model="open">
           <template #header>Filters</template>
           <p style="margin:0 0 12px 0;color:var(--r-color-fg-muted);font-size:13px">
@@ -35,9 +35,9 @@ export const Default: Story = {
             the default slot.
           </p>
           <template #footer>
-            <RBtn variant="text" color="danger" @click="open = false">Cancel</RBtn>
+            <RButton variant="text" color="danger" @click="open = false">Cancel</RButton>
             <div style="flex:1"></div>
-            <RBtn variant="flat" color="primary" @click="open = false">Apply</RBtn>
+            <RButton variant="flat" color="primary" @click="open = false">Apply</RButton>
           </template>
         </RDrawer>
       </div>
@@ -51,11 +51,11 @@ export const LeftSide: Story = {
   name: "Left side",
   args: { side: "left", width: 320, icon: "mdi-menu" },
   render: (args) => ({
-    components: { RDrawer, RBtn },
+    components: { RDrawer, RButton },
     setup: () => ({ args, open: ref(false) }),
     template: `
       <div style="height:480px;padding:24px;display:flex;align-items:flex-start;justify-content:flex-end">
-        <RBtn variant="flat" @click="open = true">Open left drawer</RBtn>
+        <RButton variant="flat" @click="open = true">Open left drawer</RButton>
         <RDrawer v-bind="args" v-model="open">
           <template #header>Navigation</template>
           <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px">
@@ -83,7 +83,7 @@ export const TallContent: Story = {
     docs: { story: { inline: false, height: "560px" } },
   },
   render: (args) => ({
-    components: { RDrawer, RBtn, RTextField },
+    components: { RDrawer, RButton, RTextField },
     setup: () => ({
       args,
       open: ref(true),
@@ -91,7 +91,7 @@ export const TallContent: Story = {
     }),
     template: `
       <div style="height:480px;padding:24px">
-        <RBtn variant="flat" color="primary" @click="open = true">Open</RBtn>
+        <RButton variant="flat" color="primary" @click="open = true">Open</RButton>
         <RDrawer v-bind="args" v-model="open">
           <template #header>Long list</template>
           <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px">
@@ -101,7 +101,7 @@ export const TallContent: Story = {
           </ul>
           <template #footer>
             <div style="flex:1"></div>
-            <RBtn variant="flat" color="primary" @click="open = false">Done</RBtn>
+            <RButton variant="flat" color="primary" @click="open = false">Done</RButton>
           </template>
         </RDrawer>
       </div>
@@ -114,11 +114,11 @@ export const TallContent: Story = {
 export const Persistent: Story = {
   args: { side: "right", width: 360, persistent: true, icon: "mdi-lock" },
   render: (args) => ({
-    components: { RDrawer, RBtn },
+    components: { RDrawer, RButton },
     setup: () => ({ args, open: ref(false) }),
     template: `
       <div style="height:480px;padding:24px">
-        <RBtn variant="flat" color="primary" @click="open = true">Open persistent</RBtn>
+        <RButton variant="flat" color="primary" @click="open = true">Open persistent</RButton>
         <RDrawer v-bind="args" v-model="open">
           <template #header>Confirm before leaving</template>
           <p style="margin:0;color:var(--r-color-fg-muted)">
@@ -126,9 +126,9 @@ export const Persistent: Story = {
             explicit Cancel / Continue exits the drawer.
           </p>
           <template #footer>
-            <RBtn variant="text" color="danger" @click="open = false">Cancel</RBtn>
+            <RButton variant="text" color="danger" @click="open = false">Cancel</RButton>
             <div style="flex:1"></div>
-            <RBtn variant="flat" color="primary" @click="open = false">Continue</RBtn>
+            <RButton variant="flat" color="primary" @click="open = false">Continue</RButton>
           </template>
         </RDrawer>
       </div>

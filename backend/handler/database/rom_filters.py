@@ -14,7 +14,7 @@ holds the same values in a few MB. See `RomFacets`.
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Annotated, Any, TypedDict
+from typing import Annotated, Any, Literal, TypedDict
 
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.orm import QueryableAttribute
@@ -112,7 +112,11 @@ _SCOPE_FIELDS: tuple[str, ...] = (
 # Grouping changes how rows collapse, not which rows match, and a logic
 # operator only matters when its own filter is set.
 _UNFILTERED_FIELDS: frozenset[str] = frozenset(
-    {"group_by_meta_id", *(f"{name}_logic" for name in _LIST_FIELDS)}
+    {
+        "group_by_meta_id",
+        "platforms_logic",
+        *(f"{name}_logic" for name in _LIST_FIELDS),
+    }
 )
 
 
@@ -135,9 +139,15 @@ class RomFilterParams(BaseModel):
     platform_ids: Annotated[
         list[int] | None,
         Field(
-            description="Platform internal ids. Multiple values are allowed by repeating the parameter, and results that match any of the values will be returned."
+            description="Platform internal ids. Multiple values are allowed by repeating the parameter, and results that match any of the values will be returned, or none of them when `platforms_logic` is 'none'."
         ),
     ] = None
+    platforms_logic: Annotated[
+        Literal["any", "none"],
+        Field(
+            description="Logic operator for the platforms filter: 'any' (OR) or 'none' (NOT). A rom has one platform, so 'all' is not accepted."
+        ),
+    ] = "any"
     collection_id: Annotated[
         int | None,
         Field(description="Collection internal id.", ge=1),
@@ -429,9 +439,15 @@ class RomFilterParams(BaseModel):
         return any(getattr(self, field) for field in _SCOPE_FIELDS)
 
     def has_only_platform_scope(self) -> bool:
-        """Whether platforms are the only scope picked."""
-        return bool(self.platform_ids) and not any(
-            getattr(self, field) for field in _SCOPE_FIELDS if field != "platform_ids"
+        """Whether included platforms are the only scope picked."""
+        return (
+            bool(self.platform_ids)
+            and self.platforms_logic == "any"
+            and not any(
+                getattr(self, field)
+                for field in _SCOPE_FIELDS
+                if field != "platform_ids"
+            )
         )
 
     def has_filters(self) -> bool:
@@ -453,5 +469,6 @@ class RomFilterParams(BaseModel):
         so they are computed with the applied filters dropped.
         """
         return RomFilterParams(
-            **{field: getattr(self, field) for field in _SCOPE_FIELDS}
+            **{field: getattr(self, field) for field in _SCOPE_FIELDS},
+            platforms_logic=self.platforms_logic,
         )

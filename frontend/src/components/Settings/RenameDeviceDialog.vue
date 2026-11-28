@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { RBtn, RDialog, RForm, RTextField } from "@/lib";
+import { RButton, RDialog, RForm, RTextField } from "@/lib";
 import { notBlank } from "@/utils/validation";
 
 const props = withDefaults(
@@ -79,7 +79,7 @@ function submit(): void {
     </template>
 
     <template #footer>
-      <RBtn
+      <RButton
         variant="flat"
         color="primary"
         prepend-icon="mdi-check"
@@ -88,7 +88,7 @@ function submit(): void {
         @click="submit"
       >
         {{ t("common.save") }}
-      </RBtn>
+      </RButton>
     </template>
   </RDialog>
 </template>

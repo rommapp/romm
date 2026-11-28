@@ -4,6 +4,7 @@ import {
   LIST_ROW_DETAIL_HEIGHT_PX,
   LIST_ROW_HEIGHT_PX,
 } from "@/components/Gallery/listColumns";
+import { runInScope } from "@/test-utils/effectScope";
 import { useListExpansion } from "./index";
 
 // Reduced motion skips the roll, so the panel lands on its final height in
@@ -16,7 +17,7 @@ const OPEN_HEIGHT = LIST_ROW_HEIGHT_PX + LIST_ROW_DETAIL_HEIGHT_PX;
 
 describe("useListExpansion", () => {
   it("opens a row's panel and gives it the room", () => {
-    const list = useListExpansion();
+    const list = runInScope(() => useListExpansion());
 
     list.toggle(3);
 
@@ -26,7 +27,7 @@ describe("useListExpansion", () => {
   });
 
   it("leaves every other row alone", () => {
-    const list = useListExpansion();
+    const list = runInScope(() => useListExpansion());
 
     list.toggle(3);
 
@@ -35,7 +36,7 @@ describe("useListExpansion", () => {
   });
 
   it("opens one row at a time", () => {
-    const list = useListExpansion();
+    const list = runInScope(() => useListExpansion());
 
     list.toggle(3);
     list.toggle(7);
@@ -46,7 +47,7 @@ describe("useListExpansion", () => {
   });
 
   it("gives the row its height back when it closes", () => {
-    const list = useListExpansion();
+    const list = runInScope(() => useListExpansion());
     list.toggle(3);
 
     list.toggle(3);
@@ -58,7 +59,7 @@ describe("useListExpansion", () => {
   // Rows below an open one are pulled back by whatever the panel has yet to
   // paint, so the two move together without a per-frame height.
   it("reports no shift once the panel has settled", () => {
-    const list = useListExpansion();
+    const list = runInScope(() => useListExpansion());
 
     list.toggle(3);
 
@@ -67,13 +68,13 @@ describe("useListExpansion", () => {
   });
 
   it("reports no shift while nothing is open", () => {
-    const list = useListExpansion();
+    const list = runInScope(() => useListExpansion());
 
     expect(list.shiftPx.value).toBe(0);
   });
 
   it("drops everything when the list underneath changes", () => {
-    const list = useListExpansion();
+    const list = runInScope(() => useListExpansion());
     list.toggle(3);
 
     list.collapse();

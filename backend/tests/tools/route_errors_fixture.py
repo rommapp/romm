@@ -1,10 +1,12 @@
 """Routes for test_route_errors."""
 
 import asyncio
+import http.client
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Response, status
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 
 def refuse() -> None:
@@ -191,3 +193,36 @@ def route_that_sets_a_status(response: Response, gone: bool) -> Response:
         return GoneResponse(status_code=status.HTTP_410_GONE)
     response.status_code = status.HTTP_404_NOT_FOUND
     return response
+
+
+def _refuse_or_respond(code: int) -> Response:
+    refuse()
+    return Response(status_code=code)
+
+
+def route_that_returns_a_helper_response_from_a_swallowing_try() -> Response:
+    try:
+        return _refuse_or_respond(status.HTTP_423_LOCKED)
+    except Exception:
+        return Response()
+
+
+def route_with_a_declared_raise_in_a_swallowing_try(error: HTTPException) -> None:
+    try:
+        raise error  # route-errors: raises 409
+    except Exception:
+        return None
+
+
+def route_that_catches_an_unrelated_http_exception() -> None:
+    try:
+        refuse()
+    except http.client.HTTPException:
+        return None
+
+
+def route_that_catches_starlette_http_errors() -> None:
+    try:
+        refuse()
+    except StarletteHTTPException:
+        return None

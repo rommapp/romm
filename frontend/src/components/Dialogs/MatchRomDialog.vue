@@ -18,7 +18,7 @@ import { useIsAlive } from "@/composables/useIsAlive";
 import { useRomSync } from "@/composables/useRomSync";
 import { useSnackbar } from "@/composables/useSnackbar";
 import {
-  RBtn,
+  RButton,
   RDialog,
   RIcon,
   RSelect,
@@ -198,6 +198,8 @@ const openHandler = (romToSearch: SimpleRom) => {
 };
 useEmitterEvent("showMatchRomDialog", openHandler);
 
+const searchRow = ref<HTMLElement | null>(null);
+
 // Only the latest search of the open session may apply its response.
 let searchSeq = 0;
 const alive = useIsAlive();
@@ -206,8 +208,7 @@ async function searchRom() {
   if (!rom.value || searching.value) return;
   const seq = ++searchSeq;
 
-  const inputElement = document.getElementById("r-match-search");
-  inputElement?.blur();
+  searchRow.value?.querySelector("input")?.blur();
 
   searching.value = true;
   try {
@@ -345,9 +346,8 @@ function closeDialog() {
           />
         </div>
 
-        <div class="r-match__search-row">
+        <div ref="searchRow" class="r-match__search-row">
           <RTextField
-            id="r-match-search"
             v-model="searchText"
             prefix-label="inline"
             :placeholder="t('common.search')"
@@ -374,7 +374,7 @@ function closeDialog() {
             ]"
             class="r-match__by"
           />
-          <RBtn
+          <RButton
             variant="flat"
             color="primary"
             prepend-icon="mdi-search-web"
@@ -384,7 +384,7 @@ function closeDialog() {
             @click="searchRom"
           >
             {{ t("common.search") }}
-          </RBtn>
+          </RButton>
         </div>
       </div>
     </template>

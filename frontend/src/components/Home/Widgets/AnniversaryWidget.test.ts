@@ -19,7 +19,7 @@ vi.mock("@/services/api/rom", () => ({
 }));
 
 vi.mock("@/lib", () => ({
-  RBtn: defineComponent({
+  RButton: defineComponent({
     props: {
       disabled: { type: Boolean, default: false },
       loading: { type: Boolean, default: false },

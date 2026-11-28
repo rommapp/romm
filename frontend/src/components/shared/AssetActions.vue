@@ -3,7 +3,7 @@
 // edit, favorite and delete for own saves and states.
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { RBtn } from "@/lib";
+import { RButton } from "@/lib";
 import type { Asset, AssetType } from "@/utils/assets";
 
 defineOptions({ inheritAttrs: false });
@@ -41,7 +41,7 @@ const editLabel = computed(() =>
 <template>
   <!-- `display: contents`, so the buttons stay flex children of the slot. -->
   <span class="r-asset-actions" v-bind="$attrs">
-    <RBtn
+    <RButton
       icon="mdi-download-outline"
       variant="text"
       size="small"
@@ -49,7 +49,7 @@ const editLabel = computed(() =>
       :aria-label="t('rom.download-named', { name: asset.file_name })"
       @click="emit('download')"
     />
-    <RBtn
+    <RButton
       v-if="own"
       icon="mdi-pencil-outline"
       variant="text"
@@ -58,7 +58,7 @@ const editLabel = computed(() =>
       :aria-label="editLabel"
       @click="emit('edit')"
     />
-    <RBtn
+    <RButton
       v-if="own"
       :icon="asset.is_favorite ? 'mdi-heart' : 'mdi-heart-outline'"
       variant="text"
@@ -70,7 +70,7 @@ const editLabel = computed(() =>
       :aria-pressed="!!asset.is_favorite"
       @click="emit('toggleFavorite')"
     />
-    <RBtn
+    <RButton
       v-if="own"
       icon="mdi-delete-outline"
       variant="text"

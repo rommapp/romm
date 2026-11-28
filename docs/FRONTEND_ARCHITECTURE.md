@@ -140,7 +140,7 @@ Logout calls `reset()` on every store that defines one. Per-user preferences are
 
 Three tiers, each importing only from the tiers below it:
 
-1. **`lib/` primitives** (`RBtn`, `RTextField`, `RSelect`, `RDialog`, `RTable`, ...). Presentation plus accessible behaviour only: no stores, no API calls. Each has a Storybook story, and an interactive one has a `play()` test that runs axe.
+1. **`lib/` primitives** (`RButton`, `RTextField`, `RSelect`, `RDialog`, `RTable`, ...). Presentation plus accessible behaviour only: no stores, no API calls. Each has a Storybook story, and an interactive one has a `play()` test that runs axe.
 2. **`components/shared/` composites**: reusable combinations of primitives that know about app concepts (a platform picker, a language selector).
 3. **Feature composites** under `components/<feature>/` and the `views/` that compose them. These own data fetching and store access.
 

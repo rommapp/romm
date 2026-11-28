@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { expect, userEvent, within } from "storybook/test";
 import { ref } from "vue";
-import RBtn from "@/lib/primitives/RBtn/RBtn.vue";
+import RButton from "@/lib/primitives/RButton/RButton.vue";
 import RSortHeader from "./RSortHeader.vue";
 import type { RSortDir } from "./types";
 
@@ -60,14 +60,14 @@ export const NotSortable: Story = {
 export const WithAppend: Story = {
   args: { label: "Type", sortable: true },
   render: (args) => ({
-    components: { RSortHeader, RBtn },
+    components: { RSortHeader, RButton },
     setup: () => ({ args }),
     template: `
       <div role="table" style="width: 240px;">
         <div role="row" style="height: 40px; display: flex;">
           <RSortHeader v-bind="args" style="flex: 1;">
             <template #append>
-              <RBtn
+              <RButton
                 variant="text"
                 size="small"
                 icon="mdi-information-outline"

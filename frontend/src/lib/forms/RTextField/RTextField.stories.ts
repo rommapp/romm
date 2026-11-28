@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
 import { expect, userEvent, within } from "storybook/test";
 import { ref } from "vue";
-import RBtn from "@/lib/primitives/RBtn/RBtn.vue";
+import RButton from "@/lib/primitives/RButton/RButton.vue";
 import RTextField from "./RTextField.vue";
 
 const meta: Meta<typeof RTextField> = {
@@ -313,7 +313,7 @@ export const ColorLadder: Story = {
 export const LoginForm: Story = {
   name: "Login (underlined)",
   render: () => ({
-    components: { RTextField, RBtn },
+    components: { RTextField, RButton },
     setup: () => ({
       user: ref(""),
       pass: ref(""),
@@ -339,7 +339,7 @@ export const LoginForm: Story = {
           :append-inner-tooltip="show ? 'Hide password' : 'Show password'"
           @click:append-inner="show = !show"
         />
-        <RBtn block color="primary">Sign in</RBtn>
+        <RButton block color="primary">Sign in</RButton>
       </div>
     `,
   }),
@@ -348,7 +348,7 @@ export const LoginForm: Story = {
 export const StackedForm: Story = {
   name: "Settings form (stacked)",
   render: () => ({
-    components: { RTextField, RBtn },
+    components: { RTextField, RButton },
     setup: () => ({
       name: ref("Lucas Carter"),
       email: ref("lucas@romm.dev"),
@@ -360,8 +360,8 @@ export const StackedForm: Story = {
         <RTextField v-model="email" prefix-label="stacked" label="Email" placeholder="you@example.com" hint="Used for recovery only." />
         <RTextField v-model="api" prefix-label="stacked" label="API key" placeholder="Paste your API key" clearable />
         <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:6px">
-          <RBtn variant="text">Cancel</RBtn>
-          <RBtn color="primary">Save changes</RBtn>
+          <RButton variant="text">Cancel</RButton>
+          <RButton color="primary">Save changes</RButton>
         </div>
       </div>
     `,

@@ -177,6 +177,35 @@ def region_name_to_provider_shortcode(region_name: str | None) -> str | None:
     return _REGION_NAME_TO_PROVIDER_SHORTCODE_CI.get(region_name.lower())
 
 
+def preferred_region_codes(region_names: Iterable[str] | None) -> list[str]:
+    """Provider region shortcodes in the order scan.priority.region_mode prefers.
+
+    Args:
+        region_names: The ROM's region tags; the configured priority ranks them.
+
+    Returns:
+        Deduplicated lowercase shortcodes. "prefer_config" puts the configured
+        list first, and "prefer_rom_tags" puts the ROM's tags first.
+    """
+    config = cm.get_config()
+    priority = [code.lower() for code in config.SCAN_REGION_PRIORITY]
+
+    rom_codes = list(
+        dict.fromkeys(
+            code
+            for name in region_names or ()
+            if (code := region_name_to_provider_shortcode(name))
+        )
+    )
+    rom_codes.sort(
+        key=lambda code: priority.index(code) if code in priority else len(priority)
+    )
+
+    if config.SCAN_REGION_MODE == "prefer_config":
+        return list(dict.fromkeys(priority + rom_codes))
+    return list(dict.fromkeys(rom_codes + priority))
+
+
 # Reverse of REGION_NAME_TO_PROVIDER_SHORTCODE. A list per code because two
 # names can claim one code ("nl" for both Holland and Netherlands), and a rom
 # tagged with either has to rank the same.

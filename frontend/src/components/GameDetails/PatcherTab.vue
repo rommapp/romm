@@ -15,7 +15,7 @@ import { useScanTrigger } from "@/composables/useScanTrigger";
 import { useSnackbar } from "@/composables/useSnackbar";
 import {
   RAlert,
-  RBtn,
+  RButton,
   RCheckbox,
   RDivider,
   RDropzone,
@@ -536,7 +536,7 @@ const applyLabel = computed(() => {
               <RIcon icon="mdi-weight" size="11" />
               {{ formatBytes(uploadedPatch.size) }}
             </span>
-            <RBtn
+            <RButton
               icon="mdi-close"
               size="x-small"
               variant="text"
@@ -599,7 +599,7 @@ const applyLabel = computed(() => {
       </RExpandTransition>
 
       <div class="r-patch__apply-row">
-        <RBtn
+        <RButton
           size="large"
           variant="flat"
           color="primary"
@@ -609,7 +609,7 @@ const applyLabel = computed(() => {
           @click="patchRom"
         >
           {{ applyLabel }}
-        </RBtn>
+        </RButton>
       </div>
     </div>
 

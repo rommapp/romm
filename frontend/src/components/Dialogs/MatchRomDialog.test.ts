@@ -36,7 +36,7 @@ const RDialog = {
   emits: ["close"],
   template: `<div v-if="modelValue"><slot name="toolbar" /><slot name="content" /></div>`,
 };
-const RBtn = {
+const RButton = {
   emits: ["click"],
   template: `<button type="button" @click="$emit('click')"><slot /></button>`,
 };
@@ -84,7 +84,7 @@ describe("MatchRomDialog", () => {
         provide: { emitter },
         stubs: {
           RDialog,
-          RBtn,
+          RButton,
           MatchRomBodyGrid,
           RTextField: true,
           RSelect: true,
@@ -124,5 +124,42 @@ describe("MatchRomDialog", () => {
     expect(wrapper.findAll("li.match").map((li) => li.text())).toEqual([
       "Doom",
     ]);
+  });
+
+  it("blurs the search input when a search starts", async () => {
+    searchRom.mockResolvedValue({ data: [] });
+    const emitter: Emitter<Events> = mitt<Events>();
+    const wrapper = mount(MatchRomDialog, {
+      attachTo: document.body,
+      global: {
+        provide: { emitter },
+        stubs: {
+          RDialog,
+          RButton,
+          MatchRomBodyGrid,
+          RTextField: { template: "<input />" },
+          RSelect: true,
+          RSegmentedControl: true,
+          RIcon: true,
+          RSpinner: true,
+          RTooltip: true,
+        },
+      },
+    });
+
+    emitter.emit("showMatchRomDialog", rom());
+    await flushPromises();
+    const input = wrapper.get(".r-match__search-row input")
+      .element as HTMLInputElement;
+    input.focus();
+    expect(document.activeElement).toBe(input);
+
+    await wrapper
+      .findAll("button")
+      .find((b) => b.text() === "common.search")
+      ?.trigger("click");
+
+    expect(document.activeElement).not.toBe(input);
+    wrapper.unmount();
   });
 });

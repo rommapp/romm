@@ -14,6 +14,7 @@
 // `filter_criteria`. It mirrors v1's serialization exactly so existing
 // smart collections continue to load.
 import type { Composer } from "vue-i18n";
+import type { PlatformFilterLogic } from "@/stores/galleryFilter";
 import type { Platform } from "@/stores/platforms";
 import { formatPlaytimeBound, playtimeHoursToSeconds } from "@/utils/time";
 
@@ -22,6 +23,8 @@ export type FilterLogic = "any" | "all" | "none";
 export interface SmartFilterCriteria {
   search_term?: string;
   platform_ids?: number[];
+  /** Stored only as "none"; absent means the platforms are included. */
+  platforms_logic?: PlatformFilterLogic;
   /** Captures "inside a regular collection" when the smart collection was
    *  created: so applying extra filters inside Castlevania produces a
    *  smart collection scoped to Castlevania, not the whole library. */
@@ -87,6 +90,7 @@ export interface GalleryFilterSnapshot {
   filterPhysical: boolean | null;
   filterVerified: boolean | null;
   selectedPlatforms: Platform[];
+  platformsLogic: PlatformFilterLogic;
   selectedGenres: string[];
   genresLogic: FilterLogic;
   selectedFranchises: string[];
@@ -146,10 +150,12 @@ export function buildSmartFilterCriteria(
 
   if (snap.searchTerm) out.search_term = snap.searchTerm;
 
-  if (snap.selectedPlatforms.length > 0) {
-    out.platform_ids = snap.selectedPlatforms.map((p) => p.id);
-  } else if (context.currentPlatform) {
+  // The route's platform wins, matching what the gallery requests.
+  if (context.currentPlatform) {
     out.platform_ids = [context.currentPlatform.id];
+  } else if (snap.selectedPlatforms.length > 0) {
+    out.platform_ids = snap.selectedPlatforms.map((p) => p.id);
+    if (snap.platformsLogic === "none") out.platforms_logic = "none";
   }
 
   if (context.currentCollectionId != null) {
@@ -594,7 +600,8 @@ export function summarizeSmartFilterCriteria(
         const values = (raw as number[]).map(
           (id) => resolved.platform?.(id) ?? `#${id}`,
         );
-        out.push({ key: f.storage, icon: f.icon, label, values });
+        const logic = criteria.platforms_logic === "none" ? "none" : undefined;
+        out.push({ key: f.storage, icon: f.icon, label, values, logic });
       }
     } else if (f.kind === "collection") {
       if (typeof raw === "number") {

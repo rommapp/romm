@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // GameActions: the action row in the game-details header.
-// Composes GameActionBtn atoms that are shared with the GameCard hover
+// Composes GameActionButton atoms that are shared with the GameCard hover
 // overlay so both surfaces stay visually and behaviourally in sync.
 // The Play button uses the emphasized + withLabel variant to match the
 // original white pill CTA; every other button is a circular glass icon
@@ -8,14 +8,14 @@
 //
 // Right-side group (desktop only): completion + rating + difficulty
 // pickers, separated from the main ribbon by a spacer. All three share
-// MetricMenuBtn: the rating/difficulty trigger an RRating popup,
+// MetricMenuButton: the rating/difficulty trigger an RRating popup,
 // completion triggers an RSlider popup. On phones these move into the
-// status button's sheet (GameActionBtn `withMetrics`) to save a row.
+// status button's sheet (GameActionButton `withMetrics`) to save a row.
 // Writes are optimistic via useGameActions.setScore.
 import { computed, ref, toRef } from "vue";
 import { useI18n } from "vue-i18n";
-import GameActionBtn from "@/components/GameActions/GameActionBtn.vue";
-import MetricMenuBtn from "@/components/GameActions/MetricMenuBtn.vue";
+import GameActionButton from "@/components/GameActions/GameActionButton.vue";
+import MetricMenuButton from "@/components/GameActions/MetricMenuButton.vue";
 import { METRICS } from "@/components/GameActions/metrics";
 import { useBreakpoint } from "@/composables/useBreakpoint";
 import { useGameActions } from "@/composables/useGameActions";
@@ -55,7 +55,7 @@ useGridNav(rootEl, {
 
 <template>
   <div ref="rootEl" class="game-actions">
-    <GameActionBtn
+    <GameActionButton
       v-if="actions.canPlayLocally.value"
       :rom="rom"
       action="play"
@@ -64,7 +64,7 @@ useGridNav(rootEl, {
       with-label
       link
     />
-    <GameActionBtn
+    <GameActionButton
       v-if="actions.canPlayStream.value"
       :rom="rom"
       action="stream"
@@ -75,7 +75,7 @@ useGridNav(rootEl, {
     />
     <!-- Only rendered while someone else is hosting an open session on this
          ROM, so it sits beside Stream rather than replacing it. -->
-    <GameActionBtn
+    <GameActionButton
       v-if="actions.canJoinStream.value"
       :rom="rom"
       action="join"
@@ -84,60 +84,65 @@ useGridNav(rootEl, {
       with-label
     />
     <div v-if="actions.canPlay.value" class="game-actions__break" />
-    <GameActionBtn
+    <GameActionButton
       v-if="actions.canDownload.value"
       :rom="rom"
       action="download"
       :size="btnSize"
       variant="surface"
     />
-    <GameActionBtn
+    <GameActionButton
       v-if="actions.canDownload.value"
       :rom="rom"
       action="copy-link"
       :size="btnSize"
       variant="surface"
     />
-    <GameActionBtn
+    <GameActionButton
       v-if="actions.canShareQR.value"
       :rom="rom"
       action="qr"
       :size="btnSize"
       variant="surface"
     />
-    <GameActionBtn
+    <GameActionButton
       v-if="actions.canOpenInFlashpoint.value"
       :rom="rom"
       action="flashpoint"
       :size="btnSize"
       variant="surface"
     />
-    <GameActionBtn
+    <GameActionButton
       :rom="rom"
       action="favorite"
       :size="btnSize"
       variant="surface"
     />
-    <GameActionBtn
+    <GameActionButton
       :rom="rom"
       action="collection"
       :size="btnSize"
       variant="surface"
     />
-    <GameActionBtn
+    <GameActionButton
       :rom="rom"
       action="status"
       :size="btnSize"
       variant="surface"
       with-metrics
     />
-    <GameActionBtn :rom="rom" action="more" :size="btnSize" variant="surface" />
+    <GameActionButton
+      :rom="rom"
+      action="more"
+      :size="btnSize"
+      variant="surface"
+    />
 
     <!-- Desktop only: the metric pills sit in the ribbon. On phones they
          move into the status sheet (see the status button's `withMetrics`). -->
     <template v-if="rom.rom_user && !smAndDown">
       <div class="game-actions__spacer" />
-      <MetricMenuBtn
+      <MetricMenuButton
         v-for="m in METRICS"
         :key="m.field"
         :kind="m.kind"

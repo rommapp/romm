@@ -11,7 +11,7 @@ vi.mock("vue-i18n");
 vi.mock("@/lib", () => {
   const stub = defineComponent({ template: "<span><slot /></span>" });
   return {
-    RBtn: stub,
+    RButton: stub,
     RIcon: stub,
     RSpinner: defineComponent({ template: '<span class="spinner" />' }),
     RTextField: defineComponent({

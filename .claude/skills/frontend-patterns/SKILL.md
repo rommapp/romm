@@ -22,12 +22,12 @@ How v2 features behave. Each pattern has one canonical mechanism; don't invent a
 ## B. Loading states
 
 - **Skeleton** (`RSkeletonBlock`) for first load of a view with known layout; mimic the real shape so the layout doesn't jump.
-- **Inline `:loading` on the control itself** for in-flight actions (`RBtn`, `RTextField`, `RSelect`). Never put an external `RSpinner` next to a button that has its own `loading`.
+- **Inline `:loading` on the control itself** for in-flight actions (`RButton`, `RTextField`, `RSelect`). Never put an external `RSpinner` next to a button that has its own `loading`.
 - **`RSpinner` inline** when what's loading isn't a control with native `loading`.
 - **Determinate progress (%)**: use `RProgressLinear`, not raw `v-progress-linear`.
 - **Empty state ≠ loading state.** Zero items is its own UX (message, illustration, optional CTA).
 - **Optimistic toggles show no spinner**: flip immediately; on failure, revert + snackbar.
-- `RBtn` ships `loadingDebounce={200}`: actions resolving under 200ms never paint a spinner; loading→not-loading is immediate.
+- `RButton` ships `loadingDebounce={200}`: actions resolving under 200ms never paint a spinner; loading→not-loading is immediate.
 - **A component that fetches its own data uses `useFetchState`** (`src/composables/useFetchState/`), not a hand-rolled `loading` ref with try/finally. It keeps current data during a refetch and ignores stale responses, so a newer call always wins. Errors land in `error` and `onError`; there is no default toast. Use `immediate: false` and call `execute(arg)` from a `watch` when the fetch depends on a prop. Don't use raw `useAsyncState`: its defaults reset data on every refetch, report errors via `reportError`, and fire callbacks for stale calls. Store-backed, paginated or abortable loads keep their own logic.
 
 ## C. Real-time updates (Socket.IO)
@@ -59,7 +59,7 @@ Name a helper for what it touches: `syncCachedRom`, not `syncRom`, when it updat
 
 ## E. Pagination & infinite scroll
 
-- `LoadMore` (`RBtn` + `RSpinner` + IntersectionObserver) is the canonical fallback when virtualization stalls.
+- `LoadMore` (`RButton` + `RSpinner` + IntersectionObserver) is the canonical fallback when virtualization stalls.
 - `RVirtualScroller` (`src/lib/structural/`) is the substrate for large lists/grids: a custom windowed list that owns its offset math, not a wrapper around anything.
 - Page size lives in the store (`fetchLimit`); not user-configurable for now.
 - **Scroll restoration** on back-nav: the `scrollRestoration` Pinia store keyed by `route.fullPath`. Vue Router's `scrollBehavior` only restores `window` scroll, and galleries scroll `RVirtualScroller`'s container, so `GalleryShell` owns persistence: it saves the outgoing route's offset in both its `onBeforeRouteUpdate` and `onBeforeRouteLeave` guards. Views don't repeat that (their own `onBeforeRouteUpdate` just triggers the new context's load); they call the exposed `applyRestoredScroll()` at the end of their load flow. URL holds filters/sort/search but **not** scroll offset.

@@ -22,7 +22,6 @@ from sqlalchemy.dialects import mysql, postgresql
 from sqlalchemy.dialects.mysql.mariadb import MariaDBDialect
 
 from handler.database.base_handler import sync_engine
-from utils import get_nested
 from utils.database import (
     BINLOG_TRIGGER_DDL_ERRNO,
     EARLIEST_RELEASE_YEAR,
@@ -257,18 +256,3 @@ class TestUnsupportedServerVersion:
     def test_the_running_test_server_is_supported(self):
         with sync_engine.connect() as conn:
             assert unsupported_server_version(conn.dialect) is None
-
-
-@pytest.mark.parametrize(
-    ("raw", "path", "expected"),
-    [
-        ({"scan": {"media": ["box2d"]}}, "scan.media", ["box2d"]),
-        ({"scan": {"media": None}}, "scan.media", None),
-        ({"scan": {}}, "scan.media", "default"),
-        ({"scan": None}, "scan.media", "default"),
-        ({"scan": ["media"]}, "scan.media", "default"),
-        ({}, "scan", "default"),
-    ],
-)
-def test_get_nested_walks_dotted_paths(raw, path, expected):
-    assert get_nested(raw, path, "default") == expected

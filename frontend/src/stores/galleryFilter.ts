@@ -18,6 +18,8 @@ export type FilterType =
   | "tags";
 
 export type FilterLogicOperator = "any" | "all" | "none";
+// A rom has one platform, so matching all of several is impossible.
+export type PlatformFilterLogic = Exclude<FilterLogicOperator, "all">;
 
 // Built lazily so `romStatusMap` isn't read at module-evaluation time:
 // utils ↔ stores have a circular import chain (utils → navigation → router →
@@ -71,6 +73,7 @@ const buildDefaultFilterState = () => ({
   selectedLengthMinHours: null as number | null,
   selectedLengthMaxHours: null as number | null,
   // Logic operators for multi-select filters
+  platformsLogic: "any" as PlatformFilterLogic,
   genresLogic: "any" as FilterLogicOperator,
   franchisesLogic: "any" as FilterLogicOperator,
   collectionsLogic: "any" as FilterLogicOperator,
@@ -138,6 +141,9 @@ export default defineStore("galleryFilter", {
       this.selectedPlatforms = platforms;
       // Clear single platform selection to avoid conflicts
       this.selectedPlatform = null;
+    },
+    setPlatformsLogic(logic: PlatformFilterLogic) {
+      this.platformsLogic = logic;
     },
     setSelectedFilterGenres(genres: string[]) {
       this.selectedGenres = genres;
@@ -514,6 +520,7 @@ export default defineStore("galleryFilter", {
       this.filterPhysical = null;
       this.filterVerified = null;
       // Reset logic operators to default
+      this.platformsLogic = "any";
       this.genresLogic = "any";
       this.franchisesLogic = "any";
       this.collectionsLogic = "any";

@@ -13,7 +13,7 @@ import { ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import type { FirmwareSchema } from "@/__generated__";
 import { useIdSelection } from "@/composables/useIdSelection";
-import { RBtn, RCheckbox, RDialog, RIcon } from "@/lib";
+import { RButton, RCheckbox, RDialog, RIcon } from "@/lib";
 import { formatBytes } from "@/utils";
 
 defineOptions({ inheritAttrs: false });
@@ -160,7 +160,7 @@ async function confirm() {
     </template>
 
     <template #footer>
-      <RBtn
+      <RButton
         variant="flat"
         color="danger"
         prepend-icon="mdi-delete"
@@ -168,7 +168,7 @@ async function confirm() {
         @click="confirm"
       >
         {{ t("common.confirm") }}
-      </RBtn>
+      </RButton>
     </template>
   </RDialog>
 </template>

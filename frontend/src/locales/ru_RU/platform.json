@@ -1,5 +1,6 @@
 {
   "age-rating": "Возрастной рейтинг",
+  "attributes": "Атрибуты",
   "browse-platform": "Просмотр {platform}",
   "category": "Категория",
   "change-view": "Изменить вид",
@@ -128,7 +129,6 @@
   "show-verified-only": "Показать только ROM с проверенным хешем",
   "status": "Статус",
   "tag": "Тег",
-  "tags": "Теги",
   "update-platform-failed": "Не удалось обновить платформу: {error}",
   "updated": "Платформа обновлена",
   "upload-firmware": "Загрузить прошивку",

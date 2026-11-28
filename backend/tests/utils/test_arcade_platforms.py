@@ -22,7 +22,13 @@ from utils.arcade_platforms import (
 )
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
-BOARD_PLATFORMS = sorted(ARCADE_PLATFORMS - ARCADE_SET_PLATFORMS)
+RA_PLATFORMS = ARCADE_SET_PLATFORMS | {
+    UPS.ATOMISWAVE,
+    UPS.GAELCO,
+    UPS.NAOMI,
+    UPS.NAOMI2,
+    UPS.NAOMIGD,
+}
 PLAYABLE_SETS = {UPS.ARCADE, UPS.MAME, UPS.FBNEO, UPS.FBA}
 
 
@@ -47,14 +53,14 @@ def test_an_arcade_platform_is_not_named_arcade(slug: UPS):
     assert resolve_platform_name(slug) != "Arcade"
 
 
-@pytest.mark.parametrize("slug", sorted(ARCADE_SET_PLATFORMS))
-def test_a_set_platform_gets_retroachievements_arcade(slug: UPS):
+@pytest.mark.parametrize("slug", sorted(RA_PLATFORMS))
+def test_a_platform_with_sets_gets_retroachievements_arcade(slug: UPS):
     assert meta_ra_handler.get_platform(slug)["ra_id"] == 27
     assert meta_hasheous_handler.get_platform(slug)["ra_id"] == 27
 
 
-@pytest.mark.parametrize("slug", BOARD_PLATFORMS)
-def test_a_board_gets_no_retroachievements_console(slug: UPS):
+@pytest.mark.parametrize("slug", sorted(ARCADE_PLATFORMS - RA_PLATFORMS))
+def test_any_other_board_gets_no_retroachievements_console(slug: UPS):
     assert meta_ra_handler.get_platform(slug)["ra_id"] is None
     assert meta_hasheous_handler.get_platform(slug)["ra_id"] is None
 

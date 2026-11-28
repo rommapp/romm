@@ -379,8 +379,12 @@ async def search_cover(
             detail="No cover art providers enabled",
         )
 
+    # An age-restricted caller gets no NSFW artwork, whatever the client asks for.
+    sfw_only = get_rom_visibility_filter(request).has_age_rule
     lookups = {
-        MetadataSource.SGDB: meta_sgdb_handler.get_details(search_term=search_term),
+        MetadataSource.SGDB: meta_sgdb_handler.get_details(
+            search_term=search_term, sfw_only=sfw_only
+        ),
         MetadataSource.STEAM: meta_steam_handler.get_details(search_term=search_term),
     }
     gathered = await asyncio.gather(*lookups.values(), return_exceptions=True)

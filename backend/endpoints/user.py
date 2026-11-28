@@ -23,6 +23,7 @@ from handler.audit_handler import (
 from handler.auth.base_handler import auth_handler
 from handler.auth.constants import Scope
 from handler.auth.dependencies import assert_admin_for_admin
+from handler.auth.oidc_avatar import discard_oidc_avatar
 from handler.database import (
     db_client_token_handler,
     db_device_handler,
@@ -627,6 +628,9 @@ async def update_user(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="You cannot demote the last admin user",
             ) from exc
+
+        if "avatar_path" in cleaned_data:
+            await discard_oidc_avatar(db_user.avatar_path)
 
         if creds_updated and request.user.id == id:
             request.session.clear()

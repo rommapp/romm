@@ -4,7 +4,7 @@
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import PendingFilesDropzone from "@/components/shared/PendingFilesDropzone.vue";
-import { RBtn, RDialog, RForm, RIcon, RSelect, RTextField } from "@/lib";
+import { RButton, RDialog, RForm, RIcon, RSelect, RTextField } from "@/lib";
 import { relativeFolderPath, required } from "@/utils/validation";
 
 export interface UploadFolderOption {
@@ -130,7 +130,7 @@ async function submit() {
       </RForm>
     </template>
     <template #footer>
-      <RBtn
+      <RButton
         variant="translucent"
         color="primary"
         prepend-icon="mdi-cloud-upload-outline"
@@ -138,7 +138,7 @@ async function submit() {
         @click="submit"
       >
         {{ t("common.upload") }}
-      </RBtn>
+      </RButton>
     </template>
   </RDialog>
 </template>

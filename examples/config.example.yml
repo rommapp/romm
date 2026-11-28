@@ -142,13 +142,13 @@
 #       - igdb
 #     manual: # Game manuals only
 #       - launchbox
-#     region: # Used by IGDB and ScreenScraper for regional variants
+#     region: # Used by IGDB, ScreenScraper and LaunchBox for regional variants (quote "no" for Norway)
 #       - us
 #       - wor
 #       - ss
 #       - eu
 #       - jp
-#     region_mode: prefer_rom_tags # Region tags win over priority list
+#     region_mode: prefer_rom_tags # Region tags win over priority list; prefer_config makes the list win
 #     language: # Used by ScreenScraper for descriptions
 #       - en
 #       - fr
@@ -192,7 +192,9 @@
 # EmulatorJS per-core options
 # emulatorjs:
 #   debug: true # Available options will be logged to the browser console
-#   cache_limit: null # Cache limit per ROM (in bytes)
+#   cache:
+#     enabled: true # Cache ROMs, BIOS files and cores in IndexedDB (states are stored there regardless)
+#     limit: null # Files this size or larger (in bytes) are not cached; replaces emulatorjs.cache_limit
 #   disable_batch_bootup: false
 #   disable_auto_unload: false
 #   auto_save_sync: true # Upload the save to the server seconds after the game writes it, without Save & Quit

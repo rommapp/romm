@@ -13,7 +13,6 @@ from handler.metadata import demozoo_handler
 from handler.metadata.demozoo_handler import (
     DemozooHandler,
     _pouet_id_from_url,
-    _youtube_id_from_url,
     build_scene_summary,
     demozoo_id_from_url,
     extract_demozoo_id_from_filename,
@@ -405,7 +404,7 @@ class DemozooStub:
 async def demozoo(
     monkeypatch: pytest.MonkeyPatch,
 ) -> AsyncIterator[tuple[DemozooHandler, DemozooStub]]:
-    monkeypatch.setattr(demozoo_handler, "DEMOZOO_API_ENABLED", True)
+    monkeypatch.setattr(demozoo_handler, "DEMOZOO_API_KEY", "test-key")
     monkeypatch.setattr(demozoo_handler._rate_limiter, "acquire", AsyncMock())
     stub = DemozooStub()
     client = httpx2.AsyncClient(transport=httpx2.MockTransport(stub))
@@ -425,7 +424,7 @@ SECOND_REALITY = {"id": 108, "title": "Second Reality"}
 
 
 class TestRequest:
-    async def test_asks_for_json_as_romm(
+    async def test_asks_for_json_as_romm_with_the_api_key(
         self, demozoo: tuple[DemozooHandler, DemozooStub]
     ):
         handler, stub = demozoo
@@ -436,6 +435,8 @@ class TestRequest:
         [request] = stub.requests
         assert request.headers["User-Agent"] == f"RomM/{get_version()}"
         assert request.headers["Accept"] == "application/json"
+        assert request.headers["Authorization"] == "Api-Key test-key"
+        assert "api_key" not in request.url.params
 
     async def test_a_missing_production_is_empty(
         self, demozoo: tuple[DemozooHandler, DemozooStub]
@@ -467,6 +468,7 @@ class TestRequest:
             _json({}, status_code=500),
             _json({}, status_code=429),
             _json({}, status_code=404),
+            _json({}, status_code=403),
             httpx2.ConnectError("refused"),
             httpx2.ConnectTimeout("slow"),
             httpx2.ReadTimeout("slow"),
@@ -476,6 +478,7 @@ class TestRequest:
             "server_error",
             "rate_limited",
             "route_gone",
+            "key_rejected",
             "refused",
             "connect_timeout",
             "read_timeout",
@@ -503,8 +506,9 @@ class TestHeartbeat:
             (_json({"results": [SECOND_REALITY]}), True),
             (_json({"results": []}), False),
             (httpx2.ConnectError("down"), False),
+            (_json({}, status_code=403), False),
         ],
-        ids=["results", "empty", "down"],
+        ids=["results", "empty", "down", "key_rejected"],
     )
     async def test_reports_whether_demozoo_answers(
         self,
@@ -523,7 +527,7 @@ class TestHeartbeat:
         monkeypatch: pytest.MonkeyPatch,
     ):
         handler, stub = demozoo
-        monkeypatch.setattr(demozoo_handler, "DEMOZOO_API_ENABLED", False)
+        monkeypatch.setattr(demozoo_handler, "DEMOZOO_API_KEY", None)
 
         assert await handler.heartbeat() is False
         assert stub.requests == []
@@ -680,7 +684,7 @@ class TestSearch:
     ):
         handler, stub = demozoo
         assert await handler.get_matched_roms_by_name("", "dos") == []
-        monkeypatch.setattr(demozoo_handler, "DEMOZOO_API_ENABLED", False)
+        monkeypatch.setattr(demozoo_handler, "DEMOZOO_API_KEY", None)
         assert await handler.get_matched_roms_by_name("x", "dos") == []
         assert stub.requests == []
 
@@ -751,21 +755,6 @@ class TestProductionRows:
         assert meta.get("invitation") == "Invitation for Revision"
         assert meta.get("csdb_url") == "https://csdb.dk/release/?id=12345"
         assert meta.get("download_urls") == []
-
-
-@pytest.mark.parametrize(
-    ("url", "video_id"),
-    [
-        ("https://youtu.be/dQw4w9WgXcQ", "dQw4w9WgXcQ"),
-        ("https://www.youtube.com/embed/dQw4w9WgXcQ", "dQw4w9WgXcQ"),
-        ("https://youtube.com/shorts/dQw4w9WgXcQ", "dQw4w9WgXcQ"),
-        ("https://www.youtube.com/user/futurecrew", None),
-        ("https://vimeo.com/123", None),
-        ("", None),
-    ],
-)
-def test_youtube_id_from_url(url: str, video_id: str | None):
-    assert _youtube_id_from_url(url) == video_id
 
 
 @pytest.mark.parametrize(

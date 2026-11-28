@@ -1,5 +1,6 @@
 {
   "age-rating": "Yaş sınırı",
+  "attributes": "Nitelikler",
   "browse-platform": "{platform} platformuna göz at",
   "category": "Kategori",
   "change-view": "Görünümü değiştir",
@@ -128,7 +129,6 @@
   "show-verified-only": "Yalnızca hash'i doğrulanmış ROM'ları göster",
   "status": "Durum",
   "tag": "Etiket",
-  "tags": "Etiketler",
   "update-platform-failed": "Platform güncellenemedi: {error}",
   "updated": "Platform güncellendi",
   "upload-firmware": "Firmware yükle",

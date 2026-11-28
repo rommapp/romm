@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Composer } from "vue-i18n";
+import { platformFixture } from "@/utils/platform.fixtures";
 import {
   buildSmartFilterCriteria,
   type GalleryFilterSnapshot,
@@ -27,6 +28,7 @@ function emptySnapshot(): GalleryFilterSnapshot {
     filterPhysical: null,
     filterVerified: null,
     selectedPlatforms: [],
+    platformsLogic: "any",
     selectedGenres: [],
     genresLogic: "any",
     selectedFranchises: [],
@@ -128,6 +130,54 @@ describe("buildSmartFilterCriteria — publishers and developers", () => {
     expect(rows.find((r) => r.key === "developers")?.values).toEqual([
       "Artech Studios",
     ]);
+  });
+});
+
+describe("buildSmartFilterCriteria: platforms", () => {
+  const snes = platformFixture({ id: 3 });
+  const gba = platformFixture({ id: 7 });
+
+  it("stores an exclusion with its logic operator", () => {
+    const out = buildSmartFilterCriteria({
+      ...emptySnapshot(),
+      selectedPlatforms: [snes, gba],
+      platformsLogic: "none",
+    });
+
+    expect(out.platform_ids).toEqual([3, 7]);
+    expect(out.platforms_logic).toBe("none");
+  });
+
+  it("leaves the logic key out for an inclusion", () => {
+    const out = buildSmartFilterCriteria({
+      ...emptySnapshot(),
+      selectedPlatforms: [snes],
+    });
+
+    expect(out.platform_ids).toEqual([3]);
+    expect(out.platforms_logic).toBeUndefined();
+  });
+
+  it("never excludes the platform of the route it was created on", () => {
+    const out = buildSmartFilterCriteria(
+      { ...emptySnapshot(), selectedPlatforms: [gba], platformsLogic: "none" },
+      { currentPlatform: snes },
+    );
+
+    expect(out.platform_ids).toEqual([3]);
+    expect(out.platforms_logic).toBeUndefined();
+  });
+
+  it("marks an exclusion in the human-readable summary", () => {
+    const rows = summarizeSmartFilterCriteria(
+      { platform_ids: [3], platforms_logic: "none" },
+      tStub,
+      () => "SNES",
+    );
+
+    const row = rows.find((r) => r.key === "platform_ids");
+    expect(row?.values).toEqual(["SNES"]);
+    expect(row?.logic).toBe("none");
   });
 });
 

@@ -4539,6 +4539,32 @@ class TestSaveRename:
         assert response.json()["file_name"] == "test_save.sav"
         assert save_file.exists()
 
+    @pytest.mark.parametrize(
+        "new_name, stored_name",
+        [
+            ("Before boss.zip", "Before boss.saves.zip"),
+            ("Before boss.saves.zip", "Before boss.saves.zip"),
+            ("Before boss.sav", "Before boss.sav"),
+        ],
+    )
+    def test_broker_archive_keeps_its_suffix_through_a_rename(
+        self,
+        client,
+        access_token: str,
+        save: Save,
+        save_file,
+        new_name: str,
+        stored_name: str,
+    ):
+        broker_name = "test_save [eden 2026-11-22 10-00-00].saves.zip"
+        save_file.rename(save_file.with_name(broker_name))
+        db_save_handler.update_save(save.id, {"file_name": broker_name})
+
+        response = self._rename(client, access_token, save.id, new_name)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["file_name"] == stored_name
+
     def test_non_owner_cannot_rename_a_save(
         self, client, viewer_access_token: str, save: Save, save_file
     ):

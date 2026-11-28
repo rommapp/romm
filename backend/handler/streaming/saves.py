@@ -226,7 +226,7 @@ async def store_save_asset(user: User, rom: Rom, emulator: str, content: bytes) 
     """
     ts = datetime.now().strftime("%Y-%m-%d %H-%M-%S")
     filename = sanitize_filename(
-        fit_filename(rom.fs_name_no_ext, f" [{emulator} {ts}].saves.zip")
+        fit_filename(rom.fs_name_no_ext, f" [{emulator} {ts}]{BROKER_ARCHIVE_SUFFIX}")
     )
     return await _store_save_file(user, rom, emulator, filename, content)
 
@@ -587,9 +587,26 @@ def _written_by(save: Save, emulator: str) -> bool:
     return (save.emulator or "").lower() == emulator
 
 
+BROKER_ARCHIVE_SUFFIX = ".saves.zip"
+
+
 def _is_archive(save: Save) -> bool:
-    """A bare save file carries no layout the broker could restore it from."""
-    return save.file_name.lower().endswith(".zip")
+    """Whether a broker pulled this save, so it is laid out the way the broker restores."""
+    # A device client's zip under the same emulator name is rooted where that
+    # client keeps saves, which the broker refuses.
+    return save.file_name.lower().endswith(BROKER_ARCHIVE_SUFFIX)
+
+
+def keep_broker_suffix(old_name: str, new_name: str) -> str:
+    """Keep a broker archive's suffix when a rename to another `.zip` drops it."""
+    lowered = new_name.lower()
+    if (
+        not old_name.lower().endswith(BROKER_ARCHIVE_SUFFIX)
+        or lowered.endswith(BROKER_ARCHIVE_SUFFIX)
+        or not lowered.endswith(".zip")
+    ):
+        return new_name
+    return new_name[: -len(".zip")] + BROKER_ARCHIVE_SUFFIX
 
 
 def _is_restorable(save: Save, emulator: str) -> bool:

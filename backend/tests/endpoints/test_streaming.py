@@ -7743,7 +7743,9 @@ def test_a_launch_records_the_archive_it_restored_on_the_session(
     client, access_token, rom: Rom, admin_user: User
 ):
     """The exit pull merges the session's delta over this archive."""
-    zipped = _add_save(rom, admin_user, "GAME.ZIP", "retroarch", "h1")
+    zipped = _add_save(
+        rom, admin_user, "Game [retroarch a].saves.zip", "retroarch", "h1"
+    )
 
     resp, _hydrate_import, _hydrate_native, session = _claim_without_a_pick(
         client, access_token, rom, None
@@ -7767,6 +7769,37 @@ def test_newest_restorable_skips_an_archive_whose_file_is_missing(
     assert newest is not None and newest.id == kept.id
 
 
+def test_newest_restorable_skips_a_device_clients_zip_for_the_same_emulator(
+    rom: Rom, admin_user: User
+):
+    """A client's zip is rooted where that client keeps saves, which the broker refuses."""
+    pulled = _add_save(rom, admin_user, "Game [eden a].saves.zip", "eden", "h1")
+    _add_save(rom, admin_user, "Game.zip", "eden", "h2")
+
+    newest = saves.newest_restorable(admin_user.id, rom.id, "eden")
+
+    assert newest is not None and newest.id == pulled.id
+
+
+def test_resolve_save_archive_imports_a_device_clients_zip_for_the_same_emulator(
+    rom: Rom, admin_user: User
+):
+    synced = _add_save(rom, admin_user, "Game.zip", "retroarch", "h1")
+    spec = webstation.ImportSpec(
+        kinds=frozenset({"save"}),
+        state_channel="archive",
+        state_slot=0,
+    )
+    with patch(
+        "handler.streaming.saves.webstation.require_import_spec", return_value=spec
+    ):
+        save, is_foreign = saves.resolve_save_archive(
+            admin_user.id, rom, _resolved(_clearing_webstation(rom)), synced.id
+        )
+    assert save.id == synced.id
+    assert is_foreign is True
+
+
 def test_restored_ref_names_the_save_only_once_its_upload_landed(
     rom: Rom, admin_user: User
 ):
@@ -7780,7 +7813,9 @@ def test_restored_ref_names_the_save_only_once_its_upload_landed(
 def test_a_launch_with_no_pick_reads_an_upper_case_zip_as_an_archive(
     client, access_token, rom: Rom, admin_user: User
 ):
-    zipped = _add_save(rom, admin_user, "GAME.ZIP", "retroarch", "h1")
+    zipped = _add_save(
+        rom, admin_user, "GAME [RETROARCH A].SAVES.ZIP", "retroarch", "h1"
+    )
 
     resp, hydrate_import, hydrate_native, _session = _claim_without_a_pick(
         client, access_token, rom, None

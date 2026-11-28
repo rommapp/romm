@@ -1,5 +1,6 @@
 {
   "age-rating": "レーティング",
+  "attributes": "ゲーム情報",
   "browse-platform": "{platform}を閲覧",
   "category": "カテゴリ",
   "change-view": "表示を変更",
@@ -128,7 +129,6 @@
   "show-verified-only": "ハッシュ検証済みROMのみを表示",
   "status": "ステータス",
   "tag": "タグ",
-  "tags": "タグ",
   "update-platform-failed": "プラットフォームを更新できませんでした: {error}",
   "updated": "プラットフォームを更新しました",
   "upload-firmware": "ファームウェアをアップロード",

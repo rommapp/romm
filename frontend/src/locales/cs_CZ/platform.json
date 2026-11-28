@@ -1,5 +1,6 @@
 {
   "age-rating": "Hodnocení věku",
+  "attributes": "Atributy",
   "browse-platform": "Procházet {platform}",
   "category": "Kategorie",
   "change-view": "Změnit zobrazení",
@@ -128,7 +129,6 @@
   "show-verified-only": "Zobrazit pouze ROM s ověřeným hashem",
   "status": "Stav",
   "tag": "Štítek",
-  "tags": "Štítky",
   "update-platform-failed": "Platformu se nepodařilo aktualizovat: {error}",
   "updated": "Platforma aktualizována",
   "upload-firmware": "Nahrát firmware",

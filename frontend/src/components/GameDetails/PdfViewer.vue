@@ -9,7 +9,7 @@
 //     the v2 visual is owned by our scoped CSS.
 import { useResizeObserver } from "@vueuse/core";
 import { computed, ref, useTemplateRef } from "vue";
-import VuePdfApp from "vue3-pdf-app";
+import VuePdfApp, { type PdfApp } from "vue3-pdf-app";
 import { useI18n } from "vue-i18n";
 import { useReadingProgress } from "@/composables/useReadingProgress";
 import { useThemeMode } from "@/composables/useThemeMode";
@@ -73,19 +73,6 @@ const fileIdRef = computed(() =>
 );
 const { progress, restore, setPage, suppressWhileRestoring } =
   useReadingProgress(romIdRef, fileIdRef);
-
-// Only the members we touch; vue3-pdf-app hands over pdf.js's application
-// object untyped.
-type PdfApp = {
-  page: number;
-  pagesCount: number;
-  eventBus: {
-    on: (
-      event: string,
-      handler: (payload: { pageNumber: number }) => void,
-    ) => void;
-  };
-};
 
 async function onPagesRendered(pdfApp: PdfApp) {
   pdfApp.eventBus.on("pagechanging", ({ pageNumber }) => {

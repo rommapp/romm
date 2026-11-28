@@ -25,7 +25,7 @@ import SettingsSection from "@/components/Settings/SettingsSection.vue";
 import PasswordField from "@/components/shared/PasswordField.vue";
 import { usePageTitle } from "@/composables/usePageTitle";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { RBtn, RIcon, RSkeletonBlock, RTag, RTextField } from "@/lib";
+import { RButton, RIcon, RSkeletonBlock, RTag, RTextField } from "@/lib";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
 import storeUsers from "@/stores/users";
@@ -205,7 +205,7 @@ onMounted(reset);
             </span>
             <RTag
               v-if="user?.role"
-              :icon="getRoleIcon(user.role)"
+              :prepend-icon="getRoleIcon(user.role)"
               :tone="roleToneFor(user.role)"
               size="small"
               class="r-profile__role-tag"
@@ -315,7 +315,7 @@ onMounted(reset);
               {{ t("settings.password") }}
             </template>
             <template #append-inner>
-              <RBtn
+              <RButton
                 variant="text"
                 size="small"
                 prepend-icon="mdi-key-variant"
@@ -323,13 +323,13 @@ onMounted(reset);
                 @click="passwordDialogOpen = true"
               >
                 {{ t("settings.change-password") }}
-              </RBtn>
+              </RButton>
             </template>
           </RTextField>
         </div>
 
         <div class="r-profile__actions">
-          <RBtn
+          <RButton
             variant="flat"
             color="primary"
             :loading="submitting"
@@ -342,7 +342,7 @@ onMounted(reset);
             @click="applyChanges"
           >
             {{ t("common.apply") }}
-          </RBtn>
+          </RButton>
         </div>
       </SettingsSection>
 
@@ -353,7 +353,7 @@ onMounted(reset);
     <template v-else>
       <div class="r-profile__identity-row">
         <RSkeletonBlock
-          shape="circle"
+          circle
           width="96px"
           height="96px"
           class="r-profile__avatar-skeleton"

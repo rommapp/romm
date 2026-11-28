@@ -11,7 +11,7 @@
 import { computed, nextTick, ref, useId, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import VisibilitySwitch from "@/components/shared/VisibilitySwitch.vue";
-import { RBtn, RIcon } from "@/lib";
+import { RButton, RIcon } from "@/lib";
 import { focusFromInput } from "@/utils/autofocus";
 
 defineOptions({ inheritAttrs: false });
@@ -130,15 +130,15 @@ function onInput(e: Event) {
          expands/collapses without the form's unmount cutting it short. -->
     <Transition name="new-row-actions">
       <div v-if="expanded" class="new-row__actions" @click.stop>
-        <RBtn
+        <RButton
           variant="outlined"
           size="small"
           :disabled="creating"
           @click.prevent="onCancel"
         >
           {{ t("common.cancel") }}
-        </RBtn>
-        <RBtn
+        </RButton>
+        <RButton
           variant="translucent"
           color="primary"
           size="small"
@@ -148,7 +148,7 @@ function onInput(e: Event) {
           :loading="creating"
         >
           {{ t("common.create") }}
-        </RBtn>
+        </RButton>
       </div>
     </Transition>
   </div>

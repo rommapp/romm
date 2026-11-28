@@ -3,7 +3,7 @@
 Match by production id (filename tag ``(demozoo-N)`` or Edit-ROM id / URL), or by
 title search via ``?title=`` (never ``?search=``) ranked with Jaro-Winkler.
 
-Public JSON API, no key.
+Demozoo's JSON API requires an API key, sent in the ``Authorization`` header.
 """
 
 from __future__ import annotations
@@ -11,15 +11,16 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping, Sequence
 from typing import Any, Final, NotRequired, TypedDict
-from urllib.parse import parse_qs, urlencode, urlparse
+from urllib.parse import urlencode, urlparse
 
-from config import DEMOZOO_API_ENABLED
+from config import DEMOZOO_API_KEY
 from logger.logger import log
-from utils import int_or_none, valid_youtube_id
+from utils import int_or_none
 from utils.datetime import parse_utc_timestamp
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 from utils.platform_slugs import fill_duplicate_slugs
 from utils.rate_limiter import RateLimiter
+from utils.urls import youtube_id_from_url
 
 from .base_handler import (
     BaseRom,
@@ -38,8 +39,8 @@ POUET_PROD_PAGE: Final[str] = "https://www.pouet.net/prod.php?which={id}"
 YOUTUBE_WATCH: Final[str] = "https://www.youtube.com/watch?v={id}"
 # Overview notes stay one clause; Demozoo editorial text is rare and long.
 _NOTES_MAX_LEN: Final[int] = 80
-# Demozoo asks for a polite UA; stay well under burst.
-_rate_limiter = RateLimiter(2.0)
+# Demozoo asks for a one second pause between repeated API requests.
+_rate_limiter = RateLimiter(1.0)
 
 
 class DemozooCredit(TypedDict, total=False):
@@ -89,29 +90,6 @@ def demozoo_id_from_url(value: str) -> int | None:
         return int_or_none(text)
     match = DEMOZOO_PROD_ID_RE.search(text)
     return int_or_none(match.group(1)) if match else None
-
-
-def _youtube_id_from_url(url: str) -> str | None:
-    if not url:
-        return None
-    parsed = urlparse(url.strip())
-    host = parsed.netloc.lower().removeprefix("www.")
-    if host in {"youtu.be", "m.youtu.be"}:
-        return valid_youtube_id(parsed.path.lstrip("/").split("/", 1)[0])
-    if host not in {
-        "youtube.com",
-        "m.youtube.com",
-        "music.youtube.com",
-        "youtube-nocookie.com",
-    }:
-        return None
-    qs = parse_qs(parsed.query)
-    if qs.get("v"):
-        return valid_youtube_id(qs["v"][0])
-    parts = [p for p in parsed.path.split("/") if p]
-    if len(parts) >= 2 and parts[0] in {"embed", "shorts", "v", "live", "e"}:
-        return valid_youtube_id(parts[1])
-    return None
 
 
 def _pouet_id_from_url(url: str) -> int | None:
@@ -414,7 +392,7 @@ def production_to_rom(data: dict[str, Any]) -> DemozooRom:
             from handler.metadata.csdb_handler import csdb_id_from_url
 
             csdb_id = csdb_id_from_url(url)
-        vid = _youtube_id_from_url(url)
+        vid = youtube_id_from_url(url)
         if vid and youtube_id is None:
             youtube_id = vid
         if cls not in {"PouetProduction", "CsdbRelease"}:
@@ -497,7 +475,7 @@ class DemozooHandler(MetadataHandler):
 
     @classmethod
     def is_enabled(cls) -> bool:
-        return DEMOZOO_API_ENABLED
+        return bool(DEMOZOO_API_KEY)
 
     async def _request(self, url: str, *, missing_ok: bool = False) -> dict[str, Any]:
         """Fetch a Demozoo API URL.
@@ -508,7 +486,10 @@ class DemozooHandler(MetadataHandler):
         """
         await _rate_limiter.acquire()
         return await self._get_capped_json(
-            url, provider="Demozoo API", missing_ok=missing_ok
+            url,
+            provider="Demozoo API",
+            missing_ok=missing_ok,
+            extra_headers={"Authorization": f"Api-Key {DEMOZOO_API_KEY}"},
         )
 
     async def heartbeat(self) -> bool:

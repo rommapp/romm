@@ -45,7 +45,7 @@ import RTextField from "@/lib/forms/RTextField/RTextField.vue";
 import RMenu from "@/lib/menus/RMenu/RMenu.vue";
 import RMenuItem from "@/lib/menus/RMenuItem/RMenuItem.vue";
 import RDialog from "@/lib/overlays/RDialog/RDialog.vue";
-import RBtn from "@/lib/primitives/RBtn/RBtn.vue";
+import RButton from "@/lib/primitives/RButton/RButton.vue";
 import RDivider from "@/lib/primitives/RDivider/RDivider.vue";
 import REmptyState from "@/lib/primitives/REmptyState/REmptyState.vue";
 import RIcon from "@/lib/primitives/RIcon/RIcon.vue";
@@ -350,7 +350,7 @@ function closeDialog() {
               <RIcon icon="mdi-magnify" size="14" />
             </template>
           </RTextField>
-          <RBtn
+          <RButton
             variant="flat"
             color="primary"
             prepend-icon="mdi-magnify"
@@ -358,7 +358,7 @@ function closeDialog() {
             @click="doSearch"
           >
             {{ t("common.search") }}
-          </RBtn>
+          </RButton>
         </div>
 
         <!-- Everything below stays mounted and only disables while it does
@@ -366,7 +366,7 @@ function closeDialog() {
         <RDivider />
 
         <div class="r-sgdb__actions">
-          <RBtn
+          <RButton
             variant="outlined"
             surface
             size="small"
@@ -387,11 +387,11 @@ function closeDialog() {
                 class="r-chevron-toggle"
               />
             </template>
-          </RBtn>
+          </RButton>
 
           <RMenu location="bottom end" :offset="6" :disabled="!hasSgdbCovers">
             <template #activator="{ props: activatorProps }">
-              <RBtn
+              <RButton
                 v-bind="activatorProps"
                 variant="outlined"
                 surface
@@ -408,7 +408,7 @@ function closeDialog() {
                     class="r-chevron-toggle"
                   />
                 </template>
-              </RBtn>
+              </RButton>
             </template>
             <RMenuItem
               v-for="item in sortItems"
@@ -581,21 +581,21 @@ function closeDialog() {
           v-else-if="showNoFilterMatch"
           variant="boxed"
           icon="mdi-filter-remove-outline"
-          :message="t('rom.no-covers-match-filters')"
+          :title="t('rom.no-covers-match-filters')"
         />
 
         <REmptyState
           v-else-if="showNoServerResults"
           variant="boxed"
           icon="mdi-emoticon-confused-outline"
-          :message="t('rom.no-covers-found')"
+          :title="t('rom.no-covers-found')"
         />
 
         <REmptyState
           v-else
           variant="boxed"
           icon="mdi-image-search-outline"
-          :message="t('rom.search-cover-hint')"
+          :title="t('rom.search-cover-hint')"
         />
       </div>
     </template>

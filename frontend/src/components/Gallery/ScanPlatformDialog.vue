@@ -19,7 +19,7 @@ import { useScanProviders } from "@/composables/useScanProviders";
 import { useScanTrigger } from "@/composables/useScanTrigger";
 import { useScanTypeOptions } from "@/composables/useScanTypeOptions";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { RAlert, RBtn, RDialog } from "@/lib";
+import { RAlert, RButton, RDialog } from "@/lib";
 import type { Platform } from "@/stores/platforms";
 import {
   type ScanType as SharedScanType,
@@ -192,7 +192,7 @@ function onScan() {
     </template>
 
     <template #footer>
-      <RBtn
+      <RButton
         variant="translucent"
         color="primary"
         prepend-icon="mdi-magnify-scan"
@@ -202,7 +202,7 @@ function onScan() {
         @click="onScan"
       >
         {{ t("scan.scan", "Scan") }}
-      </RBtn>
+      </RButton>
     </template>
   </RDialog>
 </template>

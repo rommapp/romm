@@ -10,7 +10,7 @@ import PlatformSelect from "@/components/shared/PlatformSelect.vue";
 import { useBreakpoint } from "@/composables/useBreakpoint";
 import { useEmitterEvent } from "@/composables/useEmitterEvent";
 import { useSnackbar } from "@/composables/useSnackbar";
-import { RBtn, RDialog, RForm, RTextField } from "@/lib";
+import { RButton, RDialog, RForm, RTextField } from "@/lib";
 import romApi from "@/services/api/rom";
 import storeGalleryRoms from "@/stores/galleryRoms";
 import type { Platform } from "@/stores/platforms";
@@ -162,7 +162,7 @@ async function submit() {
     </template>
 
     <template #footer>
-      <RBtn
+      <RButton
         variant="flat"
         color="primary"
         prepend-icon="mdi-plus"
@@ -171,7 +171,7 @@ async function submit() {
         @click="submit"
       >
         {{ t("common.add") }}
-      </RBtn>
+      </RButton>
     </template>
   </RDialog>
 

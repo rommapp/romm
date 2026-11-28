@@ -3,7 +3,7 @@ import { expect, userEvent, waitFor, within } from "storybook/test";
 import { ref } from "vue";
 import RMenuItem from "@/lib/menus/RMenuItem/RMenuItem.vue";
 import RAvatar from "@/lib/primitives/RAvatar/RAvatar.vue";
-import RBtn from "@/lib/primitives/RBtn/RBtn.vue";
+import RButton from "@/lib/primitives/RButton/RButton.vue";
 import RDivider from "@/lib/primitives/RDivider/RDivider.vue";
 import RIcon from "@/lib/primitives/RIcon/RIcon.vue";
 import RMenu from "./RMenu.vue";
@@ -37,15 +37,15 @@ type Story = StoryObj<typeof RMenu>;
 
 export const Basic: Story = {
   render: (args) => ({
-    components: { RMenu, RMenuItem, RBtn },
+    components: { RMenu, RMenuItem, RButton },
     setup: () => ({ args }),
     template: `
       <div style="padding:48px;display:flex;justify-content:center">
         <RMenu v-bind="args">
           <template #activator="{ props }">
-            <RBtn v-bind="props" variant="translucent" append-icon="mdi-chevron-down">
+            <RButton v-bind="props" variant="translucent" append-icon="mdi-chevron-down">
               Open menu
-            </RBtn>
+            </RButton>
           </template>
           <RMenuItem icon="mdi-play" label="Play" />
           <RMenuItem icon="mdi-download-outline" label="Download" />
@@ -62,15 +62,15 @@ export const KeyboardFocusReturn: Story = {
   name: "Keyboard focus return (play)",
   globals: { input: "key" },
   render: () => ({
-    components: { RMenu, RMenuItem, RBtn },
+    components: { RMenu, RMenuItem, RButton },
     setup: () => ({ picked: ref<string | null>(null) }),
     template: `
       <div style="padding:48px;display:flex;flex-direction:column;align-items:center;gap:12px">
         <RMenu>
           <template #activator="{ props }">
-            <RBtn v-bind="props" variant="translucent" append-icon="mdi-chevron-down">
+            <RButton v-bind="props" variant="translucent" append-icon="mdi-chevron-down">
               Sort by
-            </RBtn>
+            </RButton>
           </template>
           <RMenuItem icon="mdi-sort-alphabetical-ascending" label="Name" @click="picked = 'Name'" />
           <RMenuItem icon="mdi-calendar" label="Release date" @click="picked = 'Release date'" />
@@ -121,15 +121,15 @@ export const KeyboardFocusReturn: Story = {
 export const AccountMenu: Story = {
   name: "Account menu (real-world)",
   render: () => ({
-    components: { RMenu, RMenuItem, RBtn, RDivider, RAvatar },
+    components: { RMenu, RMenuItem, RButton, RDivider, RAvatar },
     template: `
       <div style="padding:48px;display:flex;justify-content:flex-end">
         <RMenu location="bottom end" :offset="8" width="240px">
           <template #activator="{ props }">
-            <RBtn v-bind="props" variant="translucent" append-icon="mdi-chevron-down">
+            <RButton v-bind="props" variant="translucent" append-icon="mdi-chevron-down">
               <RAvatar size="22" />
               <span style="margin-left:6px">Jane</span>
-            </RBtn>
+            </RButton>
           </template>
 
           <div style="display:flex;gap:10px;align-items:center;padding:10px 10px 12px">
@@ -160,12 +160,12 @@ export const AccountMenu: Story = {
 export const Placements: Story = {
   name: "Placement ladder",
   render: () => ({
-    components: { RMenu, RMenuItem, RBtn },
+    components: { RMenu, RMenuItem, RButton },
     template: `
       <div style="padding:80px;display:grid;grid-template-columns:repeat(4,auto);gap:24px;justify-content:center">
         <RMenu v-for="loc in ['top','bottom','start','end','top start','top end','bottom start','bottom end']" :key="loc" :location="loc">
           <template #activator="{ props }">
-            <RBtn v-bind="props" size="small">{{ loc }}</RBtn>
+            <RButton v-bind="props" size="small">{{ loc }}</RButton>
           </template>
           <RMenuItem icon="mdi-arrow-up-right" label="One" />
           <RMenuItem icon="mdi-arrow-up-right" label="Two" />
@@ -193,7 +193,7 @@ const PLATFORMS = [
 export const Searchable: Story = {
   name: "Searchable + filter",
   render: () => ({
-    components: { RMenu, RMenuItem, RBtn },
+    components: { RMenu, RMenuItem, RButton },
     setup() {
       const query = ref("");
       const filtered = ref(PLATFORMS);
@@ -218,9 +218,9 @@ export const Searchable: Story = {
           @update:search="onSearch"
         >
           <template #activator="{ props }">
-            <RBtn v-bind="props" variant="translucent" prepend-icon="mdi-gamepad-variant">
+            <RButton v-bind="props" variant="translucent" prepend-icon="mdi-gamepad-variant">
               Pick a platform
-            </RBtn>
+            </RButton>
           </template>
           <RMenuItem
             v-for="p in filtered"
@@ -242,7 +242,7 @@ export const Searchable: Story = {
 export const ScrollableMaxHeight: Story = {
   name: "Scrollable (maxHeight)",
   render: () => ({
-    components: { RMenu, RMenuItem, RBtn },
+    components: { RMenu, RMenuItem, RButton },
     setup: () => ({
       items: Array.from({ length: 30 }, (_, i) => `Item ${i + 1}`),
     }),
@@ -250,7 +250,7 @@ export const ScrollableMaxHeight: Story = {
       <div style="padding:48px;display:flex;justify-content:center">
         <RMenu width="220px" max-height="240px">
           <template #activator="{ props }">
-            <RBtn v-bind="props" variant="translucent">Long list</RBtn>
+            <RButton v-bind="props" variant="translucent">Long list</RButton>
           </template>
           <RMenuItem v-for="(label, i) in items" :key="i" :label="label" icon="mdi-circle-small" />
         </RMenu>
@@ -264,7 +264,7 @@ export const ScrollableMaxHeight: Story = {
 export const StickyMenu: Story = {
   name: "Sticky (close-on-content-click false)",
   render: () => ({
-    components: { RMenu, RMenuItem, RBtn, RDivider },
+    components: { RMenu, RMenuItem, RButton, RDivider },
     setup() {
       const toggles = ref({ sound: true, music: false, vibration: true });
       function flip(k: keyof typeof toggles.value) {
@@ -276,9 +276,9 @@ export const StickyMenu: Story = {
       <div style="padding:48px;display:flex;justify-content:center">
         <RMenu width="220px" :close-on-content-click="false">
           <template #activator="{ props }">
-            <RBtn v-bind="props" variant="translucent" prepend-icon="mdi-tune-variant">
+            <RButton v-bind="props" variant="translucent" prepend-icon="mdi-tune-variant">
               Options
-            </RBtn>
+            </RButton>
           </template>
           <RMenuItem
             :icon="toggles.sound ? 'mdi-volume-high' : 'mdi-volume-off'"
@@ -311,12 +311,12 @@ export const StickyMenu: Story = {
 export const OpenOnHover: Story = {
   name: "Open on hover",
   render: () => ({
-    components: { RMenu, RMenuItem, RBtn },
+    components: { RMenu, RMenuItem, RButton },
     template: `
       <div style="padding:48px;display:flex;justify-content:center">
         <RMenu open-on-hover>
           <template #activator="{ props }">
-            <RBtn v-bind="props" variant="text">File</RBtn>
+            <RButton v-bind="props" variant="text">File</RButton>
           </template>
           <RMenuItem icon="mdi-file-plus" label="New" />
           <RMenuItem icon="mdi-folder-open-outline" label="Open…" />
@@ -332,13 +332,13 @@ export const OpenOnHover: Story = {
 export const Disabled: Story = {
   args: { disabled: true },
   render: (args) => ({
-    components: { RMenu, RMenuItem, RBtn },
+    components: { RMenu, RMenuItem, RButton },
     setup: () => ({ args }),
     template: `
       <div style="padding:48px;display:flex;justify-content:center">
         <RMenu v-bind="args">
           <template #activator="{ props }">
-            <RBtn v-bind="props" variant="translucent" disabled>Locked</RBtn>
+            <RButton v-bind="props" variant="translucent" disabled>Locked</RButton>
           </template>
           <RMenuItem icon="mdi-circle" label="Never opens" />
         </RMenu>
@@ -352,20 +352,20 @@ export const Disabled: Story = {
 export const Controlled: Story = {
   name: "Controlled (v-model)",
   render: () => ({
-    components: { RMenu, RMenuItem, RBtn, RIcon },
+    components: { RMenu, RMenuItem, RButton, RIcon },
     setup: () => ({ open: ref(false) }),
     template: `
       <div style="padding:48px;display:flex;flex-direction:column;align-items:center;gap:12px">
         <RMenu v-model="open">
           <template #activator="{ props }">
-            <RBtn v-bind="props" variant="translucent">Click target</RBtn>
+            <RButton v-bind="props" variant="translucent">Click target</RButton>
           </template>
           <RMenuItem icon="mdi-information-outline" label="Hello" />
         </RMenu>
-        <RBtn size="small" variant="text" @click="open = !open">
+        <RButton size="small" variant="text" @click="open = !open">
           <RIcon :icon="open ? 'mdi-eye-off' : 'mdi-eye'" size="14" />
           <span style="margin-left:6px">{{ open ? 'Force-close' : 'Force-open' }}</span>
-        </RBtn>
+        </RButton>
       </div>
     `,
   }),

@@ -1,5 +1,6 @@
 {
   "age-rating": "年齡分級",
+  "attributes": "遊戲資訊",
   "browse-platform": "瀏覽 {platform}",
   "category": "分類",
   "change-view": "切換顯示",
@@ -128,7 +129,6 @@
   "show-verified-only": "僅顯示雜湊已驗證的ROM",
   "status": "狀態",
   "tag": "標籤",
-  "tags": "標籤",
   "update-platform-failed": "更新平台失敗：{error}",
   "updated": "平台已更新",
   "upload-firmware": "上傳韌體",

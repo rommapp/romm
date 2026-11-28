@@ -60,15 +60,21 @@ jobs:
 
       # Host networking reaches the MariaDB service on localhost. The image
       # generates its own auth key and runs its own valkey when none is set.
+      # The watchers and the streaming worker are off by default; turning them
+      # on means every longrun in the s6 tree is expected up.
       - name: Start the container
         run: |
-          mkdir -p "$RUNNER_TEMP/library"
+          mkdir -p "$RUNNER_TEMP/library" "$RUNNER_TEMP/config"
+          printf 'streaming:\n  enabled: true\n' >"$RUNNER_TEMP/config/config.yml"
           docker run -d --name romm --network host \
             -e DB_HOST=127.0.0.1 \
             -e DB_NAME=romm \
             -e DB_USER=romm \
             -e DB_PASSWD=passwd \
+            -e ENABLE_RESCAN_ON_FILESYSTEM_CHANGE=true \
+            -e ENABLE_SYNC_FOLDER_WATCHER=true \
             -v "$RUNNER_TEMP/library:/romm/library" \
+            -v "$RUNNER_TEMP/config:/romm/config" \
             romm:pr
 
       # Startup runs the migrations first, so a green heartbeat also means the
@@ -91,6 +97,36 @@ jobs:
 
       - name: Check the frontend is served
         run: curl -sf http://127.0.0.1:8080/ | grep -q '<div id="app"'
+
+      # s6 restarts a crashed service after a second, so a single "up" reading
+      # can hide a crash loop. Each one has to stay up for 15s straight.
+      - name: Check every supervised service stays up
+        run: |
+          mapfile -t services < <(grep -lx longrun docker/s6-overlay/s6-rc.d/*/type | xargs -n1 dirname | xargs -n1 basename)
+          echo "Longruns: ${services[*]}"
+          for i in $(seq 1 90); do
+            pending=()
+            for s in "${services[@]}"; do
+              read -r up secs < <(docker exec romm /command/s6-svstat -o up,updownfor "/run/service/$s" || true)
+              if [[ "$up" != "true" || "${secs:-0}" -lt 15 ]]; then
+                pending+=("$s")
+              fi
+            done
+            if ((${#pending[@]} == 0)); then
+              echo "All ${#services[@]} services up for 15s after ${i}s"
+              exit 0
+            fi
+            if [[ "$(docker inspect -f '{{.State.Running}}' romm)" != "true" ]]; then
+              echo "::error::The container exited"
+              exit 1
+            fi
+            sleep 1
+          done
+          for s in "${pending[@]}"; do
+            echo "$s: $(docker exec romm /command/s6-svstat "/run/service/$s" 2>&1)"
+          done
+          echo "::error::Services not steadily up within 90s: ${pending[*]}"
+          exit 1
 
       - name: Dump container logs
         if: failure()
