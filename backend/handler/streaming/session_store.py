@@ -728,7 +728,7 @@ async def record_termination(
     await push_to_user(user_id, "streaming:session-ended", notice)
 
     if ended_by_user_id is not None and ended_by_user_id != user_id:
-        # Imported here: these load the database, which the reaper's parent skips.
+        # Imported here because they load the database, which the worker parent skips.
         from handler.notification_handler import notify
         from models.notification import NotificationKind, NotificationLevel
 
@@ -753,7 +753,7 @@ async def push_to_user(user_id: Any, event: str, payload: dict[str, Any]) -> Non
     so a dropped socket costs latency rather than correctness.
     """
     if isinstance(user_id, int):
-        # Imported here: it loads socketio, which the reaper's parent skips.
+        # Imported here because it loads socketio, which the worker parent skips.
         from handler.socket_handler import socket_handler
 
         await socket_handler.emit_to_user(user_id, event, payload)

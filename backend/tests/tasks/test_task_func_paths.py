@@ -85,7 +85,7 @@ def test_the_scheduler_and_worker_load_no_task_code(module):
     assert loaded == "", f"{module} loads {loaded}"
 
 
-# Left to the streaming work horse that tears a session down or pushes a notice.
+# The streaming work horse loads these only when it tears down a session or sends a notice.
 PRELOAD_DEFERRED_MODULES = (
     *HEAVY_MODULES,
     "handler.scan",
@@ -98,7 +98,7 @@ PRELOAD_DEFERRED_MODULES = (
 
 def test_the_streaming_worker_preloads_its_tasks_without_their_teardown():
     """The parent keeps what it preloads, and a work horse can still import the rest."""
-    # Every streaming task, enabled or not, as PreloadingWorker would load them.
+    # PreloadingWorker loads only the enabled tasks, and this loads all of them.
     loaded = _loaded_after(
         "import handler.rq_worker\n"
         "from handler.redis_handler import STREAMING_QUEUE_NAME\n"
