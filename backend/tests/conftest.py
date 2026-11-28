@@ -44,7 +44,6 @@ from tests.factories import (
 
 from adapters.services import response_validation
 from config import ROMM_DB_DRIVER
-from config.config_manager import ConfigManager
 from handler.auth.base_handler import auth_handler, oct_key
 from handler.auth.constants import ALGORITHM
 from handler.database import (
@@ -62,8 +61,9 @@ from models.permission import PermissionGroup, PermissionGroupGrant, SystemGroup
 from models.platform import Platform
 from models.rom import Rom, RomFile
 from models.user import Role, User
+from utils.database import get_db_url
 
-engine = create_engine(ConfigManager.get_db_engine(), pool_pre_ping=True)
+engine = create_engine(get_db_url(), pool_pre_ping=True)
 session = sessionmaker(bind=engine, expire_on_commit=False)
 
 settings.register_profile("ci", max_examples=200, deadline=None)
@@ -109,7 +109,7 @@ def _ensure_database_exists() -> None:
     per-worker databases used under pytest-xdist (`romm_test_gw0`, ...) are
     created on demand here, just before migrations run.
     """
-    url = ConfigManager.get_db_engine()
+    url = get_db_url()
     db_name = url.database
     if not db_name:
         return
@@ -145,7 +145,7 @@ def _ensure_database_exists() -> None:
 
 def _drop_database() -> None:
     """Drop the temporary database a ROMM_TEST_DB_TAG run created."""
-    url = ConfigManager.get_db_engine()
+    url = get_db_url()
     db_name = url.database
     if not db_name or not re.fullmatch(r"[A-Za-z0-9_]+", db_name):
         return
@@ -326,9 +326,7 @@ def _build_template(conn: Connection, prefix: str, template: str) -> None:
 
 @contextmanager
 def _admin_connection() -> Iterator[Connection]:
-    admin_engine = create_engine(
-        ConfigManager.get_db_engine().set(database="information_schema")
-    )
+    admin_engine = create_engine(get_db_url().set(database="information_schema"))
     try:
         with admin_engine.connect() as conn:
             yield conn
@@ -360,7 +358,7 @@ _TEMPLATE_INPUT = "romm_db_template"
 @pytest.hookimpl(optionalhook=True)
 def pytest_configure_node(node: Any) -> None:
     """On the xdist controller, hand each unmigrated worker the template to clone."""
-    url = ConfigManager.get_db_engine()
+    url = get_db_url()
     if ROMM_DB_DRIVER not in ("mariadb", "mysql") or not url.database:
         return
     # The worker database name the rootdir conftest gives this worker.
@@ -375,7 +373,7 @@ def pytest_configure_node(node: Any) -> None:
 
 def _clone_template(template: str) -> None:
     """Replace this worker's database with a copy of `template`."""
-    url = ConfigManager.get_db_engine()
+    url = get_db_url()
     assert url.database
     worker_engine = create_engine(url)
     try:

@@ -7,14 +7,14 @@ from sqlalchemy import Connection, CursorResult, Result, create_engine, event
 from sqlalchemy.orm import sessionmaker
 
 from config import DB_POOL_RECYCLE_SECONDS, DEV_SQL_ECHO
-from config.config_manager import ConfigManager
 from logger.logger import log
 from models import load_all_models
+from utils.database import get_db_url
 
 # A ping on a socket the server already closed blocks the worker until TCP gives
 # up, so `pool_pre_ping` alone is not enough.
 sync_engine = create_engine(
-    ConfigManager.get_db_engine(),
+    get_db_url(),
     pool_pre_ping=True,
     pool_recycle=DB_POOL_RECYCLE_SECONDS,
     echo=False,

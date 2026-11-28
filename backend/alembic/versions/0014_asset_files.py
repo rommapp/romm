@@ -14,8 +14,8 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 from config import ROMM_DB_DRIVER
-from config.config_manager import SQLITE_DB_BASE_PATH, ConfigManager
-from utils.database import CustomJSON, is_postgresql
+from config.config_manager import SQLITE_DB_BASE_PATH
+from utils.database import CustomJSON, get_db_url, is_postgresql
 
 # revision identifiers, used by Alembic.
 revision = "0014_asset_files"
@@ -43,7 +43,7 @@ def migrate_to_supported_engine() -> None:
     if not os.path.exists(f"{SQLITE_DB_BASE_PATH}/romm.db"):
         return None
 
-    engine = create_engine(ConfigManager.get_db_engine(), pool_pre_ping=True)
+    engine = create_engine(get_db_url(), pool_pre_ping=True)
     session = sessionmaker(bind=engine, expire_on_commit=False)
 
     sqlite_engine = create_engine(

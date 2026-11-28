@@ -6,7 +6,6 @@ from alembic.util import CommandError
 from sqlalchemy import create_engine
 from sqlalchemy.exc import DBAPIError
 
-from config.config_manager import ConfigManager
 from logger.logger import unify_logger
 from models import load_all_models
 from models.base import BaseModel
@@ -15,6 +14,7 @@ from models.rom import RomMetadata, SiblingRom
 from utils.database import (
     AUTOGENERATE_EXEMPT_INDEX_NAMES,
     alembic_command_runs_revisions,
+    get_db_url,
     is_binlog_trigger_privilege_error,
     trigger_ddl_is_blocked,
     unsupported_server_version,
@@ -97,7 +97,7 @@ def run_migrations_offline() -> None:
     """
 
     context.configure(
-        url=ConfigManager.get_db_engine(),
+        url=get_db_url(),
         target_metadata=target_metadata,
         render_as_batch=True,
         literal_binds=True,
@@ -118,7 +118,7 @@ def run_migrations_online() -> None:
 
     """
 
-    engine = create_engine(ConfigManager.get_db_engine())
+    engine = create_engine(get_db_url())
 
     with engine.connect() as connection:
         context.configure(

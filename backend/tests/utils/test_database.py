@@ -31,6 +31,7 @@ from utils.database import (
     MS_PER_DAY,
     alembic_command_runs_revisions,
     day_of_year_ranges,
+    get_db_url,
     is_binlog_trigger_privilege_error,
     is_mariadb,
     is_mysql,
@@ -256,3 +257,35 @@ class TestUnsupportedServerVersion:
     def test_the_running_test_server_is_supported(self):
         with sync_engine.connect() as conn:
             assert unsupported_server_version(conn.dialect) is None
+
+
+@pytest.mark.parametrize(
+    "driver, drivername",
+    [
+        ("mariadb", "mariadb+mariadbconnector"),
+        ("mysql", "mysql+mysqlconnector"),
+        ("postgresql", "postgresql+psycopg"),
+    ],
+)
+def test_get_db_url_picks_the_driver(driver: str, drivername: str) -> None:
+    with (
+        patch("utils.database.ROMM_DB_DRIVER", driver),
+        patch("utils.database.DB_QUERY_JSON", '{"ssl": "true"}'),
+    ):
+        url = get_db_url()
+
+    assert url.drivername == drivername
+    assert url.query == {"ssl": "true"}
+
+
+@pytest.mark.parametrize(
+    "name, value",
+    [
+        ("ROMM_DB_DRIVER", "sqlite"),
+        ("DB_PASSWD", ""),
+        ("DB_QUERY_JSON", "{not json"),
+    ],
+)
+def test_get_db_url_exits_on_a_bad_environment(name: str, value: str) -> None:
+    with patch(f"utils.database.{name}", value), pytest.raises(SystemExit):
+        get_db_url()
