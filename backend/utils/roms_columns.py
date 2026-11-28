@@ -19,7 +19,8 @@ from sqlalchemy.dialects.postgresql import ENUM
 from sqlalchemy.engine.interfaces import ReflectedColumn
 from sqlalchemy.schema import CreateColumn
 
-from models.rom import FULL_PATH_HASH_LENGTH, TITLE_ID_MAX_LENGTH
+from models.limits import TITLE_ID_MAX_LENGTH
+from models.rom import FULL_PATH_HASH_LENGTH
 from utils.database import (
     HLTB_MAIN_STORY_COLUMN,
     MIN_AGE_COLUMN,

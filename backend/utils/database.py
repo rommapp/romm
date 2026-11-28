@@ -1,3 +1,5 @@
+import json
+import sys
 from datetime import date
 from typing import Any, Sequence
 from uuid import uuid4
@@ -7,8 +9,56 @@ from sqlalchemy.dialects import postgresql as sa_pg
 from sqlalchemy.orm import InstrumentedAttribute
 from sqlalchemy.sql import ColumnElement
 
+from config import (
+    DB_HOST,
+    DB_NAME,
+    DB_PASSWD,
+    DB_PORT,
+    DB_QUERY_JSON,
+    DB_USER,
+    ROMM_DB_DRIVER,
+)
+from logger.formatter import highlight as hl
+from logger.logger import log
+
 # These helpers only read `.engine`, which an Engine answers with itself.
 type DatabaseBind = sa.Engine | sa.Connection
+
+
+def get_db_url() -> sa.URL:
+    """The database connection URL built from the environment, exiting when it is incomplete."""
+    if ROMM_DB_DRIVER == "mariadb":
+        driver = "mariadb+mariadbconnector"
+    elif ROMM_DB_DRIVER == "mysql":
+        driver = "mysql+mysqlconnector"
+    elif ROMM_DB_DRIVER == "postgresql":
+        driver = "postgresql+psycopg"
+    else:
+        log.critical(f"{hl(ROMM_DB_DRIVER)} database not supported")
+        sys.exit(3)
+
+    if not DB_USER or not DB_PASSWD:
+        log.critical("Missing database credentials, check your environment variables!")
+        sys.exit(3)
+
+    query: dict[str, str] = {}
+    if DB_QUERY_JSON:
+        try:
+            query = json.loads(DB_QUERY_JSON)
+        except ValueError as exc:
+            log.critical(f"Invalid JSON in DB_QUERY_JSON: {exc}")
+            sys.exit(3)
+
+    return sa.URL.create(
+        drivername=driver,
+        username=DB_USER,
+        password=DB_PASSWD,
+        host=DB_HOST,
+        port=DB_PORT,
+        database=DB_NAME,
+        query=query,
+    )
+
 
 # Single-column foreign keys that MariaDB/MySQL index implicitly but PostgreSQL
 # does not, so 0124 creates them there only and no model declares them.
@@ -321,22 +371,6 @@ def epoch_ms_in_ranges(
     return sa.or_(
         *[sa.and_(column >= start, column < end) for start, end in sorted(ranges)]
     )
-
-
-def safe_str_to_bool(value: Any, default: bool = False) -> bool:
-    """Safely convert a value to bool, returning default if conversion fails."""
-    try:
-        return value.strip().lower() in ("1", "true", "yes", "on")
-    except ValueError, TypeError, AttributeError:
-        return default
-
-
-def safe_int(value: Any, default: int = 0) -> int:
-    """Safely convert a value to int, returning default if conversion fails."""
-    try:
-        return int(value)
-    except ValueError, TypeError:
-        return default
 
 
 def is_non_blank(column: InstrumentedAttribute[Any]) -> ColumnElement[bool]:

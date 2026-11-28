@@ -28,7 +28,7 @@ from adapters.services.rom_converto import (
     file_format,
     resolve_operation,
 )
-from models.rom import TITLE_ID_MAX_LENGTH
+from models.limits import TITLE_ID_MAX_LENGTH
 from utils.filesystem import SERVED_FILE_MODE
 
 # rom-converto carries the images a file embeds in its info output.

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from models.assets import SAVE_SLOT_MAX_LENGTH
 from models.base import FILE_NAME_MAX_LENGTH, BaseModel
-from models.rom import ROM_SHA1_MAX_LENGTH
+from models.limits import ROM_SHA1_MAX_LENGTH
 
 # A legacy slot becomes a channel label and back, so they share a limit.
 CHANNEL_LABEL_MAX_LENGTH = SAVE_SLOT_MAX_LENGTH

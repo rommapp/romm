@@ -1389,6 +1389,27 @@ def test_update_rom_keeps_scan_claims_only_while_the_match_stands(
     assert stored.igdb_metadata["youtube_video_id"] == "x"
 
 
+@patch.object(FSRomsHandler, "rename_fs_rom")
+def test_update_rom_clears_a_match_id_that_is_not_a_number(
+    _rename_fs_rom_mock: AsyncMock,
+    client: TestClient,
+    access_token: str,
+    rom: Rom,
+):
+    db_rom_handler.update_rom(rom.id, {"sgdb_id": 5})
+
+    response = client.put(
+        f"/api/roms/{rom.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+        data={"sgdb_id": "abc"},
+    )
+    assert response.status_code == status.HTTP_200_OK
+
+    stored = db_rom_handler.get_rom(rom.id)
+    assert stored is not None
+    assert stored.sgdb_id is None
+
+
 def test_get_rom_hides_scan_claims(client: TestClient, access_token: str, rom: Rom):
     db_rom_handler.update_rom(
         rom.id,

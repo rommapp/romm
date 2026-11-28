@@ -9,7 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.assets import EMULATOR_MAX_LENGTH
 from models.base import BaseModel
-from models.rom import ROM_SHA1_MAX_LENGTH, TITLE_ID_MAX_LENGTH
+from models.limits import ROM_SHA1_MAX_LENGTH, TITLE_ID_MAX_LENGTH
 
 if TYPE_CHECKING:
     from models.channel import Channel

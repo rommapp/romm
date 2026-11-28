@@ -40,7 +40,7 @@ from handler.filesystem.base_handler import (
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import LookupHashes, Rom, RomFile
-from utils.database import safe_int
+from utils import safe_int
 from utils.datetime import parse_utc_timestamp
 from utils.html_text import html_to_text
 from utils.platform_slugs import UniversalPlatformSlug as UPS

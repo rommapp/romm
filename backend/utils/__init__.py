@@ -60,6 +60,22 @@ def is_valid_uuid(uuid_str: str) -> bool:
         return False
 
 
+def safe_str_to_bool(value: Any, default: bool = False) -> bool:
+    """Safely convert a value to bool, returning default if conversion fails."""
+    try:
+        return value.strip().lower() in ("1", "true", "yes", "on")
+    except ValueError, TypeError, AttributeError:
+        return default
+
+
+def safe_int(value: Any, default: int = 0) -> int:
+    """Safely convert a value to int, returning default if conversion fails."""
+    try:
+        return int(value)
+    except ValueError, TypeError, OverflowError:
+        return default
+
+
 def int_or_none(value: Any) -> int | None:
     """An int, or None when it is not one (``int()`` raises past 4300 digits)."""
     if value is None or value == "":

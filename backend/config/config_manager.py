@@ -2,7 +2,6 @@ import dataclasses
 import enum
 import functools
 import glob
-import json
 import os
 import posixpath
 import sys
@@ -11,21 +10,13 @@ from pathlib import Path
 from typing import Any, Final, NotRequired, Self, TextIO, TypedDict
 
 import yaml
-from sqlalchemy import URL
 from yaml.loader import SafeLoader
 
 from adapters.services.rom_converto import normalize_platform_formats
 from config import (
-    DB_HOST,
-    DB_NAME,
-    DB_PASSWD,
-    DB_PORT,
-    DB_QUERY_JSON,
-    DB_USER,
     LIBRARY_BASE_PATH,
     ROM_UPLOAD_ASSEMBLING_EXT,
     ROMM_BASE_PATH,
-    ROMM_DB_DRIVER,
 )
 from exceptions.config_exceptions import ConfigNotWritableException
 from logger.formatter import BLUE
@@ -687,48 +678,6 @@ class ConfigManager:
             log.critical(
                 "Config file not found and could not be created! Any changes made to the configuration will not persist after the application restarts."
             )
-
-    @staticmethod
-    def get_db_engine() -> URL:
-        """Builds the database connection string using environment variables
-
-        Returns:
-            str: database connection string
-        """
-
-        if ROMM_DB_DRIVER == "mariadb":
-            driver = "mariadb+mariadbconnector"
-        elif ROMM_DB_DRIVER == "mysql":
-            driver = "mysql+mysqlconnector"
-        elif ROMM_DB_DRIVER == "postgresql":
-            driver = "postgresql+psycopg"
-        else:
-            log.critical(f"{hl(ROMM_DB_DRIVER)} database not supported")
-            sys.exit(3)
-
-        if not DB_USER or not DB_PASSWD:
-            log.critical(
-                "Missing database credentials, check your environment variables!"
-            )
-            sys.exit(3)
-
-        query: dict[str, str] = {}
-        if DB_QUERY_JSON:
-            try:
-                query = json.loads(DB_QUERY_JSON)
-            except ValueError as exc:
-                log.critical(f"Invalid JSON in DB_QUERY_JSON: {exc}")
-                sys.exit(3)
-
-        return URL.create(
-            drivername=driver,
-            username=DB_USER,
-            password=DB_PASSWD,
-            host=DB_HOST,
-            port=DB_PORT,
-            database=DB_NAME,
-            query=query,
-        )
 
     def _raw_value(self, path: str, default: Any = None) -> Any:
         """Read a dot-separated config.yml key, or `default` when it is missing, exiting when a parent block is not a dictionary."""

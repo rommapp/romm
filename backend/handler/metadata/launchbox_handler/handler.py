@@ -5,9 +5,9 @@ from config import LAUNCHBOX_API_ENABLED
 from handler.filesystem import fs_rom_handler
 from handler.redis_handler import async_cache
 from logger.logger import log
+from utils import safe_int
 from utils.arcade_platforms import MAME_SHORTNAME_PLATFORMS
 from utils.cache import is_cache_store_ready
-from utils.database import safe_int
 from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 from ..base_handler import (

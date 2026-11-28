@@ -6,7 +6,7 @@ from typing import Final, overload
 import yarl
 from dotenv import load_dotenv
 
-from utils.database import safe_int, safe_str_to_bool
+from utils import safe_int, safe_str_to_bool
 
 load_dotenv()
 
