@@ -55,7 +55,7 @@ JOB_ONLY_MODULES = (
 
 
 @pytest.mark.parametrize("module", ["tasks.cron_config", "handler.rq_worker"])
-# Setting converto.platform_formats makes the config validate it on load.
+# A converto.platform_formats setting also runs its validation while the config loads.
 @pytest.mark.parametrize(
     "config_yml", ["", "converto:\n  platform_formats:\n    psx: chd\n"]
 )
