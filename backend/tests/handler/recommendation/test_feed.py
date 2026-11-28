@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 import pytest
+from tests.factories import make_rom
 
 from handler.database import db_rom_handler
 from handler.database.recommendations_handler import UserAffinityRow
@@ -8,9 +9,11 @@ from handler.recommendation.feed import (
     MIN_RECENCY_FACTOR,
     RECENCY_HALFLIFE_DAYS,
     _cache_key,
+    first_distinct_games,
     seed_affinity,
 )
 from handler.redis_handler import sync_cache
+from models.platform import Platform
 from models.rom import RomUserStatus
 
 NOW = datetime(2026, 8, 7, tzinfo=timezone.utc)
@@ -164,3 +167,14 @@ class TestFeedCacheInvalidation:
         db_rom_handler.update_rom_user(rom_user.id, {"difficulty": 3})
 
         assert sync_cache.get(_cache_key(admin_user.id, 10)) is not None
+
+
+def test_a_version_off_disk_leaves_its_slot_to_one_on_disk(platform: Platform):
+    gone = make_rom(platform, "Game (USA)", igdb_id=7101)
+    kept = make_rom(platform, "Game (Europe)", igdb_id=7101)
+    other = make_rom(platform, "Other Game", igdb_id=7102)
+    db_rom_handler.update_rom(gone.id, {"missing_from_fs": True})
+
+    assert first_distinct_games(
+        [[gone.id, kept.id, other.id]], lambda rom_id: rom_id, want=2
+    ) == [kept.id, other.id]

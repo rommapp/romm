@@ -7,7 +7,7 @@ serving rather than when building, so the policy can change without a rebuild.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from typing import Final, TypeVar
 
 from models.rom import Rom
@@ -39,6 +39,27 @@ def series_keys(rom: Rom) -> set[str]:
         for value in (values or [])
         if value
     }
+
+
+def collapse_sibling_groups(
+    items: Iterable[T],
+    rom_id_of: Callable[[T], int],
+    group_keys: Mapping[int, int],
+    seen: set[int] | None = None,
+) -> list[T]:
+    """Keep the first item from each sibling group, so a game shows once.
+
+    Groups already in `seen` are dropped, and `seen` gains the groups kept.
+    """
+    seen = set() if seen is None else seen
+    kept: list[T] = []
+    for item in items:
+        rom_id = rom_id_of(item)
+        group_key = group_keys.get(rom_id, rom_id)
+        if group_key not in seen:
+            seen.add(group_key)
+            kept.append(item)
+    return kept
 
 
 def cap_by_series(

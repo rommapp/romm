@@ -1420,6 +1420,26 @@ async def scan_platforms(
 
         log.info(f"{emoji.EMOJI_CHECK_MARK} Scan completed")
 
+        # The scan may have added platforms.
+        db_platforms = db_platform_handler.get_platforms()
+        db_platforms_by_slug = {p.fs_slug: p for p in db_platforms}
+
+        # Repair any group two scan workers rewrote at once. This runs first
+        # because the cache drop and the smart collection refresh read the groups.
+        try:
+            if roms_ids:
+                db_rom_handler.regroup_siblings(scanned_rom_ids)
+            else:
+                db_rom_handler.rebuild_sibling_groups(
+                    [
+                        db_platforms_by_slug[slug].id
+                        for slug in platforms_to_scan
+                        if slug in db_platforms_by_slug
+                    ]
+                )
+        except Exception as e:
+            log.error(f"Couldn't rebuild the sibling groups: {e}")
+
         # The library changed; drop cached filter values.
         db_rom_handler.invalidate_filter_values_cache()
 
@@ -1451,10 +1471,6 @@ async def scan_platforms(
 
         # Export metadata files if enabled in config
         config = cm.get_config()
-
-        # Update the list of platforms after the scan to ensure we have the latest data
-        db_platforms = db_platform_handler.get_platforms()
-        db_platforms_by_slug = {p.fs_slug: p for p in db_platforms}
 
         # Export only what this scan touched: a new-platforms scan skips every
         # platform already in the database, so rewriting those is wasted work.

@@ -9,14 +9,19 @@ from __future__ import annotations
 
 import json
 import math
-from collections.abc import Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from itertools import batched
 from typing import Any, Final
 
 from handler.database import db_recommendation_handler, db_rom_handler
 from handler.database.recommendations_handler import UserAffinityRow
-from handler.recommendation.diversity import OVERFETCH_FACTOR, cap_by_series
+from handler.recommendation.diversity import (
+    OVERFETCH_FACTOR,
+    cap_by_series,
+    collapse_sibling_groups,
+)
 from handler.recommendation.scoring import Facet
 from handler.redis_handler import sync_cache
 from logger.logger import log
@@ -148,6 +153,13 @@ class FeedBuilder:
         affinity_rows = db_recommendation_handler.get_user_affinity(self.user_id)
 
         seeds, excluded = self._partition(affinity_rows)
+        # Playing the USA release rules out the Japanese one too, but hiding a
+        # version hides only that version, as in the grouped gallery.
+        hidden = {row.rom_id for row in affinity_rows if row.hidden}
+        if excluded - hidden:
+            excluded = hidden | db_rom_handler.get_sibling_group_members(
+                list(excluded - hidden)
+            )
         if not seeds:
             return self._cold_start(limit, excluded)
 
@@ -232,9 +244,17 @@ class FeedBuilder:
             if candidate.rom_id in played_rom_ids:
                 candidate.score *= PLAYED_NOVELTY_FACTOR
 
-        ordered = sorted(candidates.values(), key=lambda c: (-c.score, c.rom_id))[
-            : limit * OVERFETCH_FACTOR
-        ]
+        depth = limit * OVERFETCH_FACTOR
+        # Seeds reach different versions of one game, and each would take a slot.
+        ordered = first_distinct_games(
+            batched(
+                sorted(candidates.values(), key=lambda c: (-c.score, c.rom_id)),
+                depth,
+                strict=False,
+            ),
+            lambda candidate: candidate.rom_id,
+            want=depth,
+        )
 
         roms = hydrate_roms([candidate.rom_id for candidate in ordered])
         seed_names = db_recommendation_handler.get_rom_names(
@@ -267,9 +287,19 @@ class FeedBuilder:
         """No usable activity yet, so fall back to the library's best-reviewed."""
         log.debug(f"No recommendation seeds for user {self.user_id}, using fallback")
 
-        rom_ids = db_recommendation_handler.get_fallback_rom_ids(
-            limit, exclude_rom_ids=list(excluded)
-        )
+        batch_size = limit * OVERFETCH_FACTOR
+        exclude_rom_ids = list(excluded)
+
+        def pages() -> Iterator[list[int]]:
+            offset = 0
+            while page := db_recommendation_handler.get_fallback_rom_ids(
+                batch_size, exclude_rom_ids=exclude_rom_ids, offset=offset
+            ):
+                yield page
+                offset += batch_size
+
+        # Every version of a game carries its rating, so they rank side by side.
+        rom_ids = first_distinct_games(pages(), lambda rom_id: rom_id, want=limit)
         roms = hydrate_roms(rom_ids)
 
         return [
@@ -283,16 +313,42 @@ class FeedBuilder:
         ]
 
 
-def hydrate_roms(rom_ids: Sequence[int]) -> dict[int, Rom]:
+def first_distinct_games[T](
+    batches: Iterable[Sequence[T]], rom_id_of: Callable[[T], int], *, want: int
+) -> list[T]:
+    """The first `want` on-disk items that are each a different game, in order."""
+    # Lazy, so a game with a dozen versions costs another batch, not a short list.
+    seen: set[int] = set()
+    kept: list[T] = []
+    for batch in batches:
+        group_keys = db_rom_handler.get_sibling_group_keys(
+            [rom_id_of(item) for item in batch], present_only=True
+        )
+        # A version off disk has no key, leaving the game's slot to one on disk.
+        on_disk = [item for item in batch if rom_id_of(item) in group_keys]
+        kept.extend(collapse_sibling_groups(on_disk, rom_id_of, group_keys, seen))
+        if len(kept) >= want:
+            return kept[:want]
+    return kept
+
+
+def hydrate_roms(
+    rom_ids: Sequence[int], *, include_missing: bool = False
+) -> dict[int, Rom]:
     """Load ROMs through the shared `SimpleRomSchema` load path.
 
     Missing-from-disk ROMs are dropped here rather than in SQL, so the edge
     queries never have to join the wide `roms` table.
+
+    Args:
+        rom_ids: The ROMs to load.
+        include_missing: Keep ROMs missing from disk, for `_visible_representatives`
+            to swap for a version on disk.
     """
     return {
         rom.id: rom
         for rom in db_rom_handler.get_roms_simple_by_ids(list(rom_ids))
-        if not rom.missing_from_fs
+        if include_missing or not rom.missing_from_fs
     }
 
 
@@ -307,7 +363,7 @@ def get_cached_feed(user_id: int, limit: int) -> list[RecommendedRom] | None:
     except ValueError, TypeError:
         return None
 
-    roms = hydrate_roms([entry["rom_id"] for entry in entries])
+    roms = hydrate_roms([entry["rom_id"] for entry in entries], include_missing=True)
 
     return [
         RecommendedRom(
