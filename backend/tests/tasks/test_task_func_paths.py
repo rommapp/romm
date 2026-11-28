@@ -76,3 +76,42 @@ def test_the_scheduler_and_worker_load_no_task_code(module):
     assert result.returncode == 0, result.stderr
     loaded = result.stdout.rpartition("LOADED:")[2].strip()
     assert loaded == "", f"{module} loads {loaded}"
+
+
+# Left to the streaming work horse that tears a session down or pushes a notice.
+REAPER_DEFERRED_MODULES = (
+    *(module for module in JOB_ONLY_MODULES if module != "tasks.scheduled"),
+    "handler.scan",
+    "handler.metadata",
+    "handler.streaming.lifecycle",
+    "handler.socket_handler",
+    "endpoints",
+)
+
+
+def test_the_streaming_worker_preloads_the_reaper_without_its_teardown():
+    """The parent keeps what it preloads, and a work horse can still import the rest."""
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sys\n"
+            "import handler.rq_worker\n"
+            "from tasks.registry import get_task\n"
+            "get_task('reap_streaming_sessions')\n"
+            "watched = sys.argv[1:]\n"
+            "loaded = [m for m in sys.modules\n"
+            "    if any(m == w or m.startswith(w + '.') for w in watched)]\n"
+            "import handler.streaming.lifecycle, handler.notification_handler\n"
+            "print('LOADED:' + ','.join(loaded))\n",
+            *REAPER_DEFERRED_MODULES,
+        ],
+        cwd=BACKEND_ROOT,
+        env={**os.environ, "PYTHONPATH": str(BACKEND_ROOT)},
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    loaded = result.stdout.rpartition("LOADED:")[2].strip()
+    assert loaded == "", f"the reaper preload loads {loaded}"

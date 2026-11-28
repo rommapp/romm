@@ -753,6 +753,7 @@ async def push_to_user(user_id: Any, event: str, payload: dict[str, Any]) -> Non
     so a dropped socket costs latency rather than correctness.
     """
     if isinstance(user_id, int):
+        # Imported here: it loads socketio, which the reaper's parent skips.
         from handler.socket_handler import socket_handler
 
         await socket_handler.emit_to_user(user_id, event, payload)
