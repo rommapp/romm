@@ -22,6 +22,7 @@ from handler.streaming.config import (
     container_for_session,
     containers_by_key,
 )
+from handler.streaming.notices import record_termination
 from handler.streaming.session_store import (
     DRAIN_MARKER_TTL,
     DiscSwap,
@@ -33,7 +34,6 @@ from handler.streaming.session_store import (
     drop_drain_marker,
     hold_drain_marker,
     hold_session_claim,
-    record_termination,
     release_own_session,
     replace_session_if,
     restore_drained_session,
