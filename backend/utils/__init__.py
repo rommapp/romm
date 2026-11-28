@@ -72,7 +72,7 @@ def safe_int(value: Any, default: int = 0) -> int:
     """Safely convert a value to int, returning default if conversion fails."""
     try:
         return int(value)
-    except ValueError, TypeError:
+    except ValueError, TypeError, OverflowError:
         return default
 
 

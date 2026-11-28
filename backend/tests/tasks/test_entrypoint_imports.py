@@ -35,7 +35,7 @@ def test_rq_processes_start_without_loading_sqlalchemy(
         },
         capture_output=True,
         text=True,
-        check=True,
     )
 
+    assert result.returncode == 0, result.stderr
     assert result.stdout.strip().splitlines()[-1] == "False"

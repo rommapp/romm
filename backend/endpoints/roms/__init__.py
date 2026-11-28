@@ -150,6 +150,7 @@ from models.collection import (
     VirtualCollection,
     VirtualCollectionId,
 )
+from models.limits import TITLE_ID_MAX_LENGTH
 from models.permission import PermAction, PermEntity
 from models.rom import (
     HAS_FILE_ON_DISK_FILTERS,
@@ -158,7 +159,6 @@ from models.rom import (
     PINNED_MEDIA_KEY_PATTERN,
     PINNED_MEDIA_MAX_ITEMS,
     PROVIDER_METADATA_COLUMNS,
-    TITLE_ID_MAX_LENGTH,
     Rom,
     RomFile,
     RomIdentity,

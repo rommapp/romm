@@ -692,10 +692,10 @@ class ConfigManager:
 
     @staticmethod
     def get_db_engine() -> "URL":
-        """Builds the database connection string using environment variables
+        """Builds the database connection URL using environment variables
 
         Returns:
-            str: database connection string
+            URL: database connection URL
         """
 
         if ROMM_DB_DRIVER == "mariadb":

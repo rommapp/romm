@@ -9,7 +9,7 @@ import pytest
 
 BACKEND = Path(__file__).resolve().parents[1]
 
-# Imported by the RQ workers, cron and the gunicorn master before it forks.
+# What the RQ workers, cron and the gunicorn master must not load before they fork.
 HEAVY = (
     "sqlalchemy",
     "fastapi",
@@ -26,7 +26,7 @@ REPORT = """
 import sys
 before = set(sys.modules)
 import {module}
-print("\\n".join(sorted(set(sys.modules) - before)))
+print(" ".join(sorted(set(sys.modules) - before)))
 """
 
 
@@ -45,9 +45,10 @@ def _loaded_by(module: str, tmp_path: Path) -> set[str]:
         env=env,
         capture_output=True,
         text=True,
-        check=True,
     )
-    return set(result.stdout.split())
+    assert result.returncode == 0, result.stderr
+    # The logger also writes to stdout, so only the last line lists modules.
+    return set(result.stdout.splitlines()[-1].split())
 
 
 def _banned(loaded: set[str]) -> list[str]:
