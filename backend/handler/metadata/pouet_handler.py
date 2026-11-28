@@ -19,6 +19,7 @@ from logger.logger import log
 from utils import get_version, int_or_none
 from utils.context import ctx_httpx_client
 from utils.rate_limiter import RateLimiter
+from utils.urls import youtube_id_from_url
 
 from .base_handler import (
     BaseRom,
@@ -29,7 +30,6 @@ from .base_handler import (
 from .demozoo_handler import (
     DEMOZOO_PROD_PAGE,
     _append_unique,
-    _youtube_id_from_url,
     build_scene_summary,
     format_credit_line,
     http_url,
@@ -234,11 +234,11 @@ def production_to_rom(prod: dict[str, Any]) -> PouetRom:
         kind = str(link.get("type") or "").strip().lower()
         if "soundtrack" in kind:
             _append_unique(soundtrack_urls, href)
-        vid = _youtube_id_from_url(href)
+        vid = youtube_id_from_url(href)
         if vid and youtube_id is None:
             youtube_id = vid
     if youtube_id is None:
-        youtube_id = _youtube_id_from_url(str(prod.get("download") or ""))
+        youtube_id = youtube_id_from_url(str(prod.get("download") or ""))
 
     csdb = int_or_none(prod.get("csdb"))
     if csdb:

@@ -10,7 +10,15 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 from tests._zipfile_shim import reload_zipfile
-from tests.handler.snapshots.pushes import md5, part, push, save_entry, stored_bytes
+from tests.handler.snapshots.pushes import (
+    md5,
+    part,
+    pokemon_red,
+    push,
+    red_ram,
+    save_entry,
+    stored_bytes,
+)
 
 from handler.database import (
     db_device_handler,
@@ -550,6 +558,26 @@ async def test_a_legacy_upload_becomes_the_current_and_keeps_the_states(
     }
     assert body["slot"] == "autosave"
     assert body["content_hash"] == md5(LEGACY)
+
+
+async def test_an_adopted_upload_takes_its_identity_from_sigil(
+    client: TestClient,
+    access_token: str,
+    admin_user: User,
+    legacy_device: Device,
+):
+    sigil = pytest.importorskip("sigil")
+    rom, rom_file = pokemon_red(sigil.FEATURE_GB_SCRATCH_GEN1)
+    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
+    synced_to(legacy_device, held_save(await snapshot_push(admin_user, rom, rom_file)))
+
+    response = upload(client, access_token, rom, legacy_device, red_ram())
+
+    save = db_save_handler.get_save(user_id=admin_user.id, id=response.json()["id"])
+    assert save is not None
+    assert save.identity_hash == sigil.unit_identity(
+        "gb", sigil.FEATURE_GB_SCRATCH_GEN1, red_ram()
+    )
 
 
 async def test_a_deduplicated_legacy_upload_becomes_the_current(

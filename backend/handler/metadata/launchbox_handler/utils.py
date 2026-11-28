@@ -171,15 +171,3 @@ def parse_playmode(play_mode: str | None) -> bool:
         return False
     pm = play_mode.lower()
     return bool(re.search(r"\b(cooperative|coop|co-op)\b", pm))
-
-
-def parse_videourl(url: str | None) -> str:
-    if not url:
-        return ""
-
-    if "youtube.com/watch?v=" in url:
-        return url.split("v=")[-1].split("&")[0]
-    elif "youtu.be/" in url:
-        return url.split("/")[-1].split("?")[0]
-
-    return ""

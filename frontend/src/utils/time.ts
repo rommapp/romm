@@ -72,10 +72,8 @@ export function formatPlaytime(
 ): string | null {
   if (!seconds || seconds <= 0) return null;
   const hours = seconds / SECONDS_PER_HOUR;
-  if (hours < 1) {
-    const minutes = Math.round(seconds / 60);
-    return minutes > 0 ? `${minutes}m` : null;
-  }
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return minutes > 0 ? `${minutes}m` : null;
   return `${hourFormatter(locale, 1).format(Math.round(hours * 2) / 2)}h`;
 }
 

@@ -12,6 +12,8 @@ import {
   patchNetplaySocketIo,
   pollSaveFiles,
   resolveScreenshot,
+  SAVE_SYNC_MAX_WAIT_MS,
+  SAVE_SYNC_QUIET_MS,
   writeArrayBuffersAsBytes,
 } from "./emulatorJSRuntime";
 
@@ -578,25 +580,92 @@ describe("createSaveSyncTracker", () => {
   const a = bytes(1, 2, 3);
   const b = bytes(4, 5, 6);
 
-  it("uploads only once the bytes have been stable for two ticks", () => {
+  it("holds new bytes once they have been stable for two ticks", () => {
     const tracker = createSaveSyncTracker();
     tracker.seed(server);
     // The first tick with new bytes may be a save the core is mid-write on.
-    expect(tracker.shouldUpload(a)).toBe(false);
+    expect(tracker.offer(a, 0)).toBe("idle");
     // The second identical tick proves it settled.
-    expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(true);
+    expect(tracker.offer(bytes(1, 2, 3), 1000)).toBe("hold");
+  });
+
+  it("holds each settled save once", () => {
+    const tracker = createSaveSyncTracker();
+    tracker.seed(server);
+    tracker.offer(a, 0);
+    expect(tracker.offer(a, 1000)).toBe("hold");
+    expect(tracker.offer(a, 2000)).toBe("idle");
+    expect(tracker.offer(b, 3000)).toBe("idle");
+    expect(tracker.offer(b, 4000)).toBe("hold");
+  });
+
+  it("holds a save again once a restore started the SRAM over", () => {
+    const tracker = createSaveSyncTracker();
+    tracker.seed(server);
+    tracker.offer(a, 0);
+    expect(tracker.offer(a, 1000)).toBe("hold");
+    tracker.baseline(b);
+    tracker.offer(a, 2000);
+    expect(tracker.offer(a, 3000)).toBe("hold");
+  });
+
+  it("uploads once the SRAM has been quiet long enough", () => {
+    const tracker = createSaveSyncTracker();
+    tracker.seed(server);
+    tracker.offer(a, 0);
+    tracker.offer(a, 1000);
+    expect(tracker.offer(a, SAVE_SYNC_QUIET_MS - 1)).toBe("idle");
+    expect(tracker.offer(a, SAVE_SYNC_QUIET_MS)).toBe("upload");
+  });
+
+  it("uploads a burst of writes after the longest wait, never sooner", () => {
+    const tracker = createSaveSyncTracker();
+    tracker.seed(server);
+    for (let now = 0; now <= SAVE_SYNC_MAX_WAIT_MS; now += 2000) {
+      const save = now % 4000 === 0 ? a : b;
+      expect(tracker.offer(save, now)).toBe("idle");
+      expect(tracker.offer(save, now + 1000)).toBe(
+        now >= SAVE_SYNC_MAX_WAIT_MS ? "upload" : "hold",
+      );
+    }
+  });
+
+  it("starts the wait over once a capped upload goes through", () => {
+    const tracker = createSaveSyncTracker();
+    tracker.seed(server);
+    tracker.offer(a, 0);
+    tracker.offer(a, 1000);
+    expect(tracker.offer(a, SAVE_SYNC_MAX_WAIT_MS + 1000)).toBe("upload");
+    tracker.markUploaded(a);
+    const next = SAVE_SYNC_MAX_WAIT_MS + 1500;
+    expect(tracker.offer(b, next)).toBe("idle");
+    expect(tracker.offer(b, next + 1000)).toBe("hold");
+  });
+
+  it("starts the wait over once the SRAM is back to what the server holds", () => {
+    const tracker = createSaveSyncTracker();
+    tracker.seed(server);
+    tracker.offer(a, 0);
+    tracker.offer(a, 1000);
+    tracker.offer(server, 2000);
+    tracker.offer(server, 3000);
+    const later = SAVE_SYNC_MAX_WAIT_MS * 2;
+    expect(tracker.offer(a, later)).toBe("idle");
+    expect(tracker.offer(a, later + 1000)).toBe("idle");
+    expect(tracker.offer(a, later + SAVE_SYNC_QUIET_MS)).toBe("upload");
   });
 
   it("uploads nothing while the save is unchanged from the last upload", () => {
     const tracker = createSaveSyncTracker();
     tracker.seed(server);
-    expect(tracker.shouldUpload(bytes(9, 9))).toBe(false);
-    expect(tracker.shouldUpload(bytes(9, 9))).toBe(false);
-    expect(tracker.shouldUpload(a)).toBe(false);
-    expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(true);
+    expect(tracker.offer(bytes(9, 9), 0)).toBe("idle");
+    expect(tracker.offer(bytes(9, 9), 1000)).toBe("idle");
+    tracker.offer(a, 2000);
+    expect(tracker.offer(bytes(1, 2, 3), 3000)).toBe("hold");
     tracker.markUploaded(a);
-    expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(false);
-    expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(false);
+    expect(tracker.offer(bytes(1, 2, 3), SAVE_SYNC_MAX_WAIT_MS * 2)).toBe(
+      "idle",
+    );
   });
 
   it("reports pending changes without waiting for a second tick", () => {
@@ -611,22 +680,25 @@ describe("createSaveSyncTracker", () => {
     expect(tracker.hasChanges(a)).toBe(true);
   });
 
-  it("never uploads a value that keeps changing between ticks", () => {
+  it("never settles a value that keeps changing between ticks", () => {
     const tracker = createSaveSyncTracker();
     tracker.seed(null);
-    expect(tracker.shouldUpload(a)).toBe(false);
-    expect(tracker.shouldUpload(b)).toBe(false);
-    expect(tracker.shouldUpload(bytes(7))).toBe(false);
-    expect(tracker.shouldUpload(bytes(7))).toBe(true);
+    expect(tracker.offer(a, 0)).toBe("idle");
+    expect(tracker.offer(b, SAVE_SYNC_MAX_WAIT_MS)).toBe("idle");
+    expect(tracker.offer(bytes(7), SAVE_SYNC_MAX_WAIT_MS * 2)).toBe("idle");
+    expect(tracker.offer(bytes(7), SAVE_SYNC_MAX_WAIT_MS * 2 + 1000)).toBe(
+      "hold",
+    );
   });
 
   it("re-offers a save whose upload failed", () => {
     const tracker = createSaveSyncTracker();
     tracker.seed(server);
-    tracker.shouldUpload(a);
-    expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(true);
+    tracker.offer(a, 0);
+    tracker.offer(a, 1000);
+    expect(tracker.offer(a, SAVE_SYNC_QUIET_MS)).toBe("upload");
     // No markUploaded: the upload failed. The next stable tick tries again.
-    expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(true);
+    expect(tracker.offer(a, SAVE_SYNC_QUIET_MS + 1000)).toBe("upload");
   });
 
   it("knows which bytes the server already holds", () => {
@@ -646,25 +718,25 @@ describe("createSaveSyncTracker", () => {
     const tracker = createSaveSyncTracker();
     tracker.baseline(bytes(1, 2, 3));
 
-    expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(false);
-    expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(false);
+    expect(tracker.offer(bytes(1, 2, 3), 0)).toBe("idle");
+    expect(tracker.offer(bytes(1, 2, 3), 1000)).toBe("idle");
     expect(tracker.isUploaded(bytes(1, 2, 3))).toBe(false);
 
-    expect(tracker.shouldUpload(bytes(9))).toBe(false);
-    expect(tracker.shouldUpload(bytes(9))).toBe(true);
+    expect(tracker.offer(bytes(9), 2000)).toBe("idle");
+    expect(tracker.offer(bytes(9), 3000)).toBe("hold");
 
     // Once something was uploaded, returning to the baseline bytes is a change.
     tracker.markUploaded(bytes(9));
-    expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(false);
-    expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(true);
+    expect(tracker.offer(bytes(1, 2, 3), 4000)).toBe("idle");
+    expect(tracker.offer(bytes(1, 2, 3), 5000)).toBe("hold");
   });
 
   it("compares content, not identity, and treats a resize as a change", () => {
     const tracker = createSaveSyncTracker();
     tracker.seed(null);
-    expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(false);
-    expect(tracker.shouldUpload(bytes(1, 2, 3))).toBe(true);
-    expect(tracker.shouldUpload(bytes(1, 2, 3, 0))).toBe(false);
+    expect(tracker.offer(bytes(1, 2, 3), 0)).toBe("idle");
+    expect(tracker.offer(bytes(1, 2, 3), 1000)).toBe("hold");
+    expect(tracker.offer(bytes(1, 2, 3, 0), 2000)).toBe("idle");
   });
 });
 

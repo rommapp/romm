@@ -176,7 +176,6 @@ async function dismissAll() {
           </span>
           <AssetTimestamp
             :date="notification.created_at"
-            align="end"
             class="r-notification__time"
           />
         </component>

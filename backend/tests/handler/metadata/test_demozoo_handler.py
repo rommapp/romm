@@ -13,7 +13,6 @@ from handler.metadata import demozoo_handler
 from handler.metadata.demozoo_handler import (
     DemozooHandler,
     _pouet_id_from_url,
-    _youtube_id_from_url,
     build_scene_summary,
     demozoo_id_from_url,
     extract_demozoo_id_from_filename,
@@ -756,21 +755,6 @@ class TestProductionRows:
         assert meta.get("invitation") == "Invitation for Revision"
         assert meta.get("csdb_url") == "https://csdb.dk/release/?id=12345"
         assert meta.get("download_urls") == []
-
-
-@pytest.mark.parametrize(
-    ("url", "video_id"),
-    [
-        ("https://youtu.be/dQw4w9WgXcQ", "dQw4w9WgXcQ"),
-        ("https://www.youtube.com/embed/dQw4w9WgXcQ", "dQw4w9WgXcQ"),
-        ("https://youtube.com/shorts/dQw4w9WgXcQ", "dQw4w9WgXcQ"),
-        ("https://www.youtube.com/user/futurecrew", None),
-        ("https://vimeo.com/123", None),
-        ("", None),
-    ],
-)
-def test_youtube_id_from_url(url: str, video_id: str | None):
-    assert _youtube_id_from_url(url) == video_id
 
 
 @pytest.mark.parametrize(

@@ -3,6 +3,7 @@ import type { Config } from "@/stores/config";
 import type { Heartbeat } from "@/stores/heartbeat";
 import { ejsCoresFixture } from "./ejsCores.fixtures";
 import {
+  formatBytes,
   getSupportedEJSCores,
   hasJsDosBundle,
   isArcadeSystem,
@@ -234,5 +235,21 @@ describe("languageToEmoji", () => {
     expect(languageToEmoji("Brazilian Portuguese")).toBe("🇧🇷");
     expect(languageToEmoji("pt-BR")).toBe("🇧🇷");
     expect(languageToEmoji("Portuguese")).toBe("🇵🇹");
+  });
+});
+
+describe("formatBytes", () => {
+  it("formats a size in its own unit", () => {
+    expect(formatBytes(0)).toBe("0 Bytes");
+    expect(formatBytes(1023)).toBe("1023 B");
+    expect(formatBytes(1536)).toBe("1.5 KB");
+    expect(formatBytes(1024 ** 3)).toBe("1 GB");
+  });
+
+  it("carries a size that rounds up to 1024 into the next unit", () => {
+    expect(formatBytes(1024 ** 2 - 1)).toBe("1 MB");
+    expect(formatBytes(1024 ** 3 - 1)).toBe("1 GB");
+    expect(formatBytes(1024 ** 2 - 32)).toBe("1023.97 KB");
+    expect(formatBytes(1024 ** 2 - 32, 1)).toBe("1 MB");
   });
 });

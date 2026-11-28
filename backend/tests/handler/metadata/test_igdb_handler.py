@@ -43,7 +43,7 @@ from handler.metadata.igdb_handler import (
     derive_player_count,
     extract_localized_data,
     extract_metadata_from_igdb_rom,
-    get_igdb_preferred_locale,
+    get_igdb_preferred_locales,
 )
 from handler.redis_handler import as_text, async_cache
 from utils.arcade_platforms import ARCADE_PLATFORMS
@@ -223,17 +223,48 @@ class TestGetPlatformDuplicateSlugs:
             assert handler.get_platform(slug)["family_slug"] == "interton"
 
 
-class TestGetIGDBPreferredLocale:
+def _locales(regions: list[str], priority: list[str], mode: str) -> list[str]:
+    rom = MagicMock()
+    rom.regions = regions
+    config = MagicMock(SCAN_REGION_PRIORITY=priority, SCAN_REGION_MODE=mode)
+
+    with patch("handler.filesystem.base_handler.cm.get_config", return_value=config):
+        return get_igdb_preferred_locales(rom)
+
+
+class TestGetIGDBPreferredLocales:
     def test_multi_region_rom_respects_user_priority(self):
         """The configured priority wins over filename tag order."""
-        rom = MagicMock()
-        rom.regions = ["Japan", "USA"]
-        config = MagicMock(SCAN_REGION_PRIORITY=["JP", "us"])
+        assert _locales(["Japan", "USA"], ["JP", "us"], "prefer_rom_tags") == ["ja-JP"]
 
-        with patch("handler.metadata.igdb_handler.cm.get_config", return_value=config):
-            locale = get_igdb_preferred_locale(rom)
+    def test_prefer_rom_tags_keeps_the_rom_s_region(self):
+        assert _locales(["Japan"], ["us", "jp"], "prefer_rom_tags") == ["ja-JP"]
 
-        assert locale == "ja-JP"
+    def test_prefer_config_outranks_the_rom_s_region(self):
+        """A Japan-tagged rom keeps the default title when the config lists USA first."""
+        assert _locales(["Japan"], ["us", "jp"], "prefer_config") == []
+
+    def test_prefer_config_falls_back_to_the_rom_s_region(self):
+        """When IGDB has no locale for any config region, the rom's tags decide."""
+        assert _locales(["Japan"], ["br"], "prefer_config") == ["ja-JP"]
+
+    def test_prefer_config_keeps_later_config_regions_as_fallbacks(self):
+        assert _locales(["Japan"], ["eu", "jp", "us"], "prefer_config") == [
+            "EU",
+            "ja-JP",
+        ]
+
+    def test_a_european_country_tag_uses_the_eu_locale(self):
+        assert _locales(["France"], ["jp", "us"], "prefer_rom_tags") == [
+            "EU",
+            "ja-JP",
+        ]
+
+    def test_screenscraper_world_region_uses_the_default(self):
+        assert _locales(["Japan"], ["ss", "jp"], "prefer_config") == []
+
+    def test_untagged_rom_follows_the_config(self):
+        assert _locales([], ["kr", "us"], "prefer_rom_tags") == ["ko-KR"]
 
 
 class TestSearchRomGameTypeFilter:
@@ -1500,26 +1531,38 @@ def _localized_game() -> Game:
 
 class TestExtractLocalizedData:
     def test_no_locale_keeps_the_default(self):
-        assert extract_localized_data(_localized_game(), None) == (
+        assert extract_localized_data(_localized_game(), []) == (
             "Pocket Monsters",
             "//images.igdb.com/default.jpg",
         )
 
     def test_a_matching_locale_uses_its_name_and_cover(self):
-        assert extract_localized_data(_localized_game(), "ja-JP") == (
+        assert extract_localized_data(_localized_game(), ["ja-JP"]) == (
             "ポケットモンスター",
             "//images.igdb.com/ja.jpg",
         )
 
     def test_a_locale_without_its_own_cover_keeps_the_default_cover(self):
-        assert extract_localized_data(_localized_game(), "EU") == (
+        assert extract_localized_data(_localized_game(), ["EU"]) == (
             "Eu Monsters",
             "//images.igdb.com/default.jpg",
         )
 
     def test_an_unknown_locale_keeps_the_default(self):
-        assert extract_localized_data(_localized_game(), "ko-KR") == (
+        assert extract_localized_data(_localized_game(), ["ko-KR"]) == (
             "Pocket Monsters",
+            "//images.igdb.com/default.jpg",
+        )
+
+    def test_a_missing_locale_falls_through_to_the_next_one(self):
+        assert extract_localized_data(_localized_game(), ["ko-KR", "ja-JP"]) == (
+            "ポケットモンスター",
+            "//images.igdb.com/ja.jpg",
+        )
+
+    def test_the_first_available_locale_wins(self):
+        assert extract_localized_data(_localized_game(), ["EU", "ja-JP"]) == (
+            "Eu Monsters",
             "//images.igdb.com/default.jpg",
         )
 
@@ -1635,7 +1678,7 @@ class TestAlternativeNames:
             ],
         )
 
-        rom = build_igdb_rom(IGDBHandler(), game, None, GENESIS_IGDB_ID)
+        rom = build_igdb_rom(IGDBHandler(), game, [], GENESIS_IGDB_ID)
 
         assert rom["name"] == "Bleach: The 3rd Phantom"
         assert rom["igdb_metadata"]["alternative_names"] == [
@@ -1654,7 +1697,7 @@ class TestAlternativeNames:
             )
         ]
 
-        rom = build_igdb_rom(IGDBHandler(), game, "ja-JP", GENESIS_IGDB_ID)
+        rom = build_igdb_rom(IGDBHandler(), game, ["ja-JP"], GENESIS_IGDB_ID)
 
         assert rom["name"] == "ブリーチ ザ・サード・ファントム"
         assert rom["igdb_metadata"]["alternative_names"] == [

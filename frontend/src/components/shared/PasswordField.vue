@@ -24,6 +24,10 @@ const props = withDefaults(
     rules?: Array<(value: any) => true | string> | undefined;
     prependInnerIcon?: string | undefined;
     variant?: "outlined" | "filled" | "underlined" | "plain";
+    name?: string | undefined;
+    hint?: string | undefined;
+    required?: boolean;
+    prefixLabel?: "stacked" | "inline" | undefined;
   }>(),
   {
     modelValue: "",
@@ -32,6 +36,10 @@ const props = withDefaults(
     rules: undefined,
     prependInnerIcon: "mdi-lock",
     variant: "underlined",
+    name: undefined,
+    hint: undefined,
+    required: false,
+    prefixLabel: undefined,
   },
 );
 
@@ -93,6 +101,10 @@ function onToggle() {
     :label="label"
     :type="visible ? 'text' : 'password'"
     :variant="variant"
+    :name="name"
+    :hint="hint"
+    :required="required"
+    :prefix-label="prefixLabel"
     :prepend-inner-icon="prependInnerIcon"
     :append-inner-icon="visible ? 'mdi-eye-off' : 'mdi-eye'"
     :append-inner-tooltip="toggleLabel"

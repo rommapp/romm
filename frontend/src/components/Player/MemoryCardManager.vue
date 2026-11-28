@@ -447,7 +447,7 @@ const hasCards = computed(() => cards.value.length > 0);
       v-else-if="!loading"
       variant="boxed"
       icon="mdi-sd"
-      :message="t('play.memory-cards-empty')"
+      :title="t('play.memory-cards-empty')"
     >
       <template #actions>
         <RButton

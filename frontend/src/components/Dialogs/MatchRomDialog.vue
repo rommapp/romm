@@ -198,6 +198,8 @@ const openHandler = (romToSearch: SimpleRom) => {
 };
 useEmitterEvent("showMatchRomDialog", openHandler);
 
+const searchRow = ref<HTMLElement | null>(null);
+
 // Only the latest search of the open session may apply its response.
 let searchSeq = 0;
 const alive = useIsAlive();
@@ -206,8 +208,7 @@ async function searchRom() {
   if (!rom.value || searching.value) return;
   const seq = ++searchSeq;
 
-  const inputElement = document.getElementById("r-match-search");
-  inputElement?.blur();
+  searchRow.value?.querySelector("input")?.blur();
 
   searching.value = true;
   try {
@@ -345,9 +346,8 @@ function closeDialog() {
           />
         </div>
 
-        <div class="r-match__search-row">
+        <div ref="searchRow" class="r-match__search-row">
           <RTextField
-            id="r-match-search"
             v-model="searchText"
             prefix-label="inline"
             :placeholder="t('common.search')"

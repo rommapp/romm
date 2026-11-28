@@ -142,13 +142,13 @@
 #       - igdb
 #     manual: # Game manuals only
 #       - launchbox
-#     region: # Used by IGDB and ScreenScraper for regional variants
+#     region: # Used by IGDB, ScreenScraper and LaunchBox for regional variants (quote "no" for Norway)
 #       - us
 #       - wor
 #       - ss
 #       - eu
 #       - jp
-#     region_mode: prefer_rom_tags # Region tags win over priority list
+#     region_mode: prefer_rom_tags # Region tags win over priority list; prefer_config makes the list win
 #     language: # Used by ScreenScraper for descriptions
 #       - en
 #       - fr
