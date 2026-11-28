@@ -7,27 +7,12 @@ from handler.streaming.config import (
     streaming_enabled,
 )
 from handler.streaming.session_store import (
-    StreamingSession,
     get_abandoned_session,
     in_restart_grace,
 )
 from logger.logger import log
 from tasks.registry import REAP_STREAMING_SESSIONS_SPEC
 from tasks.tasks import PeriodicTask
-
-
-async def teardown_abandoned_session(
-    container: ResolvedContainer,
-    session_key: str,
-    session: StreamingSession,
-    *,
-    claimed_by: int | None,
-) -> bool:
-    """Tear down a session through the lifecycle code, imported on first use."""
-    # Imported here so the streaming worker's parent never loads the database.
-    from handler.streaming.lifecycle import teardown_abandoned_session as teardown
-
-    return await teardown(container, session_key, session, claimed_by=claimed_by)
 
 
 async def _reap(
@@ -40,6 +25,9 @@ async def _reap(
         record = container_for_session(grouped, container_key, session.get("platform"))
         if record is None:
             return
+        # Imported here so the streaming worker's parent never loads the database.
+        from handler.streaming.lifecycle import teardown_abandoned_session
+
         if await teardown_abandoned_session(
             record, container_key, session, claimed_by=None
         ):

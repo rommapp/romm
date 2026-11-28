@@ -19,7 +19,6 @@ from handler.streaming.config import (
     streaming_enabled,
 )
 from tasks.registry import REAP_STREAMING_SESSIONS_SPEC, SCHEDULED_TASKS
-from tasks.scheduled import reap_streaming_sessions
 from tasks.scheduled.reap_streaming_sessions import (
     ReapStreamingSessionsTask,
     reap_streaming_sessions_task,
@@ -91,7 +90,7 @@ async def _hold(
 
 def _stub_teardown(teardown: Any = None) -> Any:
     return patch(
-        "tasks.scheduled.reap_streaming_sessions.teardown_abandoned_session",
+        "handler.streaming.lifecycle.teardown_abandoned_session",
         new=teardown or AsyncMock(return_value=True),
     )
 
@@ -328,16 +327,3 @@ async def test_overlapping_runs_tear_a_session_down_once():
 
     assert stops == 1
     assert await _stored(N64) is None
-
-
-async def test_the_reaper_hands_a_teardown_to_the_lifecycle_code():
-    container = _resolved(PSX)
-    teardown = AsyncMock(return_value=True)
-
-    with patch("handler.streaming.lifecycle.teardown_abandoned_session", new=teardown):
-        reaped = await reap_streaming_sessions.teardown_abandoned_session(
-            container, "key", {"user_id": 1}, claimed_by=None
-        )
-
-    assert reaped is True
-    teardown.assert_awaited_once_with(container, "key", {"user_id": 1}, claimed_by=None)
