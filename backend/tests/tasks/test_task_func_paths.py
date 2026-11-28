@@ -41,10 +41,7 @@ def test_task_func_resolves_in_a_fresh_interpreter(func):
 
 
 def _loaded_after(setup: str, watched: tuple[str, ...], then: str = "") -> str:
-    """Run `setup` in a fresh interpreter and list the `watched` modules it loaded.
-
-    `then` runs after the snapshot, so it can import what the setup deferred.
-    """
+    """List the `watched` modules a fresh interpreter loads for `setup`, then run `then`."""
     result = subprocess.run(
         [
             sys.executable,
