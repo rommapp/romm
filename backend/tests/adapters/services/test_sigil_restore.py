@@ -17,7 +17,7 @@ from tests.sigil_cards import (
     saturn_volume,
 )
 
-from adapters.services.sigil import SigilGame
+from adapters.services.sigil import SigilGame, SigilService
 from adapters.services.sigil_restore import (
     ContainerMismatch,
     RefusalCode,
@@ -29,6 +29,9 @@ from adapters.services.sigil_restore import (
     restore_layouts,
     restore_per_game,
 )
+from models.platform import Platform
+from models.rom import Rom
+from utils.platform_slugs import UniversalPlatformSlug as UPS
 
 SEGACD_BLOCK = 64
 SEGACD_VOLUME = 0x2000
@@ -212,6 +215,25 @@ def target(core: str, content_path: str, **options: str) -> RestoreTarget:
     )
 
 
+def rom_game(
+    binding: ModuleType, slug: str, title_id: str = "", save_id: str = ""
+) -> SigilGame:
+    """A ROM on RomM's `slug` read back through its platform map, so a slug sigil
+    doesn't take for that platform fails the test restoring it."""
+    rom = Rom(
+        id=1,
+        fs_name="Game",
+        fs_path=f"{slug}/roms",
+        title_id=title_id or None,
+        save_target=save_id or None,
+        platform=Platform(name=slug, slug=slug, fs_slug=slug),
+    )
+    game = SigilService.stored_game(rom, [])
+    assert game is not None
+    assert isinstance(game.result, binding.SigilResult)
+    return game
+
+
 @pytest.mark.asyncio
 async def test_a_per_game_ps1_card_is_built_from_nothing(binding, tmp_path: Path):
     game = cross(binding)
@@ -235,6 +257,22 @@ async def test_a_per_game_ps1_card_is_built_from_nothing(binding, tmp_path: Path
 
 
 @pytest.mark.asyncio
+async def test_a_ds_save_restores_in_each_cores_form(binding):
+    """DeSmuME keeps the save then a 122-byte footer, melonDS the save alone."""
+    game = rom_game(binding, UPS.NDS)
+    save = bytes(range(256)) * 32
+
+    desmume = await restore_per_game(save, game, target("desmume", "Game.nds"))
+    melonds = await restore_per_game(save, game, target("melonds", "Game.nds"))
+
+    assert list(desmume) == ["Game.dsv"]
+    assert len(desmume["Game.dsv"]) == len(save) + 122
+    assert desmume["Game.dsv"][: len(save)] == save
+    assert desmume["Game.dsv"][-16:] == b"|-DESMUME SAVE-|"
+    assert melonds == {"Game.sav": save}
+
+
+@pytest.mark.asyncio
 async def test_a_shared_card_target_names_the_container(binding, tmp_path: Path):
     game = cross(binding)
     unit = collected(
@@ -254,6 +292,23 @@ async def test_a_shared_card_target_names_the_container(binding, tmp_path: Path)
         )
 
     assert excinfo.value.container_path == "pcsx-card1.mcd"
+
+
+@pytest.mark.asyncio
+async def test_a_gba_save_restores_at_each_cores_size(binding):
+    """gpSP keeps 128 KiB and VBA Next 136 KiB for every chip; mGBA keeps the chip."""
+    game = rom_game(binding, UPS.GBA)
+    sram = bytes(range(256)) * 128
+
+    gpsp = await restore_per_game(sram, game, target("gpsp", "Game.gba"))
+    vba_next = await restore_per_game(sram, game, target("vba_next", "Game.gba"))
+    mgba = await restore_per_game(sram, game, target("mgba", "Game.gba"))
+
+    assert gpsp == {"Game.srm": sram + b"\xff" * (128 * 1024 - len(sram))}
+    assert list(vba_next) == ["Game.srm"]
+    assert len(vba_next["Game.srm"]) == 136 * 1024
+    assert vba_next["Game.srm"][: len(sram)] == sram
+    assert mgba == {"Game.srm": sram}
 
 
 @pytest.mark.asyncio
@@ -315,6 +370,32 @@ async def test_a_segacd_volume_merge_replaces_only_the_games_save(
         "OTHER_GAME1": bytes([0x33]) * SEGACD_BLOCK,
         "LUNAR_SAVE1": bytes([0x11]) * SEGACD_BLOCK,
     }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("slug", "core"),
+    [
+        (UPS.GENESIS, "genesis_plus_gx"),
+        (UPS.SEGA32, "genesis_plus_gx"),
+        (UPS.SMS, "picodrive"),
+        (UPS.GAMEGEAR, "picodrive"),
+    ],
+)
+async def test_a_sega_cart_save_restores_in_the_cores_form(
+    binding, slug: str, core: str
+):
+    """genesis_plus_gx saves up to the last byte that isn't 0xFF; picodrive keeps a
+    Master System or Game Gear cart's 32 KiB, padded here with 0xFF."""
+    game = rom_game(binding, slug)
+    ram = bytes(i % 255 for i in range(8 * 1024))
+
+    restored = await restore_per_game(
+        ram + b"\xff" * (8 * 1024), game, target(core, "Game.bin")
+    )
+
+    padding = b"\xff" * (32 * 1024 - len(ram)) if core == "picodrive" else b""
+    assert restored == {"Game.srm": ram + padding}
 
 
 @pytest.mark.asyncio
@@ -490,9 +571,7 @@ async def test_a_gb_clock_is_written_in_the_cores_format(
 
 
 @pytest.mark.asyncio
-async def test_companions_on_a_cartridge_are_refused_naming_both_cases(
-    binding, tmp_path: Path
-):
+async def test_companions_on_a_cartridge_are_refused(binding, tmp_path: Path):
     game = gb_clock_game(binding)
     unit = collected(
         binding,
@@ -512,8 +591,7 @@ async def test_companions_on_a_cartridge_are_refused_naming_both_cases(
         )
 
     assert excinfo.value.code is RefusalCode.INVALID_ARG
-    assert "profiles" in str(excinfo.value)
-    assert "cartridges" in str(excinfo.value)
+    assert "memory cards and volumes" in str(excinfo.value)
 
 
 def test_a_zip_unit_lists_each_volume(binding, tmp_path: Path):
