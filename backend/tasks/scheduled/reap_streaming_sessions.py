@@ -6,7 +6,6 @@ from handler.streaming.config import (
     containers_by_key,
     streaming_enabled,
 )
-from handler.streaming.lifecycle import teardown_abandoned_session
 from handler.streaming.session_store import (
     get_abandoned_session,
     in_restart_grace,
@@ -26,6 +25,9 @@ async def _reap(
         record = container_for_session(grouped, container_key, session.get("platform"))
         if record is None:
             return
+        # Imported here so the streaming worker's parent never loads the database.
+        from handler.streaming.lifecycle import teardown_abandoned_session
+
         if await teardown_abandoned_session(
             record, container_key, session, claimed_by=None
         ):

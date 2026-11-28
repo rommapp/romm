@@ -100,6 +100,7 @@ from handler.streaming.config import (
     first_claim_targets,
     streaming_enabled,
 )
+from handler.streaming.notices import record_termination
 from handler.streaming.protocol import room_url_on
 from handler.streaming.session_store import (
     STREAMING_SESSION_DRAIN_SECONDS,
@@ -117,7 +118,6 @@ from handler.streaming.session_store import (
     iter_live_sessions,
     iter_session_keys,
     mutate_session,
-    record_termination,
     refresh_session,
     release_own_session,
     same_claim,

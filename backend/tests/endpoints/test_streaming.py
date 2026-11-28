@@ -3480,7 +3480,7 @@ def test_taking_over_ones_own_stale_session_pushes_no_notice(
         _age_session(rom, session_store._STREAMING_SESSION_STALE_SECONDS + 60)
         with (
             _stub_stop(),
-            patch("handler.streaming.session_store.push_to_user", new=_capture),
+            patch("handler.streaming.notices.push_to_user", new=_capture),
         ):
             _claim_ok(client, access_token, rom.id)
 

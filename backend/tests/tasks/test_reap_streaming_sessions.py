@@ -90,7 +90,7 @@ async def _hold(
 
 def _stub_teardown(teardown: Any = None) -> Any:
     return patch(
-        "tasks.scheduled.reap_streaming_sessions.teardown_abandoned_session",
+        "handler.streaming.lifecycle.teardown_abandoned_session",
         new=teardown or AsyncMock(return_value=True),
     )
 

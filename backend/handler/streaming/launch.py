@@ -25,10 +25,10 @@ from handler.streaming import (
     webstation,
 )
 from handler.streaming.config import ResolvedContainer
+from handler.streaming.notices import push_to_user
 from handler.streaming.session_store import (
     StreamingSession,
     hold_session_claim,
-    push_to_user,
     set_session_disc,
     stamp_launched,
 )
