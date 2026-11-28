@@ -50,11 +50,20 @@ JOB_ONLY_MODULES = (
     "handler.auth.base_handler",
     "fastapi",
     "httpx2",
+    "sqlalchemy",
 )
 
 
 @pytest.mark.parametrize("module", ["tasks.cron_config", "handler.rq_worker"])
-def test_the_scheduler_and_worker_load_no_task_code(module):
+# Setting converto.platform_formats makes the config validate it on load.
+@pytest.mark.parametrize(
+    "config_yml", ["", "converto:\n  platform_formats:\n    psx: chd\n"]
+)
+def test_the_scheduler_and_worker_load_no_task_code(
+    module: str, config_yml: str, tmp_path: Path
+) -> None:
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "config.yml").write_text(config_yml)
     result = subprocess.run(
         [
             sys.executable,
@@ -68,7 +77,13 @@ def test_the_scheduler_and_worker_load_no_task_code(module):
             *JOB_ONLY_MODULES,
         ],
         cwd=BACKEND_ROOT,
-        env={**os.environ, "PYTHONPATH": str(BACKEND_ROOT)},
+        env={
+            **os.environ,
+            "PYTHONPATH": str(BACKEND_ROOT),
+            "ROMM_BASE_PATH": str(tmp_path),
+            # A developer's .env could otherwise turn telemetry on.
+            "OTEL_SDK_DISABLED": "true",
+        },
         capture_output=True,
         text=True,
     )

@@ -5,9 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
-BACKEND = Path(__file__).resolve().parents[1]
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
 # What the RQ workers, cron and the gunicorn master must not load before they fork.
 HEAVY = (
@@ -22,55 +20,52 @@ HEAVY = (
     "models.rom",
 )
 
-REPORT = """
-import sys
-before = set(sys.modules)
-import {module}
-print(" ".join(sorted(set(sys.modules) - before)))
-"""
-
 
 def _loaded_by(module: str, tmp_path: Path) -> set[str]:
     # A fresh interpreter, since this one has long since loaded everything.
-    (tmp_path / "config").mkdir(exist_ok=True)
-    env = {
-        "ROMM_AUTH_SECRET_KEY": "test",
-        **os.environ,
-        "OTEL_SDK_DISABLED": "true",
-        "ROMM_BASE_PATH": str(tmp_path),
-    }
+    (tmp_path / "config").mkdir()
     result = subprocess.run(
-        [sys.executable, "-c", REPORT.format(module=module)],
-        cwd=BACKEND,
-        env=env,
+        [
+            sys.executable,
+            "-c",
+            "import importlib, sys\n"
+            "before = set(sys.modules)\n"
+            "importlib.import_module(sys.argv[1])\n"
+            "print('LOADED:' + ' '.join(set(sys.modules) - before))\n",
+            module,
+        ],
+        cwd=BACKEND_ROOT,
+        env={
+            "ROMM_AUTH_SECRET_KEY": "test",
+            **os.environ,
+            "PYTHONPATH": str(BACKEND_ROOT),
+            "ROMM_BASE_PATH": str(tmp_path),
+            "OTEL_SDK_DISABLED": "true",
+        },
         capture_output=True,
         text=True,
     )
+
     assert result.returncode == 0, result.stderr
-    # The logger also writes to stdout, so only the last line lists modules.
-    return set(result.stdout.splitlines()[-1].split())
+    return set(result.stdout.rpartition("LOADED:")[2].split())
 
 
-def _banned(loaded: set[str]) -> list[str]:
-    return sorted(
+def test_config_manager_stays_clear_of_the_web_and_database_stack(
+    tmp_path: Path,
+) -> None:
+    loaded = _loaded_by("config.config_manager", tmp_path)
+
+    banned = sorted(
         name
         for name in loaded
         if any(name == heavy or name.startswith(f"{heavy}.") for heavy in HEAVY)
     )
-
-
-@pytest.mark.parametrize("module", ["config.config_manager", "models.limits"])
-def test_module_stays_clear_of_the_web_and_database_stack(
-    module: str, tmp_path: Path
-) -> None:
-    assert _banned(_loaded_by(module, tmp_path)) == []
+    assert banned == []
 
 
 def test_limits_import_nothing_but_the_models_package(tmp_path: Path) -> None:
     loaded = _loaded_by("models.limits", tmp_path)
 
-    assert {name for name in loaded if name.split(".")[0] == "models"} == {
-        "models",
-        "models.limits",
-    }
-    assert not {name for name in loaded if name.split(".")[0] == "config"}
+    assert {
+        name for name in loaded if name.split(".")[0] not in sys.stdlib_module_names
+    } == {"models", "models.limits"}
